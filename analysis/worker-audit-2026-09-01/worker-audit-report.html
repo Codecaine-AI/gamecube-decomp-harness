@@ -1,0 +1,360 @@
+<title>Melee Worker Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #faf9f6;
+    --surface: #ffffff;
+    --surface-2: #f2f0ea;
+    --ink: #16150f;
+    --ink-2: #52514e;
+    --ink-3: #898781;
+    --hairline: #e3e1d8;
+    --accent: #2a78d6;
+    --accent-ink: #1c5cab;
+    --pos: #2a78d6;      /* exact-leaning (diverging cool pole) */
+    --neg: #d03b3b;      /* near-miss-leaning (diverging warm pole) */
+    --good: #0ca30c;
+    --warn: #b97900;
+    --crit: #d03b3b;
+    --chip-bg: #eef3fb;
+    --code-bg: #f2f0ea;
+    --bar-track: #eceae2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121210;
+      --surface: #1a1a19;
+      --surface-2: #211f1c;
+      --ink: #f4f3ef;
+      --ink-2: #c3c2b7;
+      --ink-3: #8f8d85;
+      --hairline: #2e2d29;
+      --accent: #3987e5;
+      --accent-ink: #86b6ef;
+      --pos: #3987e5;
+      --neg: #e66767;
+      --good: #0ca30c;
+      --warn: #d99a1c;
+      --crit: #e66767;
+      --chip-bg: #1d2634;
+      --code-bg: #232220;
+      --bar-track: #262521;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121210;
+    --surface: #1a1a19;
+    --surface-2: #211f1c;
+    --ink: #f4f3ef;
+    --ink-2: #c3c2b7;
+    --ink-3: #8f8d85;
+    --hairline: #2e2d29;
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+    --pos: #3987e5;
+    --neg: #e66767;
+    --good: #0ca30c;
+    --warn: #d99a1c;
+    --crit: #e66767;
+    --chip-bg: #1d2634;
+    --code-bg: #232220;
+    --bar-track: #262521;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 28px 96px; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.015em;
+    margin: 0 0 12px; text-wrap: balance;
+  }
+  .subtitle { color: var(--ink-2); font-size: 17px; max-width: 62ch; margin: 0 0 28px; }
+  h2 {
+    font-size: 24px; font-weight: 700; letter-spacing: -.01em;
+    margin: 64px 0 6px; text-wrap: balance;
+  }
+  h2 .secno { color: var(--ink-3); font-family: "IBM Plex Mono", monospace; font-size: 17px; font-weight: 500; margin-right: 10px; }
+  h3 { font-size: 17px; font-weight: 600; margin: 30px 0 8px; }
+  p { max-width: 68ch; margin: 12px 0; }
+  a { color: var(--accent-ink); }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .86em; background: var(--code-bg);
+    padding: 1px 5px; border-radius: 4px;
+  }
+  .rule { border: 0; border-top: 1px solid var(--hairline); margin: 40px 0; }
+
+  /* stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 24px 0; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .tile .v { font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+  .tile .l { color: var(--ink-2); font-size: 13.5px; margin-top: 4px; line-height: 1.4; }
+
+  /* generic bar rows */
+  .barlist { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+  .brow { display: grid; grid-template-columns: 215px 1fr 62px; gap: 12px; align-items: center; }
+  .brow .lab { font-size: 13.5px; color: var(--ink-2); text-align: right; line-height: 1.3; }
+  .brow .lab code { background: none; padding: 0; color: var(--ink); }
+  .brow .track { background: var(--bar-track); border-radius: 4px; height: 18px; position: relative; overflow: hidden; }
+  .brow .fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--accent); }
+  .brow .num { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* diverging chart */
+  .div-chart { margin: 22px 0 8px; }
+  .div-head { display: grid; grid-template-columns: 215px 1fr; gap: 12px; margin-bottom: 8px; }
+  .div-axis { display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3); }
+  .drow { display: grid; grid-template-columns: 215px 1fr 62px; gap: 12px; align-items: center; margin-bottom: 8px; }
+  .drow .lab { font-size: 13px; text-align: right; line-height: 1.25; }
+  .drow .lab code { background: none; padding: 0; }
+  .drow .track { position: relative; height: 18px; background: var(--bar-track); border-radius: 4px; overflow: hidden; }
+  .drow .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--ink-3); opacity: .55; }
+  .drow .fill { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; }
+  .drow .fill.pos { left: 50%; background: var(--pos); }
+  .drow .fill.neg { right: 50%; background: var(--neg); }
+  .drow .num { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 8px 0 4px; font-size: 13px; color: var(--ink-2); }
+  .legend .key { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  /* stacked loop-quality */
+  .stackrow { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .stackrow .lab { font-size: 13.5px; color: var(--ink-2); text-align: right; }
+  .stackbar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; background: transparent; }
+  .seg { display: flex; align-items: center; justify-content: center; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: #fff; min-width: 0; }
+
+  /* callouts, findings */
+  .finding {
+    background: var(--surface); border: 1px solid var(--hairline); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 14px 18px; margin: 14px 0;
+  }
+  .finding .fh { font-weight: 600; margin-bottom: 4px; }
+  .finding .support { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); margin-left: 8px; font-weight: 500; }
+  .finding p { margin: 6px 0 0; font-size: 14.5px; color: var(--ink-2); max-width: none; }
+  .finding.neg-b { border-left-color: var(--neg); }
+  .finding.warn-b { border-left-color: var(--warn); }
+  blockquote {
+    margin: 10px 0 4px; padding: 2px 0 2px 14px; border-left: 2px solid var(--hairline);
+    color: var(--ink-2); font-size: 14px; font-style: italic;
+  }
+  blockquote .src { font-style: normal; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-3); }
+
+  /* tables */
+  .tblwrap { overflow-x: auto; margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+
+  /* prompt rules */
+  .rulecard {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 8px;
+    padding: 14px 18px; margin: 12px 0; display: grid; grid-template-columns: 44px 1fr; gap: 14px;
+  }
+  .rulecard .rn { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 15px; color: var(--accent-ink); padding-top: 1px; }
+  .rulecard .rt { font-size: 15px; line-height: 1.5; }
+  .rulecard .rs { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+  .toppill {
+    display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    background: var(--chip-bg); color: var(--accent-ink); border-radius: 999px; padding: 2px 9px;
+    letter-spacing: .05em; margin-left: 8px; vertical-align: 2px;
+  }
+  .meta {
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-3);
+    display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 40px;
+  }
+  .footer { margin-top: 72px; color: var(--ink-3); font-size: 13px; border-top: 1px solid var(--hairline); padding-top: 18px; }
+  .footer code { font-size: 12px; }
+  @media (max-width: 640px) {
+    .brow, .drow { grid-template-columns: 1fr; gap: 4px; }
+    .brow .lab, .drow .lab { text-align: left; }
+    .brow .num, .drow .num { display: none; }
+    .div-head { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Cycle 02a80f9b · Run 4a45af8a · Epochs 1–13</p>
+  <h1>Melee Worker Audit</h1>
+  <p class="subtitle">What the 107 workers that reached a byte-exact match did differently from the 519 that stalled within half a percent of one — from tool logs, self-summaries, and deep transcript reads.</p>
+  <div class="meta">
+    <span>1,627 workers audited</span>
+    <span>215,634 tool calls parsed</span>
+    <span>44 exact/near-miss pairs deep-read</span>
+    <span>2026-09-01</span>
+  </div>
+
+  <h2><span class="secno">TL;DR</span>Five findings</h2>
+  <div class="finding">
+    <div class="fh">1 · Nobody misreads the diff — stallers fail to act on it.</div>
+    <p>Across all 44 deep-read pairs, genuine diff misreads: <strong>zero</strong>. The dominant failure (36 of 43 real stalls) is <em>post-diagnosis plateau churn</em>: the worker correctly names the residual mismatch, then keeps re-rolling declaration/cast/permuter variants that reproduce the same diff instead of escalating to a structural change.</p>
+  </div>
+  <div class="finding">
+    <div class="fh">2 · Winners convert the diff into a predictive compiler hypothesis.</div>
+    <p>In 23 of 44 pairs, the exact worker mapped the differing instruction or register to a specific MWCC mechanism (a lifetime, a coalescing edge, an inline boundary, a section-layout rule) and then tested only source shapes predicted to move it. Exact workers were rated <em>systematic</em> in 20/44 deep reads vs 7/44 for their matched controls.</p>
+  </div>
+  <div class="finding neg-b">
+    <div class="fh">3 · The permuter is a stall correlate, not a closer.</div>
+    <p>Near-misses ran <code>source_permuter_run</code> far more (74.5% vs 57.0% of workers; ~2× the permuter-per-build ratio), with searches of 1,000–5,200 candidates confirming local maxima. In self-summaries, permuter use appears in 65.9% of near-miss accounts vs 34.6% of exact ones (−31 pp, the single largest technique gap). Permuters closed gaps only when pointed at a bounded, already-named mismatch.</p>
+  </div>
+  <div class="finding">
+    <div class="fh">4 · Exact workers finish faster by looking things up.</div>
+    <p>Median 65 tool calls / 25 min for exact vs 81 calls / 42 min for near-miss — failure is <em>longer</em>, not lazier. Exact workers were far likelier to use history and knowledge tools: <code>past_prs_search</code> 96% vs 76%, <code>ledger_search</code> 98% vs 83%, <code>knowledge_graph_search</code> 81% vs 63%. The strongest form was target-specific: finding the accepted PR, matched sibling, or packed type for <em>this</em> symbol and converting it into the next experiment (11/44 pairs).</p>
+  </div>
+  <div class="finding warn-b">
+    <div class="fh">5 · A visible slice of "failure" is system, not process.</div>
+    <p>Two stalls were hard write-set blocks (fix proven, file out of scope), 9 pairs hit tooling gaps (stale permuter setups, wibo 32-bit failures, missing FPR allocator visibility), and both the deep reads and the fleet-wide sweep surfaced score/label disagreements — workers recorded exact whose strict summaries read 99.9%, and no-progress rows whose summaries claim validated 100%. Prompt changes won't fix these; harness changes will.</p>
+  </div>
+
+  <h2><span class="secno">01</span>Scope and method</h2>
+  <p>Everything below covers run <code>4a45af8a</code> of cycle <code>02a80f9b</code> (epochs 1–13; 12 complete). Four phases, each landing as a markdown intermediate under <code>analysis/worker-audit-2026-09-01/</code>:</p>
+  <div class="tblwrap"><table>
+    <tr><th>Phase</th><th>Coverage</th><th>Source</th><th>Output</th></tr>
+    <tr><td>0 · Manifest &amp; cohorts</td><td class="n">1,627 workers</td><td>orchestrator.sqlite</td><td><code>manifest.json</code>, <code>pairs.json</code></td></tr>
+    <tr><td>1 · Tool-usage fingerprint</td><td class="n">1,489 event files</td><td><code>tool_events.jsonl</code></td><td><code>phase1_stats.md</code></td></tr>
+    <tr><td>2 · Self-summary sweep</td><td class="n">1,627 workers</td><td>worker summary files</td><td>21 batch notes + <code>rollups/phase2_rollup.md</code></td></tr>
+    <tr><td>3 · Deep transcript reads</td><td class="n">44 matched pairs</td><td>full session transcripts</td><td>44 pair reports + <code>rollups/phase3_rollup.md</code></td></tr>
+  </table></div>
+  <p>Pairing: each exact worker was matched with a near-miss from the same epoch at the closest baseline score, epochs 3+ only. Fan-out: 68 GPT-5.6 Sol (Codex) agents did the reading; scripts did all counting.</p>
+
+  <h3>Cohorts</h3>
+  <div class="barlist">
+    <div class="brow"><div class="lab"><strong>exact</strong> — reached 100%</div><div class="track"><div class="fill" style="width:20.6%"></div></div><div class="num">107</div></div>
+    <div class="brow"><div class="lab"><strong>near_miss</strong> — ≥99.5%, not exact</div><div class="track"><div class="fill" style="width:100%; opacity:.55"></div></div><div class="num">519</div></div>
+    <div class="brow"><div class="lab"><strong>progressed</strong> — beat baseline</div><div class="track"><div class="fill" style="width:96.9%; opacity:.35"></div></div><div class="num">503</div></div>
+    <div class="brow"><div class="lab"><strong>no_progress</strong></div><div class="track"><div class="fill" style="width:95.9%; opacity:.2"></div></div><div class="num">498</div></div>
+  </div>
+  <p>A third of the fleet ends within half a percent of a match. The audit's central comparison is exact vs near-miss: same neighborhood, different last mile.</p>
+
+  <h2><span class="secno">02</span>The quantitative fingerprint</h2>
+  <div class="tiles">
+    <div class="tile"><div class="v">65 <span style="font-size:16px;color:var(--ink-3)">vs</span> 81</div><div class="l">median tool calls, exact vs near-miss</div></div>
+    <div class="tile"><div class="v">25 <span style="font-size:16px;color:var(--ink-3)">vs</span> 42</div><div class="l">median minutes on target</div></div>
+    <div class="tile"><div class="v">0.05 <span style="font-size:16px;color:var(--ink-3)">vs</span> 0.09</div><div class="l">median permuter-calls per build</div></div>
+  </div>
+  <p>Tool prevalence — share of each cohort using a tool at least once. Bars right of center: more prevalent among <strong>exact</strong> workers; left: more prevalent among <strong>near-miss</strong>.</p>
+  <div class="legend">
+    <span class="key"><span class="sw" style="background:var(--pos)"></span>exact-leaning (pp gap)</span>
+    <span class="key"><span class="sw" style="background:var(--neg)"></span>near-miss-leaning</span>
+  </div>
+  <div class="div-chart">
+    <div class="div-head"><div></div><div class="div-axis"><span>−32 pp</span><span>0</span><span>+32 pp</span></div></div>
+    <div class="drow"><div class="lab"><code>checkdiff_summary</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:47.7%"></div></div><div class="num">+30.5</div></div>
+    <div class="drow"><div class="lab"><code>review_lint_scan</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:40.5%"></div></div><div class="num">+25.9</div></div>
+    <div class="drow"><div class="lab"><code>past_prs_search</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:31.9%"></div></div><div class="num">+20.4</div></div>
+    <div class="drow"><div class="lab"><code>code_graph_search</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:29.7%"></div></div><div class="num">+19.0</div></div>
+    <div class="drow"><div class="lab"><code>direct_compile_tu</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:29.5%"></div></div><div class="num">+18.9</div></div>
+    <div class="drow"><div class="lab"><code>knowledge_graph_search</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:28.1%"></div></div><div class="num">+18.0</div></div>
+    <div class="drow"><div class="lab"><code>ledger_search</code></div><div class="track"><div class="mid"></div><div class="fill pos" style="width:23.4%"></div></div><div class="num">+15.0</div></div>
+    <div class="drow"><div class="lab"><code>graph_related_functions</code></div><div class="track"><div class="mid"></div><div class="fill neg" style="width:19.5%"></div></div><div class="num">−12.5</div></div>
+    <div class="drow"><div class="lab"><code>mwcc_debug_diagnose_regflow</code></div><div class="track"><div class="mid"></div><div class="fill neg" style="width:20.8%"></div></div><div class="num">−13.3</div></div>
+    <div class="drow"><div class="lab"><code>source_permuter_run</code></div><div class="track"><div class="mid"></div><div class="fill neg" style="width:27.3%"></div></div><div class="num">−17.5</div></div>
+    <div class="drow"><div class="lab"><code>mwcc_debug_diagnose_stack</code></div><div class="track"><div class="mid"></div><div class="fill neg" style="width:32.3%"></div></div><div class="num">−20.7</div></div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-2)">Caveat: <code>checkdiff_summary</code> and <code>review_lint_scan</code> (100% of exact workers) are partly wrap-up tools — success leads to using them, not only the reverse. The lookup-tool gaps (<code>past_prs_search</code>, <code>ledger_search</code>, graph/knowledge search) held up as genuinely causal-looking in the deep reads. The diagnose-heavy left side reflects near-misses grinding on regalloc/stack battles longer, not the tools being harmful.</p>
+
+  <h2><span class="secno">03</span>What exact workers do differently</h2>
+  <p>Six behaviors consistently separated exact workers from their matched controls across 44 deep reads. Support = number of pair reports where the behavior distinguished the winner.</p>
+
+  <h3>Loop discipline, judged from transcripts (44 pairs)</h3>
+  <div class="stackrow"><div class="lab">exact</div><div class="stackbar">
+    <div class="seg" style="flex:20; background:var(--pos)">systematic 20</div>
+    <div class="seg" style="flex:24; background:var(--pos); opacity:.45">mixed 24</div>
+  </div></div>
+  <div class="stackrow"><div class="lab">control</div><div class="stackbar">
+    <div class="seg" style="flex:7; background:var(--pos)">7</div>
+    <div class="seg" style="flex:37; background:var(--pos); opacity:.45">mixed 37</div>
+  </div></div>
+  <p style="font-size:14px;color:var(--ink-2)">No worker on either side was rated shotgun. The difference is degree of direction, not presence of effort.</p>
+
+  <div class="finding"><div class="fh">Convert the residual into a predictive compiler hypothesis <span class="support">23/44 pairs</span></div>
+    <p>Map the differing instruction, register, slot, or byte range to a specific compiler mechanism, then test only shapes predicted to move it.</p>
+    <blockquote>"closing the loop between individual asm mismatches, MWCC allocator evidence, and narrowly targeted source-shape searches" <span class="src">— pair 06-02</span></blockquote>
+  </div>
+  <div class="finding"><div class="fh">Escalate from local syntax to authored structure <span class="support">15/44</span></div>
+    <p>When declarations, casts, and expression forms plateau, change the lifetime topology: a semantic helper, an inline boundary, indexed access, an owner/subobject model.</p>
+    <blockquote>"it eventually stopped treating a register-only diff as a collection of local allocation accidents and reconstructed the likely authored abstraction boundaries" <span class="src">— pair 08-06</span></blockquote>
+  </div>
+  <div class="finding"><div class="fh">Recognize when the mismatch class changes, and switch tools <span class="support">15/44</span></div>
+    <p>Relocations, symbol ownership, byte layout, alignment, and <code>.sdata2</code> order are a different problem than codegen. Winners moved to object/section evidence instead of continuing allocator edits.</p>
+  </div>
+  <div class="finding"><div class="fh">Recover target-specific authored source before prolonged coercion <span class="support">11/44</span></div>
+    <p>Not generic history search — finding the accepted PR, exact commit, matched sibling, or packed type for this symbol and turning it into the next experiment.</p>
+    <blockquote>"searched the symbol ledger and past PRs at the outset, got the specific lead that local types and declaration order had matched this function before" <span class="src">— pair 03-02</span></blockquote>
+  </div>
+  <div class="finding"><div class="fh">Use bounded matrices and ablation only after naming the causal values <span class="support">9/44</span></div>
+    <p>Custom variant matrices and one-at-a-time cue removal to test a defined hypothesis. Raw permuter volume never separated outcomes; a 10,000-candidate search changed nothing for one control.</p>
+  </div>
+  <div class="finding"><div class="fh">Decompose mismatch classes and freeze solved regions <span class="support">9/44</span></div>
+    <p>Lock one cluster, reclassify the residual, repair frame/register/scheduling/relocation fallout separately — instead of letting every edit reshuffle everything.</p>
+  </div>
+
+  <h2><span class="secno">04</span>Why near-misses stall</h2>
+  <p>Of 43 real stalls in the deep-read sample (one "control" actually reached 100% — see §05), counted with overlap:</p>
+  <div class="barlist">
+    <div class="brow"><div class="lab">post-diagnosis plateau churn</div><div class="track"><div class="fill" style="width:100%; background:var(--neg)"></div></div><div class="num">36/43</div></div>
+    <div class="brow"><div class="lab">unresolved register/lifetime cycle</div><div class="track"><div class="fill" style="width:75%; background:var(--neg); opacity:.8"></div></div><div class="num">27</div></div>
+    <div class="brow"><div class="lab">never pivoted to structural change</div><div class="track"><div class="fill" style="width:47%; background:var(--neg); opacity:.65"></div></div><div class="num">17</div></div>
+    <div class="brow"><div class="lab">no freeze/decompose of classes</div><div class="track"><div class="fill" style="width:33%; background:var(--neg); opacity:.55"></div></div><div class="num">12</div></div>
+    <div class="brow"><div class="lab">relocation/data-ownership stall</div><div class="track"><div class="fill" style="width:28%; background:var(--neg); opacity:.45"></div></div><div class="num">10</div></div>
+    <div class="brow"><div class="lab">diagnosed, but no controllable lever</div><div class="track"><div class="fill" style="width:17%; background:var(--neg); opacity:.35"></div></div><div class="num">6</div></div>
+  </div>
+  <p>All 36 plateau-churn stalls were diagnosable from the worker's own diff output — the same residual kept coming back and the worker kept sampling the same family of edits. Fleet-wide, the self-summary sweep tells the same story: regalloc alone accounts for 936 of 1,627 stall self-reports, and permuter searches "of roughly 1,000–5,200 candidates often confirmed local maxima" while "semantic helper recovery, natural indexing, lifetime changes, or stack calibration were more likely to close the last gap."</p>
+  <p>Worth stating clearly: six stalls were honest dead ends — correctly diagnosed residuals (anonymous aggregate stack homes, unavailable FPR coloring, allocator preference) that survived systematic search. Not every 99.9% is a process failure.</p>
+
+  <h2><span class="secno">05</span>System and harness findings</h2>
+  <p>Things a better worker prompt will not fix:</p>
+  <div class="tblwrap"><table>
+    <tr><th>Finding</th><th>Evidence</th><th>Suggested harness change</th></tr>
+    <tr><td><strong>Write-set blocks.</strong> Workers proved the fix (owning-header declaration, coordinated source/header change) but the file was out of scope; they then burned remaining time on source-only substitutes.</td><td>pairs 06-01, 08-01 (hard); 07-05, 12-03 (mixed)</td><td>A fast widening request when the diagnosed fix is out of scope — or an explicit "diagnose, record, stop" path that banks the finding.</td></tr>
+    <tr><td><strong>Score/label disagreements.</strong> Workers recorded exact whose strict summaries read 99.86–99.93% (residual <code>.sdata2</code> relocations); near-miss/no-progress rows whose summaries claim validated 100%.</td><td>ws <code>7e2da56a</code>, <code>f660390c</code> (exact-side); <code>55a57f86</code> (no-progress-side); pairs 03-01, 11-06</td><td>Reconcile runner scoring vs strict relocation-aware scoring; re-score the boundary cases.</td></tr>
+    <tr><td><strong>Stale baselines.</strong> One "no-progress" worker found all 116 instructions already aligned; another's initial exact claim came from comparing the target object to itself.</td><td>ws <code>51670fa7</code>, <code>4320ac65</code></td><td>Validate injected baselines at claim time.</td></tr>
+    <tr><td><strong>Tooling gaps.</strong> Stale/broken permuter setups, 32-bit wibo exec failures (qemu-i386 workarounds), no FPR allocator visibility, one host-arch compile block. Batch 20: 27 workers with no summaries at all.</td><td>9 deep-read pairs + recurring sweep notes</td><td>Health-check permuter/wibo per worktree; surface FPR allocation in <code>mwcc_alloc_snapshot</code>.</td></tr>
+    <tr><td><strong>Quality-gate rejections of exact candidates.</strong> Aliasing-gate and construct rules rejected byte-exact forms; workers rarely had a follow-up plan.</td><td>pairs 03-01, 07-02, 09-04, 10-06</td><td>Give the prompt an explicit "gate-rejected exact" recovery recipe (compliant re-derivation) — and log these for gate review.</td></tr>
+  </table></div>
+  <p style="font-size:14px;color:var(--ink-2)">Confound note: in 25 of 44 pairs the exact side also had a friendlier target (directly invertible data/layout, or a target-specific past commit) — so pair-level differentiators are read as consistent tendencies, not controlled effects. The fleet-wide Phase 1/2 numbers, which don't depend on pairing, point the same direction.</p>
+
+  <h2><span class="secno">06</span>Recommended worker-prompt rules</h2>
+  <p>Distilled from the Transferable-technique sections of 44 pair reports, ranked by support. The top five are the A/B candidates; each is phrased ready to paste.</p>
+
+  <div class="rulecard"><div class="rn">R1</div><div class="rt">Map every register or stack-slot mismatch to its source value and live range before editing. Change one lifetime, interference, or coalescing edge at a time, then verify the exact instruction window.<span class="toppill">37/44</span><div class="rs">strongest single differentiator; directly targets plateau churn</div></div></div>
+  <div class="rulecard"><div class="rn">R2</div><div class="rt">Preserve every measured gain as a checkpoint. Restore immediately after a no-op or regression, and record failed shapes so later passes never repeat them.<span class="toppill">36/44</span><div class="rs">stops re-sampling the same variant family</div></div></div>
+  <div class="rulecard"><div class="rn">R3</div><div class="rt">After every meaningful edit, run a full diff and classify the remainder: instruction, register, stack, scheduling, relocation, or data-layout. Freeze regions that already match.<span class="toppill">22/44</span><div class="rs">makes the mismatch-class switch (§03) explicit</div></div></div>
+  <div class="rulecard"><div class="rn">R4</div><div class="rt">Stop a declaration/cast/scope/expression family when two or three variants reproduce the same diff. Get new evidence — allocator snapshot, disassembly, history, object bytes — then pivot structurally.<span class="toppill">22/44</span><div class="rs">the anti-churn rule; the single behavior 36/43 stalls lacked</div></div></div>
+  <div class="rulecard"><div class="rn">R5</div><div class="rt">Use scripted matrices and the permuter only for a bounded, named mismatch. Start from the current best baseline, rank candidates by exactly which instructions changed, and replay the winner manually.<span class="toppill">20/44</span><div class="rs">converts the permuter from a stall correlate into a closer</div></div></div>
+
+  <h3>Second tier</h3>
+  <div class="tblwrap"><table>
+    <tr><th>#</th><th>Rule</th><th class="n">Support</th></tr>
+    <tr><td class="n">R6</td><td>When local edits plateau, recover or introduce a coherent helper / inline / call-expression boundary; then re-inspect allocation, frame size, and neighbors.</td><td class="n">17</td></tr>
+    <tr><td class="n">R7</td><td>Validate every exact result beyond its score: exact instruction/byte window, relocation policy, neighboring functions, source gates; ablate suspicious matching-only cues.</td><td class="n">17</td></tr>
+    <tr><td class="n">R8</td><td>Treat relocation and data identity as a separate mismatch class — once code shape matches, inspect symbols, relocations, TU ownership, and <code>.sdata2</code> order instead of continuing allocator edits.</td><td class="n">16</td></tr>
+    <tr><td class="n">R9</td><td>Treat prologue/frame-size/stack-slot differences as explicit constraints: fix live ranges first; a uniform shared displacement means one lifetime, inline boundary, or <code>PAD_STACK</code>.</td><td class="n">15</td></tr>
+    <tr><td class="n">R10</td><td>Search the exact symbol in ledger, history, accepted PRs, matched siblings, and compiler analogs before any long allocator search — and again at every plateau.</td><td class="n">13</td></tr>
+    <tr><td class="n">R11</td><td>For data-section targets, dump target and candidate bytes, symbols, sizes, bindings, relocations, and generated tables first; reconstruct the full layout, then edit once.</td><td class="n">9</td></tr>
+    <tr><td class="n">R12</td><td>If a proven fix is outside the write set, escalate immediately (request widening or record-and-stop) instead of spending the run on source-only substitutes.</td><td class="n">6</td></tr>
+    <tr><td class="n">R13</td><td>For a proven register-only liveness problem, test a semantics-empty read, guarded empty use, self-assignment, or dummy declaration at the exact lifetime boundary — then remove each cue separately after matching.</td><td class="n">4</td></tr>
+  </table></div>
+
+  <h2><span class="secno">07</span>Validation plan</h2>
+  <p>The honest next step is an A/B, since 25/44 pairs carry target-difficulty confounds. Concretely: apply R1–R5 (plus R12 as a harness path) to the worker prompt for half of the next epoch's claims, hold the other half on the current prompt, and compare exact-rate and median time-to-exact within baseline-score bands. The near-miss pool is large enough (519) that one epoch (~100–180 workers) gives a usable signal on the plateau-churn rules specifically.</p>
+  <p>Independent of the A/B, the §05 harness items — score reconciliation, stale-baseline validation, permuter/wibo health checks, and a write-set escalation path — are unambiguous and don't need an experiment.</p>
+
+  <div class="footer">
+    Intermediates: <code>analysis/worker-audit-2026-09-01/</code> — <code>phase1_stats.md</code> (tool-log statistics), <code>phase2_notes/</code> (21 batch sweeps), <code>phase3_notes/</code> (44 pair reports), <code>rollups/</code> (phase 2 &amp; 3 syntheses), <code>manifest.json</code>, <code>pairs.json</code>. Readers: 68 Codex agents; counting: scripts over <code>tool_events.jsonl</code> and batch JSON. Cohort labels come from <code>worker_state</code>; known label/score disagreements are listed in §05.
+  </div>
+</div>

@@ -1,0 +1,331 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d89-c86d-7a70-ab6a-ed7500260d68
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 15
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_15.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+Open the batch while I split its rows across parallel auditors. I’m using the `unslop` skill because it is mandatory for concise, evidence-based notes.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_15.tsv && sed -n '1,8p' scripts/p2_batches/batch_15.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_15.tsv
+60e98990-3726-442c-8053-ce7e1748cdd2	progressed	9	main/melee/gm/gm_16F1::fn_801701C0	99.37515999999998	99.41866	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/60e98990-3726-442c-8053-ce7e1748cdd2
+e2f351af-ff13-4c43-aa3b-6d583c89d0fe	near_miss	9	main/melee/mn/mnitemsw::mnItemSw_8023453C	99.61991	99.61991	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/e2f351af-ff13-4c43-aa3b-6d583c89d0fe
+ec747461-75a3-4e2e-8b7c-411393e35e26	near_miss	9	main/melee/gm/gm_19EF::fn_8019F9C4	99.63758	99.64717	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ec747461-75a3-4e2e-8b7c-411393e35e26
+08d5597c-39dc-4b8b-b5a7-39672f196575	progressed	9	main/melee/ft/ftafterimage::ftCo_800C2600	97.22857	97.31587	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/08d5597c-39dc-4b8b-b5a7-39672f196575
+50801f77-0cb1-45af-9c82-521c6c488c05	progressed	9	main/melee/gm/gmclassic::gmClassic_OnLoad	95.80952499999998	98.32143	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/50801f77-0cb1-45af-9c82-521c6c488c05
+07e2d777-24a3-411b-b1a7-eebba24c6427	progressed	9	main/sysdolphin/baselib/psdisp::psDispParticles	98.72308	98.74185	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/07e2d777-24a3-411b-b1a7-eebba24c6427
+f40da662-ec2e-4af1-bc83-e84a505b194c	no_progress	9	main/melee/lb/lbsnap::lbSnap_8001DA5C	67.64815	67.64815	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f40da662-ec2e-4af1-bc83-e84a505b194c
+c4ad3b3b-f9a4-499e-a797-3a72bfe74e7c	near_miss	9	main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC	97.759125	99.85400999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c4ad3b3b-f9a4-499e-a797-3a72bfe74e7c
+
+  → Audit all 80 worker summaries in parallel
+  • Normalize records and validate one per batch row
+  • Write JSON and Markdown outputs
+  • Verify schemas, counts, and 60-line limit
+codex
+Step 1 of 4 is in progress: eight auditors are reading 10 workers each. The batch has 80 rows.
+collab: Wait
+2026-09-01T15:15:50.462416Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:15:50.476593Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:15:51.508265Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+collab: Wait
+2026-09-01T15:16:02.060399Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:16:04.693348Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:16:13.295866Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:16:15.731705Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 of 4 is done: all parallel row audits returned. Step 2 is normalizing overlapping range boundaries and enforcing the TSV’s 80-row order.
+collab: Wait
+collab: Wait
+2026-09-01T15:19:12.531873Z ERROR rmcp::transport::worker: worker quit with fatal: Client error: HTTP request failed: http/request failed: error sending request for url (https://chatgpt.com/backend-api/ps/mcp), when send initialized notification
+collab: Wait
+2026-09-01T15:19:35.276695Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:19:35.458348Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+exec
+/bin/zsh -lc 'ls -la phase2_notes/batch_15.json phase2_notes/batch_15.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+codex
+Step 2 of 4 is still in progress. The boundary overlap is identified; the aggregator is rebuilding records from the TSV itself so no worker is duplicated or skipped.
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'ls -l phase2_notes/batch_15.json phase2_notes/batch_15.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+collab: Wait
+collab: Wait
+2026-09-01T15:23:21.607099Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:22.323335Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:25.459501Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:27.362583Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:29.380419Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:32.316513Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:34.944241Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:37.695990Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:23:39.599766Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+exec
+/bin/zsh -lc 'ls -lh phase2_notes/batch_15.json phase2_notes/batch_15.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+collab: Wait
+2026-09-01T15:24:05.468050Z ERROR codex_core::tools::router: error=collab tool failed: agent thread limit reached
+2026-09-01T15:24:05.847474Z ERROR codex_core::tools::router: error=collab tool failed: agent thread limit reached
+2026-09-01T15:24:12.251308Z ERROR codex_core::tools::router: error=collab tool failed: agent thread limit reached
+collab: Wait
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -name 'batch_15.*' -type f -ls" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -name 'batch_15.*' -type f -ls" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'ls -lh phase2_notes/batch_15.json phase2_notes/batch_15.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  staff    46K Sep  1 10:29 phase2_notes/batch_15.json
+
+collab: Wait
+exec
+/bin/zsh -lc 'ls -lh phase2_notes/batch_15.json phase2_notes/batch_15.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  staff    46K Sep  1 10:29 phase2_notes/batch_15.json
+-rw-r--r--@ 1 Ford  staff   4.5K Sep  1 10:30 phase2_notes/batch_15.md
+
+codex
+Step 3 of 4 is done: both requested files exist. Step 4 is validating the 80-record schema, TSV order, cohort metadata, exact-worker fields, and Markdown line limit.
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json
+from pathlib import Path
+b=Path('scripts/p2_batches/batch_15.tsv')
+j=Path('phase2_notes/batch_15.json')
+m=Path('phase2_notes/batch_15.md')
+rows=list(csv.reader(b.open(), delimiter='\\t'))
+data=json.loads(j.read_text())
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+errs=[]
+if len(data)"'!=len(rows): errs.append(f'"'count {len(data)} "'!= {len(rows)}'"')
+if len({x['ws_id'] for x in data})"'!=len(data): errs.append('"'duplicate ws_id')
+for i,(x,r) in enumerate(zip(data,rows),1):
+    if set(x)"'!=keys: errs.append(f'"'row {i} keys')
+    if [x['ws_id'],x['cohort'],str(x['epoch']),x['target_key']] "'!= r[:4]: errs.append(f'"'row {i} metadata/order')
+    if x['loop_quality'] not in {'systematic','mixed','shotgun','unknown'}: errs.append(f'row {i} loop')
+    if x['cohort']=='exact' and not x['success_factor']: errs.append(f'row {i} exact missing success')
+    if x['cohort']"'!='"'exact' and x['success_factor'] is not None: errs.append(f'row {i} nonexact success')
+print('records',len(data),'unique',len({x['ws_id'] for x in data}))
+print('cohorts', {c:sum(x['cohort']==c for x in data) for c in sorted({x['cohort'] for x in data})})
+print('md_lines',len(m.read_text().splitlines()))
+print('errors',errs[:20], 'total',len(errs))
+print('files', [p.name for p in Path('phase2_notes').glob('batch_15.*')])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+records 80 unique 80
+cohorts {'exact': 9, 'near_miss': 34, 'no_progress': 11, 'progressed': 26}
+md_lines 33
+errors [] total 0
+files ['batch_15.md', 'batch_15.json']
+
+  ✓ Audit all 80 worker summaries in parallel
+  ✓ Normalize records and validate one per batch row
+  ✓ Write JSON and Markdown outputs
+  ✓ Verify schemas, counts, and 60-line limit
+codex
+DONE 80
+
+- [batch_15.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.json)
+- [batch_15.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.md)
+
+Validated: 80 unique records in TSV order; Markdown is 33 lines.
+tokens used
+209,388
+DONE 80
+
+- [batch_15.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.json)
+- [batch_15.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_15.md)
+
+Validated: 80 unique records in TSV order; Markdown is 33 lines.

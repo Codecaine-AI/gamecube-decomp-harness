@@ -9,10 +9,12 @@ import type { RuntimeAgentRole } from "@server/core/shared/types";
 import { appendWorkerToolEvent, boundedTelemetryValue, type WorkerToolEvent } from "@server/core/agent-catalog/agents/running/worker/telemetry.js";
 import { capabilityToolRegistrations } from "../wrappers/capabilities.js";
 import { knowledgeToolRegistrations } from "../wrappers/knowledge.js";
+import { knowledgeV2ToolRegistrations } from "../wrappers/knowledge-v2.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition, PiToolResult } from "../types.js";
 
 const toolRegistrations = [
   ...knowledgeToolRegistrations,
+  ...knowledgeV2ToolRegistrations,
   ...capabilityToolRegistrations,
 ] as const;
 

@@ -84,6 +84,7 @@ export interface MeleeCreateSpawnAgentRuntime {
 
 export interface CreateMeleeKernelSpawnAgentOptions {
   piOptions: PiRunOptions;
+  expectedAgentName?: string;
   parsedAgent: ParsedAgent;
   contextResolver?: AgentContextResolver | null;
   runtime: MeleeCreateSpawnAgentRuntime;
@@ -491,9 +492,10 @@ export function createMeleeKernelSpawnAgent(
       workingDir: options.piOptions.cwd,
       phase: options.piOptions.role,
     };
-    if (name !== options.piOptions.role) {
+    const expectedAgentName = options.expectedAgentName ?? options.piOptions.role;
+    if (name !== expectedAgentName) {
       throw new Error(
-        `Melee kernel spawn mismatch: expected ${options.piOptions.role}, got ${name}`,
+        `Melee kernel spawn mismatch: expected ${expectedAgentName}, got ${name}`,
       );
     }
     if (options.piOptions.dryRun) {

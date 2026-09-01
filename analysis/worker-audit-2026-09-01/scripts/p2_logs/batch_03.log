@@ -1,0 +1,1122 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7a-d378-7040-b0a8-e1fdc62da713
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 03
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_03.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the `unslop` skill to keep the audit notes concrete and consistent. I’ll split the TSV rows across parallel readers, then validate and write exactly the two requested files.
+  → Load batch rows and assign artifact summaries to parallel readers
+  • Consolidate evidence into one normalized record per row
+  • Write JSON and ≤60-line Markdown summary
+  • Validate files, counts, schema, and line limit
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_03.tsv && sed -n '1,12p' scripts/p2_batches/batch_03.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_03.tsv
+d04a2781-d9f7-40ed-9c42-a0f0c2fc8c52	progressed	1	main/melee/ty/tyfigupon::_tyFigupon_80315C44	97.78852	97.821754	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d04a2781-d9f7-40ed-9c42-a0f0c2fc8c52
+52ca1db1-f604-4d98-baee-2bcf0672410f	no_progress	1	main/sysdolphin/baselib/hsd_3A94::fn_803B1338	98.89668	98.89668	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/52ca1db1-f604-4d98-baee-2bcf0672410f
+c01357e4-8dea-4681-8d1b-cbd98ddc93d6	no_progress	1	main/melee/mn/mnstagesw::mnStageSw_80235C58	98.46739	98.46739	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c01357e4-8dea-4681-8d1b-cbd98ddc93d6
+f2ac547c-5f4e-48e0-9f47-d55b98ecaa33	no_progress	1	main/melee/gm/gmtoulib::fn_8018B090	99.18416	99.18416	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f2ac547c-5f4e-48e0-9f47-d55b98ecaa33
+11856ee5-2cfc-4d8b-903e-e138afd55de4	progressed	1	main/sysdolphin/baselib/hsd_3A94::fn_803AE7F8	98.21540999999999	98.26108999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/11856ee5-2cfc-4d8b-903e-e138afd55de4
+69f4b897-93bc-43cf-97bb-36d3148d5b5c	no_progress	1	main/melee/mn/mnsound::mnSound_80249C08	99.47781	99.47781	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/69f4b897-93bc-43cf-97bb-36d3148d5b5c
+c80eda3c-12f4-409a-b86e-9da97177204c	progressed	1	main/melee/ft/ftcpuattack::ftCo_800B52AC	98.070175	98.08577	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c80eda3c-12f4-409a-b86e-9da97177204c
+d6408d76-b7e3-4577-b5c6-b50a6679bec1	progressed	1	main/melee/gm/gm_16F1::fn_801701C0	98.55548999999999	98.64376	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d6408d76-b7e3-4577-b5c6-b50a6679bec1
+1e3acba4-f99e-4255-94a5-0a36aa57644c	progressed	1	main/melee/gm/gm_19EF::fn_8019F9C4	98.47747	98.58773	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1e3acba4-f99e-4255-94a5-0a36aa57644c
+91e887f6-9123-41d5-b6fc-6e0b2e916ae9	near_miss	1	main/melee/if/ifstatus::ifStatus_802F4EDC	99.70062999999999	99.70062999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/91e887f6-9123-41d5-b6fc-6e0b2e916ae9
+fad156f8-e24a-43f6-9104-c72758895494	progressed	1	main/sysdolphin/baselib/psdisp::psDispParticles	98.69547	98.70458	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fad156f8-e24a-43f6-9104-c72758895494
+7dc4303d-f43a-496c-acb3-bed4cc6e4d7a	progressed	1	main/sysdolphin/baselib/hsd_3B34::hsd_803B3CD8	90.931145	91.04068999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7dc4303d-f43a-496c-acb3-bed4cc6e4d7a
+
+exec
+/bin/zsh -lc "awk -F '\\t' '{c["'$2]++} END {for(k in c) print k,c[k]}'"' scripts/p2_batches/batch_03.tsv; while IFS="'$'"'\\t' read -r ws cohort epoch target base best dir; do set -- \""'$dir"/worker_*.txt; [ -e "$1" ] || printf '"'%s\\t%s\\n' \""'$ws" MISSING; done < scripts/p2_batches/batch_03.tsv' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+no_progress 27
+near_miss 19
+progressed 33
+exact 1
+
+codex
+Step 1 of 4 is running across eight readers. The batch has 79 rows: 33 progressed, 27 no-progress, 19 near-miss, and only 1 exact, so the report will include the sole exact account rather than inventing three.
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 of 4 done: all 79 rows have evidence-backed records, with no missing artifact directories. I’m normalizing technique aliases now so cohort counts are meaningful rather than split across names like `source-permuter` and `permuter`.
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "ls -l /tmp/batch03_*.json; for f in /tmp/batch03_*.json; do jq -r 'length' \""'$f"; done' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 13ms:
+9
+
+exec
+/bin/zsh -lc "mkdir -p phase2_notes && jq -s 'add | map(.epoch |= tonumber | .techniques |= (map({\"source-permuter\":\"permuter\",\"declaration-order\":\"declaration-order-experiments\",\"allocator-capture\":\"allocator-snapshot\",\"compiler-allocation-diagnostics\":\"allocator-snapshot\",\"stack-frame-padding\":\"stack-padding-adjustment\",\"stack-padding-macro\":\"stack-padding-adjustment\",\"pad-stack-experiments\":\"stack-padding-adjustment\",\"stack-padding-removal\":\"stack-padding-adjustment\",\"stack-padding-experiments\":\"stack-padding-adjustment\",\"stack-layout-tuning\":\"stack-layout-reasoning\",\"stack-frame-analysis\":\"stack-layout-reasoning\",\"local-scope-tuning\":\"local-lifetime-scoping\",\"scope-lifetime-experiments\":\"local-lifetime-scoping\",\"pointer-lifetime-experiments\":\"pointer-lifetime-shaping\",\"pointer-lifetime-tuning\":\"pointer-lifetime-shaping\",\"checkpoint-history\":\"past-checkpoint-lookup\",\"checkpoint-history-lookup\":\"past-checkpoint-lookup\",\"historical-source-lookup\":\"past-source-lookup\",\"nearby-exact-function-lookup\":\"solved-analog-lookup\",\"matched-analog-lookup\":\"solved-analog-lookup\",\"analog-function-lookup\":\"solved-analog-lookup\",\"same-file-analog\":\"sibling-source-comparison\",\"nearby-source-lookup\":\"sibling-source-comparison\",\"neighbor-function-analogy\":\"sibling-source-comparison\",\"comparison-order-experiments\":\"comparison-operand-order\",\"commutative-expression-reordering\":\"expression-reordering\",\"expression-reshape\":\"expression-reordering\",\"float-literal-ordering\":\"float-literal-tricks\",\"float-literal-correction\":\"float-literal-tricks\",\"float-literal-recovery\":\"float-literal-tricks\",\"type-width-experiment\":\"type-shape-experiments\",\"typed-pointer-experiments\":\"type-shape-experiments\",\"pointer-shape-experiments\":\"type-shape-experiments\",\"typed-pointer-reinterpretation\":\"type-shape-experiments\",\"source-shape-experiments\":\"type-shape-experiments\",\"inline-helper-experiments\":\"inline-hypothesis\",\"helper-inline-experiments\":\"inline-hypothesis\",\"inline-helper-extraction\":\"inline-hypothesis\",\"past-checkpoint-lookup\":\"past-checkpoint-lookup\"}[.] // .) | unique)))' /tmp/batch03_*.json > phase2_notes/batch_03.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({technique:.[0],count:length}) | sort_by(-.count,.technique) | "COHORT '"\\("'$c)", (.[]|"'"\\(.count)\\t\\(.technique)\")' phase2_notes/batch_03.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(select(.stall_reason != null).stall_reason) | group_by(.) | map({reason:.[0],count:length}) | sort_by(-.count,.reason) | "STALL '"\\("'$c)", (.[0:5][]|"'"\\(.count)\\t\\(.reason)\")' phase2_notes/batch_03.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+jq: error: syntax error, unexpected INVALID_CHARACTER, expecting $end (Unix shell quoting issues?) at <top-level>, line 1:
+add | map(.epoch |= tonumber | .techniques |= (map({"source-permuter":"permuter","declaration-order":"declaration-order-experiments","allocator-capture":"allocator-snapshot","compiler-allocation-diagnostics":"allocator-snapshot","stack-frame-padding":"stack-padding-adjustment","stack-padding-macro":"stack-padding-adjustment","pad-stack-experiments":"stack-padding-adjustment","stack-padding-removal":"stack-padding-adjustment","stack-padding-experiments":"stack-padding-adjustment","stack-layout-tuning":"stack-layout-reasoning","stack-frame-analysis":"stack-layout-reasoning","local-scope-tuning":"local-lifetime-scoping","scope-lifetime-experiments":"local-lifetime-scoping","pointer-lifetime-experiments":"pointer-lifetime-shaping","pointer-lifetime-tuning":"pointer-lifetime-shaping","checkpoint-history":"past-checkpoint-lookup","checkpoint-history-lookup":"past-checkpoint-lookup","historical-source-lookup":"past-source-lookup","nearby-exact-function-lookup":"solved-analog-lookup","matched-analog-lookup":"solved-analog-lookup","analog-function-lookup":"solved-analog-lookup","same-file-analog":"sibling-source-comparison","nearby-source-lookup":"sibling-source-comparison","neighbor-function-analogy":"sibling-source-comparison","comparison-order-experiments":"comparison-operand-order","commutative-expression-reordering":"expression-reordering","expression-reshape":"expression-reordering","float-literal-ordering":"float-literal-tricks","float-literal-correction":"float-literal-tricks","float-literal-recovery":"float-literal-tricks","type-width-experiment":"type-shape-experiments","typed-pointer-experiments":"type-shape-experiments","pointer-shape-experiments":"type-shape-experiments","typed-pointer-reinterpretation":"type-shape-experiments","source-shape-experiments":"type-shape-experiments","inline-helper-experiments":"inline-hypothesis","helper-inline-experiments":"inline-hypothesis","inline-helper-extraction":"inline-hypothesis","past-checkpoint-lookup":"past-checkpoint-lookup"}[.] // .) | unique)))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+jq: 1 compile error
+
+exec
+/bin/zsh -lc "jq -s 'add | map(.epoch |= tonumber | .techniques |= map(. as "'$x | ({"source-permuter":"permuter","declaration-order":"declaration-order-experiments","allocator-capture":"allocator-snapshot","compiler-allocation-diagnostics":"allocator-snapshot","stack-frame-padding":"stack-padding-adjustment","stack-padding-macro":"stack-padding-adjustment","pad-stack-experiments":"stack-padding-adjustment","stack-padding-removal":"stack-padding-adjustment","stack-padding-experiments":"stack-padding-adjustment","stack-layout-tuning":"stack-layout-reasoning","stack-frame-analysis":"stack-layout-reasoning","local-scope-tuning":"local-lifetime-scoping","scope-lifetime-experiments":"local-lifetime-scoping","pointer-lifetime-experiments":"pointer-lifetime-shaping","pointer-lifetime-tuning":"pointer-lifetime-shaping","checkpoint-history":"past-checkpoint-lookup","checkpoint-history-lookup":"past-checkpoint-lookup","historical-source-lookup":"past-source-lookup","nearby-exact-function-lookup":"solved-analog-lookup","matched-analog-lookup":"solved-analog-lookup","analog-function-lookup":"solved-analog-lookup","same-file-analog":"sibling-source-comparison","nearby-source-lookup":"sibling-source-comparison","neighbor-function-analogy":"sibling-source-comparison","comparison-order-experiments":"comparison-operand-order","commutative-expression-reordering":"expression-reordering","expression-reshape":"expression-reordering","float-literal-ordering":"float-literal-tricks","float-literal-correction":"float-literal-tricks","float-literal-recovery":"float-literal-tricks","type-width-experiment":"type-shape-experiments","typed-pointer-experiments":"type-shape-experiments","pointer-shape-experiments":"type-shape-experiments","typed-pointer-reinterpretation":"type-shape-experiments","source-shape-experiments":"type-shape-experiments","inline-helper-experiments":"inline-hypothesis","helper-inline-experiments":"inline-hypothesis","inline-helper-extraction":"inline-hypothesis"}[$x] // $x)) | .techniques |= unique)'"' /tmp/batch03_*.json > phase2_notes/batch_03.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({technique:.[0],count:length}) | sort_by(-.count,.technique) | "COHORT '"\\("'$c)", (.[]|"'"\\(.count)\\t\\(.technique)\")' phase2_notes/batch_03.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(select(.stall_reason != null).stall_reason) | group_by(.) | map({reason:.[0],count:length}) | sort_by(-.count,.reason) | "STALL '"\\("'$c)", (.[0:5][]|"'"\\(.count)\\t\\(.reason)\")' phase2_notes/batch_03.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+COHORT exact
+1	allocator-snapshot
+1	asm-diff-instruction-level
+1	assignment-in-condition
+1	control-flow-restructure
+1	helper-removal
+1	local-temporary-recovery
+1	permuter
+1	register-allocation-reasoning
+1	type-shape-experiments
+COHORT near_miss
+17	permuter
+16	asm-diff-instruction-level
+14	declaration-order-experiments
+13	register-allocation-reasoning
+13	type-shape-experiments
+10	allocator-snapshot
+8	checkpoint-restore
+6	pointer-lifetime-shaping
+5	inline-hypothesis
+5	local-lifetime-scoping
+5	past-pr-lookup
+4	stack-padding-adjustment
+3	loop-restructure
+3	past-source-lookup
+3	solved-analog-lookup
+2	data-section-layout-analysis
+2	float-literal-tricks
+2	past-checkpoint-lookup
+2	symbol-ownership-analysis
+2	write-set-widening-request
+1	alias-lifetime-experiments
+1	anchored-buffer-indexing
+1	config-metadata-analysis
+1	control-flow-restructure
+1	expression-reordering
+1	helper-boundary-experiments
+1	linkage-experiments
+1	local-temporary-recovery
+1	parameter-lifetime-experiments
+1	relocation-symbol-analysis
+1	signed-loop-index
+1	stack-layout-experiments
+1	stack-layout-reasoning
+1	struct-layout-analysis
+COHORT no_progress
+24	asm-diff-instruction-level
+23	permuter
+21	checkpoint-restore
+21	type-shape-experiments
+20	register-allocation-reasoning
+16	allocator-snapshot
+16	declaration-order-experiments
+9	inline-hypothesis
+9	loop-restructure
+8	past-pr-lookup
+6	past-source-lookup
+5	local-lifetime-scoping
+5	solved-analog-lookup
+4	stack-padding-adjustment
+3	pointer-lifetime-shaping
+3	relocation-analysis
+3	stack-layout-reasoning
+2	float-literal-tricks
+2	header-signature-audit
+2	symbol-metadata-lookup
+2	type-overlay-experiments
+1	alias-lifetime-experiments
+1	arithmetic-shape-experiments
+1	bss-layout-reconstruction
+1	comma-expression-experiments
+1	cross-tu-signature-analysis
+1	cross-tu-symbol-lookup
+1	data-ownership-recovery
+1	data-symbol-scope
+1	function-signature-hypothesis
+1	helper-boundary-experiments
+1	helper-signature-experiments
+1	initializer-shape-experiments
+1	nearby-function-lookup
+1	sdata-layout-reconstruction
+1	sdata2-order-anchor
+1	sibling-function-comparison
+1	symbol-metadata-inspection
+1	write-set-widening
+1	write-set-widening-request
+COHORT progressed
+24	permuter
+23	register-allocation-reasoning
+22	asm-diff-instruction-level
+22	declaration-order-experiments
+18	type-shape-experiments
+12	checkpoint-restore
+9	stack-layout-reasoning
+8	inline-hypothesis
+8	stack-padding-adjustment
+7	local-lifetime-scoping
+6	expression-reordering
+6	sibling-source-comparison
+4	allocator-snapshot
+3	float-literal-tricks
+3	loop-restructure
+3	solved-analog-lookup
+2	comparison-operand-order
+2	past-checkpoint-lookup
+2	pointer-lifetime-shaping
+1	canonical-type-reuse
+1	control-flow-restructure
+1	cross-tu-signature-analysis
+1	data-layout-reasoning
+1	data-ownership-recovery
+1	data-section-layout-analysis
+1	expression-temporary
+1	float-bit-pattern-experiments
+1	float-register-flow-reasoning
+1	header-signature-audit
+1	helper-boundary-recovery
+1	helper-reuse
+1	inline-boundary-recovery
+1	instruction-scheduling
+1	local-value-caching
+1	loop-condition-idiom
+1	loop-counter-reuse
+1	loop-counter-type-experiments
+1	loop-lifetime-experiments
+1	operand-order-experiments
+1	past-pr-lookup
+1	past-source-lookup
+1	pointer-loop-restructure
+1	raw-offset-diagnostic-probe
+1	relocation-analysis
+1	sdata-layout-reconstruction
+1	stack-slot-shaping
+1	struct-layout-analysis
+1	symbol-metadata-lookup
+1	temporary-materialization
+1	temporary-removal
+1	typed-field-accessors
+1	volatile-local-experiment
+1	volatile-temporary-array
+1	write-set-widening
+1	write-set-widening-request
+STALL exact
+STALL near_miss
+1	BSS and data section-base relocations
+1	BSS and float-symbol relocation ownership
+1	Item pointer and frame-counter register swap
+1	JObj register and name-buffer stack placement
+1	callee-saved argument and cursor register permutation
+STALL no_progress
+1	BSS relocation base mismatch
+1	QA-rejected data-symbol scope fix
+1	broad register allocation and global-address scheduling
+1	callee return type causes register-allocation cascade
+1	foreign u8 return prototype forces zero extension
+STALL progressed
+2	floating-point register allocation
+1	BSS anchor and addend relocation shape
+1	BSS object layout and call argument shape
+1	DCT float register allocation
+1	broad callee-saved register coloring mismatch
+
+exec
+/bin/zsh -lc "jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | "- **'"\\("'$c)** ('"\\(length) distinct): \" + (map(\"\\(.t) \\(.n)\")|join(\", \"))' phase2_notes/batch_03.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+- **exact** (9 distinct): allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
+- **near_miss** (34 distinct): permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
+- **no_progress** (40 distinct): asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
+- **progressed** (55 distinct): permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+All reader outputs are consolidated and technique aliases normalized. Final validation is in progress.
+  ✓ Load batch rows and assign artifact summaries to parallel readers
+  ✓ Consolidate evidence into one normalized record per row
+  ✓ Write JSON and ≤60-line Markdown summary
+  → Validate files, counts, schema, and line limit
+exec
+/bin/zsh -lc "jq -e 'length == 79 and all(.[]; (keys == [\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"]) and ([\"systematic\",\"mixed\",\"shotgun\",\"unknown\"] | index(.loop_quality)) "'!= null and (.techniques|type)=="array")'"' phase2_notes/batch_03.json
+paste <(cut -f1 scripts/p2_batches/batch_03.tsv) <(jq -r '.[].ws_id' phase2_notes/batch_03.json) | awk '"'$1!=$2 {print "ORDER_MISMATCH", NR, $0; bad=1} END {if (!bad) print "ORDER_OK 79"}'"'
+wc -l phase2_notes/batch_03.md
+jq -r 'group_by(.loop_quality)|map(\"\\(.[0].loop_quality)=\\(length)\")|join(\" \")' phase2_notes/batch_03.json
+find phase2_notes -maxdepth 1 -type f -name 'batch_03.*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+jq: error (at phase2_notes/batch_03.json:1547): Cannot index array with string "loop_quality"
+ORDER_MISMATCH 80 f8eba832-fcbf-483c-9d43-64bf105be485	
+      32 phase2_notes/batch_03.md
+mixed=2 systematic=73 unknown=4
+phase2_notes/batch_03.json
+phase2_notes/batch_03.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+codex
+Validation caught one missing record: the TSV has 80 rows, not 79. The earlier count came from a reader range ending at row 79. I’m auditing row 80 now, then I’ll rerun order and schema checks before finishing.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+collab: Wait
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+exec
+/bin/zsh -lc "jq '.[0]' /tmp/batch03_80.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+{
+  "ws_id": "f8eba832-fcbf-483c-9d43-64bf105be485",
+  "cohort": "near_miss",
+  "epoch": "1",
+  "target_key": "main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A7AAC",
+  "techniques": [
+    "neighbor-function-analogy",
+    "existing-helper-reuse",
+    "local-scope-tuning",
+    "source-shape-experiments",
+    "stack-frame-padding",
+    "macro-shape-restoration",
+    "asm-diff-instruction-level",
+    "register-allocation-reasoning"
+  ],
+  "stall_reason": "inlined helper data-pointer allocation and branch control flow",
+  "success_factor": null,
+  "loop_quality": "systematic",
+  "notable": "Replacing seven repeated expansions with an established helper and restoring path-local variables, ABS, and PAD_STACK(8) raised the score from 96.29397% to 99.63065%."
+}
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+exec
+/bin/zsh -lc "jq -s '.[0] + (.[1] | map(.epoch |= tonumber | .techniques |= map(. as "'$x | ({"neighbor-function-analogy":"sibling-source-comparison","existing-helper-reuse":"helper-reuse","local-scope-tuning":"local-lifetime-scoping","source-shape-experiments":"type-shape-experiments","stack-frame-padding":"stack-padding-adjustment"}[$x] // $x)) | .techniques |= unique))'"' phase2_notes/batch_03.json /tmp/batch03_80.json > /tmp/batch03_final.json && jq . /tmp/batch03_final.json > phase2_notes/batch_03.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e43c69b518c00564c393621116ec468444b57cd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++79 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: permuter 17, asm-diff-instruction-level 16, declaration-order-experiments 14, register-allocation-reasoning 13, type-shape-experiments 13, allocator-snapshot 10, checkpoint-restore 8, pointer-lifetime-shaping 6, inline-hypothesis 5, local-lifetime-scoping 5, past-pr-lookup 5, stack-padding-adjustment 4, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, linkage-experiments 1, local-temporary-recovery 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d98e2bc57dd9804c6176abed2253930ac555c4ca
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 20 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d98e2bc57dd9804c6176abed2253930ac555c4ca
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 20 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+exec
+/bin/zsh -lc "jq -e 'length == 80 and ([.[].ws_id] | unique | length == 80) and all(.[]; (keys == [\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"]) and (.loop_quality as "'$q | ["systematic","mixed","shotgun","unknown"] | index($q) != null) and (.techniques|type)=="array" and (.epoch|type)=="number")'"' phase2_notes/batch_03.json
+paste <(cut -f1 scripts/p2_batches/batch_03.tsv) <(jq -r '.[].ws_id' phase2_notes/batch_03.json) | awk '"'$1!=$2 {print "ORDER_MISMATCH", NR, $0; bad=1} END {if (!bad) print "ORDER_OK 80"}'"'
+wc -l phase2_notes/batch_03.md
+jq -r 'group_by(.cohort)|map(\"\\(.[0].cohort)=\\(length)\")|join(\" \")' phase2_notes/batch_03.json
+jq -r 'map(select(.cohort==\"near_miss\")) | map(.techniques[]) | group_by(.) | map(select(.[0]==\"asm-diff-instruction-level\" or .[0]==\"register-allocation-reasoning\" or .[0]==\"type-shape-experiments\" or .[0]==\"local-lifetime-scoping\" or .[0]==\"stack-padding-adjustment\") | \"\\(.[0])=\\(length)\"' phase2_notes/batch_03.json
+find phase2_notes -maxdepth 1 -type f -name 'batch_03.*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+true
+ORDER_OK 80
+      32 phase2_notes/batch_03.md
+exact=1 near_miss=19 no_progress=27 progressed=33
+jq: error: syntax error, unexpected $end, expecting ';' or ')' (Unix shell quoting issues?) at <top-level>, line 1:
+map(select(.cohort=="near_miss")) | map(.techniques[]) | group_by(.) | map(select(.[0]=="asm-diff-instruction-level" or .[0]=="register-allocation-reasoning" or .[0]=="type-shape-experiments" or .[0]=="local-lifetime-scoping" or .[0]=="stack-padding-adjustment") | "\(.[0])=\(length)"                                                                                                                                                                                                                                                                                           
+jq: 1 compile error
+phase2_notes/batch_03.json
+phase2_notes/batch_03.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d98e2bc57dd9804c6176abed2253930ac555c4ca
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 20 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4aeefc496715f117cbdce39644c51a0c21c30f3e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4aeefc496715f117cbdce39644c51a0c21c30f3e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+exec
+/bin/zsh -lc "jq -r 'map(select(.cohort==\"near_miss\")) | map(.techniques[]) | group_by(.) | map(select((.[0]==\"asm-diff-instruction-level\") or (.[0]==\"register-allocation-reasoning\") or (.[0]==\"type-shape-experiments\") or (.[0]==\"local-lifetime-scoping\") or (.[0]==\"stack-padding-adjustment\")) | .[] | \"\\(.[0])=\\(length)\"' phase2_notes/batch_03.json
+jq -e 'length == 80 and ([.[].ws_id] | unique | length == 80) and all(.[]; (keys == [\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"]) and (.loop_quality as "'$q | ["systematic","mixed","shotgun","unknown"] | index($q) != null))'"' phase2_notes/batch_03.json
+paste <(cut -f1 scripts/p2_batches/batch_03.tsv) <(jq -r '.[].ws_id' phase2_notes/batch_03.json) | awk '"'$1!=$2 {bad=1} END {print bad ? "ORDER_FAIL" : "ORDER_OK"; exit bad}'"'
+[ \""'$(wc -l < phase2_notes/batch_03.md)" -le 60 ] && echo MD_LINES_OK
+rg -n '"'79 workers|20 near-miss' phase2_notes/batch_03.md || true" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+jq: error: syntax error, unexpected $end, expecting ';' or ')' (Unix shell quoting issues?) at <top-level>, line 1:
+map(select(.cohort=="near_miss")) | map(.techniques[]) | group_by(.) | map(select((.[0]=="asm-diff-instruction-level") or (.[0]=="register-allocation-reasoning") or (.[0]=="type-shape-experiments") or (.[0]=="local-lifetime-scoping") or (.[0]=="stack-padding-adjustment")) | .[] | "\(.[0])=\(length)"                                                                                                                                                                                                                                                                                                           
+jq: 1 compile error
+true
+ORDER_OK
+MD_LINES_OK
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4aeefc496715f117cbdce39644c51a0c21c30f3e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+Validation passed: 80 unique records in TSV order, exact schema and loop-quality enums, and a 32-line Markdown report.
+  ✓ Load batch rows and assign artifact summaries to parallel readers
+  ✓ Consolidate evidence into one normalized record per row
+  ✓ Write JSON and ≤60-line Markdown summary
+  ✓ Validate files, counts, schema, and line limit
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4aeefc496715f117cbdce39644c51a0c21c30f3e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+codex
+DONE — 80 records.
+
+- [batch_03.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.json)
+- [batch_03.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md)
+
+Validated schema, TSV order, unique worker IDs, cohort counts, and the 32-line Markdown limit.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4aeefc496715f117cbdce39644c51a0c21c30f3e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md
+@@ -0,0 +1,32 @@
++# Batch 03 Self-Summary Sweep
++
++80 workers: 1 exact, 19 near-miss, 33 progressed, 27 no-progress.
++
++## Technique Counts by Cohort
++
++Counts below include every normalized technique slug used in the JSON.
++
++- **exact**: allocator-snapshot 1, asm-diff-instruction-level 1, assignment-in-condition 1, control-flow-restructure 1, helper-removal 1, local-temporary-recovery 1, permuter 1, register-allocation-reasoning 1, type-shape-experiments 1
++- **near_miss**: asm-diff-instruction-level 17, permuter 17, declaration-order-experiments 14, register-allocation-reasoning 14, type-shape-experiments 14, allocator-snapshot 10, checkpoint-restore 8, local-lifetime-scoping 6, pointer-lifetime-shaping 6, inline-hypothesis 5, past-pr-lookup 5, stack-padding-adjustment 5, loop-restructure 3, past-source-lookup 3, solved-analog-lookup 3, data-section-layout-analysis 2, float-literal-tricks 2, past-checkpoint-lookup 2, symbol-ownership-analysis 2, write-set-widening-request 2, alias-lifetime-experiments 1, anchored-buffer-indexing 1, config-metadata-analysis 1, control-flow-restructure 1, expression-reordering 1, helper-boundary-experiments 1, helper-reuse 1, linkage-experiments 1, local-temporary-recovery 1, macro-shape-restoration 1, parameter-lifetime-experiments 1, relocation-symbol-analysis 1, sibling-source-comparison 1, signed-loop-index 1, stack-layout-experiments 1, stack-layout-reasoning 1, struct-layout-analysis 1
++- **progressed**: permuter 24, register-allocation-reasoning 23, asm-diff-instruction-level 22, declaration-order-experiments 22, type-shape-experiments 18, checkpoint-restore 12, stack-layout-reasoning 9, inline-hypothesis 8, stack-padding-adjustment 8, local-lifetime-scoping 7, expression-reordering 6, sibling-source-comparison 6, allocator-snapshot 4, float-literal-tricks 3, loop-restructure 3, solved-analog-lookup 3, comparison-operand-order 2, past-checkpoint-lookup 2, pointer-lifetime-shaping 2, canonical-type-reuse 1, control-flow-restructure 1, cross-tu-signature-analysis 1, data-layout-reasoning 1, data-ownership-recovery 1, data-section-layout-analysis 1, expression-temporary 1, float-bit-pattern-experiments 1, float-register-flow-reasoning 1, header-signature-audit 1, helper-boundary-recovery 1, helper-reuse 1, inline-boundary-recovery 1, instruction-scheduling 1, local-value-caching 1, loop-condition-idiom 1, loop-counter-reuse 1, loop-counter-type-experiments 1, loop-lifetime-experiments 1, operand-order-experiments 1, past-pr-lookup 1, past-source-lookup 1, pointer-loop-restructure 1, raw-offset-diagnostic-probe 1, relocation-analysis 1, sdata-layout-reconstruction 1, stack-slot-shaping 1, struct-layout-analysis 1, symbol-metadata-lookup 1, temporary-materialization 1, temporary-removal 1, typed-field-accessors 1, volatile-local-experiment 1, volatile-temporary-array 1, write-set-widening 1, write-set-widening-request 1
++- **no_progress**: asm-diff-instruction-level 24, permuter 23, checkpoint-restore 21, type-shape-experiments 21, register-allocation-reasoning 20, allocator-snapshot 16, declaration-order-experiments 16, inline-hypothesis 9, loop-restructure 9, past-pr-lookup 8, past-source-lookup 6, local-lifetime-scoping 5, solved-analog-lookup 5, stack-padding-adjustment 4, pointer-lifetime-shaping 3, relocation-analysis 3, stack-layout-reasoning 3, float-literal-tricks 2, header-signature-audit 2, symbol-metadata-lookup 2, type-overlay-experiments 2, alias-lifetime-experiments 1, arithmetic-shape-experiments 1, bss-layout-reconstruction 1, comma-expression-experiments 1, cross-tu-signature-analysis 1, cross-tu-symbol-lookup 1, data-ownership-recovery 1, data-symbol-scope 1, function-signature-hypothesis 1, helper-boundary-experiments 1, helper-signature-experiments 1, initializer-shape-experiments 1, nearby-function-lookup 1, sdata-layout-reconstruction 1, sdata2-order-anchor 1, sibling-function-comparison 1, symbol-metadata-inspection 1, write-set-widening 1, write-set-widening-request 1
++
++## Exact-Worker Accounts
++
++The batch contains only one exact worker, so three exact accounts do not exist.
++
++- `4969abd6-8c73-496a-98bf-6c3546e57b2f`: The worker removed a synthetic one-use wrapper, assigned the typed result inside the condition, and introduced a local `HSD_JObj*`. Those changes broke the saved-register cycle and produced the target allocation at 100%.
++
++## Most Common Stall Reason by Cohort
++
++- **exact**: none; the sole worker finished.
++- **near_miss**: no exact phrase repeated. Register-allocation mismatches dominate, often a single register swap or short mismatch window.
++- **progressed**: `floating-point register allocation` (2); every other exact phrase occurs once.
++- **no_progress**: no exact phrase repeated. Whole-function register allocation, relocation ownership, and cross-TU signatures recur as broader families.
++
++## Surprises
++
++- Three no-progress workers had only upstream timeout summaries, so their technique and loop-quality fields remain empty or unknown.
++- `c9f70f07-808f-40b7-9499-864af58f6619` reached 100% with local externs, but review rejected the cross-TU declarations and the worker restored the compliant 98.47087% version.
++- `d96e39af-39e8-4bc9-adb9-2c0bdb77c1e7` reports a byte-exact direct object in one summary even though the batch labels it a 99.52941% near-miss.
++- Systematic loops dominate even among no-progress workers. The failures were usually compiler allocation or ownership constraints, not undiagnosed variant spam.
+
+tokens used
+127,338
+DONE — 80 records.
+
+- [batch_03.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.json)
+- [batch_03.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_03.md)
+
+Validated schema, TSV order, unique worker IDs, cohort counts, and the 32-line Markdown limit.

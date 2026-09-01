@@ -15,6 +15,7 @@ import type {
 } from "../types.js";
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
+import { knowledgeV2ToolPromptMetadata } from "../metadata/knowledge-v2.js";
 import {
   defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
@@ -33,6 +34,7 @@ export {
 
 const agentToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
   ...knowledgeToolPromptMetadata,
+  ...knowledgeV2ToolPromptMetadata,
   ...capabilityToolPromptMetadata,
 };
 

@@ -132,7 +132,6 @@ export function SyncIntakeStats({ sync }: { sync: HarnessStateSyncReadModel }) {
       <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-soft">
         <span>
           Found {num(sync.intake.merged_pr_count)} merged PRs
-          {discord?.staged ? ` · ${num(discord.staged.days)} days of Discord (${num(discord.staged.messages)} messages)` : ""}
         </span>
         {discord?.refresh?.status === "failed" ? (
           <span className="status-tag status-tag-warn" title={discord.refresh.detail ?? undefined}>
@@ -238,11 +237,9 @@ export function RepoSyncStats({ repoSync }: { repoSync: HarnessStateRepoSyncRead
 }
 
 export function SyncKnowledgeProgress({
-  discordDays,
   knowledgeJobs,
   upstreamOpen,
 }: {
-  discordDays: number;
   knowledgeJobs: HarnessStateSyncReadModel["knowledge_jobs"];
   upstreamOpen: number | null;
 }) {
@@ -258,7 +255,7 @@ export function SyncKnowledgeProgress({
         />
         <SyncKnowledgeProgressRow
           jobs={knowledgeJobs.discord}
-          label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches · ${discordDays} days`}
+          label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches`}
           progressLabel="Discord ingestion"
           trailing={null}
         />
@@ -376,8 +373,6 @@ export function SyncIngestFlow({
   upstreamOpen: number | null;
 }) {
   const refresh = sync.discord?.refresh;
-  const staged = sync.discord?.staged;
-  const corpus = sync.discord?.corpus;
   const knowledgeJobs = sync.knowledge_jobs;
   const pullState: SyncIngestStepState = busy || refresh?.status === "running" ? "active" : "done";
   const ingestState: SyncIngestStepState =
@@ -393,14 +388,7 @@ export function SyncIngestFlow({
         <div className="text-[11px] text-soft">Discovered {num(sync.intake.merged_pr_count)} merged PRs</div>
         {refresh?.status === "ok" ? (
           <div className="mt-1.5 text-[11px] text-dim">
-            {(staged?.batches ?? 0) > 0
-              ? `Discord: ${num(refresh.messages_pulled ?? 0)} new messages · ${num(staged?.batches ?? 0)} batches staged (${num(staged?.days ?? 0)} days)`
-              : "No new Discord messages"}
-          </div>
-        ) : null}
-        {corpus ? (
-          <div className="mt-1.5 text-[11px] text-dim">
-            Indexed corpus: {num(corpus.messages_indexed)} messages · {num(corpus.batches_done)} batches · through {corpus.through_month ?? "—"}
+            {refresh.messages_pulled ? `Discord: ${num(refresh.messages_pulled)} new messages` : "No new Discord messages"}
           </div>
         ) : null}
         {refresh?.status === "failed" ? (
@@ -425,7 +413,7 @@ export function SyncIngestFlow({
             {knowledgeJobs.discord.jobs_total > 0 ? (
               <SyncKnowledgeProgressRow
                 jobs={knowledgeJobs.discord}
-                label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches · ${num(staged?.days ?? 0)} days`}
+                label={`DISCORD: ${knowledgeJobs.discord.jobs_succeeded}/${knowledgeJobs.discord.jobs_total} batches`}
                 progressLabel="Discord ingestion"
                 trailing={null}
               />

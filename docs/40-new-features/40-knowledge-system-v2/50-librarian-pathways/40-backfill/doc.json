@@ -1,0 +1,550 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-36283c179fa54696bfc777100c21034d",
+  "title": "Backfill Pass",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-bfp-lede",
+        "pm-mtis6qgq-16-t4wog3",
+        "pm-mtis6qgq-17-u1j2b3",
+        "pm-mtis6qgq-18-xc97xx",
+        "b-ks2-bfp-outline-h",
+        "b-ks2-bfp-outline",
+        "b-ks2-bfp-ex-h",
+        "b-ks2-bfp-ex-intro",
+        "b-ks2-bfp-ex-input",
+        "b-ks2-bfp-ex-tools-h",
+        "b-ks2-bfp-ex-tools",
+        "b-ks2-bfp-ex-out-h",
+        "b-ks2-bfp-ex-out",
+        "b-ks2-bfp-ex-apply-h",
+        "b-ks2-bfp-ex-apply",
+        "b-ks2-bfp-ex-after",
+        "b-ks2-bfp-ex-note",
+        "b-ks2-bfp-related-h",
+        "b-ks2-bfp-rel-pathways",
+        "b-ks2-bfp-rel-migration",
+        "b-ks2-bfp-rel-fact",
+        "b-ks2-bfp-rel-evidence"
+      ]
+    },
+    "b-ks2-bfp-lede": {
+      "id": "b-ks2-bfp-lede",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The backfill librarian is the librarian role with a target-driven entry point: "
+        }
+      ],
+      "children": []
+    },
+    "pm-mtis6qgq-16-t4wog3": {
+      "id": "pm-mtis6qgq-16-t4wog3",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "given one subject and its assembled current record"
+        }
+      ],
+      "children": []
+    },
+    "pm-mtis6qgq-17-u1j2b3": {
+      "id": "pm-mtis6qgq-17-u1j2b3",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "pass every search surface and propose the writes that complete that subject's record. "
+        }
+      ],
+      "children": []
+    },
+    "pm-mtis6qgq-18-xc97xx": {
+      "id": "pm-mtis6qgq-18-xc97xx",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The unit of work is one pass over one target. Passes run in parallel lanes; each pass may write only inside its own scope — the target plus its linked mechanical entities — and curated "
+        },
+        {
+          "insert": "game_concept",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "/"
+        },
+        {
+          "insert": "pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " writes serialize through one shared gate, so parallel passes cannot clobber each other. Measured cost: about one minute of model time per pass."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-outline-h": {
+      "id": "b-ks2-bfp-outline-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "One pass, end to end"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-outline": {
+      "id": "b-ks2-bfp-outline",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Select — the runner takes the next target off the knowledge-first funnel (never-indexed, then 100% matched, then linked, then real-named symbol, then unit named-density, then direct material as tiebreak) and skips anything already stamped in subject_index_state."
+          },
+          {
+            "text": "Assemble the given context — mechanical, no model:",
+            "steps": [
+              {
+                "text": "the target row, its target_status, and its funnel columns;"
+              },
+              {
+                "text": "its full ledger: every worker_run with submissions, every pull_request row attributed to it;"
+              },
+              {
+                "text": "its translation unit: the unit entity, the unit view aggregate, the 15 most recent unit-attributed PR rows with the total count, and the member target list;"
+              },
+              {
+                "text": "the current knowledge record for the target and each linked mechanical entity (empty on pass 1);"
+              },
+              {
+                "text": "the write scope the apply layer will enforce: the target plus those linked entities."
+              }
+            ]
+          },
+          {
+            "text": "Spawn the backfill librarian — one prompt, the librarian_pass_v1 output contract inlined, and eight read-only search tools live: structured record tools first (attempt search, subject record, unit context, entity lookup), then keyword/vector text search over Discord, wiki, and PRs, with kv2_resolve_locator required before citing anything not already read in full. Search snippets are never evidence.",
+            "steps": [
+              {
+                "text": "The prompt's write discipline: proposal-only; one live fact per (subject, type); rationale argues from cited evidence; 0.99 maximum confidence; closed locator grammar only; events never citable; inferred_name is always a guess; only game_concept and pattern may be admitted; outcomes and scores never become facts.",
+                "kind": "note"
+              },
+              {
+                "text": "Sparseness: a fact type with nothing supportable is omitted, never filled with a placeholder — absence is correct output.",
+                "kind": "note"
+              },
+              {
+                "text": "Definition of done: every fill-out subject — each directly linked entity first, then the target — got its own research across all the resources and was considered; every supportable claim is proposed with citations read in full; the reply is one machine-processable JSON object.",
+                "kind": "note"
+              }
+            ]
+          },
+          {
+            "text": "Propose — the model returns exactly one machine-processable JSON object: facts (op write | clear, each with evidence citations and a rationale), links, curated-entity admissions, merges. Subjects are referenced by stable_key or locator, never database ids. No summary or narration fields — the object is the entire reply, and the model writes nothing."
+          },
+          {
+            "text": "Apply — the mechanical layer validates every item and performs the writes:",
+            "steps": [
+              {
+                "text": "shape and enums; subject resolution (never a guessed subject); scope enforcement (out-of-scope rejected, curated entities routed through the shared gate);"
+              },
+              {
+                "text": "every citation parsed under the closed grammar and resolved against a real store row — code:// spans read from the checkout with the digest computed here, never model-supplied;"
+              },
+              {
+                "text": "confidence above 0.99 is clamped to 0.99 and noted on the report item;"
+              },
+              {
+                "text": "one failed item is rejected with a reason and the pass continues; writes go through the same helpers as everything else."
+              }
+            ]
+          },
+          {
+            "text": "Stamp and record — subject_index_state gets a fresh indexed_at for the target and each entity written; a pass artifact (assembled context, proposal, per-item apply report, timings) is persisted for audit; the run log gets one line."
+          },
+          {
+            "text": "A dry-run pass executes every step, including the model and the full validation, then discards the transaction — nothing written, nothing stamped, artifact still produced.",
+            "kind": "note"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-bfp-ex-h": {
+      "id": "b-ks2-bfp-ex-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worked example — one pass on ftCo_800BFFD0"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-intro": {
+      "id": "b-ks2-bfp-ex-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every value below is a stub; every shape is the real one. The target is the section's running example — the hitstun decay helper at 100% match whose symbol is still the address-bodied "
+        },
+        {
+          "insert": "ftCo_800BFFD0",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The pass runs on pass-1 state: the store holds the raw material but the subject's knowledge record is empty."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-input": {
+      "id": "b-ks2-bfp-ex-input",
+      "type": "state-shape",
+      "props": {
+        "description": "What the runner assembles mechanically and hands to the agent — no model is involved in building this. The same object is persisted in the pass artifact for audit.",
+        "example": "{\n  \"task\": { \"run_id\": \"backfill-01\", \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n  \"subject\": { \"kind\": \"function\", \"address\": \"0x800BFFD0\", \"match_pct\": 100, \"linked\": true,\n               \"named_symbol\": false, \"unit_named_ratio\": 0.62 },\n  \"given_ledger\": { \"worker_runs\": [ { \"id\": \"run:7f3a…\", \"final_outcome\": \"match\", \"integration\": \"integrated\",\n                    \"submissions\": [ { \"seq\": 1, \"score\": 91.2 }, { \"seq\": 2, \"score\": 100.0 } ] } ],\n                    \"pull_requests\": [] },\n  \"unit_context\": { \"entity_locator\": \"src/melee/ft/ftcommon.c\", \"member_count\": 109,\n                    \"recent_prs\": [\"pr-1482--main-melee-ft-ftcommon\", \"…14 more\"], \"total_pr_count\": 99 },\n  \"subject_records\": { \"target\": { \"facts\": {}, \"links\": [] }, \"src/melee/ft/ftcommon.c\": { \"facts\": {}, \"links\": [] } },\n  \"scope\": { \"targetStableKeys\": [\"main/melee/ft/ftcommon:ftCo_800BFFD0\"],\n             \"entityLocators\": [\"src/melee/ft/ftcommon.c\"] }\n}",
+        "fields": [
+          {
+            "name": "task",
+            "type": "object",
+            "description": "The pass descriptor: run id and the one subject this pass owns"
+          },
+          {
+            "name": "subject",
+            "type": "object",
+            "description": "The target row, its target_status, and its funnel columns (matched, linked, named, unit_named_ratio)"
+          },
+          {
+            "name": "given_ledger",
+            "type": "object",
+            "description": "Pre-joined, complete: every worker_run with its submissions, every pull_request row attributed to the target"
+          },
+          {
+            "name": "unit_context",
+            "type": "object",
+            "description": "The translation_unit entity, the unit view aggregate, the 15 most recent unit-attributed PR rows with the total count, and the member target list"
+          },
+          {
+            "name": "subject_records",
+            "type": "object",
+            "description": "The assembled knowledge record for the target and each linked mechanical entity — empty on pass 1"
+          },
+          {
+            "name": "scope",
+            "type": "object",
+            "description": "The write territory the apply layer will enforce: the target plus its linked mechanical entities"
+          }
+        ],
+        "name": "backfill_pass_context"
+      },
+      "children": []
+    },
+    "b-ks2-bfp-ex-tools-h": {
+      "id": "b-ks2-bfp-ex-tools-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "The agent's search loop"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-tools": {
+      "id": "b-ks2-bfp-ex-tools",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Step",
+          "Tool call",
+          "What came back"
+        ],
+        "rows": [
+          [
+            "1",
+            "kv2_attempt_search { target: …:ftCo_800BFFD0 }",
+            "The given ledger's run confirmed: two scored submissions, 91.2 then 100.0, integrated; mechanical descriptions only (no narrative yet)"
+          ],
+          [
+            "2",
+            "kv2_discord_search { query: \"800BFFD0\" }",
+            "One hit: discord://message/1123581321 — \"pretty sure 800BFFD0 is the hitstun decay helper\""
+          ],
+          [
+            "3",
+            "kv2_resolve_locator { locator: discord://message/1123581321 }",
+            "The full message with its thread window — the author matched the function and names its role; snippets are never citable, so this read is required before citing"
+          ],
+          [
+            "4",
+            "kv2_wiki_search { query: \"hitstun\", mode: \"vector\" }",
+            "wiki://hitstun~formula@r2026-08-15 — the hitstun frame formula section"
+          ],
+          [
+            "5",
+            "kv2_entity_lookup { kind: \"game_concept\", locator_prefix: \"concept:hitstun\" }",
+            "No existing entity — safe to admit one instead of duplicating"
+          ],
+          [
+            "6",
+            "kv2_subject_record { entity_locator: \"src/melee/ft/ftcommon.c\" }",
+            "The unit entity's record: empty — the definition of done still requires it to be searched and considered; with nothing supportable, its correct output is simply no facts"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-bfp-ex-out-h": {
+      "id": "b-ks2-bfp-ex-out-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "The proposal the model returns"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-out": {
+      "id": "b-ks2-bfp-ex-out",
+      "type": "code",
+      "props": {
+        "annotations": [
+          {
+            "lines": "1-2",
+            "label": "directly processable",
+            "note": "The reply is exactly this JSON object — no prose wrapper, no summary fields; the apply layer consumes it as-is. A fact type with nothing supportable (data_flow here) is simply absent."
+          },
+          {
+            "lines": "3-8",
+            "label": "proposal only",
+            "note": "The model cites what it read and argues from it; it never writes rows, never supplies digests, never uses database ids. Confidence tops out at 0.99 by rule; the apply layer clamps anything higher."
+          }
+        ],
+        "language": "json"
+      },
+      "text": [
+        {
+          "insert": "{\n  \"facts\": [\n    { \"subject\": { \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n      \"type\": \"purpose\", \"op\": \"write\",\n      \"value\": \"Applies knockback decay to the fighter's velocity each frame while in hitstun.\",\n      \"rationale\": \"A decomp regular identifies this address as the hitstun decay helper after matching it, and the matched submission's scores held only once the decay loop ran.\",\n      \"confidence\": 0.8,\n      \"evidence\": [\n        { \"kind\": \"discord\", \"locator\": \"discord://message/1123581321\", \"why\": \"The author identifies 800BFFD0 as the hitstun decay helper\" },\n        { \"kind\": \"attempt\", \"locator\": \"attempt://run/run:7f3a…/submission/2\", \"why\": \"The submission that reached 100% with the decay loop in place\" } ] },\n    { \"subject\": { \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n      \"type\": \"inferred_name\", \"op\": \"write\",\n      \"value\": \"ftCommon_ApplyKnockbackDecay\",\n      \"rationale\": \"Named for the decay behaviour the thread describes; a guess, never a rename instruction.\",\n      \"confidence\": 0.6,\n      \"evidence\": [ { \"kind\": \"discord\", \"locator\": \"discord://message/1123581321\", \"why\": \"Community name for the behaviour\" } ] },\n    { \"subject\": { \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n      \"type\": \"game_mapping\", \"op\": \"write\",\n      \"value\": \"Implements the hitstun decay step of the knockback formula.\",\n      \"rationale\": \"The wiki formula section describes the per-frame decay this function performs.\",\n      \"confidence\": 0.75,\n      \"evidence\": [ { \"kind\": \"wiki\", \"locator\": \"wiki://hitstun~formula@r2026-08-15\", \"why\": \"The hitstun formula the behaviour matches\" } ] }\n  ],\n  \"links\": [\n    { \"from\": { \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n      \"to\": { \"entity_locator\": \"concept:hitstun\" },\n      \"role\": \"implements\", \"why\": \"Realizes the decay step of the hitstun mechanic\",\n      \"kind\": \"wiki\", \"locator\": \"wiki://hitstun~formula@r2026-08-15\" }\n  ],\n  \"entities\": [\n    { \"kind\": \"game_concept\", \"locator\": \"concept:hitstun\", \"note\": \"Needed as the subject of the game mapping; no existing entity found\" }\n  ],\n  \"merges\": []\n}"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-apply-h": {
+      "id": "b-ks2-bfp-ex-apply-h",
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "text": [
+        {
+          "insert": "What the apply layer did with it"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-apply": {
+      "id": "b-ks2-bfp-ex-apply",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Action",
+          "Effect"
+        ],
+        "rows": [
+          [
+            "entity concept:hitstun",
+            "applied",
+            "Admitted through the shared curated-entity gate (all parallel lanes serialize here); one entity row inserted"
+          ],
+          [
+            "fact purpose",
+            "applied",
+            "Both locators parsed and resolved to real rows; one fact row + two evidence rows written in one transaction"
+          ],
+          [
+            "fact inferred_name",
+            "applied",
+            "Stored as a guess; every worker-facing surface must render it with its confidence, never as the canonical name"
+          ],
+          [
+            "fact game_mapping",
+            "applied",
+            "The wiki locator resolved against the mirrored section; the fact can cite it forever — archival rows never drift"
+          ],
+          [
+            "link implements",
+            "applied",
+            "XOR-checked subject pair; inline citation carried on the row itself"
+          ],
+          [
+            "(counter-example) fact on another target",
+            "rejected: out_of_scope",
+            "A pass may write only inside its scope; a claim about a neighbouring function belongs to that target's own pass"
+          ],
+          [
+            "(counter-example) confidence 1.0",
+            "applied + note: confidence_clamped_to_0.99",
+            "Nothing here is ground truth; the lint clamps and flags rather than trusting certainty"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-bfp-ex-after": {
+      "id": "b-ks2-bfp-ex-after",
+      "type": "code",
+      "props": {
+        "language": "json"
+      },
+      "text": [
+        {
+          "insert": "// what the store holds after the pass (and the artifact records all three stages)\n{\n  \"fact\":   { \"id\": \"fact-01j9x2\", \"target_id\": \"target:function:main/melee/ft/ftcommon:ftCo_800BFFD0\",\n              \"type\": \"purpose\", \"confidence\": 0.8, \"updated_at\": \"2026-09-01T…\" },\n  \"evidence\": [ { \"fact_id\": \"fact-01j9x2\", \"kind\": \"discord\", \"locator\": \"discord://message/1123581321\" },\n                { \"fact_id\": \"fact-01j9x2\", \"kind\": \"attempt\", \"locator\": \"attempt://run/run:7f3a…/submission/2\" } ],\n  \"subject_index_state\": { \"target_id\": \"target:function:main/melee/ft/ftcommon:ftCo_800BFFD0\",\n                           \"indexed_at\": \"2026-09-01T…\" }\n}"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-ex-note": {
+      "id": "b-ks2-bfp-ex-note",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Dry run",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "A "
+        },
+        {
+          "insert": "--dry-run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " pass executes every step above — the model, the search loop, the full validation — then discards the transaction: nothing written, nothing stamped, and the artifact still captures the context, the proposal, and every per-item verdict."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-related-h": {
+      "id": "b-ks2-bfp-related-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-rel-pathways": {
+      "id": "b-ks2-bfp-rel-pathways",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways"
+            }
+          }
+        },
+        {
+          "insert": " — the agent roster, the one-writer discipline, and the indexing-state shapes a pass reads and stamps."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-rel-migration": {
+      "id": "b-ks2-bfp-rel-migration",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Migration, Pruning, and Rebuild",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild"
+            }
+          }
+        },
+        {
+          "insert": " — the initial-build phases this pass executes phase 3 of, and the prioritized target order."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-rel-fact": {
+      "id": "b-ks2-bfp-rel-fact",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact"
+            }
+          }
+        },
+        {
+          "insert": " — the claim shape every proposal converges on; the librarian is its only writer."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-rel-evidence": {
+      "id": "b-ks2-bfp-rel-evidence",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence"
+            }
+          }
+        },
+        {
+          "insert": " — the fact-owned citation rows the apply layer resolves before any write."
+        }
+      ],
+      "children": []
+    }
+  }
+}

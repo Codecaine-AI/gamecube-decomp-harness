@@ -10,10 +10,6 @@ import { FakeSandboxProvider, type SandboxProvider } from "@server/core/job-queu
 import type { TaskHandle, TaskSpec, WorkerExecutor } from "@server/core/job-queue/types.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import {
-  enqueueBackgroundKnowledgeForWorker,
-  startBackgroundKnowledgeProcessor,
-} from "@server/core/knowledge/background/index.js";
-import {
   admitEpochTargets,
   claimNextEpochTarget,
   createRun,
@@ -677,12 +673,11 @@ describe("worker job kind", () => {
     }
   }, 15_000);
 
-  test("completion enqueues knowledge only after close and requeues a released slot", () => {
+  test("completion requeues a released slot without stale sandbox enrichment", () => {
     const open = fixture();
     try {
       const result = claim(open);
       onWorkerJobComplete(result.job, {}, open.ctx);
-      expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 0 });
       attachJobPayload(open.store, result.token, {
         sandbox_id: "sandbox-dead",
         task_handle: { executorId: "executor-dead", handleId: "task-dead" },
@@ -696,7 +691,6 @@ describe("worker job kind", () => {
       open.store.db.query("UPDATE epoch_targets SET status = 'admitted' WHERE id = ?").run(open.epochTargetId);
       open.store.db.query("UPDATE jobs SET status = 'succeeded', completed_at = datetime('now') WHERE job_id = ?").run(result.job.jobId);
       onWorkerJobComplete(getJob(open.store, result.job.jobId)!, {}, open.ctx);
-      expect(open.store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind = 'knowledge_absorption' AND dedupe_key = ?").get(String(result.job.payload.worker_state_id))).toEqual({ count: 1 });
       const requeued = getJob(open.store, result.job.jobId);
       expect(requeued?.status).toBe("queued");
       expect(requeued?.payload).toEqual({
@@ -712,44 +706,6 @@ describe("worker job kind", () => {
         .toEqual({ worker_session_ids_json: "[]" });
       expect(fresh.job.payload.previous_response_id).toBeUndefined();
     } finally { open.store.db.close(); }
-  });
-
-  test("hung background knowledge does not block worker settlement", async () => {
-    const f = fixture();
-    let stopBackgroundKnowledge: ((options?: { maxWaitMs?: number }) => Promise<void>) | undefined;
-    try {
-      f.store.db
-        .query(
-          `INSERT INTO worker_state (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_id,
-            target_key, lifecycle_status, started_at, ended_at, summary_json)
-          VALUES ('knowledge-source', ?, 'past-epoch', 'past-target', 'past-claim', 'past-worker',
-            'past::symbol', 'finished', '2026-08-19T00:00:00.000Z', '2026-08-19T00:01:00.000Z', '{}')`,
-        )
-        .run(f.run.id);
-      enqueueBackgroundKnowledgeForWorker(f.store, "knowledge-source");
-      let knowledgeEntered = false;
-      stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
-        f.store,
-        () => {
-          knowledgeEntered = true;
-          return new Promise<never>(() => {});
-        },
-        { intervalMs: 1 },
-      );
-      await until(() => knowledgeEntered);
-
-      const result = claim(f);
-      f.store.db.query("UPDATE worker_state SET ended_at = datetime('now') WHERE id = ?").run(String(result.job.payload.worker_state_id));
-      f.store.db.query("UPDATE target_claims SET status = 'closed' WHERE id = ?").run(String(result.job.payload.target_claim_id));
-      f.store.db.query("UPDATE epoch_targets SET status = 'finished' WHERE id = ?").run(f.epochTargetId);
-      const descriptor = workerJobDescriptor(f.ctx);
-      workerKernelOps(f.ctx).completeJob(f.store, result.token, {}, { onComplete: descriptor.onComplete });
-
-      expect(getJob(f.store, result.job.jobId)?.status).toBe("succeeded");
-    } finally {
-      await stopBackgroundKnowledge?.({ maxWaitMs: 50 });
-      f.store.db.close();
-    }
   });
 
   test("claim-bound failures are terminal and unclaimed failures can retry", () => {

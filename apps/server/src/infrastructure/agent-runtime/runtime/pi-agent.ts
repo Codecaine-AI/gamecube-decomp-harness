@@ -13,6 +13,8 @@ import { applyProcessEnvPatch } from "./process-env.js";
 
 export interface PiRunOptions {
   role: RuntimeAgentRole;
+  /** Catalog agent id when it differs from the runtime role. */
+  catalogAgentId?: string;
   /** Existing host cwd used by Pi and Agent Kernel session/resource machinery. */
   cwd: string;
   /** Legacy host override for direct Pi callers whose cwd is still agent-visible. */

@@ -1,5 +1,4 @@
 export { agentRegistry, type RegisteredAgentId } from "./registry.js";
-export { librarianAgent, librarianPrompt, type LibrarianPromptOptions } from "@server/core/agent-catalog/agents/knowledge/librarian/index.js";
 export {
   agentToolProfileSummary,
   agentToolRegistry,

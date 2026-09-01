@@ -1,17 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
 
-import { stableJson } from "@server/core/knowledge/graph/util";
-import {
-  defaultBackfillManifestPath,
-  discordPayload,
-  loadBackfillManifest,
-  planDiscordIncrementalBatches,
-  type DiscordDescriptor,
-} from "@server/core/knowledge/jobs/librarian-backfill.js";
-import { sourceDataRoot, sourceStorageRoot } from "@server/core/knowledge/paths.js";
+import { sourceStorageRoot } from "@server/core/knowledge/paths.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 5 * 60 * 1_000;
@@ -90,70 +79,4 @@ export async function refreshDiscordMirror(options: {
       detail: `Discord mirror refresh failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
-}
-
-function writeJsonAtomically(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    writeFileSync(temporaryPath, `${stableJson(value)}\n`, "utf8");
-    renameSync(temporaryPath, path);
-  } finally {
-    rmSync(temporaryPath, { force: true });
-  }
-}
-
-export function stageDiscordSyncBatches(options: {
-  stateDir: string;
-}): {
-  corpusBatchIds: string[];
-  staged: number;
-  messageCount: number;
-  days: number;
-  channels: number;
-  firstMessageAt: string | null;
-  lastMessageAt: string | null;
-} {
-  const manifest = loadBackfillManifest(defaultBackfillManifestPath(options.stateDir, "discord"));
-  const batches = planDiscordIncrementalBatches({
-    rawRoot: resolve(sourceDataRoot("discord_raw"), "raw"),
-    manifest,
-  });
-  const stagedRoot = resolve(options.stateDir, "staged_corpora");
-  const dates = new Set<string>();
-  const channelIds = new Set<string>();
-  let firstTimestamp: number | null = null;
-  let lastTimestamp: number | null = null;
-
-  for (const batch of batches) {
-    const payload = discordPayload(batch);
-    const messages = Array.isArray(payload.messages) ? payload.messages : [];
-    for (const message of messages) {
-      if (typeof message !== "object" || message === null) continue;
-      if (typeof message.channel_id === "string") channelIds.add(message.channel_id);
-      if (typeof message.timestamp !== "string") continue;
-      const timestamp = Date.parse(message.timestamp);
-      if (!Number.isFinite(timestamp)) continue;
-      dates.add(new Date(timestamp).toISOString().slice(0, 10));
-      firstTimestamp = firstTimestamp === null ? timestamp : Math.min(firstTimestamp, timestamp);
-      lastTimestamp = lastTimestamp === null ? timestamp : Math.max(lastTimestamp, timestamp);
-    }
-    writeJsonAtomically(resolve(stagedRoot, `discord-${batch.batch_id}.json`), {
-      batch,
-      payload,
-    });
-  }
-
-  return {
-    corpusBatchIds: batches.map((batch) => `discord-${batch.batch_id}`),
-    staged: batches.length,
-    messageCount: batches.reduce(
-      (total, batch) => total + (batch.descriptor as DiscordDescriptor).message_count,
-      0,
-    ),
-    days: dates.size,
-    channels: channelIds.size,
-    firstMessageAt: firstTimestamp === null ? null : new Date(firstTimestamp).toISOString(),
-    lastMessageAt: lastTimestamp === null ? null : new Date(lastTimestamp).toISOString(),
-  };
 }

@@ -1,0 +1,585 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-1fb9-7ec2-b40e-0238908db9e8
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 07
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_07.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the repo’s worker-analysis reporting skill because this task audits worker summaries and produces a repeatable batch report. I’ll split the rows across parallel agents, then validate and write only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/.codex/skills/pi-agent-tool-analysis-report/SKILL.md' && wc -l scripts/p2_batches/batch_07.tsv && sed -n '1,8p' scripts/p2_batches/batch_07.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: pi-agent-tool-analysis-report
+description: "Build, rerun, update, and interpret the repo's Pi agent tool-analysis reports. Use when a user asks to regenerate reports/pi-agent-tool-analysis-*.html or *.stats.json, compare Pi worker sweeps, analyze worker tool usage/lift, review kill thresholds, update report HTML formatting, or preserve the repeatable report workflow from reports/."
+---
+
+# Pi Agent Tool Analysis Report
+
+Use this skill to refresh the Pi worker tool-analysis report from repo-local
+SQLite events and worker JSONL transcripts. Keep the existing analyzer and
+renderer scripts as the source of truth unless the user explicitly asks to
+change the report shape.
+
+For report semantics, HTML section expectations, and formatting notes, read
+`references/report-contract.md` before changing `scripts/analyze-pi-agent-tools.py`
+or `scripts/render-pi-agent-tool-report.py`.
+
+## Standard Workflow
+
+1. Work from the repository root. Inspect recent artifacts and current run
+   mapping:
+
+   ```bash
+   ls -t reports/pi-agent-tool-analysis-* 2>/dev/null | head -20
+   sed -n '/^RUNS = {/,/^}/p' scripts/analyze-pi-agent-tools.py
+   ```
+
+2. Discover candidate run IDs from the state database. Do not infer run IDs from
+   report filenames.
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   db = sqlite3.connect("projects/melee/state/orchestrator.sqlite")
+   rows = db.execute("""
+     SELECT run_id, COUNT(*) AS sessions, MIN(created_at), MAX(created_at)
+     FROM pi_sessions
+     WHERE role='worker'
+     GROUP BY run_id
+     ORDER BY MAX(created_at) DESC
+     LIMIT 12
+   """)
+   for run_id, sessions, first, last in rows:
+       print(f"{run_id}\t{sessions}\t{first}\t{last}")
+   PY
+   ```
+
+3. Map the baseline/control sweep to `run1` and the new/experiment/latest sweep
+   to `run2`. If the mapping needs to change, prefer the helper:
+
+   ```bash
+   python3 .codex/skills/pi-agent-tool-analysis-report/scripts/set-pi-tool-runs.py \
+     --run1 <baseline-or-control-run-id> \
+     --run2 <experiment-or-latest-run-id>
+   ```
+
+4. Build durable artifacts beside the report:
+
+   ```bash
+   export OUT="reports/pi-agent-tool-analysis-$(date +%F)"
+   python3 scripts/analyze-pi-agent-tools.py "${OUT}.stats.json"
+   python3 scripts/render-pi-agent-tool-report.py "${OUT}.stats.json" "${OUT}.html"
+   ```
+
+   Use a `/tmp/*.json` stats path only for scratch exploration. For a handoff or
+   rerunnable result, keep `reports/*.stats.json` next to `reports/*.html`.
+
+5. Validate the output before reporting success:
+
+   ```bash
+   python3 -m json.tool "${OUT}.stats.json" >/dev/null
+   python3 - <<'PY'
+   import json, os
+   out = os.environ.get("OUT", "reports/pi-agent-tool-analysis")
+   with open(out + ".stats.json") as f:
+       stats = json.load(f)
+   assert stats["leases"], "stats JSON has no leases"
+   assert {"run1", "run2"} <= set(stats["funnel"]), "missing run1/run2 funnel"
+   print(len(stats["leases"]), "leases")
+   PY
+   rg -n "\\{\\{|TODO|Traceback|nan" "${OUT}.html"
+   ```
+
+   `rg` returning no matches for the HTML check is expected.
+
+## Interpretation Rules
+
+- Treat `runner_validation` as canonical. "Confirmed" means result
+  `exact`/`improved` with validation status `passed`, not the worker's local
+  claim.
+- Compare runs by rate and worker-hours, not raw success count alone.
+- Keep `run1`/`run2` labels stable for the renderer: `run1` is the comparison
+  baseline, `run2` is the new run.
+- Remember that medium-thinking leases are filtered out by the analyzer; the
+  report is xhigh-only unless the script is intentionally changed.
+- Treat lift as correlational. Use it to choose exposure experiments, not to
+  declare a tool causally good or bad.
+- In-flight leases are excluded from terminal stats. Mid-run refreshes are fine,
+  but call out that the report is a snapshot.
+
+## HTML And Format Changes
+
+- Prefer changing `scripts/render-pi-agent-tool-report.py` and rerendering over
+  hand-editing generated HTML. If a one-off HTML edit is unavoidable, document
+  that in the report's method note.
+- Keep the report self-contained: inline CSS, no external JS, no remote assets.
+- Preserve the method/caveats block near the end and mention data sources,
+  included run IDs, in-flight exclusions, and runner validation.
+- When the user asks for branch-delta or "big sweep" formatting, use
+  `reports/pi-agent-tool-analysis-2026-06-16.html` as the current rich-layout
+  reference and include branch-delta data only when
+  `projects/melee/checkout/build/GALE01/report_changes_production.json` is
+  present and relevant.
+- After any tool surface change, update renderer tier lists before rerendering:
+  `PRIMARY_SURFACE_TOOLS`, `INJECTED_CONTEXT_TOOLS`, `AUTO_CLOSE_TOOLS`,
+  `SPECIALIST_TOOLS`, and the optional-action rules.
+      80 scripts/p2_batches/batch_07.tsv
+292b3454-3e30-4065-8263-c2125e249db1	no_progress	5	main/melee/mn/mndiagram::mnDiagram_DrawGridValues	97.065865	97.065865	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/292b3454-3e30-4065-8263-c2125e249db1
+6558c382-2529-4c70-8694-455fbb46ae6c	progressed	5	main/melee/mn/mndiagram2::mnDiagram2_CreateStatRow	98.48395499999998	98.5107	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6558c382-2529-4c70-8694-455fbb46ae6c
+5c3f5853-7d2e-440d-84fe-9813cee7cbbf	no_progress	5	main/sysdolphin/baselib/hsd_3B34::fn_803B376C	97.838615	97.838615	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5c3f5853-7d2e-440d-84fe-9813cee7cbbf
+01b1a776-3468-4a11-a21e-fc6793a834cf	no_progress	5	main/melee/gr/grkongo::grKongo_801D6AFC	97.22612999999998	97.22612999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/01b1a776-3468-4a11-a21e-fc6793a834cf
+1aebf12a-1adf-4832-b46e-138b9b783fe1	no_progress	5	main/melee/lb/lbcollision::lbColl_80006E58	96.76094	96.76094	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1aebf12a-1adf-4832-b46e-138b9b783fe1
+cc93395b-6486-443e-8cb1-2f0e043fded7	near_miss	5	main/melee/gm/gmstaffroll::fn_801AAB74	99.74940499999998	99.74940499999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/cc93395b-6486-443e-8cb1-2f0e043fded7
+beea07a9-e74b-4733-9a66-fa2c7cd1e918	near_miss	5	main/melee/ty/toy::_Toy_8030B530	99.77742	99.77742	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/beea07a9-e74b-4733-9a66-fa2c7cd1e918
+d97e0b86-4530-4683-8696-3607d4f9c868	near_miss	5	main/melee/gm/gm_1832::fn_80188644	99.81967	99.81967	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d97e0b86-4530-4683-8696-3607d4f9c868
+
+  → Read all 80 worker-summary sets in parallel
+  • Normalize evidence into one JSON record per TSV row
+  • Write the JSON and <=60-line Markdown report
+  • Validate row count, schema, evidence, and output scope
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv, glob, collections, os
+p='scripts/p2_batches/batch_07.tsv'
+rows=list(csv.DictReader(open(p), fieldnames=['ws_id','cohort','epoch','target_key','baseline_score','best_score','artifact_dir'], delimiter='\\t'))
+print('rows',len(rows),'cohorts',dict(collections.Counter(r['cohort'] for r in rows)))
+missing=[]; counts=collections.Counter()
+for r in rows:
+ f=glob.glob(os.path.join(r['artifact_dir'],'worker_*.txt'))
+ counts[len(f)]+=1
+ if not f: missing.append(r['ws_id'])
+print('summary file counts',dict(counts))
+print('missing',len(missing),*missing,sep='\\n')
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+rows 80 cohorts {'no_progress': 34, 'progressed': 26, 'near_miss': 20}
+summary file counts {5: 41, 3: 7, 1: 9, 4: 4, 7: 3, 9: 3, 2: 5, 6: 5, 8: 1, 10: 2}
+missing
+0
+
+codex
+Step 1 of 4 is in progress: all 80 rows have summary files, with 1–10 files per worker. This batch contains 34 no-progress, 26 progressed, 20 near-miss, and no exact workers, so the “interesting exact accounts” section will explicitly report that none exist.
+collab: Wait
+collab: Wait
+2026-09-01T15:05:37.200863Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:05:38.371376Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+2026-09-01T15:05:38.472378Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 of 4 is done: 80 worker accounts are analyzed. Step 2 is normalizing the agents’ evidence into TSV order and a shared slug vocabulary; no exact cohort exists in this batch.
+collab: Wait
+exec
+/bin/zsh -lc 'ls -l /tmp/b07_*.json 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+zsh:1: no matches found: /tmp/b07_*.json
+
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'ls -l /tmp/b07_*.json 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  wheel  11712 Sep  1 10:09 /tmp/b07_1.json
+-rw-r--r--@ 1 Ford  wheel  12192 Sep  1 10:10 /tmp/b07_2.json
+-rw-r--r--@ 1 Ford  wheel  11455 Sep  1 10:10 /tmp/b07_4.json
+
+collab: Wait
+apply patch
+patch: completed
+/tmp/build_b07.py
+diff --git a//tmp/build_b07.py b//tmp/build_b07.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bbc4060e5233c5418fcce4e9602900947b0ae58
+--- /dev/null
++++ b//tmp/build_b07.py
+@@ -0,0 +1,58 @@
++import csv, json
++from collections import Counter, defaultdict
++from pathlib import Path
++
++root=Path('/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01')
++parts=[]
++for i in range(1,5):
++    parts += json.loads(Path(f'/tmp/b07_{i}.json').read_text())
++
++# Normalize only clear synonym variants so cohort counts are meaningful.
++aliases = {
++ 'source-permuter':'permuter', 'stack-layout-analysis':'stack-layout-reasoning',
++ 'stack-frame-analysis':'stack-layout-reasoning', 'stack-frame-diagnostics':'stack-layout-reasoning',
++ 'compiler-stack-diagnostics':'stack-layout-reasoning', 'compiler-regflow-diagnostics':'register-flow-diagnostics',
++ 'regflow-diagnostics':'register-flow-diagnostics', 'ledger-history-review':'prior-ledger-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup', 'checkpoint-history-review':'checkpoint-restore',
++ 'declaration-reordering':'declaration-order-experiments', 'lifetime-manipulation':'variable-lifetime-experiments',
++ 'local-lifetime-experiments':'variable-lifetime-experiments', 'local-lifetime-shaping':'variable-lifetime-experiments',
++ 'variable-lifetime-shaping':'variable-lifetime-experiments', 'stack-padding-experiments':'stack-padding-tuning',
++ 'stack-padding-experiment':'stack-padding-tuning', 'related-function-comparison':'related-function-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup',
++}
++for r in parts:
++    r['techniques']=list(dict.fromkeys(aliases.get(x,x) for x in r['techniques']))
++
++tsv=list(csv.reader((root/'scripts/p2_batches/batch_07.tsv').open(),delimiter='\t'))
++assert len(parts)==len(tsv)==80
++assert [r['ws_id'] for r in parts]==[x[0] for x in tsv]
++fields={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
++assert all(set(r)==fields for r in parts)
++assert all(r['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for r in parts)
++assert all(r['cohort']==x[1] and str(r['epoch'])==x[2] and r['target_key']==x[3] for r,x in zip(parts,tsv))
++
++out=root/'phase2_notes'
++out.mkdir(exist_ok=True)
++(out/'batch_07.json').write_text(json.dumps(parts,indent=2)+'\n')
++
++by=defaultdict(Counter)
++for r in parts:
++    by[r['cohort']].update(r['techniques'])
++lines=['# Worker-audit Phase 2 — batch 07','',f'Workers: {len(parts)} (near_miss 20, progressed 26, no_progress 34, exact 0).','', '## Technique counts by cohort','']
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    if not by[cohort]:
++        lines.append(f'- **{cohort}:** none')
++    else:
++        lines.append(f'- **{cohort}:** '+', '.join(f'`{k}` {v}' for k,v in by[cohort].most_common()))
++lines += ['', '## Three most interesting exact-worker accounts','', 'No exact workers appear in batch 07, so there are no exact-worker accounts to rank.', '', '## Most common stall reason by cohort','']
++# Exact phrases are mostly unique; report ties honestly.
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    c=Counter(r['stall_reason'] for r in parts if r['cohort']==cohort and r['stall_reason'])
++    if not c: lines.append(f'- **{cohort}:** none')
++    else:
++        m=max(c.values()); vals=[k for k,v in c.items() if v==m]
++        lines.append(f'- **{cohort}:** '+('tie at 1 each across all recorded reasons' if m==1 else f'`{vals[0]}` ({m})'))
++lines += ['', '## Surprises','', '- Register-allocation reasoning dominated every populated cohort; many residuals were operand-coloring problems after instruction/control-flow shape already matched.', '- Workers repeatedly rejected higher-scoring candidates when they were semantically wrong, implausible authored source, or regressed an exact neighbor.', '- Tooling failures were material: several summaries used qemu-i386 workarounds or could not run official validation.', '- The batch has no exact workers despite containing 20 near misses, so it offers stall evidence but no self-reported closing factors.']
++(out/'batch_07.md').write_text('\n'.join(lines)+'\n')
++assert len(lines)<=60
++print(len(parts),len(lines))
+
+diff --git a//tmp/build_b07.py b//tmp/build_b07.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bbc4060e5233c5418fcce4e9602900947b0ae58
+--- /dev/null
++++ b//tmp/build_b07.py
+@@ -0,0 +1,58 @@
++import csv, json
++from collections import Counter, defaultdict
++from pathlib import Path
++
++root=Path('/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01')
++parts=[]
++for i in range(1,5):
++    parts += json.loads(Path(f'/tmp/b07_{i}.json').read_text())
++
++# Normalize only clear synonym variants so cohort counts are meaningful.
++aliases = {
++ 'source-permuter':'permuter', 'stack-layout-analysis':'stack-layout-reasoning',
++ 'stack-frame-analysis':'stack-layout-reasoning', 'stack-frame-diagnostics':'stack-layout-reasoning',
++ 'compiler-stack-diagnostics':'stack-layout-reasoning', 'compiler-regflow-diagnostics':'register-flow-diagnostics',
++ 'regflow-diagnostics':'register-flow-diagnostics', 'ledger-history-review':'prior-ledger-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup', 'checkpoint-history-review':'checkpoint-restore',
++ 'declaration-reordering':'declaration-order-experiments', 'lifetime-manipulation':'variable-lifetime-experiments',
++ 'local-lifetime-experiments':'variable-lifetime-experiments', 'local-lifetime-shaping':'variable-lifetime-experiments',
++ 'variable-lifetime-shaping':'variable-lifetime-experiments', 'stack-padding-experiments':'stack-padding-tuning',
++ 'stack-padding-experiment':'stack-padding-tuning', 'related-function-comparison':'related-function-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup',
++}
++for r in parts:
++    r['techniques']=list(dict.fromkeys(aliases.get(x,x) for x in r['techniques']))
++
++tsv=list(csv.reader((root/'scripts/p2_batches/batch_07.tsv').open(),delimiter='\t'))
++assert len(parts)==len(tsv)==80
++assert [r['ws_id'] for r in parts]==[x[0] for x in tsv]
++fields={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
++assert all(set(r)==fields for r in parts)
++assert all(r['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for r in parts)
++assert all(r['cohort']==x[1] and str(r['epoch'])==x[2] and r['target_key']==x[3] for r,x in zip(parts,tsv))
++
++out=root/'phase2_notes'
++out.mkdir(exist_ok=True)
++(out/'batch_07.json').write_text(json.dumps(parts,indent=2)+'\n')
++
++by=defaultdict(Counter)
++for r in parts:
++    by[r['cohort']].update(r['techniques'])
++lines=['# Worker-audit Phase 2 — batch 07','',f'Workers: {len(parts)} (near_miss 20, progressed 26, no_progress 34, exact 0).','', '## Technique counts by cohort','']
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    if not by[cohort]:
++        lines.append(f'- **{cohort}:** none')
++    else:
++        lines.append(f'- **{cohort}:** '+', '.join(f'`{k}` {v}' for k,v in by[cohort].most_common()))
++lines += ['', '## Three most interesting exact-worker accounts','', 'No exact workers appear in batch 07, so there are no exact-worker accounts to rank.', '', '## Most common stall reason by cohort','']
++# Exact phrases are mostly unique; report ties honestly.
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    c=Counter(r['stall_reason'] for r in parts if r['cohort']==cohort and r['stall_reason'])
++    if not c: lines.append(f'- **{cohort}:** none')
++    else:
++        m=max(c.values()); vals=[k for k,v in c.items() if v==m]
++        lines.append(f'- **{cohort}:** '+('tie at 1 each across all recorded reasons' if m==1 else f'`{vals[0]}` ({m})'))
++lines += ['', '## Surprises','', '- Register-allocation reasoning dominated every populated cohort; many residuals were operand-coloring problems after instruction/control-flow shape already matched.', '- Workers repeatedly rejected higher-scoring candidates when they were semantically wrong, implausible authored source, or regressed an exact neighbor.', '- Tooling failures were material: several summaries used qemu-i386 workarounds or could not run official validation.', '- The batch has no exact workers despite containing 20 near misses, so it offers stall evidence but no self-reported closing factors.']
++(out/'batch_07.md').write_text('\n'.join(lines)+'\n')
++assert len(lines)<=60
++print(len(parts),len(lines))
+
+exec
+/bin/zsh -lc 'test -f /tmp/build_b07.py && python3 /tmp/build_b07.py && python3 -m json.tool phase2_notes/batch_07.json >/dev/null && wc -l phase2_notes/batch_07.md && git status --short -- phase2_notes/batch_07.json phase2_notes/batch_07.md' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+80 28
+      28 phase2_notes/batch_07.md
+?? phase2_notes/batch_07.json
+?? phase2_notes/batch_07.md
+
+diff --git a//tmp/build_b07.py b//tmp/build_b07.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bbc4060e5233c5418fcce4e9602900947b0ae58
+--- /dev/null
++++ b//tmp/build_b07.py
+@@ -0,0 +1,58 @@
++import csv, json
++from collections import Counter, defaultdict
++from pathlib import Path
++
++root=Path('/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01')
++parts=[]
++for i in range(1,5):
++    parts += json.loads(Path(f'/tmp/b07_{i}.json').read_text())
++
++# Normalize only clear synonym variants so cohort counts are meaningful.
++aliases = {
++ 'source-permuter':'permuter', 'stack-layout-analysis':'stack-layout-reasoning',
++ 'stack-frame-analysis':'stack-layout-reasoning', 'stack-frame-diagnostics':'stack-layout-reasoning',
++ 'compiler-stack-diagnostics':'stack-layout-reasoning', 'compiler-regflow-diagnostics':'register-flow-diagnostics',
++ 'regflow-diagnostics':'register-flow-diagnostics', 'ledger-history-review':'prior-ledger-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup', 'checkpoint-history-review':'checkpoint-restore',
++ 'declaration-reordering':'declaration-order-experiments', 'lifetime-manipulation':'variable-lifetime-experiments',
++ 'local-lifetime-experiments':'variable-lifetime-experiments', 'local-lifetime-shaping':'variable-lifetime-experiments',
++ 'variable-lifetime-shaping':'variable-lifetime-experiments', 'stack-padding-experiments':'stack-padding-tuning',
++ 'stack-padding-experiment':'stack-padding-tuning', 'related-function-comparison':'related-function-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup',
++}
++for r in parts:
++    r['techniques']=list(dict.fromkeys(aliases.get(x,x) for x in r['techniques']))
++
++tsv=list(csv.reader((root/'scripts/p2_batches/batch_07.tsv').open(),delimiter='\t'))
++assert len(parts)==len(tsv)==80
++assert [r['ws_id'] for r in parts]==[x[0] for x in tsv]
++fields={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
++assert all(set(r)==fields for r in parts)
++assert all(r['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for r in parts)
++assert all(r['cohort']==x[1] and str(r['epoch'])==x[2] and r['target_key']==x[3] for r,x in zip(parts,tsv))
++
++out=root/'phase2_notes'
++out.mkdir(exist_ok=True)
++(out/'batch_07.json').write_text(json.dumps(parts,indent=2)+'\n')
++
++by=defaultdict(Counter)
++for r in parts:
++    by[r['cohort']].update(r['techniques'])
++lines=['# Worker-audit Phase 2 — batch 07','',f'Workers: {len(parts)} (near_miss 20, progressed 26, no_progress 34, exact 0).','', '## Technique counts by cohort','']
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    if not by[cohort]:
++        lines.append(f'- **{cohort}:** none')
++    else:
++        lines.append(f'- **{cohort}:** '+', '.join(f'`{k}` {v}' for k,v in by[cohort].most_common()))
++lines += ['', '## Three most interesting exact-worker accounts','', 'No exact workers appear in batch 07, so there are no exact-worker accounts to rank.', '', '## Most common stall reason by cohort','']
++# Exact phrases are mostly unique; report ties honestly.
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    c=Counter(r['stall_reason'] for r in parts if r['cohort']==cohort and r['stall_reason'])
++    if not c: lines.append(f'- **{cohort}:** none')
++    else:
++        m=max(c.values()); vals=[k for k,v in c.items() if v==m]
++        lines.append(f'- **{cohort}:** '+('tie at 1 each across all recorded reasons' if m==1 else f'`{vals[0]}` ({m})'))
++lines += ['', '## Surprises','', '- Register-allocation reasoning dominated every populated cohort; many residuals were operand-coloring problems after instruction/control-flow shape already matched.', '- Workers repeatedly rejected higher-scoring candidates when they were semantically wrong, implausible authored source, or regressed an exact neighbor.', '- Tooling failures were material: several summaries used qemu-i386 workarounds or could not run official validation.', '- The batch has no exact workers despite containing 20 near misses, so it offers stall evidence but no self-reported closing factors.']
++(out/'batch_07.md').write_text('\n'.join(lines)+'\n')
++assert len(lines)<=60
++print(len(parts),len(lines))
+
+All worker summaries were read, normalized, written, and validated against the 80 TSV rows.
+  ✓ Read all 80 worker-summary sets in parallel
+  ✓ Normalize evidence into one JSON record per TSV row
+  ✓ Write the JSON and <=60-line Markdown report
+  ✓ Validate row count, schema, evidence, and output scope
+diff --git a//tmp/build_b07.py b//tmp/build_b07.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bbc4060e5233c5418fcce4e9602900947b0ae58
+--- /dev/null
++++ b//tmp/build_b07.py
+@@ -0,0 +1,58 @@
++import csv, json
++from collections import Counter, defaultdict
++from pathlib import Path
++
++root=Path('/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01')
++parts=[]
++for i in range(1,5):
++    parts += json.loads(Path(f'/tmp/b07_{i}.json').read_text())
++
++# Normalize only clear synonym variants so cohort counts are meaningful.
++aliases = {
++ 'source-permuter':'permuter', 'stack-layout-analysis':'stack-layout-reasoning',
++ 'stack-frame-analysis':'stack-layout-reasoning', 'stack-frame-diagnostics':'stack-layout-reasoning',
++ 'compiler-stack-diagnostics':'stack-layout-reasoning', 'compiler-regflow-diagnostics':'register-flow-diagnostics',
++ 'regflow-diagnostics':'register-flow-diagnostics', 'ledger-history-review':'prior-ledger-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup', 'checkpoint-history-review':'checkpoint-restore',
++ 'declaration-reordering':'declaration-order-experiments', 'lifetime-manipulation':'variable-lifetime-experiments',
++ 'local-lifetime-experiments':'variable-lifetime-experiments', 'local-lifetime-shaping':'variable-lifetime-experiments',
++ 'variable-lifetime-shaping':'variable-lifetime-experiments', 'stack-padding-experiments':'stack-padding-tuning',
++ 'stack-padding-experiment':'stack-padding-tuning', 'related-function-comparison':'related-function-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup',
++}
++for r in parts:
++    r['techniques']=list(dict.fromkeys(aliases.get(x,x) for x in r['techniques']))
++
++tsv=list(csv.reader((root/'scripts/p2_batches/batch_07.tsv').open(),delimiter='\t'))
++assert len(parts)==len(tsv)==80
++assert [r['ws_id'] for r in parts]==[x[0] for x in tsv]
++fields={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
++assert all(set(r)==fields for r in parts)
++assert all(r['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for r in parts)
++assert all(r['cohort']==x[1] and str(r['epoch'])==x[2] and r['target_key']==x[3] for r,x in zip(parts,tsv))
++
++out=root/'phase2_notes'
++out.mkdir(exist_ok=True)
++(out/'batch_07.json').write_text(json.dumps(parts,indent=2)+'\n')
++
++by=defaultdict(Counter)
++for r in parts:
++    by[r['cohort']].update(r['techniques'])
++lines=['# Worker-audit Phase 2 — batch 07','',f'Workers: {len(parts)} (near_miss 20, progressed 26, no_progress 34, exact 0).','', '## Technique counts by cohort','']
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    if not by[cohort]:
++        lines.append(f'- **{cohort}:** none')
++    else:
++        lines.append(f'- **{cohort}:** '+', '.join(f'`{k}` {v}' for k,v in by[cohort].most_common()))
++lines += ['', '## Three most interesting exact-worker accounts','', 'No exact workers appear in batch 07, so there are no exact-worker accounts to rank.', '', '## Most common stall reason by cohort','']
++# Exact phrases are mostly unique; report ties honestly.
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    c=Counter(r['stall_reason'] for r in parts if r['cohort']==cohort and r['stall_reason'])
++    if not c: lines.append(f'- **{cohort}:** none')
++    else:
++        m=max(c.values()); vals=[k for k,v in c.items() if v==m]
++        lines.append(f'- **{cohort}:** '+('tie at 1 each across all recorded reasons' if m==1 else f'`{vals[0]}` ({m})'))
++lines += ['', '## Surprises','', '- Register-allocation reasoning dominated every populated cohort; many residuals were operand-coloring problems after instruction/control-flow shape already matched.', '- Workers repeatedly rejected higher-scoring candidates when they were semantically wrong, implausible authored source, or regressed an exact neighbor.', '- Tooling failures were material: several summaries used qemu-i386 workarounds or could not run official validation.', '- The batch has no exact workers despite containing 20 near misses, so it offers stall evidence but no self-reported closing factors.']
++(out/'batch_07.md').write_text('\n'.join(lines)+'\n')
++assert len(lines)<=60
++print(len(parts),len(lines))
+
+codex
+DONE — 80 records
+
+- [batch_07.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.json)
+- [batch_07.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.md)
+
+Validated JSON schema/order and the 28-line Markdown limit.
+diff --git a//tmp/build_b07.py b//tmp/build_b07.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bbc4060e5233c5418fcce4e9602900947b0ae58
+--- /dev/null
++++ b//tmp/build_b07.py
+@@ -0,0 +1,58 @@
++import csv, json
++from collections import Counter, defaultdict
++from pathlib import Path
++
++root=Path('/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01')
++parts=[]
++for i in range(1,5):
++    parts += json.loads(Path(f'/tmp/b07_{i}.json').read_text())
++
++# Normalize only clear synonym variants so cohort counts are meaningful.
++aliases = {
++ 'source-permuter':'permuter', 'stack-layout-analysis':'stack-layout-reasoning',
++ 'stack-frame-analysis':'stack-layout-reasoning', 'stack-frame-diagnostics':'stack-layout-reasoning',
++ 'compiler-stack-diagnostics':'stack-layout-reasoning', 'compiler-regflow-diagnostics':'register-flow-diagnostics',
++ 'regflow-diagnostics':'register-flow-diagnostics', 'ledger-history-review':'prior-ledger-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup', 'checkpoint-history-review':'checkpoint-restore',
++ 'declaration-reordering':'declaration-order-experiments', 'lifetime-manipulation':'variable-lifetime-experiments',
++ 'local-lifetime-experiments':'variable-lifetime-experiments', 'local-lifetime-shaping':'variable-lifetime-experiments',
++ 'variable-lifetime-shaping':'variable-lifetime-experiments', 'stack-padding-experiments':'stack-padding-tuning',
++ 'stack-padding-experiment':'stack-padding-tuning', 'related-function-comparison':'related-function-lookup',
++ 'past-ledger-lookup':'prior-ledger-lookup',
++}
++for r in parts:
++    r['techniques']=list(dict.fromkeys(aliases.get(x,x) for x in r['techniques']))
++
++tsv=list(csv.reader((root/'scripts/p2_batches/batch_07.tsv').open(),delimiter='\t'))
++assert len(parts)==len(tsv)==80
++assert [r['ws_id'] for r in parts]==[x[0] for x in tsv]
++fields={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
++assert all(set(r)==fields for r in parts)
++assert all(r['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for r in parts)
++assert all(r['cohort']==x[1] and str(r['epoch'])==x[2] and r['target_key']==x[3] for r,x in zip(parts,tsv))
++
++out=root/'phase2_notes'
++out.mkdir(exist_ok=True)
++(out/'batch_07.json').write_text(json.dumps(parts,indent=2)+'\n')
++
++by=defaultdict(Counter)
++for r in parts:
++    by[r['cohort']].update(r['techniques'])
++lines=['# Worker-audit Phase 2 — batch 07','',f'Workers: {len(parts)} (near_miss 20, progressed 26, no_progress 34, exact 0).','', '## Technique counts by cohort','']
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    if not by[cohort]:
++        lines.append(f'- **{cohort}:** none')
++    else:
++        lines.append(f'- **{cohort}:** '+', '.join(f'`{k}` {v}' for k,v in by[cohort].most_common()))
++lines += ['', '## Three most interesting exact-worker accounts','', 'No exact workers appear in batch 07, so there are no exact-worker accounts to rank.', '', '## Most common stall reason by cohort','']
++# Exact phrases are mostly unique; report ties honestly.
++for cohort in ['near_miss','progressed','no_progress','exact']:
++    c=Counter(r['stall_reason'] for r in parts if r['cohort']==cohort and r['stall_reason'])
++    if not c: lines.append(f'- **{cohort}:** none')
++    else:
++        m=max(c.values()); vals=[k for k,v in c.items() if v==m]
++        lines.append(f'- **{cohort}:** '+('tie at 1 each across all recorded reasons' if m==1 else f'`{vals[0]}` ({m})'))
++lines += ['', '## Surprises','', '- Register-allocation reasoning dominated every populated cohort; many residuals were operand-coloring problems after instruction/control-flow shape already matched.', '- Workers repeatedly rejected higher-scoring candidates when they were semantically wrong, implausible authored source, or regressed an exact neighbor.', '- Tooling failures were material: several summaries used qemu-i386 workarounds or could not run official validation.', '- The batch has no exact workers despite containing 20 near misses, so it offers stall evidence but no self-reported closing factors.']
++(out/'batch_07.md').write_text('\n'.join(lines)+'\n')
++assert len(lines)<=60
++print(len(parts),len(lines))
+
+tokens used
+70,622
+DONE — 80 records
+
+- [batch_07.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.json)
+- [batch_07.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_07.md)
+
+Validated JSON schema/order and the 28-line Markdown limit.

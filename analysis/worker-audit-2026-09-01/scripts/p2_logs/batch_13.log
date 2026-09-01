@@ -1,0 +1,1515 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-2004-7a60-90e5-35d6db65bcfb
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 13
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_13.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the worker-analysis reporting workflow because this is a parallel summary sweep. I’ll split the batch across sub-agents, then validate the merged evidence and write only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/.codex/skills/pi-agent-tool-analysis-report/SKILL.md'; printf '\\n---UNSLOP---\\n'; sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'; printf '\\n---BATCH---\\n'; wc -l scripts/p2_batches/batch_13.tsv; sed -n '1,12p' scripts/p2_batches/batch_13.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: pi-agent-tool-analysis-report
+description: "Build, rerun, update, and interpret the repo's Pi agent tool-analysis reports. Use when a user asks to regenerate reports/pi-agent-tool-analysis-*.html or *.stats.json, compare Pi worker sweeps, analyze worker tool usage/lift, review kill thresholds, update report HTML formatting, or preserve the repeatable report workflow from reports/."
+---
+
+# Pi Agent Tool Analysis Report
+
+Use this skill to refresh the Pi worker tool-analysis report from repo-local
+SQLite events and worker JSONL transcripts. Keep the existing analyzer and
+renderer scripts as the source of truth unless the user explicitly asks to
+change the report shape.
+
+For report semantics, HTML section expectations, and formatting notes, read
+`references/report-contract.md` before changing `scripts/analyze-pi-agent-tools.py`
+or `scripts/render-pi-agent-tool-report.py`.
+
+## Standard Workflow
+
+1. Work from the repository root. Inspect recent artifacts and current run
+   mapping:
+
+   ```bash
+   ls -t reports/pi-agent-tool-analysis-* 2>/dev/null | head -20
+   sed -n '/^RUNS = {/,/^}/p' scripts/analyze-pi-agent-tools.py
+   ```
+
+2. Discover candidate run IDs from the state database. Do not infer run IDs from
+   report filenames.
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   db = sqlite3.connect("projects/melee/state/orchestrator.sqlite")
+   rows = db.execute("""
+     SELECT run_id, COUNT(*) AS sessions, MIN(created_at), MAX(created_at)
+     FROM pi_sessions
+     WHERE role='worker'
+     GROUP BY run_id
+     ORDER BY MAX(created_at) DESC
+     LIMIT 12
+   """)
+   for run_id, sessions, first, last in rows:
+       print(f"{run_id}\t{sessions}\t{first}\t{last}")
+   PY
+   ```
+
+3. Map the baseline/control sweep to `run1` and the new/experiment/latest sweep
+   to `run2`. If the mapping needs to change, prefer the helper:
+
+   ```bash
+   python3 .codex/skills/pi-agent-tool-analysis-report/scripts/set-pi-tool-runs.py \
+     --run1 <baseline-or-control-run-id> \
+     --run2 <experiment-or-latest-run-id>
+   ```
+
+4. Build durable artifacts beside the report:
+
+   ```bash
+   export OUT="reports/pi-agent-tool-analysis-$(date +%F)"
+   python3 scripts/analyze-pi-agent-tools.py "${OUT}.stats.json"
+   python3 scripts/render-pi-agent-tool-report.py "${OUT}.stats.json" "${OUT}.html"
+   ```
+
+   Use a `/tmp/*.json` stats path only for scratch exploration. For a handoff or
+   rerunnable result, keep `reports/*.stats.json` next to `reports/*.html`.
+
+5. Validate the output before reporting success:
+
+   ```bash
+   python3 -m json.tool "${OUT}.stats.json" >/dev/null
+   python3 - <<'PY'
+   import json, os
+   out = os.environ.get("OUT", "reports/pi-agent-tool-analysis")
+   with open(out + ".stats.json") as f:
+       stats = json.load(f)
+   assert stats["leases"], "stats JSON has no leases"
+   assert {"run1", "run2"} <= set(stats["funnel"]), "missing run1/run2 funnel"
+   print(len(stats["leases"]), "leases")
+   PY
+   rg -n "\\{\\{|TODO|Traceback|nan" "${OUT}.html"
+   ```
+
+   `rg` returning no matches for the HTML check is expected.
+
+## Interpretation Rules
+
+- Treat `runner_validation` as canonical. "Confirmed" means result
+  `exact`/`improved` with validation status `passed`, not the worker's local
+  claim.
+- Compare runs by rate and worker-hours, not raw success count alone.
+- Keep `run1`/`run2` labels stable for the renderer: `run1` is the comparison
+  baseline, `run2` is the new run.
+- Remember that medium-thinking leases are filtered out by the analyzer; the
+  report is xhigh-only unless the script is intentionally changed.
+- Treat lift as correlational. Use it to choose exposure experiments, not to
+  declare a tool causally good or bad.
+- In-flight leases are excluded from terminal stats. Mid-run refreshes are fine,
+  but call out that the report is a snapshot.
+
+## HTML And Format Changes
+
+- Prefer changing `scripts/render-pi-agent-tool-report.py` and rerendering over
+  hand-editing generated HTML. If a one-off HTML edit is unavoidable, document
+  that in the report's method note.
+- Keep the report self-contained: inline CSS, no external JS, no remote assets.
+- Preserve the method/caveats block near the end and mention data sources,
+  included run IDs, in-flight exclusions, and runner validation.
+- When the user asks for branch-delta or "big sweep" formatting, use
+  `reports/pi-agent-tool-analysis-2026-06-16.html` as the current rich-layout
+  reference and include branch-delta data only when
+  `projects/melee/checkout/build/GALE01/report_changes_production.json` is
+  present and relevant.
+- After any tool surface change, update renderer tier lists before rerendering:
+  `PRIMARY_SURFACE_TOOLS`, `INJECTED_CONTEXT_TOOLS`, `AUTO_CLOSE_TOOLS`,
+  `SPECIALIST_TOOLS`, and the optional-action rules.
+
+---UNSLOP---
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+
+---BATCH---
+      80 scripts/p2_batches/batch_13.tsv
+2ad1de5b-64c4-4adf-b43b-80ab841da751	progressed	8	main/melee/ty/toy::_Toy_8030FE48	96.98606	99.25436	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/2ad1de5b-64c4-4adf-b43b-80ab841da751
+5b171ec6-d340-4396-b0f5-293b654ad17f	near_miss	8	main/melee/ft/ftcpuattack::ftCo_800B5AB0	99.39149	99.91915	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5b171ec6-d340-4396-b0f5-293b654ad17f
+84f60820-dd21-4c8a-99fb-c3f2eaa6d8ae	near_miss	8	main/melee/mn/mnruleplus::mn_802327A4	99.558014	99.59945	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/84f60820-dd21-4c8a-99fb-c3f2eaa6d8ae
+9c43e0b6-8ef0-4b34-b174-4537776cf2cb	progressed	8	main/melee/gm/gmclassic::gmClassic_OnLoad	95.6875	95.80952499999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/9c43e0b6-8ef0-4b34-b174-4537776cf2cb
+48312a2f-a758-4ace-a380-b813b50a5a23	exact	8	main/sysdolphin/baselib/hsd_3B34::fn_803B376C	97.85303	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/48312a2f-a758-4ace-a380-b813b50a5a23
+bb20ef8a-f439-446c-9aef-60e420e61844	progressed	8	main/melee/gr/grzebes::grZebes_801DBB60	99.17634	99.4442	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bb20ef8a-f439-446c-9aef-60e420e61844
+6d36ad5e-5e30-4f3c-89e8-3b9fadc214b0	progressed	8	main/melee/gm/gmtoulib::fn_8018AA74	98.91048399999998	99.204605	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6d36ad5e-5e30-4f3c-89e8-3b9fadc214b0
+8e3f0e33-f18f-4e11-853f-3690e0a37e31	progressed	8	main/melee/mn/mnsnap::mnSnap_80257F24	95.840805	96.04946	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8e3f0e33-f18f-4e11-853f-3690e0a37e31
+2277d86e-fa6f-4cab-8460-6371daf2a89c	near_miss	8	main/melee/ty/toy::_Toy_80309404	99.86011	99.86717	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/2277d86e-fa6f-4cab-8460-6371daf2a89c
+afba5872-77b2-4ebb-84fe-3676924c5031	progressed	8	main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings	95.91282	96.88718	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/afba5872-77b2-4ebb-84fe-3676924c5031
+14d4bc16-6e76-4f27-88f2-4f0ef630fb4f	exact	8	main/melee/gm/gm_1832::fn_80186634	99.99196999999998	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/14d4bc16-6e76-4f27-88f2-4f0ef630fb4f
+3417236f-0183-432c-834e-4d1f407e930f	near_miss	8	main/melee/gm/gmmain_lib::gmMainLib_8015DBF4	99.71429	99.75725	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3417236f-0183-432c-834e-4d1f407e930f
+
+  → Read all worker summaries and extract evidence-based records
+  • Normalize technique slugs and validate one record per batch row
+  • Write JSON and <=60-line Markdown summary
+  • Validate both outputs and print completion count
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv, glob, os, collections
+p='scripts/p2_batches/batch_13.tsv'
+rows=list(csv.DictReader(open(p), fieldnames=['ws_id','cohort','epoch','target_key','baseline_score','best_score','artifact_dir'], delimiter='\\t'))
+print('rows',len(rows),'cohorts',dict(collections.Counter(r['cohort'] for r in rows)))
+missing=[]; hist=collections.Counter()
+for i,r in enumerate(rows,1):
+    fs=glob.glob(os.path.join(r['artifact_dir'],'worker_*.txt'))
+    hist[len(fs)]+=1
+    if not fs: missing.append((i,r['ws_id'],r['artifact_dir']))
+print('summary_file_hist',dict(hist))
+print('missing',len(missing))
+for x in missing: print(*x,sep='\\t')
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+rows 80 cohorts {'progressed': 34, 'near_miss': 29, 'exact': 10, 'no_progress': 7}
+summary_file_hist {4: 8, 2: 17, 1: 17, 3: 6, 5: 6, 6: 3, 17: 1, 7: 2, 9: 3, 10: 3, 8: 2, 24: 2, 18: 2, 22: 1, 11: 1, 19: 3, 16: 1, 26: 1, 13: 1}
+missing 0
+
+codex
+Step 1 is in progress: 80 rows split into four 20-row reads. All artifact directories have summaries; several contain far more than the expected 1–3 files, so the sweep is reading the full set rather than sampling.
+collab: Wait
+collab: Wait
+collab: Wait
+2026-09-01T15:06:00.609192Z ERROR codex_core::tools::router: error=collab tool failed: agent thread limit reached
+2026-09-01T15:06:01.665458Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 is done: every summary was read. I’m now reconciling a boundary issue caused by the headerless TSV, then I’ll normalize slugs and generate the two deliverables.
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_13.tsv | sed -n '38,64p'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    38	7c1eb97d-a184-49d8-8483-b40183fbc3cf	near_miss	8	main/melee/gr/grgreens::grGreens_80215ED8	99.3925	99.81262	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7c1eb97d-a184-49d8-8483-b40183fbc3cf
+    39	5e35addb-66e2-40dc-8158-82790803d3b5	progressed	8	main/sysdolphin/baselib/debugconsole_main::hsd_80394F48	98.18135	98.492226	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5e35addb-66e2-40dc-8158-82790803d3b5
+    40	1f90ff08-668c-4220-a539-1c02ccc959a8	progressed	8	main/melee/gm/gmstaffroll::fn_801AB200	99.27535999999999	99.28146	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1f90ff08-668c-4220-a539-1c02ccc959a8
+    41	4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae	near_miss	8	main/melee/gm/gmtou_2::gm_8019E634	99.746376	99.746376	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae
+    42	164a5125-8b22-4042-bb39-9c415709c3dd	progressed	8	main/melee/gm/gmregclear::fn_80180630	96.81506999999999	97.46575	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/164a5125-8b22-4042-bb39-9c415709c3dd
+    43	b462213f-8de6-4054-829b-30c5fd365817	progressed	8	main/melee/mn/mnnamenew::mnNameNew_MainInput	93.58854	94.701385	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/b462213f-8de6-4054-829b-30c5fd365817
+    44	90db38d8-911b-462a-9077-d0281e7c2aac	near_miss	8	main/melee/mn/mnitemsw::mnItemSw_8023453C	99.59728	99.61991	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/90db38d8-911b-462a-9077-d0281e7c2aac
+    45	55a8f8f5-1ba6-40d6-995e-4f291d9b3232	progressed	8	main/melee/mn/mndiagram::mnDiagram_InputProc	98.96815499999998	99.00636999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/55a8f8f5-1ba6-40d6-995e-4f291d9b3232
+    46	04f2403d-aa64-462f-b1a4-fa79875b317f	near_miss	8	main/melee/gr/grbigblueroute::grBigBlueRoute_8020C85C	99.08197	99.63934	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/04f2403d-aa64-462f-b1a4-fa79875b317f
+    47	1c664866-f9bc-49b5-ae4f-b3793934d179	progressed	8	main/melee/mn/mnvibration::mnVibration_HandleInput	97.0191	97.45566	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1c664866-f9bc-49b5-ae4f-b3793934d179
+    48	f490043e-f110-44fb-b9da-921a3d94e430	near_miss	8	main/melee/gm/gmregclear::gm_8017CE34	99.76073	99.942245	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f490043e-f110-44fb-b9da-921a3d94e430
+    49	96e66c52-179f-466a-a17f-85f40d51f972	near_miss	8	main/melee/gm/gm_19EF::fn_8019F9C4	99.48226	99.63758	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/96e66c52-179f-466a-a17f-85f40d51f972
+    50	c898913a-97e4-43a8-9789-cf819b25f031	progressed	8	main/melee/lb/lbsnap::lbSnap_8001DA5C	67.638885	67.64815	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c898913a-97e4-43a8-9789-cf819b25f031
+    51	70af6d34-6f0d-49b4-b8c1-487e4dab638b	near_miss	8	main/melee/gr/grbigblue::grBigBlue_801E93D8	99.70192	99.76649	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/70af6d34-6f0d-49b4-b8c1-487e4dab638b
+    52	608e32ab-67ff-4ed0-b896-390cf4a71b91	progressed	8	main/melee/gr/grbigblue::grBigBlue_801EC6C0	98.68493	98.7363	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/608e32ab-67ff-4ed0-b896-390cf4a71b91
+    53	7f6d06ae-50d8-4a00-9dcf-61aaf5064722	progressed	8	main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC	97.66422999999999	97.759125	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7f6d06ae-50d8-4a00-9dcf-61aaf5064722
+    54	6163124c-0934-4906-a45b-0b2ca783eb6a	exact	8	main/melee/gr/granime::grAnime_801C6A54	99.681816	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6163124c-0934-4906-a45b-0b2ca783eb6a
+    55	7b18104c-3ad2-41cc-80af-9d4c6d9333b8	near_miss	8	main/melee/mn/mnsnap::fn_802545C4	99.76585	99.79949	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7b18104c-3ad2-41cc-80af-9d4c6d9333b8
+    56	fee0a848-4f0b-4c20-b86d-3150c65f84d2	progressed	8	main/melee/mn/mnvibration::mnVibration_Think	98.33333599999999	98.583336	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fee0a848-4f0b-4c20-b86d-3150c65f84d2
+    57	83e91335-680a-4920-845b-68262563af48	progressed	8	main/sysdolphin/baselib/hsd_3B5C::fn_803B6820	91.25310999999999	92.24896	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/83e91335-680a-4920-845b-68262563af48
+    58	731a1c70-e126-4bb6-84d1-036cc6e1dc91	no_progress	8	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A4038	99.37391999999998	99.37391999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/731a1c70-e126-4bb6-84d1-036cc6e1dc91
+    59	d5049af5-a570-46f5-9c33-e9910b2abe50	exact	8	main/melee/gr/granime::grAnime_801C7228	99.06735999999998	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d5049af5-a570-46f5-9c33-e9910b2abe50
+    60	80fd03f3-4a66-4c78-aad7-36f0f0da368b	progressed	8	main/melee/gr/grbigblue::grBigBlue_801E6C60	99.15197	99.17511	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/80fd03f3-4a66-4c78-aad7-36f0f0da368b
+    61	4908c601-5787-4f1f-bdf7-d96caaadfdee	progressed	8	main/melee/gm/gmtou_1::fn_8019A158	99.46342	99.47154	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4908c601-5787-4f1f-bdf7-d96caaadfdee
+    62	f4d7c3de-bae0-42dd-8930-ba2d690de7d6	near_miss	8	main/melee/gm/gmregclear::gm_80182578	98.56764	99.73475	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f4d7c3de-bae0-42dd-8930-ba2d690de7d6
+    63	9965ee7b-1661-4a09-ad8d-13b208a1f0ed	near_miss	8	main/sysdolphin/baselib/hsd_3B5C::fn_803B61B4	99.41606	99.93916999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/9965ee7b-1661-4a09-ad8d-13b208a1f0ed
+    64	ba71da9a-af1a-4db0-b548-fcb8e3aa0d97	near_miss	8	main/melee/gm/gm_1832::fn_80188644	99.81967	99.81967	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ba71da9a-af1a-4db0-b548-fcb8e3aa0d97
+
+exec
+/bin/zsh -lc 'd=$(awk -F '"'\\t' 'NR==41{print "'$7}'"' scripts/p2_batches/batch_13.tsv); for f in \""'$d"/worker_*.txt; do printf '"'\\nFILE %s\\n' \""'$f"; sed -n '"'1,220p' \""'$f"; done' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+
+FILE /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae/worker_01a04ae4-4922-7488-8890-4f86a8a6b4d1.txt
+{
+  "summary": "Diagnosed the final mismatch as a return-type conflict at fn_80166CBC. With the current u8 declaration, MWCC inserts a caller-side `clrlwi r0, r3, 24`; the reference stores r3 directly. Explicit casts and masking in gm_8019E634 did not alter code generation. As a diagnostic, removing gm_1601.h from the approved source made gm_8019E634 pass at 100%, confirming that an s32-returning declaration produces the required call shape. That include removal was reverted because it violates require-protos and truthful-header requirements. No source edits are retained.",
+  "target": {
+    "unit": "main/melee/gm/gmtou_2",
+    "symbol": "gm_8019E634",
+    "source_path": "src/melee/gm/gmtou_2.c"
+  },
+  "status": "blocked_on_canonical_declaration_widening",
+  "validation": {
+    "baseline_checkdiff": "gm_8019E634: FAIL (99.74638%); only remaining semantic mismatch is the caller-side clrlwi and destination register at the fn_80166CBC result store.",
+    "diagnostic_checkdiff": "gm_8019E634: PASS (100.00000%) when the u8 declaration was hidden by temporarily removing the owning include.",
+    "diagnostic_direct_compile": "PASS; artifact retained at /opt/melee/build/orchestrator-direct-compile/melee_gm_gmtou_2-651754e3.o",
+    "neighbor_check": "fn_80166CBC: PASS (100.00000%) with the current implementation.",
+    "retained_diff": "none",
+    "unresolved_local_regression": "none"
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "src/melee/gm/gm_1601.h"
+    ],
+    "category": "owning-header",
+    "rung": 3,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "fn_80166CBC",
+        "current": "u8 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "required": "s32 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "expected_owner": "src/melee/gm/gm_1601.h"
+      },
+      "objdiff": {
+        "unit": "main/melee/gm/gmtou_2",
+        "score_without": 99.74638,
+        "score_with": 100.0,
+        "artifact_path": "/opt/melee/build/orchestrator-direct-compile/melee_gm_gmtou_2-651754e3.o"
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "Tried an explicit `(u8)` conversion and `& 0xFF` at the result assignment; both remained at 99.74638% because the visible u8 return declaration already forces MWCC's caller-side zero extension. Temporarily removing gm_1601.h reached 100%, but was reverted because relying on an implicit declaration fails the require-protos/truthful-header gates.",
+        "rung2_config": "No config or metadata discrepancy is involved. The diff is one return-width-induced instruction in generated caller code.",
+        "rung3_header": "src/melee/gm/gm_1601.h canonically owns fn_80166CBC. Widening its return type to s32 is required before the target can retain the exact code shape with a valid prototype. The matching implementation in gm_1601.c may subsequently require a rung-4 source-signature update after the header change is measured."
+      }
+    }
+  }
+}
+FILE /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae/worker_01a04ae9-0dd0-7a95-aa8f-dcc33768f2e4.txt
+{
+  "summary": "The target-local search is exhausted. The sole mismatch is caused by fn_80166CBC's u8 prototype: MWCC inserts `clrlwi r0, r3, 24` before storing into the s32 results array, while the reference stores r3 directly. A 500-candidate source-permuter search found no improvement, and a typed-union function-pointer experiment regressed to 98.01208% and was reverted. Fresh diagnostic validation reached 100% when gm_1601.h was hidden, confirming the required wider return declaration. Git history further shows commit 4fead8b added gm_1601.h solely as a require-protos boundary fix after commit 937ed76 removed it. No edits are retained because removing the owning include or adding a local declaration shim violates the prototype and header standards.",
+  "status": "blocked_on_canonical_declaration_widening",
+  "target": {
+    "unit": "main/melee/gm/gmtou_2",
+    "symbol": "gm_8019E634",
+    "source_path": "src/melee/gm/gmtou_2.c"
+  },
+  "validation": {
+    "retained_checkdiff": "FAIL (99.74638%); only clrlwi/store destination mismatch remains",
+    "diagnostic_checkdiff": "PASS (100.00000%) with gm_1601.h temporarily hidden",
+    "callee_checkdiff": "fn_80166CBC: PASS",
+    "source_permuter": "500 candidates; no improvement over baseline",
+    "retained_diff": "none",
+    "unresolved_local_regression": "none"
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "src/melee/gm/gm_1601.h"
+    ],
+    "category": "owning-header",
+    "rung": 3,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "fn_80166CBC",
+        "current": "u8 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "required": "s32 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "expected_owner": "src/melee/gm/gm_1601.h"
+      },
+      "objdiff": {
+        "unit": "main/melee/gm/gmtou_2",
+        "score_without": 99.74638,
+        "score_with": 100.0
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "Explicit conversion/masking attempts cannot remove the ABI-mandated zero extension. A typed-union function-pointer attempt emitted indirect-call code and regressed to 98.01208%; 500 source-permuter candidates found no improvement. Hiding gm_1601.h reached 100% but cannot be retained because it violates require-protos and truthful-header rules.",
+        "rung2_config": "No symbol, split, or relocation metadata discrepancy exists. The mismatch is exactly one caller-side return-width conversion. Git commit 4fead8b added the include solely as a require-protos boundary fix.",
+        "rung3_header": "gm_1601.h canonically owns fn_80166CBC. Its return must be widened to s32. The matching implementation in src/melee/gm/gm_1601.c will then require the corresponding rung-4 source-signature update; its current generated function body is already exact."
+      }
+    }
+  }
+}
+FILE /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae/worker_01a04aef-788e-7a43-9f72-50b4ec3a9836.txt
+{
+  "summary": "No source-local, standards-compliant fix is available. The remaining mismatch is the caller-side zero extension caused by fn_80166CBC being declared as u8. I tested a direct cast to an s32-returning function pointer; MWCC emitted indirect-call code and regressed gm_8019E634 to 98.07971%, so it was reverted. Ledger and git-history evidence corroborate that TU-local prototype aliases, pointer casts, and removing the owning include are dead ends or violate hard QA rules.",
+  "status": "blocked_on_canonical_declaration_widening",
+  "target": {
+    "unit": "main/melee/gm/gmtou_2",
+    "symbol": "gm_8019E634",
+    "source_path": "src/melee/gm/gmtou_2.c"
+  },
+  "validation": {
+    "retained_checkdiff": "gm_8019E634: FAIL (99.74638%); only clrlwi r0, r3, 24 followed by stw r0 instead of stw r3 remains",
+    "callee_checkdiff": "fn_80166CBC: PASS (100.00000%)",
+    "direct_function_pointer_cast_probe": "98.07971%; reverted",
+    "retained_diff": "none",
+    "unresolved_local_regression": "none"
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "src/melee/gm/gm_1601.h"
+    ],
+    "category": "owning-header",
+    "rung": 3,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "fn_80166CBC",
+        "current": "u8 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "required": "s32 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "expected_owner": "src/melee/gm/gm_1601.h"
+      },
+      "objdiff": {
+        "unit": "main/melee/gm/gmtou_2",
+        "score_without": 99.74638,
+        "score_with": 100.0
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "The visible u8 prototype forces MWCC to emit clrlwi after the direct call. A direct incompatible function-pointer cast emitted an indirect call and regressed to 98.07971%; prior typed-union, alias, conversion, and 500-candidate permuter attempts also failed. Removing gm_1601.h produces exact code but violates require-protos and truthful-header standards.",
+        "rung2_config": "The symbol address, split, relocation, and callee object are already correct; fn_80166CBC itself passes at 100%. The mismatch is solely return-width typing in the caller.",
+        "rung3_header": "gm_1601.h canonically owns fn_80166CBC. Git history shows the exact target previously omitted this header, then commit 4fead8b added it as a require-protos boundary fix and exposed the narrow-return mismatch. Widening the owning declaration is required; src/melee/gm/gm_1601.c will subsequently need the corresponding source-signature update."
+      }
+    }
+  }
+}
+FILE /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae/worker_01a04af3-e5ea-7df0-a528-f487722d7b6b.txt
+{
+  "summary": "No retainable source-local fix exists for the remaining return-width mismatch. I tested an inline s32 identity helper around fn_80166CBC; it retained the unwanted zero-extension, enlarged the stack frame, and regressed gm_8019E634 to 99.70773%. A local s32 function-pointer variable required an incompatible cast, emitted an indirect call, and regressed to 98.46619%. Both probes were reverted. Local source and historical evidence support widening the canonical fn_80166CBC return type.",
+  "status": "blocked_on_canonical_declaration_widening",
+  "target": {
+    "unit": "main/melee/gm/gmtou_2",
+    "symbol": "gm_8019E634",
+    "source_path": "src/melee/gm/gmtou_2.c"
+  },
+  "validation": {
+    "retained_checkdiff": "gm_8019E634: FAIL (99.74638%); sole mismatch is clrlwi r0, r3, 24 plus stw r0 instead of direct stw r3 after fn_80166CBC",
+    "callee_checkdiff": "fn_80166CBC: PASS (100.00000%)",
+    "inline_identity_probe": "99.70773%; retained clrlwi and changed frame from 0x50 to 0x58; reverted",
+    "local_function_pointer_probe": "98.46619%; emitted indirect blrl call; reverted",
+    "retained_diff": "none",
+    "unresolved_local_regression": "none"
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "src/melee/gm/gm_1601.h"
+    ],
+    "category": "owning-header",
+    "rung": 3,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "fn_80166CBC",
+        "current": "u8 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "required": "s32 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "expected_owner": "src/melee/gm/gm_1601.h"
+      },
+      "objdiff": {
+        "unit": "main/melee/gm/gmtou_2",
+        "score_without": 99.74638,
+        "score_with": 100.0
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "The visible u8 prototype forces MWCC to zero-extend the direct-call result. Direct and local function-pointer casts emit indirect calls and regress substantially. An inline s32 identity helper also retained the extension and regressed stack layout. Removing the owning include produces exact code but violates require-protos and truthful-header requirements.",
+        "rung2_config": "The symbol address, relocation target, split metadata, and callee object are correct. fn_80166CBC itself passes at 100%; this is solely caller-side return-width typing.",
+        "rung3_header": "gm_1601.h canonically owns fn_80166CBC. The target stores the returned register directly as s32, and historical signature-recovery evidence notes that helpers loading byte fields may nevertheless return int. Widening the declaration removes the sole target mismatch; src/melee/gm/gm_1601.c will then require the corresponding source-signature update."
+      }
+    }
+  }
+}
+FILE /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae/worker_01a04af9-75c4-7c80-bdc5-07a231f5e49b.txt
+{
+  "summary": "No retainable target-local edit was found. The remaining mismatch is dictated by the canonical u8 declaration of fn_80166CBC: MWCC inserts clrlwi r0, r3, 24 before storing the call result, while the target stores r3 directly. I tested a direct s32 function-pointer cast, no-op integer promotion, and a constant conditional expression; the cast regressed to 98.07971% by producing indirect-call/register-allocation changes, while both expression probes remained at 99.74638% with the same clrlwi. A 500-candidate source-permuter search also found no improvement. All probes were reverted.",
+  "status": "blocked_on_canonical_declaration_widening",
+  "target": {
+    "unit": "main/melee/gm/gmtou_2",
+    "symbol": "gm_8019E634",
+    "source_path": "src/melee/gm/gmtou_2.c"
+  },
+  "validation": {
+    "checkdiff": "gm_8019E634: FAIL (99.74638%); sole mismatch remains clrlwi r0, r3, 24 plus stw r0 instead of stw r3",
+    "neighbor_summary": {
+      "gm_8019DF8C_OnFrame": "PASS",
+      "fn_80166CBC": "PASS"
+    },
+    "direct_compile": "PASS",
+    "review_lint": "PASS for the relevant retained target source",
+    "source_permuter": "500 candidates; no improvement over baseline",
+    "retained_diff": "none",
+    "unresolved_local_regression": "none"
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "src/melee/gm/gm_1601.h"
+    ],
+    "category": "owning-header",
+    "rung": 3,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "fn_80166CBC",
+        "current": "u8 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "required": "s32 fn_80166CBC(MatchEnd*, ssize_t index)",
+        "expected_owner": "src/melee/gm/gm_1601.h"
+      },
+      "objdiff": {
+        "unit": "main/melee/gm/gmtou_2",
+        "score_without": 99.74638,
+        "score_with": 100.0
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "The visible u8 prototype forces the sole clrlwi. No-op promotion and a constant conditional retained it; a direct s32 function-pointer cast emitted an indirect call and regressed to 98.07971%; an earlier inline identity probe regressed to 99.70773%. A 500-candidate source-permuter search found no improvement. Removing or hiding the prototype produces the required direct store but violates require-protos, truthful-header, and no-shim rules.",
+        "rung2_config": "The relocation already targets fn_80166CBC correctly, and fn_80166CBC itself passes at 100%. No symbol, split, or configuration repair can change caller-side return-width conversion.",
+        "rung3_header": "gm_1601.h canonically owns fn_80166CBC. Widening its declaration removes the caller's sole mismatch. The corresponding definition in src/melee/gm/gm_1601.c must subsequently be synchronized through rung 4; its byte-field load already returns the value in r3 and currently matches exactly."
+      }
+    }
+  }
+}
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+collab: Wait
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+collab: Wait
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+exec
+/bin/zsh -lc 'ls -la phase2_notes/.batch_13_part* phase2_notes/.batch_13_row41.json 2>/dev/null' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  staff  13038 Sep  1 10:11 phase2_notes/.batch_13_part1.json
+-rw-r--r--@ 1 Ford  staff  12686 Sep  1 10:11 phase2_notes/.batch_13_part2.json
+-rw-r--r--@ 1 Ford  staff  12958 Sep  1 10:11 phase2_notes/.batch_13_part3_tail.json
+-rw-r--r--@ 1 Ford  staff    678 Sep  1 10:10 phase2_notes/.batch_13_row41.json
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+collab: Wait
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+collab: Wait
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+exec
+/bin/zsh -lc "ls phase2_notes/.batch_13_part4.json; jq -s 'add' phase2_notes/.batch_13_part1.json phase2_notes/.batch_13_part2.json phase2_notes/.batch_13_row41.json phase2_notes/.batch_13_part3_tail.json phase2_notes/.batch_13_part4.json > phase2_notes/batch_13.json
+python3 - <<'PY'
+import json,csv
+p='phase2_notes/batch_13.json'; a=json.load(open(p))
+rows=list(csv.reader(open('scripts/p2_batches/batch_13.tsv'),delimiter='\\t'))
+print('records',len(a),'rows',len(rows),'unique',len({x['ws_id'] for x in a}))
+for i,(x,r) in enumerate(zip(a,rows),1):
+ if x['ws_id']"'!=r[0]: print('"'ORDER MISMATCH',i,x['ws_id'],r[0])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+phase2_notes/.batch_13_part4.json
+records 80 rows 80 unique 80
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+exec
+/bin/zsh -lc "jq 'map(.techniques |= map({
+  \"variable-lifetime-scope-experiments\":\"lifetime-scope-experiments\",
+  \"declaration-lifetime-experiments\":\"lifetime-scope-experiments\",
+  \"variable-lifetime-tuning\":\"lifetime-scope-experiments\",
+  \"local-lifetime-shaping\":\"lifetime-scope-experiments\",
+  \"declaration-scope-tuning\":\"lifetime-scope-experiments\",
+  \"stack-frame-layout\":\"stack-layout-tuning\",
+  \"stack-layout-padding\":\"stack-padding-experiments\",
+  \"stack-frame-padding\":\"stack-padding-experiments\",
+  \"source-history-lookup\":\"past-source-lookup\",
+  \"historical-source-lookup\":\"past-source-lookup\",
+  \"historical-source-reconstruction\":\"past-source-lookup\",
+  \"historical-commit-lookup\":\"past-source-lookup\",
+  \"past-pr-lookup\":\"past-pr-lookup\",
+  \"sibling-function-comparison\":\"sibling-function-lookup\",
+  \"sibling-source-analogue\":\"sibling-function-lookup\",
+  \"solved-sibling-lookup\":\"sibling-function-lookup\",
+  \"analogous-function-lookup\":\"sibling-function-lookup\",
+  \"same-file-analogue\":\"sibling-function-lookup\",
+  \"allocator-snapshot\":\"allocator-trace\",
+  \"allocator-diagnostics\":\"allocator-trace\",
+  \"full-tu-regression-check\":\"same-unit-regression-checks\",
+  \"same-unit-regression-check\":\"same-unit-regression-checks\",
+  \"neighbor-regression-check\":\"same-unit-regression-checks\",
+  \"full-object-regression-check\":\"same-unit-regression-checks\",
+  \"checkpoint-repair\":\"checkpoint-restore\",
+  \"data-definition-ordering\":\"data-definition-reordering\",
+  \"declaration-order-regalloc\":\"declaration-order-experiments\",
+  \"source-permuter\":\"permuter\",
+  \"inline-helper-hypothesis\":\"inline-hypothesis\"
+}[.] // .) | unique))' phase2_notes/batch_13.json > phase2_notes/.batch_13_norm.json
+mv phase2_notes/.batch_13_norm.json phase2_notes/batch_13.json
+python3 - <<'PY'
+import json,collections
+A=json.load(open('phase2_notes/batch_13.json'))
+for c in ['exact','near_miss','progressed','no_progress']:
+ ctr=collections.Counter(t for x in A if x['cohort']==c for t in x['techniques'])
+ print('\\n',c,sum(x['cohort']==c for x in A))
+ print(', '.join(f'{k}={v}' for k,v in ctr.most_common(12)))
+print('\\nEXACT')
+for x in A:
+ if x['cohort']=='exact': print(x['ws_id'],x['success_factor'],'|',x['notable'])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ exited 1 in 0ms:
+jq: error: syntax error, unexpected INVALID_CHARACTER, expecting $end (Unix shell quoting issues?) at <top-level>, line 31:
+}[.] // .) | unique))                    
+jq: 1 compile error
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/Users/Ford/anaconda3/lib/python3.11/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "/Users/Ford/anaconda3/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Ford/anaconda3/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Ford/anaconda3/lib/python3.11/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+codex
+Normalization hit a syntax error before changing any evidence, and the staged chunk files remain intact. I’m rebuilding the merged JSON from those chunks, then rerunning the validation.
+exec
+/bin/zsh -lc "jq -s 'add' phase2_notes/.batch_13_part1.json phase2_notes/.batch_13_part2.json phase2_notes/.batch_13_row41.json phase2_notes/.batch_13_part3_tail.json phase2_notes/.batch_13_part4.json > phase2_notes/batch_13.json
+jq 'def renames: {\"variable-lifetime-scope-experiments\":\"lifetime-scope-experiments\",\"declaration-lifetime-experiments\":\"lifetime-scope-experiments\",\"variable-lifetime-tuning\":\"lifetime-scope-experiments\",\"local-lifetime-shaping\":\"lifetime-scope-experiments\",\"declaration-scope-tuning\":\"lifetime-scope-experiments\",\"stack-frame-layout\":\"stack-layout-tuning\",\"stack-layout-padding\":\"stack-padding-experiments\",\"stack-frame-padding\":\"stack-padding-experiments\",\"source-history-lookup\":\"past-source-lookup\",\"historical-source-lookup\":\"past-source-lookup\",\"historical-source-reconstruction\":\"past-source-lookup\",\"historical-commit-lookup\":\"past-source-lookup\",\"sibling-function-comparison\":\"sibling-function-lookup\",\"sibling-source-analogue\":\"sibling-function-lookup\",\"solved-sibling-lookup\":\"sibling-function-lookup\",\"analogous-function-lookup\":\"sibling-function-lookup\",\"same-file-analogue\":\"sibling-function-lookup\",\"allocator-snapshot\":\"allocator-trace\",\"allocator-diagnostics\":\"allocator-trace\",\"full-tu-regression-check\":\"same-unit-regression-checks\",\"same-unit-regression-check\":\"same-unit-regression-checks\",\"neighbor-regression-check\":\"same-unit-regression-checks\",\"full-object-regression-check\":\"same-unit-regression-checks\",\"checkpoint-repair\":\"checkpoint-restore\",\"data-definition-ordering\":\"data-definition-reordering\",\"declaration-order-regalloc\":\"declaration-order-experiments\",\"source-permuter\":\"permuter\",\"inline-helper-hypothesis\":\"inline-hypothesis\"}; map(.techniques |= map(renames[.] // .) | .techniques |= unique)' phase2_notes/batch_13.json > phase2_notes/.batch_13_norm.json
+mv phase2_notes/.batch_13_norm.json phase2_notes/batch_13.json
+python3 - <<'PY'
+import json,collections
+A=json.load(open('phase2_notes/batch_13.json'))
+for c in ['exact','near_miss','progressed','no_progress']:
+ ctr=collections.Counter(t for x in A if x['cohort']==c for t in x['techniques'])
+ print('\\n'+c, sum(x['cohort']==c for x in A))
+ print(', '.join(f'{k}={v}' for k,v in ctr.most_common(12)))
+print('\\nEXACT')
+for x in A:
+ if x['cohort']=='exact': print(x['ws_id'],x['success_factor'],'|',x['notable'])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+
+exact 10
+asm-diff-instruction-level=7, inline-hypothesis=7, loop-restructure=6, sibling-function-lookup=6, register-allocation-reasoning=6, lifetime-scope-experiments=5, declaration-order-experiments=4, permuter=4, type-shape-experiments=4, same-unit-regression-checks=3, stack-layout-tuning=3, helper-boundary-experiments=2
+
+near_miss 29
+permuter=24, asm-diff-instruction-level=23, register-allocation-reasoning=20, lifetime-scope-experiments=16, declaration-order-experiments=15, type-shape-experiments=15, inline-hypothesis=13, checkpoint-restore=10, loop-restructure=9, allocator-trace=8, sibling-function-lookup=7, stack-layout-tuning=7
+
+progressed 34
+register-allocation-reasoning=29, asm-diff-instruction-level=29, permuter=26, declaration-order-experiments=21, type-shape-experiments=21, lifetime-scope-experiments=21, inline-hypothesis=15, loop-restructure=12, stack-layout-tuning=12, expression-shape-experiments=8, past-source-lookup=6, expression-reordering=6
+
+no_progress 7
+permuter=7, lifetime-scope-experiments=6, inline-hypothesis=6, asm-diff-instruction-level=5, register-allocation-reasoning=5, declaration-order-experiments=5, loop-restructure=4, past-source-lookup=3, type-shape-experiments=3, checkpoint-restore=2, pointer-expression-shape=2, stack-padding-experiments=2
+
+EXACT
+48312a2f-a758-4ace-a380-b813b50a5a23 temporary lifetime and order fixes plus a natural scaling loop | Two earlier searches rejected generated helper candidates above 98.4% before a clean lifetime and loop rewrite matched exactly.
+14d4bc16-6e76-4f27-88f2-4f0ef630fb4f literal-pool reordering plus value-based relocation scoring | Runner scoring reached 100%, but strict objdiff still reports two relocation-symbol mismatches caused by an over-merged string symbol.
+31ac071c-948e-42af-abf5-7ad9e7439f6a sibling-derived inline boundaries plus stack-frame recalibration | The worker preserved the exact match while replacing rejected parameterless helper declarations with typed target-scoped helpers.
+eba70232-e0a8-48e1-a10f-c896ecdcb7c6 PAD_STACK(12) restored the exact retail stack layout | PAD_STACK(8) stopped at 99.90732%; increasing the evidenced padding to 12 bytes produced exact code.
+5362dd1d-9366-4c14-a90a-ae7bedd924d8 semantic inline helpers preserved pointer lifetimes and exact frame layout | An initial 5,200-candidate search found no gain, but semantic helper recovery plus PAD_STACK(16) later reached 100%.
+d66d9b7f-0445-43fe-ba79-d9a37b66f809 inline character-count helper and branch-scoped color lifetimes matched instructions | The summary reports an exact instruction stream but only 99.7% officially because constant and local-symbol relocations still differed.
+6163124c-0934-4906-a45b-0b2ca783eb6a canonical pointer-to-pointer traversal with preserved AObj lifetime and specialized inline routing | The worker kept the target exact while routing recursive and non-recursive callers separately to protect neighboring functions, then renamed the local duplicate helper to clear a hard quality gate.
+d5049af5-a570-46f5-9c33-e9910b2abe50 authored traversal helpers and natural JObj recursion | After repeated failures against a 24-register-operand plateau, restoring the baselib-style helper structure matched exactly, and call-site barriers then preserved the exact neighbor.
+c975368c-c368-4890-8846-15a5261b3397 natural loop with ch declared before text | None
+c72df1cf-0e85-43fc-b2a2-51c8ed3d7768 slot-loop inline helper with allocator-sensitive local order | Defining the helper before its caller prevented an unwanted standalone helper body and preserved the exact same-unit layout.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json,collections
+A=json.load(open('phase2_notes/batch_13.json'))
+for c in ['exact','near_miss','progressed','no_progress']:
+ ctr=collections.Counter(t for x in A if x['cohort']==c for t in x['techniques'])
+ print(c+': '+', '.join(f'"'`{k}` {v}'"' for k,v in sorted(ctr.items(),key=lambda z:(-z[1],z[0]))))
+ # themes
+ rr=[x['stall_reason'] for x in A if x['cohort']==c and x['stall_reason']]
+ themes=collections.Counter()
+ for s in rr:
+  sl=s.lower()
+  if any(w in sl for w in ['register','regalloc','coloring','gpr','fpr','r23','r26','r4/r5','coalesc','rotation']): themes['register allocation / coloring']+=1
+  if 'stack' in sl or 'frame' in sl: themes['stack/frame layout']+=1
+  if 'outside write set' in sl: themes['outside write set']+=1
+  if 'scheduling' in sl or 'instruction order' in sl: themes['instruction scheduling']+=1
+  if 'relocation' in sl or 'symbol' in sl: themes['relocation/symbol ownership']+=1
+ print('themes',themes)
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2, `allocator-trace` 1, `call-site-inline-barriers` 1, `compiler-unroll-shaping` 1, `data-definition-reordering` 1, `data-order-seed` 1, `expression-reordering` 1, `inline-string-literals` 1, `null-safe-idiom-reuse` 1, `past-pr-lookup` 1, `pointer-alias-experiments` 1, `pointer-expression-shape` 1, `pointer-to-pointer-loop` 1, `relocation-analysis` 1, `relocation-metadata-analysis` 1, `stack-padding-experiments` 1, `typed-accessor` 1, `typed-helper-signatures` 1
+themes Counter({'relocation/symbol ownership': 1})
+near_miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4, `expression-shape-experiments` 3, `past-pr-lookup` 3, `pointer-shape-experiments` 3, `relocation-analysis` 3, `return-type-hypothesis` 3, `bss-data-layout` 2, `control-flow-shape-experiments` 2, `early-return-restructure` 2, `expression-reordering` 2, `initialization-order-experiments` 2, `out-of-tree-compile` 2, `pointer-alias-experiments` 2, `pointer-expression-shape` 2, `semantic-local-reuse` 2, `symbol-metadata-inspection` 2, `typed-field-access` 2, `write-set-widening-analysis` 2, `address-overlay-experiments` 1, `api-signature-reasoning` 1, `bitfield-update-shaping` 1, `build-environment-repair` 1, `call-site-analysis` 1, `caller-analysis` 1, `checkdiff-validation` 1, `data-ordering-and-alignment` 1, `direct-field-access` 1, `exact-candidate-validation` 1, `fpr-allocation-reasoning` 1, `header-declaration-audit` 1, `linkage-experiments` 1, `manual-inline-experiments` 1, `must-match-inline-asm` 1, `must-match-ordering-helper` 1, `owning-header-analysis` 1, `pointer-induction-recovery` 1, `qemu-toolchain-workaround` 1, `review-gate-repair` 1, `scoped-local-restructure` 1, `sdata2-order-helper` 1, `statement-scheduling` 1, `switch-case-restructure` 1, `symbol-address-analysis` 1, `temporary-elimination` 1, `type-width-experiments` 1, `typed-overlay` 1, `typed-overlay-use` 1, `variable-consolidation` 1
+themes Counter({'register allocation / coloring': 19, 'stack/frame layout': 5, 'outside write set': 3, 'relocation/symbol ownership': 3, 'instruction scheduling': 1})
+progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3, `assignment-reordering` 2, `control-flow-restructure` 2, `same-unit-regression-checks` 2, `stack-frame-analysis` 2, `accumulator-restoration` 1, `alias-elimination` 1, `api-signature-reasoning` 1, `comparison-ordering` 1, `constant-pool-layout` 1, `cse-reasoning` 1, `data-definition-reordering` 1, `data-layout-experiments` 1, `data-layout-reasoning` 1, `delayed-initialization` 1, `direct-global-access` 1, `exhaustive-variant-search` 1, `explicit-pointer-materialization` 1, `explicit-reload-shaping` 1, `float-literal-tricks` 1, `float-source-shape-experiments` 1, `fpr-allocation-reasoning` 1, `loop-variable-reuse` 1, `macro-expression-recovery` 1, `macro-shape-experiments` 1, `manual-object-diff` 1, `manual-toolchain-validation` 1, `manual-unroll-experiments` 1, `matrix-transform-restructure` 1, `past-pr-lookup` 1, `pointer-expression-shape` 1, `pointer-induction-recovery` 1, `regression-revert` 1, `scoped-temporary` 1, `signedness-cast` 1, `signedness-experiments` 1, `sqrt-expression-shaping` 1, `statement-scheduling` 1, `structural-rewrite` 1, `structured-control-flow` 1, `ternary-expression-recovery` 1, `typed-accessor-helper` 1, `typed-pointer-recovery` 1, `volatile-load-forcing` 1
+themes Counter({'register allocation / coloring': 31, 'stack/frame layout': 14, 'instruction scheduling': 7, 'relocation/symbol ownership': 1})
+no_progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2, `allocator-trace` 1, `bss-data-layout` 1, `caller-analysis` 1, `extern-before-storage-probe` 1, `flag-update-reordering` 1, `helper-boundary-experiments` 1, `include-order-experiments` 1, `out-of-tree-compile` 1, `past-pr-lookup` 1, `pointer-alias-experiments` 1, `relocation-analysis` 1, `return-type-hypothesis` 1, `same-unit-regression-checks` 1, `sdata2-ordering` 1, `sibling-function-lookup` 1, `stack-layout-tuning` 1, `symbol-visibility-analysis` 1, `toolchain-repair` 1, `type-signature-matrix` 1
+themes Counter({'register allocation / coloring': 5, 'outside write set': 2})
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json,pathlib
+base=pathlib.Path('.')
+a=json.load(open('phase2_notes/batch_13.json'))
+rows=list(csv.reader(open('scripts/p2_batches/batch_13.tsv'),delimiter='\\t'))
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+assert len(a)==len(rows)==80
+assert len({x['ws_id'] for x in a})==80
+assert [x['ws_id'] for x in a]==[r[0] for r in rows]
+assert all(set(x)==keys for x in a)
+assert all(x['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for x in a)
+assert all(isinstance(x['techniques'],list) and len(x['techniques'])==len(set(x['techniques'])) for x in a)
+assert all((x['success_factor'] is not None)==(x['cohort']=='exact') for x in a)
+assert all(x['stall_reason'] is None for x in a if x['cohort']=='exact')
+lines=sum(1 for _ in open('phase2_notes/batch_13.md'))
+assert lines<=60, lines
+print('json_records',len(a))
+print('markdown_lines',lines)
+print('cohorts', {c:sum(x['cohort']==c for x in a) for c in ['exact','near_miss','progressed','no_progress']})
+PY
+rm phase2_notes/.batch_13_part1.json phase2_notes/.batch_13_part2.json phase2_notes/.batch_13_row41.json phase2_notes/.batch_13_part3_tail.json phase2_notes/.batch_13_part4.json
+find phase2_notes -maxdepth 1 -type f -name '*batch_13*' -print | sort" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+Traceback (most recent call last):
+  File "<stdin>", line 13, in <module>
+AssertionError
+phase2_notes/batch_13.json
+phase2_notes/batch_13.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json
+A=json.load(open('phase2_notes/batch_13.json'))
+for x in A:
+ if (x['success_factor'] is not None)"'!=(x['"'cohort']=='exact') or (x['cohort']=='exact' and x['stall_reason'] is not None): print(x['ws_id'],x['cohort'],x['stall_reason'],x['success_factor'])
+PY
+wc -l phase2_notes/batch_13.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+d66d9b7f-0445-43fe-ba79-d9a37b66f809 exact duplicate constant relocation reuse inline character-count helper and branch-scoped color lifetimes matched instructions
+      31 phase2_notes/batch_13.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+exec
+/bin/zsh -lc "jq 'map(if .cohort == \"exact\" then .stall_reason = null else . end)' phase2_notes/batch_13.json > phase2_notes/.batch_13_fix.json && mv phase2_notes/.batch_13_fix.json phase2_notes/batch_13.json
+python3 - <<'PY'
+import csv,json
+A=json.load(open('phase2_notes/batch_13.json')); rows=list(csv.reader(open('scripts/p2_batches/batch_13.tsv'),delimiter='\\t'))
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+assert len(A)==len(rows)==80 and len({x['ws_id'] for x in A})==80
+assert [x['ws_id'] for x in A]==[r[0] for r in rows]
+assert all(set(x)==keys for x in A)
+assert all(x['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for x in A)
+assert all(isinstance(x['techniques'],list) and len(x['techniques'])==len(set(x['techniques'])) for x in A)
+assert all((x['success_factor'] is not None)==(x['cohort']=='exact') for x in A)
+assert all(x['stall_reason'] is None for x in A if x['cohort']=='exact')
+lines=sum(1 for _ in open('phase2_notes/batch_13.md')); assert lines<=60
+print('DONE',len(A)); print('markdown_lines',lines)
+PY
+find phase2_notes -maxdepth 1 -type f -name '*batch_13*' -print | sort" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+DONE 80
+markdown_lines 31
+phase2_notes/batch_13.json
+phase2_notes/batch_13.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+All 80 summary sets were audited, normalized, written, and validated against the headerless batch order.
+  ✓ Read all worker summaries and extract evidence-based records
+  ✓ Normalize technique slugs and validate one record per batch row
+  ✓ Write JSON and <=60-line Markdown summary
+  ✓ Validate both outputs and print completion count
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+codex
+DONE 80
+
+- [batch_13.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.json)
+- [batch_13.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md)
+
+Validated 80 unique, ordered records. Markdown is 31 lines.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfc4b281fc6e714e913472e2fce9dc332a60bb72
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/.batch_13_row41.json
+@@ -0,0 +1,13 @@
++[
++  {
++    "ws_id": "4a6eb01f-2d1b-4c32-bd80-e2bceb2b3dae",
++    "cohort": "near_miss",
++    "epoch": 8,
++    "target_key": "main/melee/gm/gmtou_2::gm_8019E634",
++    "techniques": ["asm-diff-instruction-level", "return-type-hypothesis", "out-of-tree-compile", "type-shape-experiments", "permuter", "source-history-lookup", "write-set-widening-analysis", "checkpoint-restore"],
++    "stall_reason": "owning header return type outside write set",
++    "success_factor": null,
++    "loop_quality": "systematic",
++    "notable": "Hiding the narrow u8 prototype produced 100%, but every standards-compliant local cast retained the zero extension or forced a regressing indirect call."
++  }
++]
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..de79e90f07f2ba2b26e09a78d08588089fdc682b
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md
+@@ -0,0 +1,31 @@
++# Worker-Audit Phase 2, Batch 13
++
++## Batch Shape
++
++80 workers: 10 exact, 29 near-miss, 34 progressed, and 7 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `asm-diff-instruction-level` 7, `inline-hypothesis` 7, `loop-restructure` 6, `register-allocation-reasoning` 6, `sibling-function-lookup` 6, `lifetime-scope-experiments` 5, `declaration-order-experiments` 4, `permuter` 4, `type-shape-experiments` 4, `same-unit-regression-checks` 3, `stack-layout-tuning` 3, `checkpoint-restore` 2, `helper-boundary-experiments` 2, `past-source-lookup` 2, `typed-user-data-access` 2; 17 other techniques appeared once.
++- Near-miss: `permuter` 24, `asm-diff-instruction-level` 23, `register-allocation-reasoning` 20, `lifetime-scope-experiments` 16, `declaration-order-experiments` 15, `type-shape-experiments` 15, `inline-hypothesis` 13, `checkpoint-restore` 10, `loop-restructure` 9, `allocator-trace` 8, `sibling-function-lookup` 7, `stack-layout-tuning` 7, `past-source-lookup` 5, `same-unit-regression-checks` 5, `stack-padding-experiments` 5, `helper-boundary-experiments` 4; 13 techniques appeared 2-3 times and 31 appeared once.
++- Progressed: `asm-diff-instruction-level` 29, `register-allocation-reasoning` 29, `permuter` 26, `declaration-order-experiments` 21, `lifetime-scope-experiments` 21, `type-shape-experiments` 21, `inline-hypothesis` 15, `loop-restructure` 12, `stack-layout-tuning` 12, `expression-shape-experiments` 8, `expression-reordering` 6, `past-source-lookup` 6, `checkpoint-restore` 4, `helper-boundary-experiments` 4, `allocator-trace` 3, `pointer-alias-experiments` 3, `pointer-shape-experiments` 3, `sibling-function-lookup` 3, `stack-padding-experiments` 3, `typed-field-access` 3; 4 techniques appeared twice and 39 appeared once.
++- No-progress: `permuter` 7, `inline-hypothesis` 6, `lifetime-scope-experiments` 6, `asm-diff-instruction-level` 5, `declaration-order-experiments` 5, `register-allocation-reasoning` 5, `loop-restructure` 4, `past-source-lookup` 3, `type-shape-experiments` 3, `checkpoint-restore` 2, `pointer-expression-shape` 2, `stack-padding-experiments` 2; 18 other techniques appeared once.
++
++## Three Exact-Worker Accounts
++
++- `14d4bc16-6e76-4f27-88f2-4f0ef630fb4f`: Literal-pool reordering plus value-based relocation scoring moved the runner to 100%. Strict objdiff still found two relocation-symbol mismatches from an over-merged string symbol, an important gap between the runner's exact label and object-level identity.
++- `5362dd1d-9366-4c14-a90a-ae7bedd924d8`: A 5,200-candidate permuter search found nothing. Semantic helper recovery and `PAD_STACK(16)` then preserved pointer lifetimes and the retail frame closely enough to reach 100%.
++- `d5049af5-a570-46f5-9c33-e9910b2abe50`: Repeated local probes stalled on 24 register-operand mismatches. Restoring authored traversal helpers and natural JObj recursion closed the gap, while call-site inline barriers protected an exact neighbor.
++
++## Most Common Stall Reason
++
++- Exact: no stall reason for 10 of 10 workers; one account still noted relocation differences despite its exact runner score.
++- Near-miss: register allocation or coloring, 19 of 29 workers.
++- Progressed: register allocation or coloring, 31 of 34 workers.
++- No-progress: register allocation or coloring, 5 of 7 workers.
++
++## Surprises
++
++- `b9f47583-fdc6-430c-b3de-373b568ca8ad` reported that the target was already 100% and made no edits, despite the batch labeling it near-miss.
++- Several near-miss and no-progress workers demonstrated 100% diagnostic builds but could not retain them because the true prototype, type, or BSS declaration lived outside the write set.
++- Permuter use was universal in the no-progress cohort, but the exact accounts repeatedly credit semantic helper recovery, natural loop shape, local lifetime order, or stack calibration for the final step.
+
+tokens used
+153,916
+DONE 80
+
+- [batch_13.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.json)
+- [batch_13.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_13.md)
+
+Validated 80 unique, ordered records. Markdown is 31 lines.

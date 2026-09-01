@@ -1,0 +1,2096 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7f-8d9c-74f3-9324-19b4f1f2250c
+--------
+user
+# Task: Worker-audit Phase 3 — deep transcript read, pair epoch-03-pair-02
+
+Two AI decomp workers worked on similar-difficulty targets in epoch 3 (goal: make C source byte-match GameCube PowerPC asm; score = match %). One reached an EXACT 100% match; the other stalled as a NEAR-MISS (>=99.5%). Your job: figure out what the exact worker did differently, at the level of process and technique — not luck of the target.
+
+EXACT worker  — target main/melee/mn/mnmainrule::mn_8022FB88, baseline 92.9%, final 100%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/63f4c0f1-0afe-4cb7-9218-4252f0d9cf25.md
+NEAR-MISS worker — target main/melee/mn/mnsound::mnSound_80249C08, baseline 99.47781%, final 99.50512%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md
+
+Condensed transcripts contain the worker's reasoning/messages verbatim, `TOOL <name> <params>` lines for each tool call, and truncated tool results. Read BOTH fully.
+
+Write exactly one file, `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md`, markdown, <=90 lines, with these sections:
+
+## Verdict
+One paragraph: the single most important process difference between the two (or "no meaningful process difference — outcome driven by target difficulty/luck" if that is the honest read).
+
+## Exact worker: how the gap was closed
+- Diff-reading style: did it reason about specific instructions/registers from the diff output, or guess-and-check source variants? Quote 1-2 short verbatim lines that show this.
+- The decisive move: what actually flipped it to 100%, and what chain of observations led there.
+- Tool rhythm: rough loop shape (e.g. edit -> build -> checkdiff, N iterations), plus any tools used at pivotal moments (permuter, past PR search, graph lookups, knowledge search).
+
+## Near-miss worker: why it stalled
+- Where it got stuck (instruction/issue), what it tried, and what it NEVER tried that the exact worker's playbook suggests.
+- Was the stall diagnosable from its own diff output? Did it misread or ignore evidence? Quote 1 short line if telling.
+- Loop quality: systematic / mixed / shotgun.
+
+## Transferable technique
+2-4 bullet points, each a concrete, generalizable tactic phrased as an instruction one could put in a worker prompt (e.g. "When one instruction differs only in source register, enumerate equivalent source expressions that permute register allocation: temp vs inline, signedness, float literal form"). Only tactics actually evidenced in these transcripts.
+
+## Flags
+- exact_loop: systematic|mixed|shotgun
+- control_loop: systematic|mixed|shotgun
+- outcome_explained_by_process: yes|partial|no
+- techniques: comma-separated slugs (reuse: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, float-literal-tricks, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning; invent sparingly)
+
+Base every claim on the transcripts. Do not modify any other file. Print DONE when finished.
+codex
+I’m using the `unslop` skill because this is a concise evidence-based writing task. I’ll read its instructions, then both transcripts fully before writing the one requested file.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l condensed/63f4c0f1-0afe-4cb7-9218-4252f0d9cf25.md condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+     225 condensed/63f4c0f1-0afe-4cb7-9218-4252f0d9cf25.md
+     622 condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md
+     847 total
+
+codex
+Step 1 of 3 done: the writing constraints are loaded. I’m now reading all 847 transcript lines and tracking exact quotes, iteration counts, and the final successful or stalled hypotheses.
+exec
+/bin/zsh -lc "sed -n '1,225p' condensed/63f4c0f1-0afe-4cb7-9218-4252f0d9cf25.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Inspecting code differences**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FB88","timeout_seconds":120}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnmainrule.c","symbol":"mn_8022FB88","unit":""}
+
+TOOL ledger_search {"limit":10,"query":"mn_8022FB88 main/melee/mn/mnmainrule","scope":"symbol"}
+
+TOOL past_prs_search {"limit":10,"query":"mn_8022FB88 src/melee/mn/mnmainrule.c"}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (92.70000%) | left DIFF_INSERT | left 1632: DIFF_ARG_MISMATCH mr r27, r3 | left 1636: DIFF_DELETE clrlwi. r0, r27, 24 | left 1640: DIFF_DELETE mr r31, r4 | left 1644: DIFF_DELETE lwz r3, mn_804DBDFC@sda21 | left 1808: DIFF_ARG_M…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 92.9, | "status": null | "score": 0.8139, | "exact_match": false, | "matched": true, | "statement": "For mn_802324E4, a 100% target checkdiff score alone is insufficient to retain an edit: every supplied exact-match checkpoint failed hard gates, with QA lint failures on all checkpoints and same-unit regressions on attempts 1-3.", | "status": "proposed", | "statement": "…
+
+RESULT ledger_search status=ok | mn_8022FB88 was matched by correcting the types and declaration order of existing locals without changing executable statements, demonstrating that local stack/register allocation details can be decisive for this function. | status=proposed | Sync sync-aa5cf002 (upstream 945f28140e..5108e9f6f6 (PRs #3222 #3225 #3226 #3227 #3228 #3229 + 0a75cf70 b7686b59)) accepted a break: mn_8022FB88…
+
+RESULT past_prs_search status=ok | PR 2790: Match mn_8022FB88 | Match mn_8022FB88 Match mn_8022FB88 is a merged PR touching 1 changed file(s), primarily in melee-core. Draft classification: decomp-matching. decomp-matching melee-core richard7840;match;mn_8022fb88;src;melee;mnmainrule;mn_8022fb88_arg1_t;hsd_jobj;temp_r29;var_r29;temp_r29_2... | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib,…
+
+ASSISTANT REASONING
+**Verifying prior commit content**
+
+TOOL bash {"command":"git show 3263adbe7eea:src/melee/mn/mnmainrule.c | sed -n '/void mn_8022FB88/,/void mn_8022FD18/p'; printf '\\n--- current ---\\n'; sed -n '/void mn_8022FB88/,/void mn_8022FD18/p' src/mele…
+
+RESULT bash --- current --- void mn_8022FB88(u8 arg0, void* arg1) { struct mn_8022FB88_arg1_t* data = arg1; u8* sp14; s32 sp10; u8* var_r29; HSD_JObj* temp_r29_2; HSD_JObj* temp_r29_3; int new_var; HSD_JObj* temp_r31; HSD_JObj* temp_r28; HSD_JObj* temp_r29; s32 var_r28; u8* var_r29_2; HSD_JObj** temp_r27_2; s32 var_r27; sp14 = (u8*) mn_804DBDFC; if (arg0 == 0) { HSD_JObj* temp_r27; var_r27 = 0; var_r29 = (u8…
+
+ASSISTANT REASONING
+
+
+TOOL knowledge_graph_search {"limit":10,"query":"PR 2790 mn_8022FB88 declaration order types diff"}
+
+RESULT knowledge_graph_search status=ok | PR 2790 mn_8022FB88 declaration order types diff | PR 2790: Match mn_8022FB88 | Match mn_8022FB88 Match mn_8022FB88 is a merged PR touching 1 changed file(s), primarily in melee-core. Draft classification: decomp-matching. decomp-matching melee-core richard7840;match;mn_8022fb88;src;melee;mnmainrule;mn_8022fb88_arg1_t;hsd_jobj;temp_r29;var_r29;temp_r29_2... | PR 2785: Switch progress …
+
+ASSISTANT REASONING
+**Evaluating limited evidence access**
+
+TOOL read {"limit":400,"offset":1,"path":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/knowledge/sources/code_context/past_prs/data/prs/pr-2790/postmortem/postmortem.json"}
+
+RESULT read file not found: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/knowledge/sources/code_context/past_prs/data/prs/pr-2790/postmortem/postmortem.json
+
+ASSISTANT REASONING
+**Analyzing argument register mismatches**
+
+**Reevaluating symbol type from array to s32**
+
+TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":20,"literal":false,"path":"src/melee/mn/mnmainrule.c","pattern":"804DBDF0|804DBE00|804DBDFC"}
+
+RESULT grep mnmainrule.c-158- mnmainrule.c-159- f32 mn_804D6BD8; mnmainrule.c:160: u8 const mn_804DBDFC[] = { 2, 3, 5, 6 }; mnmainrule.c-161- HSD_GObj* mn_804D6BD0; mnmainrule.c-162- u16 const mn_804DBE04 = 0x0708; mnmainrule.c-419- s32 var_r27; mnmainrule.c-420- mnmainrule.c:421: sp14 = (u8*) mn_804DBDFC; mnmainrule.c-422- if (arg0 == 0) { mnmainrule.c-423- HSD_JObj* temp_r27;
+
+ASSISTANT REASONING
+**Refining variable type declarations**
+
+**Analyzing symbol naming and data metadata**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnmainrule.c | head -30; git log --all -S'mn_8022FB88' --format='%H %s' -- src/melee/mn/mnmainrule.c | head -20","timeout":30}
+
+RESULT bash 91248db Add broad data matching pass (#3210)
+
+ASSISTANT REASONING
+**Inspecting previous commit with git show**
+
+TOOL bash {"command":"git show 11b7dc4^:src/melee/mn/mnmainrule.c | sed -n '/void mn_8022FB88/,/void mn_8022FD18/p' | head -100; git show 11b7dc4 -- src/melee/mn/mnmainrule.c | head -100","timeout":30}
+
+RESULT bash - mninfo.c: cast lbArchive_LoadSections joint arg to (void**) (GCC -Werror) | - gm_1601.c: restore fn_80167638 exact match via decl reorder (prototype-clean) | diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT REASONING
+**Inspecting specific commit parents**
+
+TOOL bash {"command":"git show 91248db -- src/melee/mn/mnmainrule.c | sed -n '1,180p'; git show 20e3321^:src/melee/mn/mnmainrule.c | grep -n 'mn_804DBDFC' | head","timeout":30}
+
+RESULT bash Add broad data matching pass (#3210) | * Data sections: define split-owned data in 15 NonMatching TUs | with the right size, section and contents. Data goes 92.98% -> 96.19% | (+38,880 bytes); the DOL still matches (build.sha1 OK) and no Matching or | objdiff scores data all-or-nothing per section - a section contributes to | matched_data only at exactly 100% - so the work is organised per sectio…
+
+ASSISTANT REASONING
+**Analyzing pointer typing and memory access**
+
+**Refactoring pointer to union typed variable**
+
+TOOL edit {"edits":[{"newText":"JObjIndices const mn_804DBDFC = { 0x02030506 };","oldText":"u8 const mn_804DBDFC[] = { 2, 3, 5, 6 };"},{"newText":"    JObjIndices sp14;\n    s32 sp10;","oldText":"    u8* sp14;…
+
+RESULT edit Successfully replaced 5 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FB88","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so the official score is below exact) | left 1808: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | left 1896: DIFF_ARG_MISMATCH lfd f1, mn_804DBD…
+
+ASSISTANT REASONING
+**Inspecting symbol addresses and section order**
+
+TOOL grep {"context":1,"glob":"*.txt","ignoreCase":false,"limit":30,"literal":false,"path":"config/GALE01","pattern":"mn_804DBDF0|mn_804DBE00|@328|@330"}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+
+TOOL checkdiff_summary {"functions":["mn_8022FB88","mn_8022FD18"],"timeout_seconds":120}
+
+RESULT grep [30 matches limit reached. Use limit=60 for more, or refine pattern]
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so the official score is below exact) | mn_8022FD18: FAIL (92.77778%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Githu…
+
+ASSISTANT REASONING
+**Planning precise constant reordering**
+
+**Deciding on adding explicit constants**
+
+TOOL edit {"edits":[{"newText":"f64 const mn_804DBDF0 = 4503601774854144.0;\nu16 const mn_804DBDF8 = 0x0203;\nJObjIndices const mn_804DBDFC = { 0x02030506 };\nf32 const mn_804DBE00 = 0.0F;\nu16 const mn_804DBE…
+
+RESULT edit Could not find edits[0] in src/melee/mn/mnmainrule.c. The oldText must match exactly including all whitespace and newlines.
+
+ASSISTANT REASONING
+
+
+TOOL read {"limit":25,"offset":152,"path":"src/melee/mn/mnmainrule.c"}
+
+RESULT read /// SIS text id for the rule value label when Mode is Stock Match.
+
+TOOL edit {"edits":[{"newText":"f32 mn_804D6BD8;\nf64 const mn_804DBDF0 = 4503601774854144.0;\nu16 const mn_804DBDF8 = 0x0203;\nJObjIndices const mn_804DBDFC = { 0x02030506 };\nf32 const mn_804DBE00 = 0.0F;\nu…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnmainrule.c.
+
+ASSISTANT REASONING
+**Validating parallel duplicate detection**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FB88","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so the official score is below exact) | left 1808: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | left 1896: DIFF_ARG_MISMATCH lfd f1, mn_804DBD…
+
+ASSISTANT REASONING
+**Reverting constants and planning symbol mapping**
+
+**Reverting constants to prior state**
+
+TOOL edit {"edits":[{"newText":"f32 mn_804D6BD8;\nJObjIndices const mn_804DBDFC = { 0x02030506 };\nHSD_GObj* mn_804D6BD0;\nu16 const mn_804DBE04 = 0x0708;\ns32 const mn_804DBE08 = 0x02030405;\nu8 const mn_804D…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnmainrule.c.
+
+ASSISTANT REASONING
+**Preparing final JSON and verifying changes**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FB88","timeout_seconds":120}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so the official score is below exact) | left 1808: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | left 1896: DIFF_ARG_MISMATCH lfd f1, mn_804DBD…
+
+RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT TEXT
+{
+  "summary": "Improved mn_8022FB88 from 92.9% to 99.8%. Recovered the packed four-byte JObj index table as the existing JObjIndices union and used its typed byte view in both natural loops. All instructions now match; only four .sdata2 relocation names differ.",
+  "validation": {
+    "checkdiff_run": "mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ)",
+    "remaining_mismatches": [
+      "mn_804DBDF0 vs compiler-local @330 at two u8-to-float conversion loads",
+      "mn_804DBE00 vs compiler-local @328 at two inline 0.0f loads"
+    ],
+    "regressions": "No unresolved local regression caused by the retained typed-source edit was identified. mn_8022FD18 was already unmatched and remains outside the claimed target."
+  },
+  "widening_request": {
+    "schema_version": "write_set_widening_request_v1",
+    "paths": [
+      "config/GALE01/symbols.txt"
+    ],
+    "category": "config-metadata",
+    "rung": 2,
+    "evidence": {
+      "mismatched_declaration": {
+        "symbol": "mn_804DBDF0 and mn_804DBE00",
+        "current": "Global .sdata2 names in symbols.txt; current MWCC emits the equal constants as local literal-pool symbols @330 and @328",
+        "required": "Map the target .sdata2 entries to the compiler-emitted local pool names @330 and @328 for this translation unit",
+        "expected_owner": "config/GALE01/symbols.txt"
+      },
+      "objdiff": {
+        "unit": "main/melee/mn/mnmainrule",
+        "score_without": "99.80000%",
+        "score_with": null
+      },
+      "ladder_evidence": {
+        "rung1_in_slice": "Typing mn_804DBDFC and the stack copy as JObjIndices corrected every instruction mismatch. Explicitly defining mn_804DBDF0 and mn_804DBE00 in the source did not coalesce the compiler-generated conversion/zero literals or alter the four relocation mismatches, so those trial definitions were reverted.",
+        "rung2_config": "symbols.txt already records mn_804DBDF0 at .sdata2:0x804DBDF0 and mn_804DBE00 at .sdata2:0x804DBE00. The remaining mismatch is exclusively symbol identity for compiler-generated constants, making config metadata the canonical next repair."
+      }
+    }
+  }
+}
+
+ASSISTANT REASONING
+**Planning semantic renaming for variables**
+
+TOOL edit {"edits":[{"newText":"    JObjIndices indices;\n    s32 sp10;\n    u8* index_ptr;\n","oldText":"    JObjIndices sp14;\n    s32 sp10;\n    u8* var_r29;\n"},{"newText":"    u8* index_ptr2;\n","oldText"…
+
+RESULT edit Successfully replaced 5 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mn_8022FB88","timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so the official score is below exact) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Verifying variable renaming impact**
+
+**Planning diff verification with grep**
+
+TOOL grep {"context":1,"glob":"*.c","ignoreCase":false,"limit":20,"literal":false,"path":"src/melee/mn/mnmainrule.c","pattern":"sp14|var_r29_2|var_r29\\b"}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c | sed -n '1,180p'","timeout":30}
+
+RESULT grep No matches found
+
+RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT TEXT
+{
+  "summary": "Repaired all three runner-reported QA naming findings while preserving the typed JObjIndices source shape. Renamed the stack local to `indices` and the two byte walkers to `index_ptr` and `index_ptr2`; these names directly reflect their evidenced roles.",
+  "validation": {
+    "checkdiff_run": "mn_8022FB88: instructions still match; tool reports 99.80000% official due only to the previously known relocation/data-reference identity differences.",
+    "qa_repair": "Confirmed `sp14`, `var_r29`, and `var_r29_2` no longer occur in the source.",
+    "regressions": "No code-generation regression from the naming-only repair."
+  },
+  "blockers": [
+    "Exact standalone checkdiff scoring still requires the previously identified cross-file metadata repair to config/GALE01/symbols.txt; widening is disabled. The runner's data-value relocation validation previously measured the target as 100%."
+  ]
+}
+
+exec
+/bin/zsh -lc "sed -n '1,320p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Inspecting code diff**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+ASSISTANT REASONING
+**Diagnosing stack differences**
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+
+TOOL grep {"context":100,"glob":"*.c","ignoreCase":false,"limit":1,"literal":true,"path":"src/melee/mn/mnsound.c","pattern":"void mnSound_80249C08"}
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT grep [long result omitted: 9184 chars] mnsound.c-153-             gm_801602C0(mix);
+
+ASSISTANT REASONING
+**Planning assembly mapping and diff analysis**
+
+TOOL bash {"command":"ls build/GALE01/asm/melee/mn/mnsound.s build/GALE01/src/melee/mn/mnsound.o 2>/dev/null; sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s | head","timeout":20}
+
+RESULT bash build/GALE01/asm/melee/mn/mnsound.s build/GALE01/src/melee/mn/mnsound.o # .text:0x93C | 0x80249C08 | size: 0x494 .fn mnSound_80249C08, global /* 80249C08 002467E8 7C 08 02 A6 */ mflr r0 /* 80249C0C 002467EC 3C 80 80 3F */ lis r4, mnSound_803EEED8@ha /* 80249C10 002467F0 90 01 00 04 */ stw r0, 0x4(r1) /* 80249C14 002467F4 3C 60 80 4A */ lis r3, mnSound_804A08A8@ha /* 80249C18 002467F8 38 A0 00 80 …
+
+ASSISTANT REASONING
+**Disassembling current and target regions**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>:/,/^$/p' > /tmp/current.txt; sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s > /tmp/target…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Configuring build/binutils path**
+
+TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>:/,/^$/p'","timeout":20}
+
+RESULT bash [long result omitted: 15621 chars] 00000c28 <mnSound_80249C08>:
+
+ASSISTANT REASONING
+**Analyzing register allocation differences**
+
+**Planning channel-related line comparison**
+
+TOOL bash {"command":"sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s | grep -E '^/\\* 80249|stmw|addi r4, r1|lbz r30|lmw'","timeout":20}
+
+RESULT bash [long result omitted: 14165 chars] /* 80249C08 002467E8  7C 08 02 A6 */	mflr r0
+
+ASSISTANT REASONING
+**Aligning function-scope declarations for stack allocation**
+
+**Testing function-scope reordering of caller temporaries**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Implementing no-op source reversion**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JO…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Assessing function scope adjustment effects**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":4,"keep_prob":0.25,"max_iters":300,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"/tmp/mnsound-replay.json","seed":42,"timeout_seconds"…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=0% compile-fail=0 | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=48 (45.7/s) best=525600 dup=8% compile-fail=0 | 1s iters=64 (51.0/s) best=525600 dup=9% compile-fail=0 | 1s iters=64 (42.0/s) best=525600 dup=16% compile-fail=0 | 1s iters=64 (37.1/s) best=525600 dup=23% compile-fail=0 | 1s iters=101 (52.5/s) best=5256…
+
+ASSISTANT REASONING
+
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":20}
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08 at the retained 99.49488% baseline. Focused checkdiff shows 24 argument/register or stack-slot mismatches, beginning with the saved-register range (target r25, current r26) and concentrated in the inlined channel/volume animation regions. MWCC stack and regflow diagnostics produced no additional actionable mapping. Tested promoting the caller-owned animation and translation temporaries to function scope; code generation and score were unchanged, so the edit was reverted. A 300-candidate source-permuter search also found no improvement. No source changes are retained.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08 --full-diff: FAIL, 99.49488%",
+    "mwcc_debug_diagnose_stack: no actionable named-local movement; debug pcdump unavailable",
+    "mwcc_debug_diagnose_regflow: no compact register-only window; debug pcdump unavailable",
+    "source_permuter_run: 303 iterations, no improvement over baseline",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The remaining mismatch appears to require a coupled lifetime and stack-layout source restructuring rather than isolated declaration ordering, scope promotion, PAD_STACK adjustment, or helper expansion. There is no local regression from this attempt."
+}
+
+ASSISTANT REASONING
+**Inspecting exact diff**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn","pattern":"InitVolumeAnim"}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT grep [long result omitted: 772 chars] mnsound.c-74-     HSD_JObjAnimAll(jobj_anim_2);
+
+ASSISTANT REASONING
+**Investigating ledger statement details**
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries","scope":"symbol"}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+ASSISTANT REASONING
+**Planning git history analysis**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnsound.c | head -30 && git status --short src/melee/mn/mnsound.c && git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy readability-redundant-casting (…
+
+ASSISTANT REASONING
+**Inspecting recent commit**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Inspecting commit history for improvement**
+
+TOOL bash {"command":"git show 00093d4^:src/melee/mn/mnsound.c | sed -n '70,340p' > /tmp/before.txt; git show 00093d4:src/melee/mn/mnsound.c | sed -n '70,340p' > /tmp/after.txt; diff -u /tmp/before.txt /tmp/af…
+
+RESULT bash --- /tmp/before.txt 2026-08-27 18:36:08.694323461 +0000 +++ /tmp/after.txt 2026-08-27 18:36:08.696344021 +0000 @@ -1,6 +1,8 @@ - HSD_JObjReqAnimAll(jobj_anim[2], right_frame); - mn_8022F3D8(jobj_anim[2], 0xFFU, MOBJ_MASK); - HSD_JObjAnimAll(jobj_anim[2]); + HSD_JObjAnimAll(jobj_anim_1); + + HSD_JObjReqAnimAll(jobj_anim_2, right_frame); + mn_8022F3D8(jobj_anim_2, 0xFFU, MOBJ_MASK); + HSD_JObjAnimA…
+
+ASSISTANT REASONING
+**Analyzing helper declaration reorder impact**
+
+**Inspecting disassembly for stack slot order**
+
+TOOL bash {"command":"ninja -q build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/cand.asm; sed -n …
+
+RESULT bash --quiet don't show progress status, just command output | -k N keep going until N jobs fail (0 means infinity) [default=1]
+
+TOOL bash {"command":"ninja --quiet build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | tail -180","timeo…
+
+RESULT bash ninja: no work to do. /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Testing declaration order impact**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    f32 right_frame, left_fr…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.19231%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT REASONING
+
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    f32 right_frame, left_frame;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_ani…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Analyzing stack layout and pointer offsets**
+
+TOOL m2c_decompile {"extra_args":[],"format":false,"input":"mnSound_80249C08","no_context":false,"timeout_seconds":120}
+
+RESULT m2c_decompile exit_code=0 | exit_code=1 | status=failed | failed | ModuleNotFoundError: No module named 'elftools' | parse_error=null | "exit_code": 0, | "exit_code": 1, | "status": "failed", | "stderr": "Traceback (most recent call last):\n File \"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/_impl/gamecube/tools/decomp.py\", line 37, in <module>\n from elftools.elf.elff…
+
+ASSISTANT REASONING
+**Comparing commit 00093 changes**
+
+TOOL bash {"command":"git diff 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Testing declaration order for target differences**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    HSD_JObj*…
+
+RESULT edit Successfully replaced 4 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Reverting caller-owned volume local tests**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj*…
+
+RESULT edit Successfully replaced 4 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Testing removal of unused int parameter**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT bash (no output)
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08 at 99.49488%. Focused diff confirms 24 allocation-only mismatches: the reference saves from r25 rather than r26 and uses different stack homes around the inlined channel and volume animation regions. Tested the historical ChannelAnim declaration order; target codegen was unchanged while mnSound_802492CC regressed, so it was reverted. Also tested promoting the cursor, translation, animation, and final-state temporaries to function scope; target codegen was unchanged, so it was reverted. No edits are retained.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08 --full-diff: FAIL (99.49488%), 24 argument/register or stack-slot mismatches",
+    "historical ChannelAnim declaration-order probe: target unchanged; mnSound_802492CC regressed from 99.21368% to 99.19231%; reverted",
+    "function-scope temporary-lifetime probe: target unchanged at 99.49488%; reverted",
+    "final checkdiff_summary: mnSound_80249C08 99.49488%, mnSound_802492CC 99.21368%, fn_80249A1C PASS",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The target remains non-exact. Existing evidence rules out isolated helper declaration ordering and broad caller-local scope promotion; resolving the remaining mismatch requires a new coupled register-lifetime and stack-layout source hypothesis. No local regression was retained."
+}
+
+ASSISTANT REASONING
+**Inspecting diff diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound register stack allocation","scope":"symbol"}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Searching ledger for variant history**
+
+TOOL ledger_search {"limit":10,"query":"99.56997 mnSound_80249C08 caller-owned animation translation temporaries","scope":"symbol"}
+
+TOOL past_prs_search {"limit":10,"query":"mnSound_80249C08 99.56997"}
+
+TOOL knowledge_graph_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries"}
+
+TOOL mwcc_debug_diagnose_inlines {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+RESULT past_prs_search status=ok | ...After | | - | - | - | - | - | | `main/melee/gm/gmtou_1` | `fn_8019B458` | +73 | 91.93% | 99.48% | </details> | PR 2809: Improve fn_8019B458 match to 99.56% | Improve fn_8019B458 match to 99.56% Improve fn_8019B458 match to 99.56% is a open PR touching 1 changed file(s), primarily in game-mode. Draft classification: decomp-matching, fix. decomp-matching;fix game-mode markmccaskey;im…
+
+RESULT knowledge_graph_search status=ok | summary PR 2599 split Kirby's copied Purin/Jigglypuff SpecialN code out of `ftkirbyspecialdonkey` into a new `ftkirbyspecialpurin` translation unit, linked it as Matching in `configure.py`, and adjusted split/symbol metadata, headers, includes, and nearby declarations to reflect the... | PR 2813: Improve un_8031D9F8 match to 99.32% | Improve un_8031D9F8 match to 99.32% [object Object]…
+
+RESULT mwcc_debug_diagnose_inlines exit_code=0 | exit_code=1 | status=failed | failed | error: mwcc_debug dump unavailable | parse_error=null | "exit_code": 0, | "exit_code": 1, | "status": "failed", | "stderr": "error: mwcc_debug dump unavailable\nUnhandled function 190 (MWDBG326.dll)\n[mwcc_dump] no pcdump.txt produced at /opt/melee/build/mwcc-dump/mnSound_80249C08-0k6mzive/pcdump.txt\n", | "parse_error": null,
+
+ASSISTANT REASONING
+**Exploring git logs and diffs**
+
+TOOL bash {"command":"git status --short && git log --all --oneline -- src/melee/mn/mnsound.c | head -20","timeout":30}
+
+TOOL grep {"context":2,"glob":"**/*","ignoreCase":false,"limit":20,"literal":true,"path":"active_session","pattern":"caller-owned animation"}
+
+TOOL grep {"context":2,"glob":"**/*","ignoreCase":false,"limit":50,"literal":true,"path":"active_session","pattern":"mnSound_80249C08"}
+
+RESULT bash ?? tools/asm-differ/
+
+RESULT grep Path not found: /opt/melee/active_session
+
+RESULT grep Path not found: /opt/melee/active_session
+
+ASSISTANT REASONING
+**Inspecting commit and diff details**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+TOOL bash {"command":"git branch --all --contains 00093d4; git log --all --oneline --decorate -- src/melee/mn/mnsound.c | head -50","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+RESULT bash * (HEAD detached at b2990c3) 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy re…
+
+ASSISTANT REASONING
+**Comparing commit function changes**
+
+TOOL bash {"command":"git show 00093d4:src/melee/mn/mnsound.c | sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p'; echo CURRENT; sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p' src/melee/mn/m…
+
+RESULT bash [long result omitted: 4968 chars] void mnSound_80249C08(int unused)
+
+ASSISTANT REASONING
+**Investigating git reflog for dangling commits**
+
+TOOL bash {"command":"git reflog --all --date=iso | grep -i -E 'mnsound|d12a1b9e|checkpoint' | head -50","timeout":30}
+
+RESULT bash (no output)
+
+ASSISTANT REASONING
+
+exec
+/bin/zsh -lc "sed -n '321,622p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+**Considering using permuter with max 300**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":4,"keep_prob":0.15,"max_iters":300,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"permuter_mnsound_replay.json","seed":4831,"timeout_se…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 0s iters=62 (74.0/s) best=525600 dup=13% compile-fail=0 | 1s iters=64 (60.9/s) best=525600 dup=18% compile-fail=0 | 1s iters=64 (50.7/s) best=525600 dup=22% compile-fail=0 | 1s iters=64 (43.4/s) best=525600 dup=30% compile-fail=0 | 1s iters=123 (72.5/s) best=525600 dup=18% compile-fail=1 | 1s iters=127 (66.6/s) bes…
+
+ASSISTANT REASONING
+**Reworking caller-owned variable allocation**
+
+TOOL grep {"context":5,"glob":"","ignoreCase":false,"limit":5,"literal":true,"path":"build/GALE01/asm/melee/mn/mnsound.s","pattern":"mnSound_80249C08:"}
+
+RESULT grep No matches found
+
+ASSISTANT REASONING
+**Inspecting object disassembly paths**
+
+TOOL glob {"limit":20,"path":".","pattern":"build/GALE01/**/mnsound*"}
+
+RESULT glob build/GALE01/asm/melee/mn/mnsound.s build/GALE01/asm/melee/mn/mnsoundtest.s build/GALE01/obj/melee/mn/mnsound.o build/GALE01/obj/melee/mn/mnsoundtest.o build/GALE01/src/melee/mn/mnsound.o build/GALE01/src/melee/mn/mnsoundtest.o
+
+ASSISTANT REASONING
+**Examining function assembly with objdump**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsou…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Deciding on relative paths**
+
+TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; build/binutils/powerpc-eabi-objdump -dr b…
+
+RESULT bash [long result omitted: 7209 chars] --- /tmp/ref.txt	2026-08-27 18:40:08.634044543 +0000
+
+ASSISTANT REASONING
+**Inspecting argument mismatches**
+
+TOOL bash {"command":"grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,[0-9]+\\(r1\\)|lbz     r30' /tmp/ref.txt > /tmp/r; grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,…
+
+RESULT bash --- /tmp/r 2026-08-27 18:40:19.526976300 +0000 +++ /tmp/c 2026-08-27 18:40:19.528976321 +0000 @@ -1,35 +1,34 @@ -5: 944: 90 01 00 04 stw r0,4(r1) -12: 95c: bf 21 00 74 stmw r25,116(r1) -140: acc: 38 81 00 4c addi r4,r1,76 -150: af0: 38 81 00 50 addi r4,r1,80 -157: b08: 38 81 00 54 addi r4,r1,84 -162: b18: 80 61 00 50 lwz r3,80(r1) -165: b20: 80 61 00 54 lwz r3,84(r1) -172: b34: 90 01 00 6c stw r0…
+
+ASSISTANT REASONING
+**Mapping local variable stack offsets**
+
+**Reordering declarations to match stack layout**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* c…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Investigating channel helper local allocation**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Adjusting PAD_STACK to fix frame mismatch**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* sp5C;\n    Vec3 pos_1;","oldText":"    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* channel_anim_1;\n    HSD_JObj* channel_anim_0;\n    Vec3 pos_1…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Re-running to verify race condition**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Verifying layout impact on performance**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Validating final clean diff**
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08's remaining allocation-only mismatch. Reference/current disassembly confirmed the target uses caller stack homes at 0x24–0x64 and saves registers beginning at r25. Tested hoisting the animation and translation temporaries into function scope with reduced PAD_STACK; this aligned the later volume/final-animation stack accesses but introduced frame/prologue mismatches and regressed the focused score to 99.47099%, so the experiment was fully reverted. A bounded 300-iteration source-permuter search also found no improvement. No edits are retained.",
+  "validation": [
+    "baseline checkdiff_run: FAIL 99.49488%, 24 register/stack argument mismatches",
+    "hoisted caller-temporary probe: FAIL 99.47099%; reverted",
+    "source_permuter_run: 300 iterations, no improvement over its 99.47% baseline",
+    "final checkdiff_summary: mnSound_80249C08 99.49488%, mnSound_802492CC 99.21368%, fn_80249A1C PASS",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The target remains non-exact. The function-scope temporary arrangement can correct the later stack homes, but in the tested source shape it enlarges the frame and does not correct the channel-animation allocation or r25 lifetime. No local regression was retained."
+}
+
+ASSISTANT REASONING
+**Inspecting detailed diffs and diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":"main/melee/mn/mnsound"}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Searching ledger for validation details**
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries","scope":"symbol"}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+ASSISTANT REASONING
+**Planning git history recovery**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnsound.c | head -30 && git status --short -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy readability-redundant-casting (…
+
+ASSISTANT REASONING
+**Reviewing previous commit**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Planning git commit function comparison**
+
+TOOL bash {"command":"git show 00093d4:src/melee/mn/mnsound.c | sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p'","timeout":30}
+
+RESULT bash void mnSound_80249C08(int unused) { StaticModelDesc* model = &mnSound_804A08A8; AnimLoopSettings* anims = mnSound_803EEED8; HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80U); HSD_JObj* jobj; Menu* user_data; HSD_GObjProc* proc; PAD_STACK(24); mnSound_804D6C30 = gobj; jobj = HSD_JObjLoadJoint(model->joint); HSD_GObjObject_80390A70(gobj, HSD_GObj_804D7849, jobj); GObj_SetupGXLink(gobj, H…
+
+ASSISTANT REASONING
+**Analyzing helper declaration order impact**
+
+**Planning target-specific inline wrapper**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    f32 right_frame, left_fr…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.19231%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT REASONING
+**Reverting neighbor regression and reviewing mutation strategy**
+
+**Testing register shift via menu scope change**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    f32 right_frame, left_frame;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_ani…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Planning revert and assembly inspection**
+
+TOOL edit {"edits":[{"newText":"    Menu* user_data;\n    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    Menu* user_data;\n    HSD_GObjProc* proc;\n    Menu* menu;\n    PAD_STACK(24);"},{"newText":"  …
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Planning function scope register test**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c; sed -n '630,950p' build/GALE01/asm/melee/mn/mnsound.s | head -40","timeout":30}
+
+RESULT bash /* 80249BE8 002467C8 80 01 00 5C */ lwz r0, 0x5c(r1) /* 80249BEC 002467CC 83 E1 00 54 */ lwz r31, 0x54(r1) /* 80249BF0 002467D0 83 C1 00 50 */ lwz r30, 0x50(r1) /* 80249BF4 002467D4 83 A1 00 4C */ lwz r29, 0x4c(r1) /* 80249BF8 002467D8 83 81 00 48 */ lwz r28, 0x48(r1) /* 80249BFC 002467DC 38 21 00 58 */ addi r1, r1, 0x58 /* 80249C00 002467E0 7C 08 03 A6 */ mtlr r0 /* 80249C04 002467E4 4E 80 00 20…
+
+ASSISTANT REASONING
+**Building objdump symbol for asm analysis**
+
+TOOL bash {"command":"ninja -q build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -35","timeout":12…
+
+RESULT bash --quiet don't show progress status, just command output | -k N keep going until N jobs fail (0 means infinity) [default=1]
+
+TOOL bash {"command":"ninja --quiet build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -35","timeou…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Evaluating build/binutils path**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c && build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -30","timeou…
+
+RESULT bash 00000c28 <mnSound_80249C08>: c28: 7c 08 02 a6 mflr r0 c2c: 3c 80 00 00 lis r4,0 c2e: R_PPC_ADDR16_HA ...data.0 c30: 90 01 00 04 stw r0,4(r1) c34: 3c 60 00 00 lis r3,0 c36: R_PPC_ADDR16_HA mnSound_804A08A8 c38: 38 a0 00 80 li r5,128 c3c: 94 21 ff 60 stwu r1,-160(r1) c40: db e1 00 98 stfd f31,152(r1) c44: db c1 00 90 stfd f30,144(r1) c48: bf 41 00 78 stmw r26,120(r1) c4c: 3b e4 00 00 addi r31,r4,0 …
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08’s remaining allocation mismatch. Confirmed the reference saves r25–r31 while current code saves r26–r31, with the remaining differences concentrated in inlined animation temporary stack homes. Tested the historical mnSound_ChannelAnim declaration order and a function-scope Menu lifetime; neither improved the target, and the historical helper order regressed mnSound_802492CC, so both probes were reverted. No edits are retained.",
+  "validation": [
+    "baseline checkdiff_run: mnSound_80249C08 FAIL 99.49488%, 24 argument/register/stack-slot mismatches",
+    "historical ChannelAnim declaration-order probe: target unchanged at 99.49488%; mnSound_802492CC regressed from 99.21368% to 99.19231%; reverted",
+    "function-scope Menu lifetime probe: target unchanged at 99.49488%; reverted",
+    "final git diff -- src/melee/mn/mnsound.c: clean",
+    "final object disassembly confirms current prologue stmw r26, 0x78(r1), versus reference stmw r25, 0x74(r1)"
+  ],
+  "unresolved": "The target remains non-exact. The residual requires an additional genuine long-lived allocation in the target’s animation path without changing its 0xA0 frame or regressing the neighboring inlined helper users. No local regression is retained."
+}
+
+ASSISTANT REASONING
+**Inspecting diff and diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Planning permutation-based mutation**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":8,"keep_prob":0.15,"max_iters":600,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"active_session/mnsound_perm_replay.json","seed":18473…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=20 (11.8/s) best=525600 dup=66% compile-fail=0 | 1s iters=92 (48.7/s) best=511950 dup=29% compile-fail=1 | 2s iters=127 (59.6/s) best=511950 dup=25% compile-fail=1 | 2s iters=127 (53.2/s) best=511950 dup=27% compile-fail=1 | 2s iters=127 (48.9/s) bes…
+
+ASSISTANT REASONING
+**Applying exact code diff**
+
+TOOL edit {"edits":[{"newText":"    {\n        HSD_JObj* jobj_anim_2;\n        HSD_JObj* jobj_anim_1;\n        HSD_JObj* jobj_anim_0;\n        {\n            Vec3 pos_1;\n            Vec3 pos_0;\n            m…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","fn_80249A1C","mnSound_802492CC","mnSound_8024A09C"],"timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnsound.c","rule":"all","text":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.52219%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.52219%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Planning linting via local file access**
+
+TOOL read {"limit":50,"offset":280,"path":"src/melee/mn/mnsound.c"}
+
+RESULT read [long result omitted: 1425 chars] GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
+
+ASSISTANT REASONING
+**Planning lint text snippet retention**
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"    {\n        HSD_JObj* jobj_anim_2;\n        HSD_JObj* jobj_anim_1;\n        HSD_JObj* jobj_anim_0;\n        {\n            Vec3 pos_1;\n            Vec3 pos_0;\n   …
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT TEXT
+{
+  "summary": "Improved mnSound_80249C08 by narrowing the lifetime of the two Vec3 translation temporaries while preserving the caller-owned JObj output temporaries. This adjusts MWCC stack allocation in the inlined volume-animation path. The target remains non-exact, but focused validation improved from 99.49488% to 99.52219%.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08: FAIL 99.52219%, improved from 99.49488%",
+    "checkdiff_summary: fn_80249A1C PASS; mnSound_8024A09C PASS; mnSound_802492CC unchanged at 99.21368%",
+    "review_lint_scan on retained edit: passed with no findings",
+    "No local neighbor regression caused by the retained edit"
+  ],
+  "unresolved": "The remaining 24 argument mismatches are still concentrated in the r25-versus-r26 saved-register allocation and stack homes used by the volume/channel animation temporaries."
+}
+
+exec
+/bin/zsh -lc "sed -n '321,480p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+**Considering using permuter with max 300**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":4,"keep_prob":0.15,"max_iters":300,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"permuter_mnsound_replay.json","seed":4831,"timeout_se…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 0s iters=62 (74.0/s) best=525600 dup=13% compile-fail=0 | 1s iters=64 (60.9/s) best=525600 dup=18% compile-fail=0 | 1s iters=64 (50.7/s) best=525600 dup=22% compile-fail=0 | 1s iters=64 (43.4/s) best=525600 dup=30% compile-fail=0 | 1s iters=123 (72.5/s) best=525600 dup=18% compile-fail=1 | 1s iters=127 (66.6/s) bes…
+
+ASSISTANT REASONING
+**Reworking caller-owned variable allocation**
+
+TOOL grep {"context":5,"glob":"","ignoreCase":false,"limit":5,"literal":true,"path":"build/GALE01/asm/melee/mn/mnsound.s","pattern":"mnSound_80249C08:"}
+
+RESULT grep No matches found
+
+ASSISTANT REASONING
+**Inspecting object disassembly paths**
+
+TOOL glob {"limit":20,"path":".","pattern":"build/GALE01/**/mnsound*"}
+
+RESULT glob build/GALE01/asm/melee/mn/mnsound.s build/GALE01/asm/melee/mn/mnsoundtest.s build/GALE01/obj/melee/mn/mnsound.o build/GALE01/obj/melee/mn/mnsoundtest.o build/GALE01/src/melee/mn/mnsound.o build/GALE01/src/melee/mn/mnsoundtest.o
+
+ASSISTANT REASONING
+**Examining function assembly with objdump**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsou…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Deciding on relative paths**
+
+TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; build/binutils/powerpc-eabi-objdump -dr b…
+
+RESULT bash [long result omitted: 7209 chars] --- /tmp/ref.txt	2026-08-27 18:40:08.634044543 +0000
+
+ASSISTANT REASONING
+**Inspecting argument mismatches**
+
+TOOL bash {"command":"grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,[0-9]+\\(r1\\)|lbz     r30' /tmp/ref.txt > /tmp/r; grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,…
+
+RESULT bash --- /tmp/r 2026-08-27 18:40:19.526976300 +0000 +++ /tmp/c 2026-08-27 18:40:19.528976321 +0000 @@ -1,35 +1,34 @@ -5: 944: 90 01 00 04 stw r0,4(r1) -12: 95c: bf 21 00 74 stmw r25,116(r1) -140: acc: 38 81 00 4c addi r4,r1,76 -150: af0: 38 81 00 50 addi r4,r1,80 -157: b08: 38 81 00 54 addi r4,r1,84 -162: b18: 80 61 00 50 lwz r3,80(r1) -165: b20: 80 61 00 54 lwz r3,84(r1) -172: b34: 90 01 00 6c stw r0…
+
+ASSISTANT REASONING
+**Mapping local variable stack offsets**
+
+**Reordering declarations to match stack layout**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* c…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Investigating channel helper local allocation**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Adjusting PAD_STACK to fix frame mismatch**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* sp5C;\n    Vec3 pos_1;","oldText":"    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* channel_anim_1;\n    HSD_JObj* channel_anim_0;\n    Vec3 pos_1…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Re-running to verify race condition**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Verifying layout impact on performance**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Validating final clean diff**
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08's remaining allocation-only mismatch. Reference/current disassembly confirmed the target uses caller stack homes at 0x24–0x64 and saves registers beginning at r25. Tested hoisting the animation and translation temporaries into function scope with reduced PAD_STACK; this aligned the later volume/final-animation stack accesses but introduced frame/prologue mismatches and regressed the focused score to 99.47099%, so the experiment was fully reverted. A bounded 300-iteration source-permuter search also found no improvement. No edits are retained.",
+  "validation": [
+    "baseline checkdiff_run: FAIL 99.49488%, 24 register/stack argument mismatches",
+    "hoisted caller-temporary probe: FAIL 99.47099%; reverted",
+    "source_permuter_run: 300 iterations, no improvement over its 99.47% baseline",
+    "final checkdiff_summary: mnSound_80249C08 99.49488%, mnSound_802492CC 99.21368%, fn_80249A1C PASS",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The target remains non-exact. The function-scope temporary arrangement can correct the later stack homes, but in the tested source shape it enlarges the frame and does not correct the channel-animation allocation or r25 lifetime. No local regression was retained."
+}
+
+ASSISTANT REASONING
+**Inspecting detailed diffs and diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":"main/melee/mn/mnsound"}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Searching ledger for validation details**
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries","scope":"symbol"}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+ASSISTANT REASONING
+**Planning git history recovery**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnsound.c | head -30 && git status --short -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy readability-redundant-casting (…
+
+ASSISTANT REASONING
+**Reviewing previous commit**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Planning git commit function comparison**
+
+TOOL bash {"command":"git show 00093d4:src/melee/mn/mnsound.c | sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p'","timeout":30}
+
+RESULT bash void mnSound_80249C08(int unused) { StaticModelDesc* model = &mnSound_804A08A8; AnimLoopSettings* anims = mnSound_803EEED8; HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80U); HSD_JObj* jobj; Menu* user_data; HSD_GObjProc* proc; PAD_STACK(24); mnSound_804D6C30 = gobj; jobj = HSD_JObjLoadJoint(model->joint); HSD_GObjObject_80390A70(gobj, HSD_GObj_804D7849, jobj); GObj_SetupGXLink(gobj, H…
+
+ASSISTANT REASONING
+**Analyzing helper declaration order impact**
+
+
+exec
+/bin/zsh -lc "sed -n '1,160p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Inspecting code diff**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+ASSISTANT REASONING
+**Diagnosing stack differences**
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+
+TOOL grep {"context":100,"glob":"*.c","ignoreCase":false,"limit":1,"literal":true,"path":"src/melee/mn/mnsound.c","pattern":"void mnSound_80249C08"}
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT grep [long result omitted: 9184 chars] mnsound.c-153-             gm_801602C0(mix);
+
+ASSISTANT REASONING
+**Planning assembly mapping and diff analysis**
+
+TOOL bash {"command":"ls build/GALE01/asm/melee/mn/mnsound.s build/GALE01/src/melee/mn/mnsound.o 2>/dev/null; sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s | head","timeout":20}
+
+RESULT bash build/GALE01/asm/melee/mn/mnsound.s build/GALE01/src/melee/mn/mnsound.o # .text:0x93C | 0x80249C08 | size: 0x494 .fn mnSound_80249C08, global /* 80249C08 002467E8 7C 08 02 A6 */ mflr r0 /* 80249C0C 002467EC 3C 80 80 3F */ lis r4, mnSound_803EEED8@ha /* 80249C10 002467F0 90 01 00 04 */ stw r0, 0x4(r1) /* 80249C14 002467F4 3C 60 80 4A */ lis r3, mnSound_804A08A8@ha /* 80249C18 002467F8 38 A0 00 80 …
+
+ASSISTANT REASONING
+**Disassembling current and target regions**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>:/,/^$/p' > /tmp/current.txt; sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s > /tmp/target…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Configuring build/binutils path**
+
+TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>:/,/^$/p'","timeout":20}
+
+RESULT bash [long result omitted: 15621 chars] 00000c28 <mnSound_80249C08>:
+
+ASSISTANT REASONING
+**Analyzing register allocation differences**
+
+**Planning channel-related line comparison**
+
+TOOL bash {"command":"sed -n '640,940p' build/GALE01/asm/melee/mn/mnsound.s | grep -E '^/\\* 80249|stmw|addi r4, r1|lbz r30|lmw'","timeout":20}
+
+RESULT bash [long result omitted: 14165 chars] /* 80249C08 002467E8  7C 08 02 A6 */	mflr r0
+
+ASSISTANT REASONING
+**Aligning function-scope declarations for stack allocation**
+
+**Testing function-scope reordering of caller temporaries**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Implementing no-op source reversion**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JO…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Assessing function scope adjustment effects**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":4,"keep_prob":0.25,"max_iters":300,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"/tmp/mnsound-replay.json","seed":42,"timeout_seconds"…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=0% compile-fail=0 | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=48 (45.7/s) best=525600 dup=8% compile-fail=0 | 1s iters=64 (51.0/s) best=525600 dup=9% compile-fail=0 | 1s iters=64 (42.0/s) best=525600 dup=16% compile-fail=0 | 1s iters=64 (37.1/s) best=525600 dup=23% compile-fail=0 | 1s iters=101 (52.5/s) best=5256…
+
+ASSISTANT REASONING
+
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":20}
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08 at the retained 99.49488% baseline. Focused checkdiff shows 24 argument/register or stack-slot mismatches, beginning with the saved-register range (target r25, current r26) and concentrated in the inlined channel/volume animation regions. MWCC stack and regflow diagnostics produced no additional actionable mapping. Tested promoting the caller-owned animation and translation temporaries to function scope; code generation and score were unchanged, so the edit was reverted. A 300-candidate source-permuter search also found no improvement. No source changes are retained.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08 --full-diff: FAIL, 99.49488%",
+    "mwcc_debug_diagnose_stack: no actionable named-local movement; debug pcdump unavailable",
+    "mwcc_debug_diagnose_regflow: no compact register-only window; debug pcdump unavailable",
+    "source_permuter_run: 303 iterations, no improvement over baseline",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The remaining mismatch appears to require a coupled lifetime and stack-layout source restructuring rather than isolated declaration ordering, scope promotion, PAD_STACK adjustment, or helper expansion. There is no local regression from this attempt."
+}
+
+ASSISTANT REASONING
+**Inspecting exact diff**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn","pattern":"InitVolumeAnim"}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT grep [long result omitted: 772 chars] mnsound.c-74-     HSD_JObjAnimAll(jobj_anim_2);
+
+ASSISTANT REASONING
+**Investigating ledger statement details**
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries","scope":"symbol"}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+ASSISTANT REASONING
+**Planning git history analysis**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnsound.c | head -30 && git status --short src/melee/mn/mnsound.c && git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy readability-redundant-casting (…
+
+ASSISTANT REASONING
+**Inspecting recent commit**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Inspecting commit history for improvement**
+
+TOOL bash {"command":"git show 00093d4^:src/melee/mn/mnsound.c | sed -n '70,340p' > /tmp/before.txt; git show 00093d4:src/melee/mn/mnsound.c | sed -n '70,340p' > /tmp/after.txt; diff -u /tmp/before.txt /tmp/af…
+
+RESULT bash --- /tmp/before.txt 2026-08-27 18:36:08.694323461 +0000 +++ /tmp/after.txt 2026-08-27 18:36:08.696344021 +0000 @@ -1,6 +1,8 @@ - HSD_JObjReqAnimAll(jobj_anim[2], right_frame); - mn_8022F3D8(jobj_anim[2], 0xFFU, MOBJ_MASK); - HSD_JObjAnimAll(jobj_anim[2]); + HSD_JObjAnimAll(jobj_anim_1); + + HSD_JObjReqAnimAll(jobj_anim_2, right_frame); + mn_8022F3D8(jobj_anim_2, 0xFFU, MOBJ_MASK); + HSD_JObjAnimA…
+
+ASSISTANT REASONING
+**Analyzing helper declaration reorder impact**
+
+**Inspecting disassembly for stack slot order**
+
+TOOL bash {"command":"ninja -q build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/cand.asm; sed -n …
+
+exec
+/bin/zsh -lc "sed -n '161,320p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+
+RESULT bash --quiet don't show progress status, just command output | -k N keep going until N jobs fail (0 means infinity) [default=1]
+
+TOOL bash {"command":"ninja --quiet build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | tail -180","timeo…
+
+RESULT bash ninja: no work to do. /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Testing declaration order impact**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    f32 right_frame, left_fr…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.19231%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT REASONING
+
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    f32 right_frame, left_frame;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_ani…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Analyzing stack layout and pointer offsets**
+
+TOOL m2c_decompile {"extra_args":[],"format":false,"input":"mnSound_80249C08","no_context":false,"timeout_seconds":120}
+
+RESULT m2c_decompile exit_code=0 | exit_code=1 | status=failed | failed | ModuleNotFoundError: No module named 'elftools' | parse_error=null | "exit_code": 0, | "exit_code": 1, | "status": "failed", | "stderr": "Traceback (most recent call last):\n File \"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/_impl/gamecube/tools/decomp.py\", line 37, in <module>\n from elftools.elf.elff…
+
+ASSISTANT REASONING
+**Comparing commit 00093 changes**
+
+TOOL bash {"command":"git diff 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Testing declaration order for target differences**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    HSD_JObj*…
+
+RESULT edit Successfully replaced 4 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Reverting caller-owned volume local tests**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj*…
+
+RESULT edit Successfully replaced 4 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Testing removal of unused int parameter**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT bash (no output)
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08 at 99.49488%. Focused diff confirms 24 allocation-only mismatches: the reference saves from r25 rather than r26 and uses different stack homes around the inlined channel and volume animation regions. Tested the historical ChannelAnim declaration order; target codegen was unchanged while mnSound_802492CC regressed, so it was reverted. Also tested promoting the cursor, translation, animation, and final-state temporaries to function scope; target codegen was unchanged, so it was reverted. No edits are retained.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08 --full-diff: FAIL (99.49488%), 24 argument/register or stack-slot mismatches",
+    "historical ChannelAnim declaration-order probe: target unchanged; mnSound_802492CC regressed from 99.21368% to 99.19231%; reverted",
+    "function-scope temporary-lifetime probe: target unchanged at 99.49488%; reverted",
+    "final checkdiff_summary: mnSound_80249C08 99.49488%, mnSound_802492CC 99.21368%, fn_80249A1C PASS",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The target remains non-exact. Existing evidence rules out isolated helper declaration ordering and broad caller-local scope promotion; resolving the remaining mismatch requires a new coupled register-lifetime and stack-layout source hypothesis. No local regression was retained."
+}
+
+ASSISTANT REASONING
+**Inspecting diff diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound register stack allocation","scope":"symbol"}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Searching ledger for variant history**
+
+TOOL ledger_search {"limit":10,"query":"99.56997 mnSound_80249C08 caller-owned animation translation temporaries","scope":"symbol"}
+
+TOOL past_prs_search {"limit":10,"query":"mnSound_80249C08 99.56997"}
+
+TOOL knowledge_graph_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries"}
+
+TOOL mwcc_debug_diagnose_inlines {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+RESULT past_prs_search status=ok | ...After | | - | - | - | - | - | | `main/melee/gm/gmtou_1` | `fn_8019B458` | +73 | 91.93% | 99.48% | </details> | PR 2809: Improve fn_8019B458 match to 99.56% | Improve fn_8019B458 match to 99.56% Improve fn_8019B458 match to 99.56% is a open PR touching 1 changed file(s), primarily in game-mode. Draft classification: decomp-matching, fix. decomp-matching;fix game-mode markmccaskey;im…
+
+RESULT knowledge_graph_search status=ok | summary PR 2599 split Kirby's copied Purin/Jigglypuff SpecialN code out of `ftkirbyspecialdonkey` into a new `ftkirbyspecialpurin` translation unit, linked it as Matching in `configure.py`, and adjusted split/symbol metadata, headers, includes, and nearby declarations to reflect the... | PR 2813: Improve un_8031D9F8 match to 99.32% | Improve un_8031D9F8 match to 99.32% [object Object]…
+
+RESULT mwcc_debug_diagnose_inlines exit_code=0 | exit_code=1 | status=failed | failed | error: mwcc_debug dump unavailable | parse_error=null | "exit_code": 0, | "exit_code": 1, | "status": "failed", | "stderr": "error: mwcc_debug dump unavailable\nUnhandled function 190 (MWDBG326.dll)\n[mwcc_dump] no pcdump.txt produced at /opt/melee/build/mwcc-dump/mnSound_80249C08-0k6mzive/pcdump.txt\n", | "parse_error": null,
+
+ASSISTANT REASONING
+**Exploring git logs and diffs**
+
+TOOL bash {"command":"git status --short && git log --all --oneline -- src/melee/mn/mnsound.c | head -20","timeout":30}
+
+TOOL grep {"context":2,"glob":"**/*","ignoreCase":false,"limit":20,"literal":true,"path":"active_session","pattern":"caller-owned animation"}
+
+TOOL grep {"context":2,"glob":"**/*","ignoreCase":false,"limit":50,"literal":true,"path":"active_session","pattern":"mnSound_80249C08"}
+
+RESULT bash ?? tools/asm-differ/
+
+RESULT grep Path not found: /opt/melee/active_session
+
+RESULT grep Path not found: /opt/melee/active_session
+
+ASSISTANT REASONING
+**Inspecting commit and diff details**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+TOOL bash {"command":"git branch --all --contains 00093d4; git log --all --oneline --decorate -- src/melee/mn/mnsound.c | head -50","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+RESULT bash * (HEAD detached at b2990c3) 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy re…
+
+ASSISTANT REASONING
+**Comparing commit function changes**
+
+TOOL bash {"command":"git show 00093d4:src/melee/mn/mnsound.c | sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p'; echo CURRENT; sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p' src/melee/mn/m…
+
+RESULT bash [long result omitted: 4968 chars] void mnSound_80249C08(int unused)
+
+ASSISTANT REASONING
+**Investigating git reflog for dangling commits**
+
+TOOL bash {"command":"git reflog --all --date=iso | grep -i -E 'mnsound|d12a1b9e|checkpoint' | head -50","timeout":30}
+
+RESULT bash (no output)
+
+ASSISTANT REASONING
+
+exec
+/bin/zsh -lc "sed -n '481,622p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+**Planning target-specific inline wrapper**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_0;\n    f32 right_frame, left_fr…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.19231%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+ASSISTANT REASONING
+**Reverting neighbor regression and reviewing mutation strategy**
+
+**Testing register shift via menu scope change**
+
+TOOL edit {"edits":[{"newText":"static void mnSound_ChannelAnim(HSD_JObj* jobj, s32 channel)\n{\n    f32 right_frame, left_frame;\n    HSD_JObj* jobj_anim_1;\n    HSD_JObj* jobj_anim_2;\n    HSD_JObj* jobj_ani…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecu…
+
+ASSISTANT REASONING
+**Planning revert and assembly inspection**
+
+TOOL edit {"edits":[{"newText":"    Menu* user_data;\n    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    Menu* user_data;\n    HSD_GObjProc* proc;\n    Menu* menu;\n    PAD_STACK(24);"},{"newText":"  …
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Planning function scope register test**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c; sed -n '630,950p' build/GALE01/asm/melee/mn/mnsound.s | head -40","timeout":30}
+
+RESULT bash /* 80249BE8 002467C8 80 01 00 5C */ lwz r0, 0x5c(r1) /* 80249BEC 002467CC 83 E1 00 54 */ lwz r31, 0x54(r1) /* 80249BF0 002467D0 83 C1 00 50 */ lwz r30, 0x50(r1) /* 80249BF4 002467D4 83 A1 00 4C */ lwz r29, 0x4c(r1) /* 80249BF8 002467D8 83 81 00 48 */ lwz r28, 0x48(r1) /* 80249BFC 002467DC 38 21 00 58 */ addi r1, r1, 0x58 /* 80249C00 002467E0 7C 08 03 A6 */ mtlr r0 /* 80249C04 002467E4 4E 80 00 20…
+
+ASSISTANT REASONING
+**Building objdump symbol for asm analysis**
+
+TOOL bash {"command":"ninja -q build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -35","timeout":12…
+
+RESULT bash --quiet don't show progress status, just command output | -k N keep going until N jobs fail (0 means infinity) [default=1]
+
+TOOL bash {"command":"ninja --quiet build/GALE01/src/melee/mn/mnsound.o && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -35","timeou…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Evaluating build/binutils path**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c && build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' | head -30","timeou…
+
+RESULT bash 00000c28 <mnSound_80249C08>: c28: 7c 08 02 a6 mflr r0 c2c: 3c 80 00 00 lis r4,0 c2e: R_PPC_ADDR16_HA ...data.0 c30: 90 01 00 04 stw r0,4(r1) c34: 3c 60 00 00 lis r3,0 c36: R_PPC_ADDR16_HA mnSound_804A08A8 c38: 38 a0 00 80 li r5,128 c3c: 94 21 ff 60 stwu r1,-160(r1) c40: db e1 00 98 stfd f31,152(r1) c44: db c1 00 90 stfd f30,144(r1) c48: bf 41 00 78 stmw r26,120(r1) c4c: 3b e4 00 00 addi r31,r4,0 …
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08’s remaining allocation mismatch. Confirmed the reference saves r25–r31 while current code saves r26–r31, with the remaining differences concentrated in inlined animation temporary stack homes. Tested the historical mnSound_ChannelAnim declaration order and a function-scope Menu lifetime; neither improved the target, and the historical helper order regressed mnSound_802492CC, so both probes were reverted. No edits are retained.",
+  "validation": [
+    "baseline checkdiff_run: mnSound_80249C08 FAIL 99.49488%, 24 argument/register/stack-slot mismatches",
+    "historical ChannelAnim declaration-order probe: target unchanged at 99.49488%; mnSound_802492CC regressed from 99.21368% to 99.19231%; reverted",
+    "function-scope Menu lifetime probe: target unchanged at 99.49488%; reverted",
+    "final git diff -- src/melee/mn/mnsound.c: clean",
+    "final object disassembly confirms current prologue stmw r26, 0x78(r1), versus reference stmw r25, 0x74(r1)"
+  ],
+  "unresolved": "The target remains non-exact. The residual requires an additional genuine long-lived allocation in the target’s animation path without changing its 0xA0 frame or regressing the neighboring inlined helper users. No local regression is retained."
+}
+
+ASSISTANT REASONING
+**Inspecting diff and diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":""}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Planning permutation-based mutation**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":8,"keep_prob":0.15,"max_iters":600,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"active_session/mnsound_perm_replay.json","seed":18473…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 1s iters=20 (11.8/s) best=525600 dup=66% compile-fail=0 | 1s iters=92 (48.7/s) best=511950 dup=29% compile-fail=1 | 2s iters=127 (59.6/s) best=511950 dup=25% compile-fail=1 | 2s iters=127 (53.2/s) best=511950 dup=27% compile-fail=1 | 2s iters=127 (48.9/s) bes…
+
+ASSISTANT REASONING
+**Applying exact code diff**
+
+TOOL edit {"edits":[{"newText":"    {\n        HSD_JObj* jobj_anim_2;\n        HSD_JObj* jobj_anim_1;\n        HSD_JObj* jobj_anim_0;\n        {\n            Vec3 pos_1;\n            Vec3 pos_0;\n            m…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","fn_80249A1C","mnSound_802492CC","mnSound_8024A09C"],"timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnsound.c","rule":"all","text":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.52219%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.52219%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Planning linting via local file access**
+
+TOOL read {"limit":50,"offset":280,"path":"src/melee/mn/mnsound.c"}
+
+RESULT read [long result omitted: 1425 chars] GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
+
+ASSISTANT REASONING
+**Planning lint text snippet retention**
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"    {\n        HSD_JObj* jobj_anim_2;\n        HSD_JObj* jobj_anim_1;\n        HSD_JObj* jobj_anim_0;\n        {\n            Vec3 pos_1;\n            Vec3 pos_0;\n   …
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT TEXT
+{
+  "summary": "Improved mnSound_80249C08 by narrowing the lifetime of the two Vec3 translation temporaries while preserving the caller-owned JObj output temporaries. This adjusts MWCC stack allocation in the inlined volume-animation path. The target remains non-exact, but focused validation improved from 99.49488% to 99.52219%.",
+  "validation": [
+    "checkdiff_run mnSound_80249C08: FAIL 99.52219%, improved from 99.49488%",
+    "checkdiff_summary: fn_80249A1C PASS; mnSound_8024A09C PASS; mnSound_802492CC unchanged at 99.21368%",
+    "review_lint_scan on retained edit: passed with no findings",
+    "No local neighbor regression caused by the retained edit"
+  ],
+  "unresolved": "The remaining 24 argument mismatches are still concentrated in the r25-versus-r26 saved-register allocation and stack homes used by the volume/channel animation temporaries."
+}
+
+exec
+/bin/zsh -lc "sed -n '321,400p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+exec
+/bin/zsh -lc "sed -n '401,480p' condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+**Considering using permuter with max 300**
+
+TOOL source_permuter_run {"function":"mnSound_80249C08","jobs":4,"keep_prob":0.15,"max_iters":300,"mutate_functions":["mnSound_80249C08"],"no_narrow":false,"save_replay":"permuter_mnsound_replay.json","seed":4831,"timeout_se…
+
+RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=525600 dup=100% compile-fail=0 | 0s iters=62 (74.0/s) best=525600 dup=13% compile-fail=0 | 1s iters=64 (60.9/s) best=525600 dup=18% compile-fail=0 | 1s iters=64 (50.7/s) best=525600 dup=22% compile-fail=0 | 1s iters=64 (43.4/s) best=525600 dup=30% compile-fail=0 | 1s iters=123 (72.5/s) best=525600 dup=18% compile-fail=1 | 1s iters=127 (66.6/s) bes…
+
+ASSISTANT REASONING
+**Reworking caller-owned variable allocation**
+
+TOOL grep {"context":5,"glob":"","ignoreCase":false,"limit":5,"literal":true,"path":"build/GALE01/asm/melee/mn/mnsound.s","pattern":"mnSound_80249C08:"}
+
+RESULT grep No matches found
+
+ASSISTANT REASONING
+**Inspecting object disassembly paths**
+
+TOOL glob {"limit":20,"path":".","pattern":"build/GALE01/**/mnsound*"}
+
+RESULT glob build/GALE01/asm/melee/mn/mnsound.s build/GALE01/asm/melee/mn/mnsoundtest.s build/GALE01/obj/melee/mn/mnsound.o build/GALE01/obj/melee/mn/mnsoundtest.o build/GALE01/src/melee/mn/mnsound.o build/GALE01/src/melee/mn/mnsoundtest.o
+
+ASSISTANT REASONING
+**Examining function assembly with objdump**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnsou…
+
+RESULT bash /bin/bash: line 1: powerpc-eabi-objdump: command not found /bin/bash: line 1: powerpc-eabi-objdump: command not found
+
+ASSISTANT REASONING
+**Deciding on relative paths**
+
+TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/obj/melee/mn/mnsound.o | sed -n '/<mnSound_80249C08>/,/<mnSound_8024A09C>/p' > /tmp/ref.txt; build/binutils/powerpc-eabi-objdump -dr b…
+
+RESULT bash [long result omitted: 7209 chars] --- /tmp/ref.txt	2026-08-27 18:40:08.634044543 +0000
+
+ASSISTANT REASONING
+**Inspecting argument mismatches**
+
+TOOL bash {"command":"grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,[0-9]+\\(r1\\)|lbz     r30' /tmp/ref.txt > /tmp/r; grep -n -E 'stmw|addi    r4,r1|lwz     r3,[0-9]+\\(r1\\)|stw     r0,…
+
+RESULT bash --- /tmp/r 2026-08-27 18:40:19.526976300 +0000 +++ /tmp/c 2026-08-27 18:40:19.528976321 +0000 @@ -1,35 +1,34 @@ -5: 944: 90 01 00 04 stw r0,4(r1) -12: 95c: bf 21 00 74 stmw r25,116(r1) -140: acc: 38 81 00 4c addi r4,r1,76 -150: af0: 38 81 00 50 addi r4,r1,80 -157: b08: 38 81 00 54 addi r4,r1,84 -162: b18: 80 61 00 50 lwz r3,80(r1) -165: b20: 80 61 00 54 lwz r3,84(r1) -172: b34: 90 01 00 6c stw r0…
+
+ASSISTANT REASONING
+**Mapping local variable stack offsets**
+
+**Reordering declarations to match stack layout**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* jobj;\n    Menu* user_data;\n    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* c…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Investigating channel helper local allocation**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Adjusting PAD_STACK to fix frame mismatch**
+
+TOOL edit {"edits":[{"newText":"    HSD_JObj* sp5C;\n    Vec3 pos_1;","oldText":"    HSD_JObj* sp5C;\n    HSD_JObj* channel_anim_2;\n    HSD_JObj* channel_anim_1;\n    HSD_JObj* channel_anim_0;\n    Vec3 pos_1…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Re-running to verify race condition**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.47099%) | left 2384: DIFF_ARG_MISMATCH stwu r1, -0xa0(r1) | left 2388: DIFF_ARG_MISMATCH stfd f31, 0x98(r1) | left 2392: DIFF_ARG_MISMATCH stfd f30, 0x90(r1) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764…
+
+ASSISTANT REASONING
+**Verifying layout impact on performance**
+
+TOOL edit {"edits":[{"newText":"    HSD_GObjProc* proc;\n    PAD_STACK(24);","oldText":"    HSD_GObjProc* proc;\n    HSD_JObj* sp64;\n    HSD_JObj* sp60;\n    HSD_JObj* sp5C;\n    Vec3 pos_1;\n    Vec3 pos_0;\…
+
+
+ succeeded in 0ms:
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mnsound.c.
+
+ASSISTANT REASONING
+**Validating final clean diff**
+
+TOOL checkdiff_summary {"functions":["mnSound_80249C08","mnSound_802492CC","fn_80249A1C"],"timeout_seconds":120}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | mnSound_802492CC: FAIL (99.21368%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/For…
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated mnSound_80249C08's remaining allocation-only mismatch. Reference/current disassembly confirmed the target uses caller stack homes at 0x24–0x64 and saves registers beginning at r25. Tested hoisting the animation and translation temporaries into function scope with reduced PAD_STACK; this aligned the later volume/final-animation stack accesses but introduced frame/prologue mismatches and regressed the focused score to 99.47099%, so the experiment was fully reverted. A bounded 300-iteration source-permuter search also found no improvement. No edits are retained.",
+  "validation": [
+    "baseline checkdiff_run: FAIL 99.49488%, 24 register/stack argument mismatches",
+    "hoisted caller-temporary probe: FAIL 99.47099%; reverted",
+    "source_permuter_run: 300 iterations, no improvement over its 99.47% baseline",
+    "final checkdiff_summary: mnSound_80249C08 99.49488%, mnSound_802492CC 99.21368%, fn_80249A1C PASS",
+    "git diff -- src/melee/mn/mnsound.c: clean"
+  ],
+  "unresolved": "The target remains non-exact. The function-scope temporary arrangement can correct the later stack homes, but in the tested source shape it enlarges the frame and does not correct the channel-animation allocation or r25 lifetime. No local regression was retained."
+}
+
+ASSISTANT REASONING
+**Inspecting detailed diffs and diagnostics**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mnSound_80249C08","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 main/melee/mn/mnsound","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mnsound.c","symbol":"mnSound_80249C08","unit":"main/melee/mn/mnsound"}
+
+TOOL mwcc_debug_diagnose_regflow {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_diagnose_stack {"function":"mnSound_80249C08","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnSound_80249C08: FAIL (99.49488%) | left 2396: DIFF_ARG_MISMATCH stmw r25, 0x74(r1) | left 2764: DIFF_ARG_MISMATCH addi r4, r1, 0x4c | left 2800: DIFF_ARG_MISMATCH addi r4, r1, 0x50 | left 2824: DIFF_ARG_MISMATCH addi r4, r1, 0x54 | left 2840: D…
+
+RESULT ledger_search status=ok | After the exact fn_80249A1C source-shape change caused codegen drift in same-file neighbor mnSound_80249C08, explicit local StaticModelDesc and AnimLoopSettings base pointers for repeated accesses restored mnSound_80249C08 from 99.39249% to its prior 99.49488% score without disturbing fn_80249A1C exactness. | status=corroborated | After the exact fn_80249A1C source-shape change shifte…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 99.49488, | "status": null | "score": 0.6351, | "exact_match": false, | "matched": true, | "statement": "In mnEvent_8024E524, the QA-compliant allocation check uses HSD_ASSERTREPORT with the inline \"Can't get user_data.\\n\" message. Expanding it into raw OSReport/__assert or replacing the message literal with mnEvent_803EF7A0 + 0x10 improves relocation similarity but …
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_diagnose_stack exit_code=0 | status=ok | Stack/frame mismatch lines: none | checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode. | parse_error=null | "exit_code": 0, | "status": "ok", | "stdout": "No actionable named local movement found.\n\nOffset delta groups (current - target): none\n\nStack/frame mismatch lines: none\n\nmwcc_debug current-C stack facts: unavailab…
+
+ASSISTANT REASONING
+**Searching ledger for validation details**
+
+TOOL ledger_search {"limit":10,"query":"mnSound_80249C08 99.56997 caller-owned animation translation temporaries","scope":"symbol"}
+
+RESULT ledger_search status=ok | The only runner-validated progress in this batch came from reworking mnSound_80249C08 so caller-owned animation and translation temporaries received a closer stack allocation; this improved the official score from 99.47781 to 99.56997 while preserving the checked neighboring functions, but did not reach exact. | status=corroborated | In mnSound_80249C08, isolated padding, declaration-…
+
+ASSISTANT REASONING
+**Planning git history recovery**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/mn/mnsound.c | head -30 && git status --short -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash 2f42690 worker-integration(job-5c3d): main/melee/mn/mnsound::mnSound_802492CC [checkpoint 7b8c31a0] (conflict resolved) 00093d4 worker-integration(job-2ce2): main/melee/mn/mnsound::mnSound_80249C08 [checkpoint d12a1b9e] 2e2c957 clang-tidy: clean `sysdolphin` (#3188) 2c2ea1d clang-tidy: clean `extern/`, `MSL`, and `MetroTRK` includes (#3186) e3c6c83 Apply clang-tidy readability-redundant-casting (…
+
+ASSISTANT REASONING
+**Reviewing previous commit**
+
+TOOL bash {"command":"git show --stat --oneline 00093d4 && git show 00093d4 -- src/melee/mn/mnsound.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnsound.c b/src/melee/mn/mnsound.c
+
+ASSISTANT REASONING
+**Planning git commit function comparison**
+
+TOOL bash {"command":"git show 00093d4:src/melee/mn/mnsound.c | sed -n '/void mnSound_80249C08/,/void mnSound_8024A09C/p'","timeout":30}
+
+RESULT bash void mnSound_80249C08(int unused) { StaticModelDesc* model = &mnSound_804A08A8; AnimLoopSettings* anims = mnSound_803EEED8; HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80U); HSD_JObj* jobj; Menu* user_data; HSD_GObjProc* proc; PAD_STACK(24); mnSound_804D6C30 = gobj; jobj = HSD_JObjLoadJoint(model->joint); HSD_GObjObject_80390A70(gobj, HSD_GObj_804D7849, jobj); GObj_SetupGXLink(gobj, H…
+
+ASSISTANT REASONING
+**Analyzing helper declaration order impact**
+
+
+codex
+Step 2 of 3 done: both transcripts are fully read. The evidence points to a process advantage, but only partially: the exact worker found and acted on a prior symbol-specific type-shape lead immediately, while the near-miss worker diagnosed its allocation problem correctly yet repeated a narrow family of scope/declaration experiments.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..43685cd9b6785d52a02ba105267343dcd990cf82
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The most important difference was hypothesis quality and information reuse. The exact worker searched the symbol ledger and past PRs at the outset, got the specific lead that local types and declaration order had matched this function before, and converted that into one high-leverage `JObjIndices` type-shape edit. The near-miss worker read the assembly carefully, but kept testing variations of the already-known stack/register-allocation hypothesis. It changed scope, declaration order, padding, and helper-local lifetimes without finding a new source construct that explained the missing `r25` lifetime. Process explains part of the outcome, though the exact worker also had unusually direct historical evidence for its target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed, but evidence-led rather than blind guess-and-check. It noticed register and data-reference mismatches, then used historical search to constrain the source experiment. Its reasoning says, "**Analyzing argument register mismatches**" and then "**Refactoring pointer to union typed variable**."
++- The decisive move: `ledger_search` reported that this symbol had been matched by correcting local types and declaration order, and `past_prs_search` found PR 2790. After inspecting `mn_804DBDFC`, the worker changed the four-byte array and its stack copy from `u8` shapes to the existing `JObjIndices` union and walked its typed byte view. That single edit moved 92.7% to 99.8% with every instruction matching. The remaining four differences were only literal-pool relocation identities. Trial source definitions for the constants did nothing and were reverted; runner-side data-value relocation validation supplied the reported 100% result.
++- Tool rhythm: one broad diagnostic pass using full checkdiff, graph, ledger, and past-PR search; repository/history inspection; one decisive edit followed by checkdiff; one failed constant-definition edit and revert; final checkdiff and naming cleanup. Roughly three edit/checkdiff cycles. No permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It got stuck on a coupled allocation mismatch: target `stmw r25, 0x74(r1)` versus current `stmw r26, 0x78(r1)`, plus different stack homes in inlined channel and volume animation code. It tried function-scope promotion, declaration reordering, `PAD_STACK` compensation, helper-local ordering, a longer-lived `Menu`, nested scopes that shortened `Vec3` lifetimes, direct reference/current disassembly, and several 300 to 600 iteration permuter runs.
++- It never found or tested a semantically justified extra long-lived value that would occupy `r25` while preserving the `0xA0` frame. It also did not find a target-specific past PR that supplied the missing source shape, the main shortcut in the exact worker's playbook.
++- The stall was diagnosable at the level of symptom, and the worker read it correctly. It wrote, "the reference saves r25–r31 while current code saves r26–r31." The evidence did not identify the needed C construct, however. Repeated diagnostics kept returning the same 24 allocation mismatches, yet the search stayed centered on broad scope and declaration variants.
++- Loop quality: mixed. The assembly comparison, neighbor checks, reversions, and retained nested-scope improvement were systematic. Repeating near-equivalent scope probes and broad permuter searches without a sharper register-lifetime hypothesis was shotgun behavior.
++
++## Transferable technique
++
++- Search the symbol ledger, past PRs, and git history before source mutation; turn any target-specific type or declaration-order lead into the first experiment.
++- When a byte table is copied or walked and the diff shows widespread register drift, test an existing packed union or struct type for both the global and stack local before rewriting control flow.
++- When the prologue differs by one saved register, map the value that must remain live across the affected calls, then test one source shape that creates that lifetime while separately preserving frame size.
++- After a stack-layout edit, check the target and inlined-helper neighbors, and revert immediately if the target is unchanged or a neighbor regresses.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, past-pr-lookup, type-shape-experiments, stack-frame-reasoning, permuter, checkpoint-restore
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..43685cd9b6785d52a02ba105267343dcd990cf82
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The most important difference was hypothesis quality and information reuse. The exact worker searched the symbol ledger and past PRs at the outset, got the specific lead that local types and declaration order had matched this function before, and converted that into one high-leverage `JObjIndices` type-shape edit. The near-miss worker read the assembly carefully, but kept testing variations of the already-known stack/register-allocation hypothesis. It changed scope, declaration order, padding, and helper-local lifetimes without finding a new source construct that explained the missing `r25` lifetime. Process explains part of the outcome, though the exact worker also had unusually direct historical evidence for its target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed, but evidence-led rather than blind guess-and-check. It noticed register and data-reference mismatches, then used historical search to constrain the source experiment. Its reasoning says, "**Analyzing argument register mismatches**" and then "**Refactoring pointer to union typed variable**."
++- The decisive move: `ledger_search` reported that this symbol had been matched by correcting local types and declaration order, and `past_prs_search` found PR 2790. After inspecting `mn_804DBDFC`, the worker changed the four-byte array and its stack copy from `u8` shapes to the existing `JObjIndices` union and walked its typed byte view. That single edit moved 92.7% to 99.8% with every instruction matching. The remaining four differences were only literal-pool relocation identities. Trial source definitions for the constants did nothing and were reverted; runner-side data-value relocation validation supplied the reported 100% result.
++- Tool rhythm: one broad diagnostic pass using full checkdiff, graph, ledger, and past-PR search; repository/history inspection; one decisive edit followed by checkdiff; one failed constant-definition edit and revert; final checkdiff and naming cleanup. Roughly three edit/checkdiff cycles. No permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It got stuck on a coupled allocation mismatch: target `stmw r25, 0x74(r1)` versus current `stmw r26, 0x78(r1)`, plus different stack homes in inlined channel and volume animation code. It tried function-scope promotion, declaration reordering, `PAD_STACK` compensation, helper-local ordering, a longer-lived `Menu`, nested scopes that shortened `Vec3` lifetimes, direct reference/current disassembly, and several 300 to 600 iteration permuter runs.
++- It never found or tested a semantically justified extra long-lived value that would occupy `r25` while preserving the `0xA0` frame. It also did not find a target-specific past PR that supplied the missing source shape, the main shortcut in the exact worker's playbook.
++- The stall was diagnosable at the level of symptom, and the worker read it correctly. It wrote, "the reference saves r25–r31 while current code saves r26–r31." The evidence did not identify the needed C construct, however. Repeated diagnostics kept returning the same 24 allocation mismatches, yet the search stayed centered on broad scope and declaration variants.
++- Loop quality: mixed. The assembly comparison, neighbor checks, reversions, and retained nested-scope improvement were systematic. Repeating near-equivalent scope probes and broad permuter searches without a sharper register-lifetime hypothesis was shotgun behavior.
++
++## Transferable technique
++
++- Search the symbol ledger, past PRs, and git history before source mutation; turn any target-specific type or declaration-order lead into the first experiment.
++- When a byte table is copied or walked and the diff shows widespread register drift, test an existing packed union or struct type for both the global and stack local before rewriting control flow.
++- When the prologue differs by one saved register, map the value that must remain live across the affected calls, then test one source shape that creates that lifetime while separately preserving frame size.
++- After a stack-layout edit, check the target and inlined-helper neighbors, and revert immediately if the target is unchanged or a neighbor regresses.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, past-pr-lookup, type-shape-experiments, stack-frame-reasoning, permuter, checkpoint-restore
+
+exec
+/bin/zsh -lc "wc -l phase3_notes/pair_epoch-03-pair-02.md && sed -n '1,120p' phase3_notes/pair_epoch-03-pair-02.md && git status --short" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 210ms:
+ M ../../apps/server/src/application/jobs/job-runner.ts
+ M ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian/agent.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-preview.ts
+ M ../../apps/server/src/core/agent-catalog/registry.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.test.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.ts
+ M ../../apps/server/src/core/job-queue/types.ts
+ M ../../apps/server/src/core/knowledge/jobs/librarian.ts
+ M ../../apps/server/src/core/shared/types/state.ts
+ M ../../apps/server/src/core/tools/profiles/defaults.ts
+ M ../../apps/server/src/core/tools/profiles/index.ts
+ M ../../apps/server/src/core/tools/runtime/registry.ts
+ M ../../apps/server/src/core/tools/wrappers/knowledge.ts
+ M ../../apps/server/src/core/tools/wrappers/source-permuter-args.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/loaders.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.ts
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/10-targets/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/30-links/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/20-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/10-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/20-discord/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/30-wiki/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/20-drift-recheck/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/90-worklist/doc.json
+ M ../../games/melee/knowledge/ledger/learnings.jsonl
+?? ./
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/
+?? ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-knowledge-context.test.ts
+?? ../../apps/server/src/core/knowledge-v2/
+?? ../../apps/server/src/core/tools/metadata/knowledge-v2.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2.ts
+?? ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.test.ts
+?? ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/40-backfill/
+?? ../../games/melee/knowledge/knowledge-index.sqlite
+?? ../../games/melee/knowledge/knowledge-index.sqlite-shm
+?? ../../games/melee/knowledge/knowledge-index.sqlite-wal
+?? ../../games/melee/knowledge/knowledge.sqlite
+?? ../../games/melee/knowledge/knowledge.sqlite-shm
+?? ../../games/melee/knowledge/knowledge.sqlite-wal
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..43685cd9b6785d52a02ba105267343dcd990cf82
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The most important difference was hypothesis quality and information reuse. The exact worker searched the symbol ledger and past PRs at the outset, got the specific lead that local types and declaration order had matched this function before, and converted that into one high-leverage `JObjIndices` type-shape edit. The near-miss worker read the assembly carefully, but kept testing variations of the already-known stack/register-allocation hypothesis. It changed scope, declaration order, padding, and helper-local lifetimes without finding a new source construct that explained the missing `r25` lifetime. Process explains part of the outcome, though the exact worker also had unusually direct historical evidence for its target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed, but evidence-led rather than blind guess-and-check. It noticed register and data-reference mismatches, then used historical search to constrain the source experiment. Its reasoning says, "**Analyzing argument register mismatches**" and then "**Refactoring pointer to union typed variable**."
++- The decisive move: `ledger_search` reported that this symbol had been matched by correcting local types and declaration order, and `past_prs_search` found PR 2790. After inspecting `mn_804DBDFC`, the worker changed the four-byte array and its stack copy from `u8` shapes to the existing `JObjIndices` union and walked its typed byte view. That single edit moved 92.7% to 99.8% with every instruction matching. The remaining four differences were only literal-pool relocation identities. Trial source definitions for the constants did nothing and were reverted; runner-side data-value relocation validation supplied the reported 100% result.
++- Tool rhythm: one broad diagnostic pass using full checkdiff, graph, ledger, and past-PR search; repository/history inspection; one decisive edit followed by checkdiff; one failed constant-definition edit and revert; final checkdiff and naming cleanup. Roughly three edit/checkdiff cycles. No permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It got stuck on a coupled allocation mismatch: target `stmw r25, 0x74(r1)` versus current `stmw r26, 0x78(r1)`, plus different stack homes in inlined channel and volume animation code. It tried function-scope promotion, declaration reordering, `PAD_STACK` compensation, helper-local ordering, a longer-lived `Menu`, nested scopes that shortened `Vec3` lifetimes, direct reference/current disassembly, and several 300 to 600 iteration permuter runs.
++- It never found or tested a semantically justified extra long-lived value that would occupy `r25` while preserving the `0xA0` frame. It also did not find a target-specific past PR that supplied the missing source shape, the main shortcut in the exact worker's playbook.
++- The stall was diagnosable at the level of symptom, and the worker read it correctly. It wrote, "the reference saves r25–r31 while current code saves r26–r31." The evidence did not identify the needed C construct, however. Repeated diagnostics kept returning the same 24 allocation mismatches, yet the search stayed centered on broad scope and declaration variants.
++- Loop quality: mixed. The assembly comparison, neighbor checks, reversions, and retained nested-scope improvement were systematic. Repeating near-equivalent scope probes and broad permuter searches without a sharper register-lifetime hypothesis was shotgun behavior.
++
++## Transferable technique
++
++- Search the symbol ledger, past PRs, and git history before source mutation; turn any target-specific type or declaration-order lead into the first experiment.
++- When a byte table is copied or walked and the diff shows widespread register drift, test an existing packed union or struct type for both the global and stack local before rewriting control flow.
++- When the prologue differs by one saved register, map the value that must remain live across the affected calls, then test one source shape that creates that lifetime while separately preserving frame size.
++- After a stack-layout edit, check the target and inlined-helper neighbors, and revert immediately if the target is unchanged or a neighbor regresses.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, past-pr-lookup, type-shape-experiments, stack-frame-reasoning, permuter, checkpoint-restore
+
+codex
+DONE
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..43685cd9b6785d52a02ba105267343dcd990cf82
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-02.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The most important difference was hypothesis quality and information reuse. The exact worker searched the symbol ledger and past PRs at the outset, got the specific lead that local types and declaration order had matched this function before, and converted that into one high-leverage `JObjIndices` type-shape edit. The near-miss worker read the assembly carefully, but kept testing variations of the already-known stack/register-allocation hypothesis. It changed scope, declaration order, padding, and helper-local lifetimes without finding a new source construct that explained the missing `r25` lifetime. Process explains part of the outcome, though the exact worker also had unusually direct historical evidence for its target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed, but evidence-led rather than blind guess-and-check. It noticed register and data-reference mismatches, then used historical search to constrain the source experiment. Its reasoning says, "**Analyzing argument register mismatches**" and then "**Refactoring pointer to union typed variable**."
++- The decisive move: `ledger_search` reported that this symbol had been matched by correcting local types and declaration order, and `past_prs_search` found PR 2790. After inspecting `mn_804DBDFC`, the worker changed the four-byte array and its stack copy from `u8` shapes to the existing `JObjIndices` union and walked its typed byte view. That single edit moved 92.7% to 99.8% with every instruction matching. The remaining four differences were only literal-pool relocation identities. Trial source definitions for the constants did nothing and were reverted; runner-side data-value relocation validation supplied the reported 100% result.
++- Tool rhythm: one broad diagnostic pass using full checkdiff, graph, ledger, and past-PR search; repository/history inspection; one decisive edit followed by checkdiff; one failed constant-definition edit and revert; final checkdiff and naming cleanup. Roughly three edit/checkdiff cycles. No permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It got stuck on a coupled allocation mismatch: target `stmw r25, 0x74(r1)` versus current `stmw r26, 0x78(r1)`, plus different stack homes in inlined channel and volume animation code. It tried function-scope promotion, declaration reordering, `PAD_STACK` compensation, helper-local ordering, a longer-lived `Menu`, nested scopes that shortened `Vec3` lifetimes, direct reference/current disassembly, and several 300 to 600 iteration permuter runs.
++- It never found or tested a semantically justified extra long-lived value that would occupy `r25` while preserving the `0xA0` frame. It also did not find a target-specific past PR that supplied the missing source shape, the main shortcut in the exact worker's playbook.
++- The stall was diagnosable at the level of symptom, and the worker read it correctly. It wrote, "the reference saves r25–r31 while current code saves r26–r31." The evidence did not identify the needed C construct, however. Repeated diagnostics kept returning the same 24 allocation mismatches, yet the search stayed centered on broad scope and declaration variants.
++- Loop quality: mixed. The assembly comparison, neighbor checks, reversions, and retained nested-scope improvement were systematic. Repeating near-equivalent scope probes and broad permuter searches without a sharper register-lifetime hypothesis was shotgun behavior.
++
++## Transferable technique
++
++- Search the symbol ledger, past PRs, and git history before source mutation; turn any target-specific type or declaration-order lead into the first experiment.
++- When a byte table is copied or walked and the diff shows widespread register drift, test an existing packed union or struct type for both the global and stack local before rewriting control flow.
++- When the prologue differs by one saved register, map the value that must remain live across the affected calls, then test one source shape that creates that lifetime while separately preserving frame size.
++- After a stack-layout edit, check the target and inlined-helper neighbors, and revert immediately if the target is unchanged or a neighbor regresses.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, past-pr-lookup, type-shape-experiments, stack-frame-reasoning, permuter, checkpoint-restore
+
+tokens used
+63,281
+DONE

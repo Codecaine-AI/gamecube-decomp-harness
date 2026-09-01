@@ -82,14 +82,16 @@ export const defaultQaRepairToolProfile = [
   "review_lint_sdata2_order_helper",
 ] as const;
 
-/** Default librarian tools attached to condensation, curation, and PR indexing launches. */
+/** Default librarian tools for citable knowledge-v2 sources and graph context. */
 export const defaultLibrarianToolProfile = [
   "code_graph_search",
-  "past_prs_search",
-  "decomp_standards_context",
-  "decomp_standards_proposals",
-  "review_lint_scan",
-  "smashwiki_search",
-  "smashwiki_get_page",
-  "ledger_search",
+  "graph_related_functions",
+  "kv2_discord_search",
+  "kv2_wiki_search",
+  "kv2_pr_search",
+  "kv2_attempt_search",
+  "kv2_subject_record",
+  "kv2_entity_lookup",
+  "kv2_resolve_locator",
+  "kv2_unit_context",
 ] as const;

@@ -1,0 +1,1064 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7f-8d9c-7b42-9b6a-7a24caf6865e
+--------
+user
+# Task: Worker-audit Phase 3 — deep transcript read, pair epoch-03-pair-01
+
+Two AI decomp workers worked on similar-difficulty targets in epoch 3 (goal: make C source byte-match GameCube PowerPC asm; score = match %). One reached an EXACT 100% match; the other stalled as a NEAR-MISS (>=99.5%). Your job: figure out what the exact worker did differently, at the level of process and technique — not luck of the target.
+
+EXACT worker  — target main/melee/mn/mnmainrule::mn_8022FD18, baseline 92.87037%, final 100%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/eec2b59b-f9c8-46d6-b09f-741cc13db1d6.md
+NEAR-MISS worker — target main/melee/gm/gmtoulib::fn_8018F00C, baseline 88.12381%, final 99.85714%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/9cbece80-e52a-46c1-b621-a9eeb5dd2dad.md
+
+Condensed transcripts contain the worker's reasoning/messages verbatim, `TOOL <name> <params>` lines for each tool call, and truncated tool results. Read BOTH fully.
+
+Write exactly one file, `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md`, markdown, <=90 lines, with these sections:
+
+## Verdict
+One paragraph: the single most important process difference between the two (or "no meaningful process difference — outcome driven by target difficulty/luck" if that is the honest read).
+
+## Exact worker: how the gap was closed
+- Diff-reading style: did it reason about specific instructions/registers from the diff output, or guess-and-check source variants? Quote 1-2 short verbatim lines that show this.
+- The decisive move: what actually flipped it to 100%, and what chain of observations led there.
+- Tool rhythm: rough loop shape (e.g. edit -> build -> checkdiff, N iterations), plus any tools used at pivotal moments (permuter, past PR search, graph lookups, knowledge search).
+
+## Near-miss worker: why it stalled
+- Where it got stuck (instruction/issue), what it tried, and what it NEVER tried that the exact worker's playbook suggests.
+- Was the stall diagnosable from its own diff output? Did it misread or ignore evidence? Quote 1 short line if telling.
+- Loop quality: systematic / mixed / shotgun.
+
+## Transferable technique
+2-4 bullet points, each a concrete, generalizable tactic phrased as an instruction one could put in a worker prompt (e.g. "When one instruction differs only in source register, enumerate equivalent source expressions that permute register allocation: temp vs inline, signedness, float literal form"). Only tactics actually evidenced in these transcripts.
+
+## Flags
+- exact_loop: systematic|mixed|shotgun
+- control_loop: systematic|mixed|shotgun
+- outcome_explained_by_process: yes|partial|no
+- techniques: comma-separated slugs (reuse: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, float-literal-tricks, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning; invent sparingly)
+
+Base every claim on the transcripts. Do not modify any other file. Print DONE when finished.
+
+<stdin>
+epoch-06-pair-04	6	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A8940	99.86532	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/58f2e39c-2f6e-4596-94d3-65910412e28a.md	main/melee/gm/gmregclear::gm_80182174	99.8658	99.8658	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/24fc4148-8b96-4b91-af23-bbb37c5b2877.md
+epoch-07-pair-01	7	main/melee/if/ifstock::ifStock_802FAEC4	96.931595	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/6b0d2f77-fa33-47a5-9f63-c919394a3b25.md	main/melee/gr/grbigblue::grBigBlue_801ECB50	96.49515	99.556175	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/5f0d5f85-8768-460d-9d56-be8fe00efc35.md
+epoch-07-pair-02	7	main/melee/gm/gmtoulib::fn_8018DF68	97.41122	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c155f4f0-d092-43ce-84a3-469da3e4c64a.md	main/melee/mn/mninfo::mnInfo_80252758	98.28846	99.82692	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/57dfab33-d93f-4454-8d08-9a3d98c02f2b.md
+epoch-07-pair-03	7	main/melee/gm/gmclassic::gmClassic_801B2BA4	97.916664	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c7af4f27-8f28-46fb-94fb-2b82a012da52.md	main/melee/mn/mnruleplus::mn_802327A4	99.11602	99.558014	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c31ba6a9-57de-4293-8119-93ca27d8ad59.md
+epoch-07-pair-04	7	main/melee/gm/gmallstar::gm_801B5624	97.9646	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/8fc06ef7-2ab4-46e1-adf4-d2a52e73da37.md	main/melee/gm/gmregclear::gm_8017CE34	99.15842	99.76073	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/38fc6552-851f-4606-a426-160bfd8a25f2.md
+epoch-07-pair-05	7	main/melee/mn/mninfo::mnInfo_80251AFC	98.64901	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md	main/melee/mn/mnmainrule::mn_8022FEC8	99.333336	99.77778	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md
+epoch-07-pair-06	7	main/melee/gm/gmresultplayer::fn_80178050	98.7064	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/5d1c88e5-1b58-4497-bac9-14c1683c71ce.md	main/melee/mn/mndiagram3::mnDiagram3_Init	99.34685	99.57658	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/3e2e7291-f56d-4b25-8470-f1a6eb298e7f.md
+epoch-08-pair-01	8	main/melee/mn/mnnamenew::WriteCharactersForNameAtIndex	94.60674	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c975368c-c368-4890-8846-15a5261b3397.md	main/melee/gm/gmregclear::gm_80182578	98.56764	99.73475	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f4d7c3de-bae0-42dd-8930-ba2d690de7d6.md
+epoch-08-pair-02	8	main/melee/mn/mnsnap::mnSnap_80253F60	96.44444	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c72df1cf-0e85-43fc-b2a2-51c8ed3d7768.md	main/sysdolphin/baselib/hsd_3A94::fn_803AE7F8	98.818535	99.69452	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/a071ac22-28cf-4f4c-9b64-7373baa90f74.md
+epoch-08-pair-03	8	main/sysdolphin/baselib/hsd_3B34::fn_803B376C	97.85303	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/48312a2f-a758-4ace-a380-b813b50a5a23.md	main/melee/lb/lbcollision::lbColl_80006094	98.921776	99.56448	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/69430968-2483-4799-b9a6-b59c1d56e7c2.md
+epoch-08-pair-04	8	main/melee/ty/tyfigupon::_tyFigupon_80315C44	97.870094	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/5362dd1d-9366-4c14-a90a-ae7bedd924d8.md	main/sysdolphin/baselib/hsd_3A94::fn_803B0E9C	98.9661	99.55932	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/a497e56d-9dd3-47b9-a7fc-fffa168bb864.md
+epoch-08-pair-05	8	main/melee/if/ifstatus::ifStatus_802F5EC0	98.8674	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/9dce9616-111a-422c-a82a-092444ef49fa.md	main/melee/gr/grbigblueroute::grBigBlueRoute_8020C85C	99.08197	99.63934	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/04f2403d-aa64-462f-b1a4-fa79875b317f.md
+epoch-08-pair-06	8	main/melee/gr/granime::grAnime_801C7228	99.06736	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/d5049af5-a570-46f5-9c33-e9910b2abe50.md	main/melee/mn/mnmainrule::mn_80230E38	99.14481	99.700584	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/415c1809-9adf-4212-b694-ada2509f45a3.md
+epoch-09-pair-01	9	main/melee/gm/gmmain_lib::gmMainLib_8015EA80	93.62857	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/b82bf69b-9432-4e48-aaf0-726a93740f62.md	main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC	97.759125	99.85401	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c4ad3b3b-f9a4-499e-a797-3a72bfe74e7c.md
+epoch-09-pair-02	9	main/melee/lb/lbbgflash::lbBgFlash_80021410	98.57909	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/b5892094-f209-4b98-8316-4d5b2e327600.md	main/sysdolphin/baselib/hsd_3A94::fn_803B1338	98.70026	99.60459	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/d66d012c-69fd-4e8b-8d17-2732b111c7ed.md
+epoch-09-pair-03	9	main/melee/gm/gmtou_1::fn_8019A158	99.47154	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/86ddef5f-5464-46dd-ac6d-420e38220de9.md	main/melee/mn/mndiagram::mnDiagram_DrawFighterHeaders	99.475655	99.68165	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/4d28a12a-db0b-432b-9a54-fcf32d6ccb58.md
+epoch-09-pair-04	9	main/melee/if/ifstatus::ifStatus_802F61FC	99.51282	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/6ebe7b5c-a53a-46c3-8735-37ece47e72a6.md	main/melee/mn/mnnamenew::mnNameNew_KeySetup	99.53162	99.53162	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/3185e9c2-f274-4c63-b076-777937bfcaea.md
+epoch-09-pair-05	9	main/melee/mn/mnruleplus::mn_802327A4	99.59945	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/b9f6d5b5-af93-4755-adc4-6937b4811854.md	main/melee/mn/mnsound::mnSound_80249C08	99.59727	99.59727	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/a5cd2934-88ef-4950-b137-967e0ee87ab0.md
+epoch-09-pair-06	9	main/melee/mn/mnmainrule::mn_80230274	99.67422	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/02629e21-ba1c-4f0a-a0f3-aee1e402dd26.md	main/melee/mn/mnevent::fn_8024D864	99.66611	99.706375	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/32e6a7e5-37d7-4a02-aad2-db00c47cc78c.md
+epoch-10-pair-01	10	main/melee/gm/gmclassic::gmClassic_OnLoad	98.32143	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/d34938fe-5f73-4d71-9858-bc2b6ec5292d.md	main/melee/ft/ftcpuattack::ftCo_800B52AC	98.34308	99.98051	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/e0f64a2b-5d74-4747-bf1c-d2d8f626007e.md
+epoch-10-pair-02	10	main/melee/mn/mnnamenew::mnNameNew_KeySetup	99.53162	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/74d59465-7735-4d3a-83f1-34fcc0ff083d.md	main/melee/gm/gm_16F1::fn_801701C0	99.53405	99.7749	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/0cf5c824-8966-4eed-b0c2-8674f5a57d56.md
+epoch-10-pair-03	10	main/melee/gr/grbigblue::grBigBlue_801E93D8	99.76649	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/46aca9ca-bfd0-49d9-a95b-62d4bfee126d.md	main/melee/gm/gmmain_lib::gmMainLib_8015DBF4	99.76262	99.85714	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f1a4a406-5560-4f37-8efc-ae57d9694baa.md
+epoch-10-pair-05	10	main/melee/gm/gm_1884::fn_80188EE8	99.89744	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/9a547e09-0ba7-4295-b078-bfc120ad5f50.md	main/melee/if/ifstatus::ifStatus_802F4EDC	99.8956	99.933334	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/638fc846-c62c-4d8b-b84c-fd25e2ad65b6.md
+epoch-10-pair-06	10	main/melee/gr/grkongo::grKongo_801D7134	99.93262	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/03cc7e73-bb52-47e4-b8f2-379145ba21df.md	main/melee/ft/ftcpuattack::ftCo_800B5AB0	99.93617	99.98298	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/72b2ed01-a585-4180-bfb7-a96f4cf706c3.md
+epoch-11-pair-01	11	main/melee/ft/ftcpuattack::.data	25.875952	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/70b2c0d7-f2b9-434e-a870-d1466f1a8b57.md	main/melee/gm/gmregclear::fn_80180630	98.89041	99.96575	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/fd494fba-911b-42a4-880f-173b438d3fea.md
+epoch-11-pair-02	11	main/melee/lb/lbcollision::.data	31.14224	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/97e71e7b-178a-4dd2-8e08-6bb8daf2242e.md	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A4038	99.44348	99.526085	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/2d543a40-61eb-4386-8781-68577b1c7b97.md
+epoch-11-pair-03	11	main/melee/gm/gmresultplayer::.data	44.000168	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/fdbab6d8-b453-4322-bd67-f81f0656f6a1.md	main/melee/mn/mnstagesw::mnStageSw_80235C58	99.5	99.67391	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/c73c1a4b-cbc7-4568-b0cf-2ca7de344639.md
+epoch-11-pair-04	11	main/melee/gm/gm_1884::.data	47.870667	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/cd4c9889-abad-47f2-aa7f-5badafdda93f.md	main/sysdolphin/baselib/generator::hsd_8039DAD4	99.50971	99.65534	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f40f9b2e-71bd-4e31-8abe-db10affaf356.md
+epoch-11-pair-05	11	main/melee/gm/gmtoygallery::.sbss	50.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/cb2c62e8-437b-4123-a27e-1b2b80a478b7.md	main/sysdolphin/baselib/hsd_3A94::fn_803B0120	99.54693	99.54693	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f81ff92a-0c87-4493-a1b7-eb2ff97d6e32.md
+epoch-11-pair-06	11	main/melee/gm/gm_16F1::.rodata	54.098362	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/70bb3bcd-1117-4d8b-a928-cdfa4e7f1aa7.md	main/melee/gr/grzebes::grZebes_801D881C	99.57746	99.98239	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/40834601-006a-41de-8c4b-c88100bed109.md
+epoch-12-pair-01	12	main/melee/gm/gm_1832::.sdata2	68.2353	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md	main/melee/gr/granime::grAnime_801C7C1C	99.21862	99.57085	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md
+epoch-12-pair-02	12	main/melee/gm/gm_1832::.data	91.09176	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/96772f3d-e0ac-445c-9e01-800feca8c3ba.md	main/melee/gr/grzebes::grZebes_801DB3CC	99.40825	99.61855	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/2c34c372-dcde-4cf1-8f1c-927371750378.md
+epoch-12-pair-03	12	main/melee/mn/mnevent::fn_8024D864	99.82382	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/31f98405-c8f1-4a5a-b451-b0c399f120f8.md	main/melee/mn/mnmainrule::mn_80230E38	99.823875	99.823875	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/1b7dfee0-e219-4ac5-8c38-440eeecde071.md
+epoch-12-pair-04	12	main/melee/gr/grbigblueroute::grBigBlueRoute_8020C85C	99.85246	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md	main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC	99.85401	99.85401	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md
+epoch-12-pair-05	12	main/melee/mn/mnvibration::mnVibration_IntroProc	99.96416	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/be134157-4f45-4915-b3b8-9211dbf76e1e.md	main/melee/gm/gmregclear::fn_80180630	99.96575	99.96575	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/6d8a1b06-f54d-4855-b9e3-8369d618bc30.md
+epoch-12-pair-06	12	main/melee/ft/ftcpuattack::ftCo_800B52AC	99.98051	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f541d8ee-a5eb-423e-b79b-74d77f759dcb.md	main/melee/gm/gm_16F1::fn_801701C0	99.9855	99.989914	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/544b6c97-ca50-4cba-935f-31cb4b9e684b.md
+</stdin>
+codex
+I’m using the `unslop` skill because the deliverable is a compact evidence-based report; I’ll read its instructions, then both transcripts in full.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l condensed/eec2b59b-f9c8-46d6-b09f-741cc13db1d6.md condensed/9cbece80-e52a-46c1-b621-a9eeb5dd2dad.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+     180 condensed/eec2b59b-f9c8-46d6-b09f-741cc13db1d6.md
+     410 condensed/9cbece80-e52a-46c1-b621-a9eeb5dd2dad.md
+     590 total
+
+codex
+Step 1 of 3 done: the report style constraints are loaded. Step 2 is the evidence pass across all 590 transcript lines.
+exec
+/bin/zsh -lc "sed -n '1,999p' 'condensed/eec2b59b-f9c8-46d6-b09f-741cc13db1d6.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+exec
+/bin/zsh -lc "sed -n '1,999p' 'condensed/9cbece80-e52a-46c1-b621-a9eeb5dd2dad.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Planning parallel diff and ledger processing**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FD18","timeout_seconds":120}
+
+TOOL graph_related_functions {"entity_id":"","limit":12,"source_path":"src/melee/mn/mnmainrule.c","symbol":"mn_8022FD18","unit":""}
+
+TOOL ledger_search {"limit":10,"query":"mn_8022FD18 main/melee/mn/mnmainrule","scope":"symbol"}
+
+TOOL past_prs_search {"limit":10,"query":"mn_8022FD18 src/melee/mn/mnmainrule.c"}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (92.77778%) | left DIFF_INSERT | left 2036: DIFF_ARG_MISMATCH lwz r4, mn_804D6BD0@sda21 | left 2040: DIFF_REPLACE lwz r3, mn_804DBE08@sda21 | left 2044: DIFF_DELETE lwz r31, 0x2c(r4) | left 2048: DIFF_DELETE lhz r4, mn_804DBE04@…
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 92.87037, | "status": null | "score": 0.6461, | "exact_match": false, | "matched": false, | "statement": "mn_8022FB88 was matched by correcting the types and declaration order of existing locals without changing executable statements, demonstrating that local stack/register allocation details can be decisive for this function.", | "status": "proposed", | "statement": "S…
+
+RESULT ledger_search status=ok | For the retained 97.68519% candidate for mn_8022FD18, source-permuter searches of 300 and 500 iterations found no further score improvement. | status=proposed | For mn_8022FD18, the combined source changes of reordering local declarations, expressing the two stock-digit passes as indexed for-loops, and using separate final-digit JObj temporaries improved the checkdiff score from 96.50…
+
+RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY display/list code, plus a TY header cleanup. The PR body claims 6 file(s) and 8 newly matched functions with clean isolated and full-ship verification; changed-file... | PR 2790: Match mn_8022FB88 | Match mn_8022FB88 Match mn_8022FB88 is a merged PR touching 1 changed file(s), prim…
+
+ASSISTANT REASONING
+**Analyzing constant loading differences**
+
+**Inspecting missing symbol definitions**
+
+TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":10,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBDF0"}
+
+TOOL bash {"command":"git show 3263adbe7eea:src/melee/mn/mnmainrule.c | sed -n '/void mn_8022FD18/,/void mn_8022FEC8/p'","timeout":30}
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c && git status --short src/melee/mn/mnmainrule.c","timeout":30}
+
+RESULT grep No matches found
+
+RESULT bash fatal: invalid object name '3263adbe7eea'.
+
+RESULT bash (no output)
+
+ASSISTANT REASONING
+**Changing const to mutable for three variables**
+
+TOOL edit {"edits":[{"newText":"u16 mn_804DBE04 = 0x0708;\ns32 mn_804DBE08 = 0x02030405;\nu8 mn_804DBE0C = 6;","oldText":"u16 const mn_804DBE04 = 0x0708;\ns32 const mn_804DBE08 = 0x02030405;\nu8 const mn_804DB…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FD18","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (99.76852%) | left 2040: DIFF_ARG_MISMATCH lwz r3, mn_804DBE08@sda21 | left 2048: DIFF_ARG_MISMATCH lhz r4, mn_804DBE04@sda21 | left 2060: DIFF_ARG_MISMATCH lbz r0, mn_804DBE0C@sda21 | left 2296: DIFF_ARG_MISMATCH lfd f1, mn_804…
+
+ASSISTANT REASONING
+**Analyzing data section address mismatches**
+
+TOOL grep {"context":2,"glob":"*.txt","ignoreCase":true,"limit":20,"literal":true,"path":"config","pattern":"804DBDF0"}
+
+TOOL grep {"context":1,"glob":"*.{c,h,txt,yml}","ignoreCase":false,"limit":20,"literal":true,"path":".","pattern":"mn_804DBDF0"}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+
+RESULT grep [long result omitted: 1081 chars] GALE01/splits.txt-3222- melee/mn/mn_22EC.c:
+
+RESULT grep config/GALE01/symbols.txt-32889- @327 = .sdata2:0x804DBDE8; // type:object size:0x4 scope:local align:4 data:float config/GALE01/symbols.txt:32890: mn_804DBDF0 = .sdata2:0x804DBDF0; // type:object size:0x8 scope:global align:8 data:double config/GALE01/symbols.txt-32891- mn_804DBDF8 = .sdata2:0x804DBDF8; // type:object size:0x2 scope:global data:2byte
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Defining exact double conversion constant**
+
+**Inserting double constant before DFFC**
+
+TOOL edit {"edits":[{"newText":"f32 mn_804D6BD8;\nf64 const mn_804DBDF0 = 4503601774854144.0;\nJObjIndices const mn_804DBDFC = { 0x02030506 };","oldText":"f32 mn_804D6BD8;\nJObjIndices const mn_804DBDFC = { 0x…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FD18","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (99.76852%) | left 2040: DIFF_ARG_MISMATCH lwz r3, mn_804DBE08@sda21 | left 2048: DIFF_ARG_MISMATCH lhz r4, mn_804DBE04@sda21 | left 2060: DIFF_ARG_MISMATCH lbz r0, mn_804DBE0C@sda21 | left 2296: DIFF_ARG_MISMATCH lfd f1, mn_804…
+
+ASSISTANT REASONING
+**Removing no-op named constant**
+
+TOOL edit {"edits":[{"newText":"f32 mn_804D6BD8;\nJObjIndices const mn_804DBDFC = { 0x02030506 };","oldText":"f32 mn_804D6BD8;\nf64 const mn_804DBDF0 = 4503601774854144.0;\nJObjIndices const mn_804DBDFC = { 0x…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_summary {"functions":["mn_8022FD18","mn_8022FB88","mn_8022FEC8","mn_80230274","mn_80230E38"],"timeout_seconds":180}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (99.76852%) | mn_8022FB88: FAIL (99.90000% official; instructions match but relocation/data references still differ, so the official score is below exact) | mn_8022FEC8: FAIL (94.72222%) | mn_80230274: FAIL (98.78187%) | mn_80230E38:…
+
+ASSISTANT REASONING
+**Preparing final JSON output**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT TEXT
+{
+  "summary": "Changed mn_804DBE04, mn_804DBE08, and mn_804DBE0C from const to mutable definitions. This prevents MWCC from folding their values into immediate instructions and restores the target's data loads in mn_8022FD18. The focused score improved from 92.77778% to 99.76852%.",
+  "validation": {
+    "target": "mn_8022FD18",
+    "checkdiff": "FAIL (99.76852%)",
+    "remaining_mismatches": "Five relocation/data-reference mismatches remain: three references to mn_804DBE08/mn_804DBE04/mn_804DBE0C and two u8-to-float conversion references where the target uses mn_804DBDF0 but the candidate uses compiler-local @330.",
+    "neighbor_summary": {
+      "mn_8022FB88": "99.90000%",
+      "mn_8022FEC8": "94.72222%",
+      "mn_80230274": "98.78187%",
+      "mn_80230E38": "96.12524%"
+    }
+  },
+  "unresolved_local_regression": false,
+  "notes": "A metadata-proven explicit mn_804DBDF0 double definition was tested, but it did not change code generation or the score, so that no-op experiment was reverted. The retained edit is narrow and source-plausible."
+}
+
+ASSISTANT REASONING
+**Planning const repair with pointer tactics**
+
+**Defining union types for const objects**
+
+TOOL edit {"edits":[{"newText":"typedef union {\n    s32 packed;\n    u8 idx[4];\n} JObjIndices;\n\ntypedef union {\n    u16 packed;\n    u8 idx[2];\n} StockIndices;\n\ntypedef struct {\n    JObjIndices digits…
+
+RESULT edit Successfully replaced 4 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FD18","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (98.79630%) | left 2060: DIFF_REPLACE lbz r0, mn_804DBE0C@sda21 | left 2068: DIFF_REPLACE stb r0, 0x10(r1) | left 2296: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | left 2376: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | right…
+
+ASSISTANT REASONING
+**Planning struct layout optimization**
+
+**Testing union field assignment optimization**
+
+TOOL edit {"edits":[{"newText":"typedef union {\n    u8 value;\n} ByteIndex;\n\ntypedef struct {\n    JObjIndices digits;\n    ByteIndex extra;\n} TimeIndices;\n","oldText":"typedef struct {\n    JObjIndices d…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/mn/mnmainrule.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FD18","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (99.90741% official; instructions match but relocation/data references still differ, so the official score is below exact) | left 2296: DIFF_ARG_MISMATCH lfd f1, mn_804DBDF0@sda21 | left 2376: DIFF_ARG_MISMATCH lfd f1, mn_804DBD…
+
+ASSISTANT REASONING
+**Checking data section consistency**
+
+TOOL checkdiff_summary {"functions":["mn_8022FD18","mn_8022FB88","mn_8022FEC8","mn_80230274","mn_80230E38"],"timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mn_8022FD18: FAIL (99.90741% official; instructions match but relocation/data references still differ, so the official score is below exact) | mn_8022FB88: FAIL (99.80000% official; instructions match but relocation/data references still differ, so th…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Preparing git diff for handoff**
+
+TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT TEXT
+{
+  "summary": "Repaired the rejected mutable address-named globals by restoring const data and modeling the packed index data with typed unions/structs. Whole-object assignments preserve the required runtime loads without regressing .sdata ownership or introducing banned casts, shims, volatile accesses, or invented data.",
+  "validation": {
+    "target": "mn_8022FD18",
+    "checkdiff": "FAIL (99.90741% official)",
+    "instruction_status": "All instructions match",
+    "remaining_mismatches": "Two relocation-only mismatches: target references mn_804DBDF0 for u8-to-float conversion while candidate references compiler-local @330.",
+    "neighbor_summary": {
+      "mn_8022FB88": "99.80000%",
+      "mn_8022FEC8": "94.72222%",
+      "mn_80230274": "98.78187%",
+      "mn_80230E38": "96.10568%"
+    }
+  },
+  "repair_status": {
+    "address_named_static_data": "Removed the mutable definitions that triggered all three findings.",
+    "sdata_regression": "Definitions are const again and retain their original sizes and values.",
+    "source_quality": "Uses typed packed-index objects and natural whole-object copies."
+  },
+  "unresolved_local_regression": false,
+  "blockers": [
+    "Exact target matching still requires resolving ownership/order of the existing mn_804DBDF0 double conversion constant; the retained source leaves ordinary conversion behavior intact rather than inventing or promoting a literal symbol."
+  ]
+}
+
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Planning inspection of function and diff**
+
+TOOL grep {"context":80,"glob":"*.c","ignoreCase":false,"limit":5,"literal":true,"path":"src/melee/gm/gmtoulib.c","pattern":"fn_8018F00C"}
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"fn_8018F00C main/melee/gm/gmtoulib","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/gm/gmtoulib.c","symbol":"fn_8018F00C","unit":""}
+
+RESULT grep gmtoulib.c-1789- #ifdef MUST_MATCH | gmtoulib.c-1880- s32 diff = slot_id - 0x320; | gmtoulib.c-1881- if (diff < 10) { | gmtoulib.c-1887- tmpl_800[7] = (s8) (diff / 10 + 0x30); | gmtoulib.c-1888- tmpl_800[8] = (s8) (diff % 10 + 0x30); | gmtoulib.c-1894- s32 diff = slot_id - 0x384; | gmtoulib.c-1895- if (diff < 10) { | gmtoulib.c-1901- tmpl_900[7] = (s8) (diff / 10 + 0x30); | gmtoulib.c-1902- tmpl_…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (88.07619%) | left DIFF_INSERT | left 19212: DIFF_DELETE mr r30, r4 | left 19220: DIFF_REPLACE mr r29, r3 | left 19224: DIFF_REPLACE lwz r5, lbl_804DA6C4@sda21 | left 19228: DIFF_ARG_MISMATCH lwz r0, lbl_804DA6CC@sda21 | left 19…
+
+RESULT ledger_search status=ok | Sync sync-aa5cf002 (upstream 945f28140e..5108e9f6f6 (PRs #3222 #3225 #3226 #3227 #3228 #3229 + 0a75cf70 b7686b59)) accepted a break: fn_8018F00C fell from 100% to 88.12% because upstream header/context churn in the sync range changed codegen; the source file itself was not conflicted. Policy: merge-conflict breaks are accepted during sync, never repaired in staging — this target reque…
+
+RESULT graph_related_functions status=ok | fuzzy=88.12381 | status=null | "status": "ok", | "fuzzy": 88.12381, | "status": null
+
+ASSISTANT REASONING
+**Retrieving details from old Git commit**
+
+TOOL bash {"command":"git show 3263adbe7eea:src/melee/gm/gmtoulib.c | sed -n '1845,1915p'","timeout":30}
+
+RESULT bash fatal: invalid object name '3263adbe7eea'.
+
+ASSISTANT REASONING
+**Checking source game repo commits**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/gm/gmtoulib.c | head -20 && git status --short src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT bash 91248db Add broad data matching pass (#3210) | 749ec4d Wrap pragmas in `MUST_MATCH` guards (#3178) | e76aedf Match fn_8018D50C and fn_8018E46C (#3180) | 3759072 Refactor `BUGFIX` into `MUST_MATCH` (#3137)
+
+ASSISTANT REASONING
+**Tracing pre-sync parent commit**
+
+TOOL bash {"command":"git log -S'void fn_8018F00C' -p -- src/melee/gm/gmtoulib.c | head -250","timeout":30}
+
+RESULT bash diff --git a/src/melee/gm/gmtoulib.c b/src/melee/gm/gmtoulib.c
+
+ASSISTANT REASONING
+**Identifying function extraction from initial commit**
+
+TOOL bash {"command":"git show 1e28b420:src/melee/gm/gmtoulib.c | grep -n -A65 -B5 'void fn_8018F00C'","timeout":30}
+
+RESULT bash 1860- s32 diff = slot_id - 0x320; | 1861- if (diff < 10) { | 1867- tmpl_800[7] = (s8) (diff / 10 + 0x30); | 1868- tmpl_800[8] = (s8) (diff % 10 + 0x30); | 1874- s32 diff = slot_id - 0x384; | 1875- if (diff < 10) { | 1881- tmpl_900[7] = (s8) (diff / 10 + 0x30); | 1882- tmpl_900[8] = (s8) (diff % 10 + 0x30); | 1893-s32 gm_8018F1B0(MatchEnd* me) | 1899- switch (gm_804771C4.match_type) {
+
+ASSISTANT REASONING
+**Examining header global declarations**
+
+TOOL grep {"context":2,"glob":"*.{c,h}","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"lbl_804DA6C4"}
+
+RESULT grep melee/gm/gmtoulib.c-1767- #ifdef MUST_MATCH
+
+ASSISTANT REASONING
+**Planning detailed disassembly comparison**
+
+TOOL mwcc_debug_diagnose_regflow {"function":"fn_8018F00C","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL bash {"command":"git show 67db4f6^:src/melee/gm/gmtoulib.c | sed -n '1840,1910p'; git diff 67db4f6^ 67db4f6 -- src/melee/gm/gmtoulib.c | grep -n -A15 -B15 '8018F00C'","timeout":30}
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT bash s32 diff = slot_id - 0x320; | if (diff < 10) { | tmpl_800[7] = (s8) (diff / 10 + 0x30); | tmpl_800[8] = (s8) (diff % 10 + 0x30); | s32 diff = slot_id - 0x384; | tmpl_900[7] = (s8) (diff / 10 + 0x30); | tmpl_900[8] = (s8) (diff % 10 + 0x30); | s32 gm_8018F1B0(MatchEnd* me) | switch (gm_804771C4.match_type) {
+
+ASSISTANT REASONING
+**Comparing globals before and after commit**
+
+TOOL bash {"command":"git diff 67db4f6^ 67db4f6 -- src/melee/gm/gmtoulib.c | head -180","timeout":30}
+
+RESULT bash diff --git a/src/melee/gm/gmtoulib.c b/src/melee/gm/gmtoulib.c
+
+ASSISTANT REASONING
+**Planning volatile global access workaround**
+
+**Converting global definitions to nonconst**
+
+TOOL edit {"edits":[{"newText":"char* lbl_804DA6B4 = { 0 };\nchar* lbl_804DA6B8 = { 0 };\nchar* lbl_804DA6BC = { 0 };\nchar* lbl_804DA6C0 = { 0 };\nchar* lbl_804DA6C8 = { 0 };\nchar* lbl_804DA6CC = { 0 };\ncha…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_8018ECA8","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (99.80952%) | left 19224: DIFF_ARG_MISMATCH lwz r5, lbl_804DA6C4@sda21 | left 19228: DIFF_ARG_MISMATCH lwz r0, lbl_804DA6CC@sda21 | left 19236: DIFF_ARG_MISMATCH lwz r3, lbl_804DA6C8@sda21 | left 19244: DIFF_ARG_MISMATCH lwz r0,…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018ECA8: FAIL (99.90784%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-de…
+
+ASSISTANT REASONING
+**Analyzing data section layout differences**
+
+**Testing char* const volatile behavior**
+
+TOOL edit {"edits":[{"newText":"char* const volatile lbl_804DA6B4 = { 0 };\nchar* const volatile lbl_804DA6B8 = { 0 };\nchar* const volatile lbl_804DA6BC = { 0 };\nchar* const volatile lbl_804DA6C0 = { 0 };\nc…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (88.07619%) | left DIFF_INSERT | left 19212: DIFF_DELETE mr r30, r4 | left 19220: DIFF_REPLACE mr r29, r3 | left 19224: DIFF_REPLACE lwz r5, lbl_804DA6C4@sda21 | left 19228: DIFF_ARG_MISMATCH lwz r0, lbl_804DA6CC@sda21 | left 19…
+
+ASSISTANT REASONING
+**Investigating data relocation and symbol ordering**
+
+TOOL edit {"edits":[{"newText":"char* lbl_804DA6B4 = { 0 };\nchar* lbl_804DA6B8 = { 0 };\nchar* lbl_804DA6BC = { 0 };\nchar* lbl_804DA6C0 = { 0 };\nchar* lbl_804DA6C8 = { 0 };\nchar* lbl_804DA6CC = { 0 };\ncha…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL direct_compile_tu {"function":"fn_8018F00C","keep_object":true,"unit":"main/melee/gm/gmtoulib"}
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+
+ASSISTANT REASONING
+**Validating data ownership and lint**
+
+TOOL checkdiff_summary {"functions":["fn_8018F00C","fn_8018ECA8"],"timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/gm/gmtoulib.c","rule":"all","text":""}
+
+TOOL bash {"command":"git diff -- src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (99.80952%) | fn_8018ECA8: FAIL (99.90784%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github R…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+RESULT bash diff --git a/src/melee/gm/gmtoulib.c b/src/melee/gm/gmtoulib.c | #ifdef MUST_MATCH
+
+ASSISTANT TEXT
+{
+  "summary": "Removed incorrect const qualification from the eight tournament display-name pointer definitions. This prevents MWCC from constant-folding the null pointer values and restores the target's expected load/control-flow shape. fn_8018F00C improved from 88.12381% to 99.80952%; the remaining differences are four SDA relocation/address mismatches for lbl_804DA6C4, lbl_804DA6CC, lbl_804DA6C8, and lbl_804DA6D0.",
+  "validation": {
+    "checkdiff_run": "fn_8018F00C: 99.80952%",
+    "neighbor_check": "fn_8018ECA8: 99.90784%",
+    "build_status": "Translation unit compiled successfully through checkdiff.",
+    "unresolved_regression_caused_by_edits": "None observed. The related function also has only a very small residual mismatch."
+  },
+  "retained_edits": [
+    "Changed lbl_804DA6B4 through lbl_804DA6D0 from char* const definitions to mutable char* definitions.",
+    "Changed lbl_804DA6C4 from char* const to char*."
+  ],
+  "notes": "The last 0.19048% appears data-layout/SDA-placement-related rather than a remaining source instruction-shape mismatch."
+}
+
+ASSISTANT REASONING
+**Planning repair by reverting const changes**
+
+TOOL edit {"edits":[{"newText":"char* const lbl_804DA6B4 = { 0 };\nchar* const lbl_804DA6B8 = { 0 };\nchar* const lbl_804DA6BC = { 0 };\nchar* const lbl_804DA6C0 = { 0 };\nchar* const lbl_804DA6C8 = { 0 };\nch…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_8018F00C","timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/gm/gmtoulib.c","rule":"all","text":""}
+
+TOOL bash {"command":"git diff -- src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (88.07619%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-de…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+RESULT bash (no output)
+
+ASSISTANT REASONING
+**Confirming clean repair and JSON output**
+
+TOOL bash {"command":"git status --short -- src/melee/gm/gmtoulib.c && git diff --check -- src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT bash (no output)
+
+ASSISTANT TEXT
+{
+  "summary": "Reverted the prior mutable pointer changes that failed QA and section-parity gates. Restored all eight definitions to their original `char* const` form. The target file now has no worker diff.",
+  "validation": {
+    "checkdiff_run": "fn_8018F00C: 88.07619%",
+    "git_diff": "Clean for src/melee/gm/gmtoulib.c",
+    "git_diff_check": "Passed",
+    "review_lint": "Tool reported file_not_found due to its sandbox path binding; no authored diff remains for runner QA to scan."
+  },
+  "retained_edits": [],
+  "blockers": [
+    "The mutable address-named data definitions improved code matching but are maintainer-rejected and regress already-exact .sdata plus .sdata2 ordering.",
+    "No gate-clean target improvement from that approach can be retained within the approved write set."
+  ],
+  "unresolved_regression_caused_by_edits": "None; all prior attempt edits were removed."
+}
+
+ASSISTANT REASONING
+**Planning function inspection**
+
+TOOL grep {"context":80,"glob":"","ignoreCase":false,"limit":5,"literal":true,"path":"src/melee/gm/gmtoulib.c","pattern":"fn_8018F00C"}
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+TOOL ledger_search {"limit":10,"query":"fn_8018F00C main/melee/gm/gmtoulib","scope":"symbol"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/gm/gmtoulib.c","symbol":"fn_8018F00C","unit":""}
+
+RESULT grep gmtoulib.c-1789- #ifdef MUST_MATCH | gmtoulib.c-1880- s32 diff = slot_id - 0x320; | gmtoulib.c-1881- if (diff < 10) { | gmtoulib.c-1887- tmpl_800[7] = (s8) (diff / 10 + 0x30); | gmtoulib.c-1888- tmpl_800[8] = (s8) (diff % 10 + 0x30); | gmtoulib.c-1894- s32 diff = slot_id - 0x384; | gmtoulib.c-1895- if (diff < 10) { | gmtoulib.c-1901- tmpl_900[7] = (s8) (diff / 10 + 0x30); | gmtoulib.c-1902- tmpl_…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (88.07619%) | left DIFF_INSERT | left 19212: DIFF_DELETE mr r30, r4 | left 19220: DIFF_REPLACE mr r29, r3 | left 19224: DIFF_REPLACE lwz r5, lbl_804DA6C4@sda21 | left 19228: DIFF_ARG_MISMATCH lwz r0, lbl_804DA6CC@sda21 | left 19…
+
+RESULT ledger_search status=ok | Sync sync-aa5cf002 (upstream 945f28140e..5108e9f6f6 (PRs #3222 #3225 #3226 #3227 #3228 #3229 + 0a75cf70 b7686b59)) accepted a break: fn_8018F00C fell from 100% to 88.12% because upstream header/context churn in the sync range changed codegen; the source file itself was not conflicted. Policy: merge-conflict breaks are accepted during sync, never repaired in staging — this target reque…
+
+RESULT graph_related_functions status=ok | fuzzy=88.12381 | status=null | score=0.5059 | exact_match=False | status=corroborated | status=refuted | score=0.4982 | When a recovered callback signature changes, update both its definition and owning header prototype; if the callback slot exposes a different typedef surface, apply the cast at the assignment rather than leaving a stale declaration. | status=proposed | score=0.4981 |…
+
+ASSISTANT REASONING
+**Using git show for commit details**
+
+TOOL bash {"command":"git show 3263adbe7eea:src/melee/gm/gmtoulib.c | sed -n '1850,1920p'","timeout":30}
+
+RESULT bash fatal: invalid object name '3263adbe7eea'.
+
+ASSISTANT REASONING
+**Checking remote commit history**
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/gm/gmtoulib.c | head -30","timeout":30}
+
+RESULT bash 91248db Add broad data matching pass (#3210) | 749ec4d Wrap pragmas in `MUST_MATCH` guards (#3178) | e76aedf Match fn_8018D50C and fn_8018E46C (#3180) | 3759072 Refactor `BUGFIX` into `MUST_MATCH` (#3137)
+
+ASSISTANT REASONING
+**Verifying parent commit accuracy**
+
+TOOL bash {"command":"git show 11b7dc4^:src/melee/gm/gmtoulib.c | sed -n '1845,1915p'; git show --stat --oneline 11b7dc4 | head -20","timeout":30}
+
+RESULT bash s32 diff = slot_id - 0x320; | if (diff < 10) { | tmpl_800[7] = (s8) (diff / 10 + 0x30); | tmpl_800[8] = (s8) (diff % 10 + 0x30); | s32 diff = slot_id - 0x384; | tmpl_900[7] = (s8) (diff / 10 + 0x30); | tmpl_900[8] = (s8) (diff % 10 + 0x30); | s32 gm_8018F1B0(MatchEnd* me) | .../unit_diff.json | 261744 ------------------ | src/melee/if/ifstatus.c | 90 +-
+
+ASSISTANT REASONING
+**Identifying data-related line changes**
+
+TOOL bash {"command":"git diff 11b7dc4^ 11b7dc4 -- src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT bash diff --git a/src/melee/gm/gmtoulib.c b/src/melee/gm/gmtoulib.c
+
+ASSISTANT REASONING
+**Investigating const pointer mismatch effects**
+
+TOOL bash {"command":"powerpc-eabi-objdump -dr build/GALE01/src/melee/gm/gmtoulib.o | sed -n '/<fn_8018F00C>/,/^$/p'; sed -n '5170,5260p' build/GALE01/asm/melee/gm/gmtoulib.s","timeout":30}
+
+RESULT bash [long result omitted: 4466 chars] /* 8018F0B4 0018BC94  3C 60 66 66 */	lis r3, 0x6666
+
+ASSISTANT REASONING
+
+
+TOOL bash {"command":"sed -n '5105,5185p' build/GALE01/asm/melee/gm/gmtoulib.s; build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/gm/gmtoulib.o | sed -n '/<fn_8018F00C>/,/^$/p' | head -100","timeo…
+
+RESULT bash [long result omitted: 8371 chars] /* 8018EFC8 0018BBA8  57 83 06 3E */	clrlwi r3, r28, 24
+
+ASSISTANT REASONING
+**Searching C4 constant definition**
+
+TOOL grep {"context":2,"glob":"","ignoreCase":false,"limit":10,"literal":true,"path":"src/melee/gm/gmtoulib.c","pattern":"lbl_804DA6C4"}
+
+RESULT grep gmtoulib.c-1763- } gmtoulib.c-1764- gmtoulib.c:1765: char* const lbl_804DA6C4 = lbl_803D9EE8; gmtoulib.c-1766- gmtoulib.c-1767- #ifdef MUST_MATCH gmtoulib.c-1867- char* tmpl_900; gmtoulib.c-1868- gmtoulib.c:1869: templates_800[0] = lbl_804DA6C4; gmtoulib.c-1870- templates_900[0] = lbl_804DA6CC; gmtoulib.c-1871- templates_800[1] = lbl_804DA6C8;
+
+ASSISTANT REASONING
+**Exploring strategies to prevent constant folding locally**
+
+**Testing volatile pointer cast to prevent folding**
+
+TOOL edit {"edits":[{"newText":"    templates_800[0] = *(char* volatile*) &lbl_804DA6C4;\n    templates_900[0] = *(char* volatile*) &lbl_804DA6CC;\n    templates_800[1] = *(char* volatile*) &lbl_804DA6C8;\n   …
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (98.85714%) | left 19212: DIFF_REPLACE mr r30, r4 | left 19220: DIFF_REPLACE mr r29, r3 | right 19152: DIFF_REPLACE addi r30, r4, 0x0 | right 19160: DIFF_REPLACE addi r29, r3, 0x0 | /tmp/tool-cache/checkdiff | parse_error=null |…
+
+ASSISTANT REASONING
+**Investigating register mismatch causes**
+
+TOOL mwcc_debug_diagnose_regflow {"function":"fn_8018F00C","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+ASSISTANT REASONING
+**Analyzing compiler parameter handling and volatile effects**
+
+**Testing pointer cast with nonvolatile helper**
+
+TOOL edit {"edits":[{"newText":"    templates_800[0] = *(char**) &lbl_804DA6C4;\n    templates_900[0] = *(char**) &lbl_804DA6CC;\n    templates_800[1] = *(char**) &lbl_804DA6C8;\n    templates_900[1] = *(char*…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run Request failed with status code 502
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_8018F00C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+
+ASSISTANT REASONING
+**Advising type-erasing casting**
+
+TOOL review_lint_scan {"file":"src/melee/gm/gmtoulib.c","rule":"all","text":""}
+
+TOOL checkdiff_summary {"functions":["fn_8018F00C"],"timeout_seconds":120}
+
+TOOL bash {"command":"git diff --check && git diff -- src/melee/gm/gmtoulib.c","timeout":30}
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | checkdiff:summary | /opt/tool-data/checkdiff | status=ok | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api |…
+
+RESULT bash diff --git a/src/melee/gm/gmtoulib.c b/src/melee/gm/gmtoulib.c
+
+ASSISTANT TEXT
+{
+  "summary": "Matched fn_8018F00C exactly by reading the four const pointer objects through pointer lvalues. This prevents MWCC from constant-folding their initializers while preserving the existing const definitions and exact .sdata/.sdata2 ownership and ordering.",
+  "validation": {
+    "checkdiff_run": "fn_8018F00C: PASS (100.00000%)",
+    "checkdiff_summary": "fn_8018F00C: PASS",
+    "git_diff_check": "Passed",
+    "review_lint": "Tool returned file_not_found because of its sandbox path binding; runner QA should scan the retained four-line change."
+  },
+  "retained_edits": [
+    "Changed the four template initializations in fn_8018F00C from direct reads to `*(char**) &symbol` reads."
+  ],
+  "review_justification": "The four type-erasing casts are intentionally surfaced for review. They read pointer-valued objects at their declared pointer width and do not perform byte-offset field access. They are required because the synchronized declarations are `char* const`, causing MWCC to fold three null initializers and break codegen. Making those definitions mutable also reaches the desired instruction shape, but regresses exact data sections and was rejected in the prior attempt. The localized reads preserve canonical data ownership and produce an exact target.",
+  "unresolved_regression_caused_by_edits": "None observed."
+}
+
+ASSISTANT REASONING
+**Inspecting source declarations for repair casts**
+
+TOOL read {"limit":80,"offset":1840,"path":"src/melee/gm/gmtoulib.c"}
+
+TOOL grep {"context":2,"glob":"*.{c,h}","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"lbl_804DA6C4"}
+
+TOOL grep {"context":1,"glob":"*.c","ignoreCase":false,"limit":10,"literal":true,"path":"src/melee/gm/gmtoulib.c","pattern":"typedef union"}
+
+RESULT read s32 diff = slot_id - 0x320; | if (diff < 10) { | tmpl_800[7] = (s8) (diff / 10 + 0x30); | tmpl_800[8] = (s8) (diff % 10 + 0x30); | s32 diff = slot_id - 0x384; | tmpl_900[7] = (s8) (diff / 10 + 0x30); | tmpl_900[8] = (s8) (diff % 10 + 0x30); | s32 gm_8018F1B0(MatchEnd* me) | switch (gm_804771C4.match_type) {
+
+RESULT grep melee/gm/gmtoulib.c-1767- #ifdef MUST_MATCH
+
+RESULT grep No matches found
+
+ASSISTANT REASONING
+**Evaluating union type usage for pointer casting**
+
+**Designing union with const and volatile pointers**
+
+TOOL read {"limit":45,"offset":1735,"path":"src/melee/gm/gmtoulib.c"}
+
+RESULT read #ifdef MUST_MATCH
+
+ASSISTANT REASONING
+**Planning union and typedef restructuring**
+
+**Defining types for key variables**
+
+TOOL edit {"edits":[{"newText":"char* const lbl_804DA6B4 = { 0 };\nchar* const lbl_804DA6B8 = { 0 };\nchar* const lbl_804DA6BC = { 0 };\nchar* const lbl_804DA6C0 = { 0 };\n\ntypedef struct TournamentNameTempla…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_8018F00C","timeout_seconds":120}
+
+TOOL review_lint_scan {"file":"src/melee/gm/gmtoulib.c","rule":"all","text":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (98.85714%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-de…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error": null,
+
+ASSISTANT REASONING
+**Testing inline helper folding**
+
+TOOL edit {"edits":[{"newText":"char* const lbl_804DA6B4 = { 0 };\nchar* const lbl_804DA6B8 = { 0 };\nchar* const lbl_804DA6BC = { 0 };\nchar* const lbl_804DA6C0 = { 0 };\nchar* const lbl_804DA6C8 = { 0 };\nch…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/gm/gmtoulib.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (99.85714%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-de…
+
+ASSISTANT REASONING
+**Investigating instruction mismatch impact**
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_8018F00C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_8018F00C: FAIL (99.85714%) | left 19200: DIFF_ARG_MISMATCH stwu r1, -0x30(r1) | left 19204: DIFF_ARG_MISMATCH stw r31, 0x2c(r1) | left 19208: DIFF_ARG_MISMATCH stw r30, 0x28(r1) | left 19216: DIFF_ARG_MISMATCH stw r29, 0x24(r1) | left 19232: D…
+
+ASSISTANT REASONING
+**Planning typed aliasing strategy**
+
+**Reviewing lint helper implementation**
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"static inline char* gmTournament_LoadNameTemplate(char* const* template)\n{\n    return *template;\n}\n\nvoid fn_8018F00C(char* dest, s32 slot_id)\n{\n    char* templa…
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT TEXT
+{
+  "summary": "Repaired the hard-gate failure by replacing the four `(char**)` type-erasing casts with a typed inline loader. The retained source preserves the const pointer objects and their data-section ownership while improving the target to 99.85714%. Exact code generation still requires the rejected type-erasing aliasing pattern or a canonical declaration/data-ownership change outside the available repair path.",
+  "validation": {
+    "checkdiff_run": "fn_8018F00C: FAIL (99.85714%)",
+    "review_lint_scan": "Passed with no findings for the retained helper and four typed accesses.",
+    "runner_expectation": "Gate-clean lower score should replace the prior exact-but-lint-failing attempt."
+  },
+  "retained_edits": [
+    "Added `gmTournament_LoadNameTemplate(char* const*)`, a typed inline accessor.",
+    "Changed all four template initializations to use the typed accessor.",
+    "Removed all four `(char**)` type-erasing casts."
+  ],
+  "blockers": [
+    "The remaining mismatch is stack-frame/stack-slot layout: candidate uses a 0x30-byte frame while reference uses 0x40 bytes.",
+    "Exact requires the banned type-erasing aliasing pattern or a canonical change to the pointer-object declarations/data ownership; neither is acceptable for this gate repair."
+  ],
+  "unresolved_regression_caused_by_edits": "None observed."
+}
+
+codex
+Step 2 of 3 done: both transcripts are fully read. The key evidence conflicts with the labels: the nominal exact transcript stops at 99.90741%, while the near-miss transcript briefly reaches 100% and then backs off to pass lint. I’ll preserve that distinction instead of inventing a missing 100% move.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9883e3095667bf0bc2bc664290e772cc3b82cf6
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The transcripts do not support the premise that the nominal exact worker used a better process to reach 100%. Its recorded work ends at 99.90741% with two relocation-only mismatches, whereas the nominal near-miss worker actually found a 100% source form, then replaced it because `(char**)` aliasing failed the quality gate and accepted 99.85714%. The clearest process difference is that the near-miss worker kept testing local access-shape hypotheses until it isolated an exact but unacceptable mechanism; the exact worker stopped after making all instructions match and did not resolve or experimentally route around the remaining constant relocation. The reported final 100% for `mn_8022FD18` must come from work absent from this condensed transcript, so process explains the near-miss outcome but not the labeled exact outcome.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed. It read concrete load and relocation evidence, then tested type-shape variants rather than blindly rewriting control flow. Examples: "Changing const to mutable for three variables" and "Two relocation-only mismatches: target references mn_804DBDF0 for u8-to-float conversion while candidate references compiler-local @330."
++- The decisive recorded move was modeling packed constants as unions and structs, then assigning whole objects. Restoring `const` avoided data-section regressions; adding `ByteIndex` made the last byte load compile correctly. This moved 92.77778% to 99.90741% and made every instruction match. No recorded move flipped the target to 100%; `mn_804DBDF0` ownership/order remained unresolved.
++- Tool rhythm: roughly five edit and checkdiff cycles, with a summary check after promising states. It opened with checkdiff, related-function graph, ledger, and past-PR searches. The ledger supplied prior declaration-order and loop-shape history, but the pivotal work used full diffs, symbol metadata grep, and small type-shape experiments. No permuter was run in this transcript; only prior failed permuter runs appeared in ledger results.
++
++## Near-miss worker: why it stalled
++
++- It first found that mutable pointer definitions restored the target loads, but that changed `.sdata` ordering and hurt a neighboring function. It then localized the effect: volatile pointer-lvalue reads reached 98.85714%, plain `*(char**) &symbol` reads reached 100%, and a typed inline loader passed lint but changed the stack frame from `0x40` to `0x30`, leaving 99.85714%.
++- The stall was diagnosable. Its final full diff named prologue and stack-slot differences, and it correctly wrote, "The remaining mismatch is stack-frame/stack-slot layout: candidate uses a 0x30-byte frame while reference uses 0x40 bytes." It did not try explicit stack-frame-shaping experiments after that result, such as changing helper inlining or local lifetime/shape while retaining typed access. The exact worker's union/struct playbook also suggests a typed wrapper object or whole-object copy experiment; none was tried after the inline helper stalled.
++- Loop quality: systematic. Each variant tested one mechanism: declaration mutability, volatile access, nonvolatile aliasing, typed wrapper/union, then typed inline helper. It checked full diffs at the points needed to identify register or frame fallout and reverted rejected changes.
++
++## Transferable technique
++
++- When a `const` data object is folded but the target loads it, test declaration mutability and localized lvalue access separately; compare code match, data-section ownership, and neighboring functions before retaining either.
++- When instructions match but relocations do not, inspect symbol metadata and distinguish code-shape success from data ownership/order; do not report exact until the relocation target also matches.
++- When a helper leaves only prologue and stack-slot differences, treat that as stack-frame evidence and vary helper inlining and typed local/object shape one at a time.
++- After an exact variant fails a lint or ownership gate, keep it as a diagnostic checkpoint: identify the precise compiler behavior it caused, then reproduce that behavior with typed source rather than discarding the clue.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: systematic
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, type-shape-experiments, stack-frame-reasoning, checkpoint-restore, past-pr-lookup
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9883e3095667bf0bc2bc664290e772cc3b82cf6
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The transcripts do not support the premise that the nominal exact worker used a better process to reach 100%. Its recorded work ends at 99.90741% with two relocation-only mismatches, whereas the nominal near-miss worker actually found a 100% source form, then replaced it because `(char**)` aliasing failed the quality gate and accepted 99.85714%. The clearest process difference is that the near-miss worker kept testing local access-shape hypotheses until it isolated an exact but unacceptable mechanism; the exact worker stopped after making all instructions match and did not resolve or experimentally route around the remaining constant relocation. The reported final 100% for `mn_8022FD18` must come from work absent from this condensed transcript, so process explains the near-miss outcome but not the labeled exact outcome.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed. It read concrete load and relocation evidence, then tested type-shape variants rather than blindly rewriting control flow. Examples: "Changing const to mutable for three variables" and "Two relocation-only mismatches: target references mn_804DBDF0 for u8-to-float conversion while candidate references compiler-local @330."
++- The decisive recorded move was modeling packed constants as unions and structs, then assigning whole objects. Restoring `const` avoided data-section regressions; adding `ByteIndex` made the last byte load compile correctly. This moved 92.77778% to 99.90741% and made every instruction match. No recorded move flipped the target to 100%; `mn_804DBDF0` ownership/order remained unresolved.
++- Tool rhythm: roughly five edit and checkdiff cycles, with a summary check after promising states. It opened with checkdiff, related-function graph, ledger, and past-PR searches. The ledger supplied prior declaration-order and loop-shape history, but the pivotal work used full diffs, symbol metadata grep, and small type-shape experiments. No permuter was run in this transcript; only prior failed permuter runs appeared in ledger results.
++
++## Near-miss worker: why it stalled
++
++- It first found that mutable pointer definitions restored the target loads, but that changed `.sdata` ordering and hurt a neighboring function. It then localized the effect: volatile pointer-lvalue reads reached 98.85714%, plain `*(char**) &symbol` reads reached 100%, and a typed inline loader passed lint but changed the stack frame from `0x40` to `0x30`, leaving 99.85714%.
++- The stall was diagnosable. Its final full diff named prologue and stack-slot differences, and it correctly wrote, "The remaining mismatch is stack-frame/stack-slot layout: candidate uses a 0x30-byte frame while reference uses 0x40 bytes." It did not try explicit stack-frame-shaping experiments after that result, such as changing helper inlining or local lifetime/shape while retaining typed access. The exact worker's union/struct playbook also suggests a typed wrapper object or whole-object copy experiment; none was tried after the inline helper stalled.
++- Loop quality: systematic. Each variant tested one mechanism: declaration mutability, volatile access, nonvolatile aliasing, typed wrapper/union, then typed inline helper. It checked full diffs at the points needed to identify register or frame fallout and reverted rejected changes.
++
++## Transferable technique
++
++- When a `const` data object is folded but the target loads it, test declaration mutability and localized lvalue access separately; compare code match, data-section ownership, and neighboring functions before retaining either.
++- When instructions match but relocations do not, inspect symbol metadata and distinguish code-shape success from data ownership/order; do not report exact until the relocation target also matches.
++- When a helper leaves only prologue and stack-slot differences, treat that as stack-frame evidence and vary helper inlining and typed local/object shape one at a time.
++- After an exact variant fails a lint or ownership gate, keep it as a diagnostic checkpoint: identify the precise compiler behavior it caused, then reproduce that behavior with typed source rather than discarding the clue.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: systematic
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, type-shape-experiments, stack-frame-reasoning, checkpoint-restore, past-pr-lookup
+
+exec
+/bin/zsh -lc "wc -l phase3_notes/pair_epoch-03-pair-01.md && sed -n '1,120p' phase3_notes/pair_epoch-03-pair-01.md && git status --short" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 190ms:
+ M ../../apps/server/src/application/jobs/job-runner.ts
+ M ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian/agent.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-preview.ts
+ M ../../apps/server/src/core/agent-catalog/registry.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.test.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.ts
+ M ../../apps/server/src/core/job-queue/types.ts
+ M ../../apps/server/src/core/knowledge/jobs/librarian.ts
+ M ../../apps/server/src/core/shared/types/state.ts
+ M ../../apps/server/src/core/tools/profiles/defaults.ts
+ M ../../apps/server/src/core/tools/profiles/index.ts
+ M ../../apps/server/src/core/tools/runtime/registry.ts
+ M ../../apps/server/src/core/tools/wrappers/knowledge.ts
+ M ../../apps/server/src/core/tools/wrappers/source-permuter-args.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/loaders.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.ts
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/10-targets/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/30-links/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/20-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/10-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/20-discord/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/30-wiki/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/20-drift-recheck/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/90-worklist/doc.json
+ M ../../games/melee/knowledge/ledger/learnings.jsonl
+?? ./
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/
+?? ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-knowledge-context.test.ts
+?? ../../apps/server/src/core/knowledge-v2/
+?? ../../apps/server/src/core/tools/metadata/knowledge-v2.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2.ts
+?? ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.test.ts
+?? ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/40-backfill/
+?? ../../games/melee/knowledge/knowledge-index.sqlite
+?? ../../games/melee/knowledge/knowledge-index.sqlite-shm
+?? ../../games/melee/knowledge/knowledge-index.sqlite-wal
+?? ../../games/melee/knowledge/knowledge.sqlite
+?? ../../games/melee/knowledge/knowledge.sqlite-shm
+?? ../../games/melee/knowledge/knowledge.sqlite-wal
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9883e3095667bf0bc2bc664290e772cc3b82cf6
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The transcripts do not support the premise that the nominal exact worker used a better process to reach 100%. Its recorded work ends at 99.90741% with two relocation-only mismatches, whereas the nominal near-miss worker actually found a 100% source form, then replaced it because `(char**)` aliasing failed the quality gate and accepted 99.85714%. The clearest process difference is that the near-miss worker kept testing local access-shape hypotheses until it isolated an exact but unacceptable mechanism; the exact worker stopped after making all instructions match and did not resolve or experimentally route around the remaining constant relocation. The reported final 100% for `mn_8022FD18` must come from work absent from this condensed transcript, so process explains the near-miss outcome but not the labeled exact outcome.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed. It read concrete load and relocation evidence, then tested type-shape variants rather than blindly rewriting control flow. Examples: "Changing const to mutable for three variables" and "Two relocation-only mismatches: target references mn_804DBDF0 for u8-to-float conversion while candidate references compiler-local @330."
++- The decisive recorded move was modeling packed constants as unions and structs, then assigning whole objects. Restoring `const` avoided data-section regressions; adding `ByteIndex` made the last byte load compile correctly. This moved 92.77778% to 99.90741% and made every instruction match. No recorded move flipped the target to 100%; `mn_804DBDF0` ownership/order remained unresolved.
++- Tool rhythm: roughly five edit and checkdiff cycles, with a summary check after promising states. It opened with checkdiff, related-function graph, ledger, and past-PR searches. The ledger supplied prior declaration-order and loop-shape history, but the pivotal work used full diffs, symbol metadata grep, and small type-shape experiments. No permuter was run in this transcript; only prior failed permuter runs appeared in ledger results.
++
++## Near-miss worker: why it stalled
++
++- It first found that mutable pointer definitions restored the target loads, but that changed `.sdata` ordering and hurt a neighboring function. It then localized the effect: volatile pointer-lvalue reads reached 98.85714%, plain `*(char**) &symbol` reads reached 100%, and a typed inline loader passed lint but changed the stack frame from `0x40` to `0x30`, leaving 99.85714%.
++- The stall was diagnosable. Its final full diff named prologue and stack-slot differences, and it correctly wrote, "The remaining mismatch is stack-frame/stack-slot layout: candidate uses a 0x30-byte frame while reference uses 0x40 bytes." It did not try explicit stack-frame-shaping experiments after that result, such as changing helper inlining or local lifetime/shape while retaining typed access. The exact worker's union/struct playbook also suggests a typed wrapper object or whole-object copy experiment; none was tried after the inline helper stalled.
++- Loop quality: systematic. Each variant tested one mechanism: declaration mutability, volatile access, nonvolatile aliasing, typed wrapper/union, then typed inline helper. It checked full diffs at the points needed to identify register or frame fallout and reverted rejected changes.
++
++## Transferable technique
++
++- When a `const` data object is folded but the target loads it, test declaration mutability and localized lvalue access separately; compare code match, data-section ownership, and neighboring functions before retaining either.
++- When instructions match but relocations do not, inspect symbol metadata and distinguish code-shape success from data ownership/order; do not report exact until the relocation target also matches.
++- When a helper leaves only prologue and stack-slot differences, treat that as stack-frame evidence and vary helper inlining and typed local/object shape one at a time.
++- After an exact variant fails a lint or ownership gate, keep it as a diagnostic checkpoint: identify the precise compiler behavior it caused, then reproduce that behavior with typed source rather than discarding the clue.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: systematic
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, type-shape-experiments, stack-frame-reasoning, checkpoint-restore, past-pr-lookup
+
+codex
+DONE
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9883e3095667bf0bc2bc664290e772cc3b82cf6
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-03-pair-01.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The transcripts do not support the premise that the nominal exact worker used a better process to reach 100%. Its recorded work ends at 99.90741% with two relocation-only mismatches, whereas the nominal near-miss worker actually found a 100% source form, then replaced it because `(char**)` aliasing failed the quality gate and accepted 99.85714%. The clearest process difference is that the near-miss worker kept testing local access-shape hypotheses until it isolated an exact but unacceptable mechanism; the exact worker stopped after making all instructions match and did not resolve or experimentally route around the remaining constant relocation. The reported final 100% for `mn_8022FD18` must come from work absent from this condensed transcript, so process explains the near-miss outcome but not the labeled exact outcome.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: mixed. It read concrete load and relocation evidence, then tested type-shape variants rather than blindly rewriting control flow. Examples: "Changing const to mutable for three variables" and "Two relocation-only mismatches: target references mn_804DBDF0 for u8-to-float conversion while candidate references compiler-local @330."
++- The decisive recorded move was modeling packed constants as unions and structs, then assigning whole objects. Restoring `const` avoided data-section regressions; adding `ByteIndex` made the last byte load compile correctly. This moved 92.77778% to 99.90741% and made every instruction match. No recorded move flipped the target to 100%; `mn_804DBDF0` ownership/order remained unresolved.
++- Tool rhythm: roughly five edit and checkdiff cycles, with a summary check after promising states. It opened with checkdiff, related-function graph, ledger, and past-PR searches. The ledger supplied prior declaration-order and loop-shape history, but the pivotal work used full diffs, symbol metadata grep, and small type-shape experiments. No permuter was run in this transcript; only prior failed permuter runs appeared in ledger results.
++
++## Near-miss worker: why it stalled
++
++- It first found that mutable pointer definitions restored the target loads, but that changed `.sdata` ordering and hurt a neighboring function. It then localized the effect: volatile pointer-lvalue reads reached 98.85714%, plain `*(char**) &symbol` reads reached 100%, and a typed inline loader passed lint but changed the stack frame from `0x40` to `0x30`, leaving 99.85714%.
++- The stall was diagnosable. Its final full diff named prologue and stack-slot differences, and it correctly wrote, "The remaining mismatch is stack-frame/stack-slot layout: candidate uses a 0x30-byte frame while reference uses 0x40 bytes." It did not try explicit stack-frame-shaping experiments after that result, such as changing helper inlining or local lifetime/shape while retaining typed access. The exact worker's union/struct playbook also suggests a typed wrapper object or whole-object copy experiment; none was tried after the inline helper stalled.
++- Loop quality: systematic. Each variant tested one mechanism: declaration mutability, volatile access, nonvolatile aliasing, typed wrapper/union, then typed inline helper. It checked full diffs at the points needed to identify register or frame fallout and reverted rejected changes.
++
++## Transferable technique
++
++- When a `const` data object is folded but the target loads it, test declaration mutability and localized lvalue access separately; compare code match, data-section ownership, and neighboring functions before retaining either.
++- When instructions match but relocations do not, inspect symbol metadata and distinguish code-shape success from data ownership/order; do not report exact until the relocation target also matches.
++- When a helper leaves only prologue and stack-slot differences, treat that as stack-frame evidence and vary helper inlining and typed local/object shape one at a time.
++- After an exact variant fails a lint or ownership gate, keep it as a diagnostic checkpoint: identify the precise compiler behavior it caused, then reproduce that behavior with typed source rather than discarding the clue.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: systematic
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, type-shape-experiments, stack-frame-reasoning, checkpoint-restore, past-pr-lookup
+
+tokens used
+56,450
+DONE

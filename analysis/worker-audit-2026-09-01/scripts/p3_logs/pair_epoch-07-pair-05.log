@@ -1,0 +1,1656 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d81-ca80-7253-a3a5-d2b606a38b61
+--------
+user
+# Task: Worker-audit Phase 3 — deep transcript read, pair epoch-07-pair-05
+
+Two AI decomp workers worked on similar-difficulty targets in epoch 7 (goal: make C source byte-match GameCube PowerPC asm; score = match %). One reached an EXACT 100% match; the other stalled as a NEAR-MISS (>=99.5%). Your job: figure out what the exact worker did differently, at the level of process and technique — not luck of the target.
+
+EXACT worker  — target main/melee/mn/mninfo::mnInfo_80251AFC, baseline 98.64901%, final 100%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md
+NEAR-MISS worker — target main/melee/mn/mnmainrule::mn_8022FEC8, baseline 99.333336%, final 99.77778%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md
+
+Condensed transcripts contain the worker's reasoning/messages verbatim, `TOOL <name> <params>` lines for each tool call, and truncated tool results. Read BOTH fully.
+
+Write exactly one file, `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md`, markdown, <=90 lines, with these sections:
+
+## Verdict
+One paragraph: the single most important process difference between the two (or "no meaningful process difference — outcome driven by target difficulty/luck" if that is the honest read).
+
+## Exact worker: how the gap was closed
+- Diff-reading style: did it reason about specific instructions/registers from the diff output, or guess-and-check source variants? Quote 1-2 short verbatim lines that show this.
+- The decisive move: what actually flipped it to 100%, and what chain of observations led there.
+- Tool rhythm: rough loop shape (e.g. edit -> build -> checkdiff, N iterations), plus any tools used at pivotal moments (permuter, past PR search, graph lookups, knowledge search).
+
+## Near-miss worker: why it stalled
+- Where it got stuck (instruction/issue), what it tried, and what it NEVER tried that the exact worker's playbook suggests.
+- Was the stall diagnosable from its own diff output? Did it misread or ignore evidence? Quote 1 short line if telling.
+- Loop quality: systematic / mixed / shotgun.
+
+## Transferable technique
+2-4 bullet points, each a concrete, generalizable tactic phrased as an instruction one could put in a worker prompt (e.g. "When one instruction differs only in source register, enumerate equivalent source expressions that permute register allocation: temp vs inline, signedness, float literal form"). Only tactics actually evidenced in these transcripts.
+
+## Flags
+- exact_loop: systematic|mixed|shotgun
+- control_loop: systematic|mixed|shotgun
+- outcome_explained_by_process: yes|partial|no
+- techniques: comma-separated slugs (reuse: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, float-literal-tricks, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning; invent sparingly)
+
+Base every claim on the transcripts. Do not modify any other file. Print DONE when finished.
+codex
+I’m using the `unslop` skill because the deliverable is analytical writing; I’ll read its rules, then both transcripts fully and write only the requested note.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+    1447 condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md
+    2549 condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md
+    3996 total
+
+codex
+Step 1 of 3: the writing rules are loaded. I’m splitting the two full transcript reads in parallel, then I’ll verify the cited passages against the source before writing the single file.
+exec
+/bin/zsh -lc 'rg -n "''^(TOOL|##|###)|100|99'"\\.777|checkdiff|permut|register|r[0-9]|f[0-9]|diff|exact|EXACT|stuck|cannot|can't|remaining|mismatch|match\" condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md > /tmp/exact-index.txt
+rg -n \""'^(TOOL|##|###)|100|99'"\\.777|checkdiff|permut|register|r[0-9]|f[0-9]|diff|exact|EXACT|stuck|cannot|can't|remaining|mismatch|match\" condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md > /tmp/near-index.txt
+wc -l /tmp/exact-index.txt /tmp/near-index.txt
+sed -n '1,260p' /tmp/exact-index.txt" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+     386 /tmp/exact-index.txt
+     649 /tmp/near-index.txt
+    1035 total
+2:**Planning target inspection and diff analysis**
+4:TOOL graph_related_functions {"entity_id":"","limit":16,"source_path":"src/melee/mn/mninfo.c","symbol":"mnInfo_80251AFC","unit":"main/melee/mn/mninfo"}
+6:TOOL ledger_search {"limit":10,"query":"mnInfo_80251AFC main/melee/mn/mninfo","scope":"symbol"}
+8:TOOL past_prs_search {"limit":10,"query":"src/melee/mn/mninfo.c mnInfo_80251AFC"}
+10:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+12:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":100,"literal":true,"path":"src/melee","pattern":"gmMainLib_8015D804"}
+14:TOOL grep {"context":4,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"804A0968"}
+16:TOOL bash {"command":"git status --short -- src/melee/mn/mninfo.c && git diff -- src/melee/mn/mninfo.c && sed -n '1,180p' src/melee/mn/mninfo.h","timeout":30}
+18:RESULT graph_related_functions "status": "ok", | "fuzzy": 98.64901, | "status": null | "score": 0.5809, | "exact_match": false, | "matched": true, | "status": "corroborated", | "statement": "In the p_priority == 0 display-order reset branch of mnName_SortNames, the target object initializes 0x78 bytes with a three-iteration CTR/BDNZ loop handling 40 sequential byte stores per iteration, using r9 for the running byte value and …
+20:RESULT ledger_search status=ok | Under the retained source shape for mnInfo_80251AFC, preserve the explicit return path; removing return 0 altered scheduling and register allocation and regressed the target to 91.49669%. | status=proposed | Keep the current i-greater-than-j timestamp comparison form in mnInfo_80251AFC while pursuing other mismatches; rewriting the condition with reversed operands changed branch shape…
+22:RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY display/list code, plus a TY header cleanup. The PR body claims 6 file(s) and 8 newly matched functions with clean isolated and full-ship verification; changed-file... | 10/14: MN Misc Menus Implementation-local C decomp/matching improvements across miscellaneous menu translation u…
+24:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+33:**Analyzing function size mismatch and symbol references**
+37:TOOL past_prs_search {"limit":10,"query":"PR 2668 mninfo declaration order mnInfo_80251AFC"}
+39:TOOL ledger_search {"limit":20,"query":"mnInfo_804A0958 mnInfo_804A0968 storage layout BSS","scope":"file"}
+41:TOOL code_graph_search {"limit":20,"query":"mnInfo_804A0958 StaticModelDesc mnInfo_804A0968 BSS layout"}
+43:TOOL mwcc_debug_diagnose_regflow {"function":"mnInfo_80251AFC","runner":"wibo","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+45:TOOL m2c_decompile {"extra_args":[],"format":true,"input":"mnInfo_80251AFC","no_context":false,"timeout_seconds":120}
+47:TOOL bash {"command":"ls build/GALE01/src/melee/mn/mninfo.o build/GALE01/asm/melee/mn/mninfo.s 2>/dev/null; powerpc-eabi-nm -n build/GALE01/src/melee/mn/mninfo.o 2>/dev/null | grep -E 'mnInfo_804A09(58|68)|mnI…
+49:TOOL bash {"command":"git log --oneline --all -- src/melee/mn/mninfo.c | head -30 && git log -S'mnInfo_80251AFC_inline_3' --oneline --all -- src/melee/mn/mninfo.c | head -20","timeout":30}
+51:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-matching;headers;naming external-sdk;fighter;game-mode;item;library;melee-core;src;stage dberweger2017;improve;decomp;declaration;matches;extern;dolphin;src;thp;thpdec;melee;chara;ftcommon;ftco_0a01;ftco_attack100;... | summary Small decomp-matching adjustments across 16 source file…
+63:RESULT bash ce13c74 cycle: restore gmresultplayer .bss and mninfo .data to byte-exact | 749ec4d Wrap pragmas in `MUST_MATCH` guards (#3178)
+66:**Inspecting git commit diffs**
+68:TOOL bash {"command":"for c in 7e89475 76c72db f08b2b0 ce13c74 4eca0ef; do echo =====$c; git show --stat --oneline $c -- src/melee/mn/mninfo.c; git show --format= --no-ext-diff $c -- src/melee/mn/mninfo.c | se…
+70:TOOL bash {"command":"echo CANDIDATE; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mninfo.o | sed -n '/<mnInfo_80251AFC>/,/<mnInfo_80251D58>/p' | head -180; echo SYMS; powerpc-eabi-nm -n build/GALE01/src…
+72:TOOL bash {"command":"git show fc960bd^:src/melee/mn/mninfo.c | sed -n '1,170p'; echo '--- origin/master current excerpt'; git show origin/master:src/melee/mn/mninfo.c | sed -n '1,170p'","timeout":30}
+74:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/mn","pattern":"StaticModelDesc .*;"}
+76:TOOL type_layout_lookup {"at":"","limit":20,"mode":"summary","prefix":true,"record":"StaticModelDesc"}
+78:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | ce13c74 cycle: restore gmresultplayer .bss and mninfo .data to byte-exact | + // Exact-fit init: terminator comes from the following zeroed gap. | #ifdef MUST_MATCH
+96:TOOL bash {"command":"ls -l build/binutils/powerpc-eabi-* 2>/dev/null | head; ./build/binutils/powerpc-eabi-nm -n build/GALE01/src/melee/mn/mninfo.o | grep -E 'mnInfo_804A09(58|68)|mnInfo_80251AFC' || true; ./…
+98:TOOL bash {"command":"git branch -a --contains fc960bd | head -20; git remote -v; git show fc960bd:src/melee/mn/mninfo.c | sed -n '25,150p'; echo '---before first integration'; git show f08b2b0^:src/melee/mn/m…
+100:TOOL bash {"command":"git log --all --format='%H %s' -- src/melee/mn/mninfo.c | while read c rest; do x=$(git show \"$c:src/melee/mn/mninfo.c\" 2>/dev/null | grep -n -m1 'StaticModelDesc mnInfo_804A0958'); y=$…
+102:TOOL asm_window_search {"all":false,"exclude_self_unit":true,"limit":20,"min_match":98,"symbol":"mnInfo_80251AFC","unit":"main/melee/mn/mninfo"}
+104:RESULT bash [long result omitted: 7127 chars] -rwxr-xr-x 1 root root 1243136 Aug 26 01:16 build/binutils/powerpc-eabi-addr2line
+108:RESULT bash ce13c745 model=510:StaticModelDesc mnInfo_804A0958; ids=41:u8 mnInfo_804A0968[0x48]; cycle: restore gmresultplayer .bss and mninfo .data to byte-exact | 749ec4d5 model=509:StaticModelDesc mnInfo_804A0958; ids=42:u8 mnInfo_804A0968[0x48]; Wrap pragmas in `MUST_MATCH` guards (#3178)
+110:RESULT asm_window_search exit_code=0 | min_match=98 | fuzzy_match_percent=100 | similarity=0.99995 | similarity=0.702419 | similarity=0.701885 | similarity=0.67784 | similarity=0.67724 | similarity=0.674749 | fuzzy_match_percent=99.30081 | similarity=0.658882 | similarity=0.650427 | similarity=0.648098 | similarity=0.641193 | similarity=0.635782 | similarity=0.617291 | similarity=0.615172 | similarity=0.607664 | similari…
+115:**Investigating linker BSS symbol order mismatch**
+117:TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;","oldText":"u8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;"},{"newText":"#ifdef MU…
+121:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+123:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+125:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":"main/melee/mn/mninfo"}
+127:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+129:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | fn_80251FE4: FAIL (99.77901%) | fn_80252548: FAIL (93.82204%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harne…
+131:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+136:TOOL bash {"command":"git diff -- src/melee/mn/mninfo.c; ./build/binutils/powerpc-eabi-nm -n build/GALE01/src/melee/mn/mninfo.o | grep -E 'mnInfo_804A09(58|68)' || true; stat -f '%Sm' build/GALE01/src/melee/mn…
+138:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+140:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+142:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80252758","timeout_seconds":120}
+144:TOOL checkdiff_run {"full_diff":true,"function":"fn_80251FE4","timeout_seconds":120}
+146:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+148:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+150:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (93.82204%) | left 2900: DIFF_REPLACE mr r30, r3 | left DIFF_INSERT | left 2908: DIFF_ARG_MISMATCH lwz r31, 0x2c(r3) | left 3068: ARG_DIFF b 0xd04 | left 3092: ARG_DIFF b 0xd04 | left 3096: DIFF_DELETE lis r3, mnInfo_804A0968@ha…
+152:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80252758: FAIL (99.82692%) | left 3576: DIFF_ARG_MISMATCH addi r3, r31, 0x34 | left 3588: DIFF_ARG_MISMATCH addi r3, r31, 0x4c | left 3592: DIFF_ARG_MISMATCH addi r5, r31, 0x58 | right 3564: DIFF_ARG_MISMATCH addi r3, r31, 0xd8 | right 357…
+154:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80251FE4: FAIL (99.77901%) | left 1836: DIFF_ARG_MISMATCH lbz r30, 0x0(r27) | left 1840: DIFF_ARG_MISMATCH mr r3, r30 | left 1860: DIFF_ARG_MISMATCH addi r5, r30, 0x0 | left 1876: DIFF_ARG_MISMATCH addi r5, r30, 0x0 | left 2140: DIFF_ARG_MISMA…
+161:TOOL bash {"command":"for c in 8910faee 2d6c8d66 2957e5d0 38e1e4b2 cc1ba0da; do echo ==== $c; git show --stat --oneline $c 2>&1 | head -12; done; git reflog --all --oneline | grep -E 'mnInfo_80251AFC|8910faee|…
+163:TOOL knowledge_graph_search {"limit":20,"query":"mnInfo_80251AFC artificial reference mnInfo_804A0958 data-order forcing four regressions QA"}
+165:TOOL past_prs_search {"limit":20,"query":"mnInfo_804A0968 mnInfo_804A0958 BSS"}
+167:TOOL ledger_search {"limit":30,"query":"mnInfo_80251AFC return 0 storage layout artificial reference","scope":"symbol"}
+171:RESULT knowledge_graph_search status=ok | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering Closed, unmerged PR touching only src/melee/gr/grbigblueroute.c. It attempted stage decomp matching improvements for grBigBlueRoute functions C85C, CD20, DED4, and DF80, plus .sdata2 constant-order work. The PR…
+173:RESULT past_prs_search status=ok | Fix gm_1A36 bss ordering Moved the static BSS declaration for gm_80479C30 earlier in src/melee/gm/gm_1A36.static.h to restore BSS ordering and fix broken matches introduced by PR #1535. The change was minimal: gm_controller_map gm_80479C30[4] was relocated from the later static-dat... | ...vered signatures. The only loaded feedback is an automated decomp report showing one new .bss ma…
+210:TOOL edit {"edits":[{"newText":"} MnInfoDataLayout;\n\ntypedef struct MnInfoBss {\n    StaticModelDesc model;\n    u8 ids[0x48];\n} MnInfoBss;\n\nMnInfoBss mnInfo_bss;\nHSD_GObj* mnInfo_804D6C78;","oldText":"}…
+217:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\np=Path('src/melee/mn/mninfo.c')\ns=p.read_text()\ns=s.replace('mnInfo_804A0968', 'mnInfo_bss.ids')\ns=s.replace('mnInfo_804A0958', 'mnInfo_bss.…
+224:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+226:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+228:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+230:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (96.62251%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 284: DIFF_ARG_MISMATCH stb r10, 0x0(r9) | left 296: DIFF_ARG_MISMATCH stb r8, 0x1(r9) | left 308: DIFF_ARG_MISMATCH stb r7, 0x2(r9) | left 320: DIFF_ARG_MIS…
+232:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (96.62251%) | fn_80251FE4: FAIL (97.62431%) | fn_80252548: FAIL (93.71186%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harne…
+234:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+237:**Investigating store register mismatch**
+239:TOOL bash {"command":"./build/binutils/powerpc-eabi-objdump -dr build/orchestrator-direct-compile/melee_mn_mninfo-959bc3a4.o | sed -n '/<mnInfo_80251AFC>/,/<mnInfo_80251D58>/p' | head -155; ./build/binutils/po…
+241:RESULT bash [long result omitted: 6350 chars] 000000f4 <mnInfo_80251AFC>:
+248:TOOL read {"limit":70,"offset":88,"path":"src/melee/mn/mninfo.c"}
+255:TOOL edit {"edits":[{"newText":"static inline bool mnInfo_80251AFC_inline(u8* ids, s32 i)\n{\n    s32 unlock_state = mnInfo_80251A08(ids[i]);\n    return unlock_state == 0;\n}\n\nstatic inline u32 mnInfo_80251…
+262:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+264:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (78.61589%) | left DIFF_INSERT | left 264: DIFF_DELETE li r10, 0x0 | left 276: DIFF_REPLACE addi r31, r3, mnInfo_804A0958@l | left 280: DIFF_REPLACE addi r9, r31, 0x10 | left 284: DIFF_ARG_MISMATCH stb r10, 0x0(r9) | left 29…
+271:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\np=Path('src/melee/mn/mninfo.c')\ns=p.read_text().replace('mnInfo_bss.ids', 'mnInfo_804A0968').replace('mnInfo_bss.model', 'mnInfo_804A0958')\np…
+276:**Restoring exact state**
+278:TOOL edit {"edits":[{"newText":"u8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;","oldText":"typedef struct MnInfoBss {\n    StaticModelDesc model;\n    u8 ids[0x48];\n} MnInfoBss;\n\nMnInfoBss mnInfo_bss…
+287:TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958 = { NULL };\nu8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;","oldText":"u8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;"},{"newText"…
+294:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+296:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+298:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+300:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+302:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | fn_80251FE4: FAIL (99.77901%) | fn_80252548: FAIL (95.55085%) | mnInfo_80252758: FAIL (97.27885%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harne…
+304:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+311:TOOL edit {"edits":[{"newText":"u8 mnInfo_804A0968[0x48];","oldText":"StaticModelDesc mnInfo_804A0958 = { NULL };\nu8 mnInfo_804A0968[0x48];"},{"newText":"void mnInfo_80251AFC(void)\n{\n    s32 i;\n    s32 j;\…
+318:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+320:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+322:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+324:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | fn_80251FE4: FAIL (99.77901%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/val…
+327:**Investigating BSS order impact on function matching**
+331:TOOL edit {"edits":[{"newText":"void mnInfo_80251AFC(void)\n{\n    s32 i;\n    s32 j;\n    StaticModelDesc* model = &mnInfo_804A0958;\n    PAD_STACK(8);\n\n    (void) model;","oldText":"void mnInfo_80251AFC(vo…
+338:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+340:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+361:TOOL edit {"edits":[{"newText":"typedef union MnInfoBss {\n    StaticModelDesc model;\n    u8 raw[0x58];\n} MnInfoBss;\n\nMnInfoBss mnInfo_bss;\nHSD_GObj* mnInfo_804D6C78;\nextern GXColor mn_804D4B64;\n\nstati…
+368:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\np=Path('src/melee/mn/mninfo.c')\ns=p.read_text().replace('mnInfo_804A0968', 'mnInfo_GetIds()').replace('mnInfo_804A0958', 'mnInfo_bss.model')\n…
+375:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+377:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (96.62251%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 284: DIFF_ARG_MISMATCH stb r10, 0x0(r9) | left 296: DIFF_ARG_MISMATCH stb r8, 0x1(r9) | left 308: DIFF_ARG_MISMATCH stb r7, 0x2(r9) | left 320: DIFF_ARG_MIS…
+392:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\np=Path('src/melee/mn/mninfo.c')\ns=p.read_text().replace('mnInfo_GetIds()', 'mnInfo_804A0968').replace('mnInfo_bss.model', 'mnInfo_804A0958')\n…
+399:TOOL edit {"edits":[{"newText":"u8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;\nextern GXColor mn_804D4B64;","oldText":"typedef union MnInfoBss {\n    StaticModelDesc model;\n    u8 raw[0x58];\n} MnInfo…
+404:**Verifying zero git diff**
+406:TOOL bash {"command":"git diff -- src/melee/mn/mninfo.c; git log --all --oneline --grep='jj/mninfo' --grep='mninfo' | head -40; git branch -r | head -20","timeout":30}
+408:TOOL knowledge_graph_search {"limit":20,"query":"PR 2449 jj/mninfo mnInfo_80251AFC source diff"}
+410:TOOL past_prs_search {"limit":20,"query":"PR 2449 mnInfo_80251AFC"}
+412:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+414:RESULT bash ce13c74 cycle: restore gmresultplayer .bss and mninfo .data to byte-exact
+416:RESULT knowledge_graph_search status=ok | PR 2449 jj/mninfo mnInfo_80251AFC source diff | PR 2582: Match and improve several source functions | Match and improve several source functions Batch PR with independent source matching improvements across THP decode, fighter item handling, Ice Mountain ground logic, menu count sorting, and sysdolphin particle initialization. Evidence includes PR body verification commands, diff e...…
+418:RESULT past_prs_search status=ok | summary No PR evidence packet was available in the provided context, so no PR-specific facts could be extracted. decomp_lessons Run the Pi postmortem agent for evidence-backed lessons before relying on this draft. smart_moves assembly_or_matching_tactics review_feedback | summary No PR evidence packet was available in the conversation context, so the slice could not be substantively i…
+420:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+423:**Planning last-resort source permutation**
+427:TOOL bash {"command":"git log --all -L 103,146:src/melee/mn/mninfo.c --oneline --no-patch 2>/dev/null | head -50; git log --all -p -S'mnInfo_80251AFC(void)' -- src/melee/mn/mninfo.c | head -300","timeout":60}
+429:TOOL source_mutation_preview {"function":"mnInfo_80251AFC","no_types":false,"pass_name":"","seed":20260828,"source_path":"src/melee/mn/mninfo.c","steps":3,"timeout_seconds":120}
+431:TOOL ledger_search {"limit":30,"query":"mnInfo_80251AFC score 98.64901","scope":"symbol"}
+433:TOOL mwcc_debug_lookup {"limit":20,"query":"BSS ordering first reference global variables MWCC common bss base adjacent symbols"}
+435:TOOL source_permuter_run {"function":"mnInfo_80251AFC","jobs":4,"keep_prob":0.15,"max_iters":300,"mutate_functions":[],"no_narrow":false,"save_replay":"active_session/mnInfo_80251AFC-permuter.json","seed":8595207,"timeout_se…
+437:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c
+441:RESULT ledger_search status=ok | Directly expressing the ID array as a pointer or cast derived from mnInfo_804A0958 generally disrupts mnInfo_80251AFC's unrolled initialization and register allocation, causing substantial score regressions and, for cast forms, review-lint concerns. | status=refuted | For mnInfo_80251AFC, a score improvement alone is insufficient for checkpoint selection: the helper-based revisions re…
+443:RESULT mwcc_debug_lookup exit_code=0 | score=1 | parse_error=null | "exit_code": 0, | "Generated lookup indexes remain supplemental and should be verified against local build, pcdump, diagnose, or objdiff output for a specific target.", | "score": 1, | "build pre-compile: phony\n# Source files\n# melee/lb/lbcommand.c: lb (Library) (linked True)\nbuild build/GALE01/src/melee/lb/lbcommand.o: mwcc_sjis $\n src/melee/lb/lbco…
+445:RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=1350990 dup=100% compile-fail=0 | 0s iters=44 (72.0/s) best=1350990 dup=53% compile-fail=3 | 0s iters=60 (73.8/s) best=1350990 dup=61% compile-fail=4 | 1s iters=60 (59.1/s) best=1350990 dup=71% compile-fail=4 | 1s iters=60 (49.3/s) best=1350990 dup=72% compile-fail=4 | 1s iters=114 (80.4/s) best=1350990 dup=60% compile-fail=10 | 1s iters=118 (72.8…
+459:TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;","oldText":"u8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;"},{"newText":"void mnIn…
+464:**Planning sequential checkdiff and compile**
+466:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+468:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/…
+473:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+475:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_80251FE4: FAIL (99.77901%) | fn_80252548: FAIL (93.85593%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validat…
+480:TOOL review_lint_scan {"file":"src/melee/mn/mninfo.c","rule":"all","text":""}
+487:TOOL read {"limit":650,"offset":1,"path":"src/melee/mn/mninfo.c"}
+494:TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];\n\nvoid mnInfo_80251AFC(void)\n{\n    s32 i;\n    s32 j;\n    PAD_STACK(8);\n\n    (void) &mnInfo_804A0958;…
+499:**Planning direct compile and diff check**
+503:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+505:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+510:TOOL bash {"command":"git diff --check -- src/melee/mn/mninfo.c && git diff -- src/melee/mn/mninfo.c && ./build/binutils/powerpc-eabi-nm -n build/orchestrator-direct-compile/melee_mn_mninfo-622b6577.o | grep -…
+512:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+519:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src","pattern":"\\(void\\) &.*804"}
+521:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/mn","pattern":"\\(void\\) &"}
+523:TOOL grep {"context":1,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/mn","pattern":"\\(void\\) [A-Za-z_][A-Za-z0-9_]*;"}
+525:TOOL past_prs_search {"limit":20,"query":"void address global BSS ordering (void) & decomp MWCC"}
+533:RESULT past_prs_search status=ok | Melee decomp: GR Ground-system decomp matching PR touching Castle, Great Bay, Ice Mountain, and Venom source files in the final changed-file metadata. The PR body says exact-match decompilation of 5 files and 4 newly matched functions, while final changed-file metadata lists... | Melee decomp: GM Exact-match decompilation work for GM/game-mode files, with small ground header/source ed…
+540:TOOL edit {"edits":[{"newText":"    /// @todo Keep #mnInfo_804A0958 before #mnInfo_804A0968 in `.bss`.\n    (void) &mnInfo_804A0958;\n\n    for (i = 0; 0x42 > i; i++) {","oldText":"    (void) &mnInfo_804A0958;…
+545:**Performing final lint and diff checks**
+547:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+549:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/…
+554:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+556:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_80251FE4: FAIL (99.77901%) | fn_80252548: FAIL (93.85593%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validat…
+561:TOOL review_lint_scan {"file":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f3e0a532-6afd-4d7d-850b-f0d5ddab4490/host-cwd/src/melee/mn…
+563:TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];\nvoid mnInfo_80251AFC(void)\n{\n    s32 i;\n    s32 j;\n    PAD_STACK(8);\n    /// @todo Keep #mnInfo_804A0…
+565:TOOL bash {"command":"git diff --check -- src/melee/mn/mninfo.c && git status --short -- src/melee/mn/mninfo.c && git diff --stat -- src/melee/mn/mninfo.c && git diff -- src/melee/mn/mninfo.c","timeout":30}
+571:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+580:  "summary": "Matched mnInfo_80251AFC exactly by restoring the canonical .bss declaration order for mnInfo_804A0958 and mnInfo_804A0968 and adding a documented address-use anchor so MWCC retains that order. The anchor is an evidence-backed matching tactic: moving the declaration alone left the target at 98.64901%, while the retained combination produces 100%.",
+584:    "result": "PASS (100.00000%)"
+587:    "checkdiff_run mnInfo_80251AFC: PASS (100.00000%)",
+590:    "Same-unit checkdiff summary: all previously matched neighbors remain PASS",
+593:    "git diff --check: passed"
+601:**Inspecting relocation differences and symbol semantics**
+603:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+605:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+607:TOOL bash {"command":"git status --short && git diff -- src/melee/mn/mninfo.c && git diff --check","timeout":30}
+609:TOOL ledger_search {"limit":10,"query":"mnInfo_80251AFC mnInfo_804A0958 mnInfo_804A0968 fn_80252548 regression bss declaration order","scope":"file"}
+611:TOOL past_prs_search {"limit":10,"query":"src/melee/mn/mninfo.c mnInfo_80251AFC mnInfo_804A0958 mnInfo_804A0968"}
+613:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/…
+615:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (93.85593%) | left 2900: DIFF_REPLACE mr r30, r3 | left DIFF_INSERT | left 2908: DIFF_ARG_MISMATCH lwz r31, 0x2c(r3) | left 3068: ARG_DIFF b 0xd04 | left 3092: ARG_DIFF b 0xd04 | left 3096: DIFF_DELETE lis r3, mnInfo_804A0968@ha…
+617:RESULT bash ?? tools/asm-differ/ | diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+621:RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY display/list code, plus a TY header cleanup. The PR body claims 6 file(s) and 8 newly matched functions with clean isolated and full-ship verification; changed-file... | 10/14: MN Misc Menus Implementation-local C decomp/matching improvements across miscellaneous menu translation u…
+635:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":"melee/mn/mninfo"}
+637:TOOL past_prs_search {"limit":5,"query":"PR 2658 mninfo.c mnInfo_80251AFC"}
+639:TOOL past_prs_search {"limit":5,"query":"PR 2668 mninfo.c declaration order fn_80252548"}
+641:TOOL knowledge_graph_search {"limit":10,"query":"mnInfo_80251AFC exact bss mnInfo_804A0958 mnInfo_804A0968"}
+643:TOOL graph_related_functions {"entity_id":"","limit":15,"source_path":"src/melee/mn/mninfo.c","symbol":"mnInfo_80251AFC","unit":"main/melee/mn/mninfo"}
+645:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+647:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-matching;headers;naming external-sdk;fighter;game-mode;item;library;melee-core;src;stage dberweger2017;improve;decomp;declaration;matches;extern;dolphin;src;thp;thpdec;melee;chara;ftcommon;ftco_0a01;ftco_attack100;... | summary No PR evidence packet was available in the provided con…
+649:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-matching;headers;naming external-sdk;fighter;game-mode;item;library;melee-core;src;stage dberweger2017;improve;decomp;declaration;matches;extern;dolphin;src;thp;thpdec;melee;chara;ftcommon;ftco_0a01;ftco_attack100;... | summary Small decomp-matching PR touching item, menu event, and…
+651:RESULT knowledge_graph_search status=ok | mnInfo_80251AFC exact bss mnInfo_804A0958 mnInfo_804A0968 | ...vered signatures. The only loaded feedback is an automated decomp report showing one new .bss match and score improvements for multiple mninfo functions; there are no loaded human review comments or PR body details. decomp-matching;headers;menu-code;partial-function-progress melee-core;mn;mninfo pr-2449;jj/mninfo;jurrejell…
+653:RESULT graph_related_functions "status": "ok", | "fuzzy": 98.64901, | "status": null | "score": 0.5809, | "exact_match": false, | "matched": true, | "status": "corroborated", | "statement": "In the p_priority == 0 display-order reset branch of mnName_SortNames, the target object initializes 0x78 bytes with a three-iteration CTR/BDNZ loop handling 40 sequential byte stores per iteration, using r9 for the running byte value and …
+658:TOOL bash {"command":"git log --oneline --all -- src/melee/mn/mninfo.c | head -30 && printf '\\nBLAME GLOBALS\\n' && git blame -L 35,48 HEAD -- src/melee/mn/mninfo.c && printf '\\nBLAME TARGET\\n' && git blame…
+660:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+662:TOOL past_prs_search {"limit":10,"query":"PR 2449 jj/mninfo StaticModelDesc .bss match score mnInfo"}
+664:TOOL code_graph_search {"limit":20,"query":"mnInfo_804A0958"}
+666:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/mn","pattern":"StaticModelDesc .*;"}
+668:RESULT bash ce13c74 cycle: restore gmresultplayer .bss and mninfo .data to byte-exact | 749ec4d Wrap pragmas in `MUST_MATCH` guards (#3178) | 749ec4d5 (Robin Avery 2026-08-22 16:28:55 -0400 45) #ifdef MUST_MATCH | ce13c745 (ford-bubba-ai 2026-08-27 09:44:48 -0500 154) // Exact-fit init: terminator comes from the following zeroed gap. | 749ec4d5 (Robin Avery 2026-08-22 16:28:55 -0400 160) #ifdef MUST_MATCH
+670:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+672:RESULT past_prs_search status=ok | PR 2449 jj/mninfo StaticModelDesc .bss match score mnInfo | PR 2740: Match `lbaudio_ax` data | Match `lbaudio_ax` data PR 2740 was a data-matching change for `main/melee/lb/lbaudio_ax`. It updated symbol metadata, moved or materialized several `lbaudio_ax` data objects into `lbaudio_ax.static.h`, adjusted static storage declarations, and added explicit `.data`, `... | PR 2743: Improve…
+679:**Inspecting target commit diffs**
+681:TOOL bash {"command":"for c in f08b2b0 76c72db 7e89475 b0ef9ca 4eca0ef ce13c74; do echo ==== $c; git show --stat --oneline $c -- src/melee/mn/mninfo.c; git show --format= --no-ext-diff $c -- src/melee/mn/mninf…
+683:TOOL bash {"command":"powerpc-eabi-nm -n -S build/orchestrator-direct-compile/melee_mn_mninfo-1a0c7f1d.o | grep -E 'mnInfo_804A0958|mnInfo_804A0968|bss' && powerpc-eabi-readelf -s build/orchestrator-direct-com…
+685:TOOL bash {"command":"git log --all -S'mnInfo_804A0958' --format='%h %s' -- src/melee/mn/mninfo.c | head -30","timeout":30}
+687:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee","pattern":"(void) &.*804A"}
+689:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":true,"path":"src","pattern":"@todo Keep #"}
+691:RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | ce13c74 cycle: restore gmresultplayer .bss and mninfo .data to byte-exact | + // Exact-fit init: terminator comes from the following zeroed gap. | #ifdef MUST_MATCH
+697:RESULT grep No matches found
+704:TOOL bash {"command":"build/binutils/powerpc-eabi-nm -n -S build/orchestrator-direct-compile/melee_mn_mninfo-1a0c7f1d.o | grep -E 'mnInfo_804A0958|mnInfo_804A0968|bss' && build/binutils/powerpc-eabi-readelf -s…
+706:TOOL read {"limit":75,"offset":3070,"path":"src/melee/gm/gmregclear.c"}
+708:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":30,"literal":false,"path":"src/melee/gm/gmregclear.c","pattern":"lbl_80472ED8|lbl_80473594"}
+710:TOOL bash {"command":"git show 1e28b42:src/melee/mn/mninfo.c | sed -n '1,180p'; echo '--- later model ---'; git show 1e28b42:src/melee/mn/mninfo.c | grep -n -B3 -A3 mnInfo_804A0958","timeout":30}
+712:TOOL bash {"command":"git branch -a --contains 2449 2>/dev/null || true; git log --all --grep='jj/mninfo' --oneline --decorate","timeout":30}
+718:RESULT grep [30 matches limit reached. Use limit=60 for more, or refine pattern]
+729:TOOL read {"limit":240,"offset":1,"path":"src/melee/mn/mninfo.h"}
+731:TOOL bash {"command":"git show --stat --oneline 4eca0ef^..4eca0ef; git show 4eca0ef^:src/melee/mn/mninfo.c | sed -n '35,55p;490,535p'; git show 4eca0ef:src/melee/mn/mninfo.c | sed -n '35,55p;500,545p'","timeou…
+733:TOOL grep {"context":2,"glob":"*.h","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/mn","pattern":"extern .*804A09|mnInfo_804A0968|mnInfo_804A0958"}
+735:TOOL bash {"command":"git log --all --format='%h %s' -- src/melee/gm/gmregclear.c | head -15; git blame -L 250,265 -L 3118,3146 HEAD -- src/melee/gm/gmregclear.c","timeout":30}
+737:TOOL past_prs_search {"limit":10,"query":"\"Keep #lbl_80472ED8 before #lbl_80473594\""}
+745:RESULT bash [long result omitted: 4964 chars] b0ef9ca epoch(4a45af8a): epoch-1
+747:RESULT past_prs_search status=ok | ...er review, author preserved match progress while applying readability cleanup rather than keeping generated-looking constructs. Used a narrow particle.o build after a particle context-slot type fix before broad ninja and regression checks. Documented stale bot report status and supplied a newer report, reducing ambiguity around final regression status. Resol... | ...ors rather than…
+759:TOOL edit {"edits":[{"newText":"} MnInfoDataLayout;\n\nu8 mnInfo_804A0968[0x48];","oldText":"} MnInfoDataLayout;\n\nStaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];"},{"newText":"void fn_80252548(HS…
+766:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+768:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+770:TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720"],"timeout_seconds":180}
+772:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+774:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+776:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+778:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-deco…
+780:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+792:TOOL edit {"edits":[{"newText":"} MnInfoDataLayout;\n\nHSD_GObj* mnInfo_804D6C78;","oldText":"} MnInfoDataLayout;\n\nu8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;"},{"newText":"StaticModelDesc mnInfo_8…
+799:TOOL checkdiff_run {"full_diff":true,"function":"mnInfo_80251AFC","timeout_seconds":120}
+801:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+803:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+805:TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80252758","timeout_seconds":120}
+807:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (91.18543%) | left 248: DIFF_ARG_MISMATCH lis r3, mnInfo_804A0958@ha | left 264: DIFF_REPLACE li r10, 0x0 | left DIFF_INSERT | left 276: DIFF_DELETE addi r31, r3, mnInfo_804A0958@l | left 280: DIFF_DELETE addi r9, r31, 0x10 …
+809:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+811:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+813:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecub…
+825:**Restoring exact source structure for testing**
+827:TOOL edit {"edits":[{"newText":"} MnInfoDataLayout;\n\nStaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];\nHSD_GObj* mnInfo_804D6C78;","oldText":"} MnInfoDataLayout;\n\nHSD_GObj* mnInfo_804D6C78;"},{"…
+834:TOOL direct_compile_tu {"function":"fn_80252548","keep_object":true,"unit":""}
+836:TOOL grep {"context":3,"glob":"*.s","ignoreCase":false,"limit":10,"literal":true,"path":"build/GALE01/asm/melee/mn/mninfo.s","pattern":"fn_80252548:"}
+838:TOOL mwcc_debug_diagnose_inlines {"function":"fn_80252548","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+840:TOOL mwcc_debug_diagnose_regflow {"function":"fn_80252548","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+842:TOOL source_mutation_preview {"function":"fn_80252548","no_types":false,"pass_name":"","seed":7,"source_path":"src/melee/mn/mninfo.c","steps":4,"timeout_seconds":120}
+844:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+846:RESULT grep No matches found
+857:TOOL glob {"limit":20,"path":"build","pattern":"**/mninfo.s"}
+859:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/orchestrator-direct-compile/melee_mn_mninfo-96ce2a52.o | sed -n '/<fn_80252548>:/,/^$/p' > /tmp/fn-current.txt; sed -n '1,260p' /tmp/fn-curre…
+861:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/expected/build/?? 2>/dev/null | head || true; ls build/GALE01 | head -40","timeout":30}
+863:TOOL m2c_decompile {"extra_args":[],"format":true,"input":"fn_80252548","no_context":false,"timeout_seconds":120}
+865:TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limit":10,"min_match":90,"symbol":"fn_80252548","unit":"main/melee/mn/mninfo"}
+875:RESULT asm_window_search exit_code=0 | min_match=null | fuzzy_match_percent=100 | similarity=1 | similarity=0.951006 | similarity=0.870192 | similarity=0.867612 | similarity=0.865713 | fuzzy_match_percent=99.69466 | fuzzy_match_percent=99.460556 | similarity=0.859047 | similarity=0.85767 | status=ok | parse_error=null | "--min-match", | "exit_code": 0, | "min_match": null, | "fuzzy_match_percent": 100, | "similarity": 1,…
+880:TOOL grep {"context":3,"glob":"*.s","ignoreCase":false,"limit":20,"literal":true,"path":"build/GALE01/asm/melee/mn/mninfo.s","pattern":"80252548"}
+882:TOOL read {"limit":190,"offset":990,"path":"build/GALE01/asm/melee/mn/mninfo.s"}
+884:TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mncount.c","symbol":"fn_802514D8","unit":"main/melee/mn/mncount"}
+886:TOOL code_graph_search {"limit":10,"query":"fn_802514D8"}
+888:TOOL grep {"context":10,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn","pattern":"fn_802514D8"}
+892:RESULT read [long result omitted: 6972 chars] /* 80252798 0024F378  39 04 00 08 */	addi r8, r4, 0x8
+894:RESULT graph_related_functions "status": "ok", | "fuzzy": 100, | "status": null | "score": 0.91, | "exact_match": false, | "matched": true, | "statement": "fn_802523D8 matches exactly when its typed inline implementation is wrapped by a function that owns the child JObj output local, passes that local through the helper, and uses the resulting stack layout.", | "status": "proposed", | "statement": "fn_802523D8 reached an exact…
+903:TOOL read {"limit":132,"offset":824,"path":"build/GALE01/asm/melee/mn/mninfo.s"}
+908:**Comparing generated assembly layout differences**
+919:TOOL edit {"edits":[{"newText":"    } else {\n        u8* ids = mnInfo_804A0968;\n        StaticModelDesc* model = &mnInfo_804A0958;\n\n        if ((s32) data->anim_timer != 0) {\n            data->anim_timer-…
+926:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+928:TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+930:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (91.69492%) | left 2972: DIFF_ARG_MISMATCH addi r28, r27, 0x0 | left 2976: DIFF_ARG_MISMATCH addi r29, r27, 0x0 | left 3012: DIFF_ARG_MISMATCH stw r28, 0x8(r30) | left 3036: DIFF_ARG_MISMATCH stw r29, 0x18(r30) | left DIFF_INSER…
+932:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks…
+941:TOOL edit {"edits":[{"newText":"    } else {\n        if ((s32) data->anim_timer != 0) {\n            data->anim_timer--;\n            return;\n        }\n        for (i = 0; i < 4; i++) {\n            if (mnI…
+948:TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958 = { 0 };\nu8 mnInfo_804A0968[0x48];","oldText":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];"}],"path":"src/melee/mn/mninfo.c"}
+955:TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+957:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+959:TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+961:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecub…
+963:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (95.55085%) | left 2900: DIFF_REPLACE mr r30, r3 | left DIFF_INSERT | left 2908: DIFF_ARG_MISMATCH lwz r31, 0x2c(r3) | left 3068: ARG_DIFF b 0xd04 | left 3092: ARG_DIFF b 0xd04 | left 3124: DIFF_ARG_MISMATCH lbz r28, 0x0(r26) | …
+965:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+979:TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];","oldText":"StaticModelDesc mnInfo_804A0958 = { 0 };\nu8 mnInfo_804A0968[0x48];"},{"newText":"void fn_802523D8(HSD_GO…
+986:TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+988:TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+
+exec
+/bin/zsh -lc "sed -n '1,220p' /tmp/near-index.txt
+sed -n '430,700p' /tmp/near-index.txt" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+4:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+6:TOOL graph_related_functions {"entity_id":"","limit":12,"source_path":"src/melee/mn/mnmainrule.c","symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+8:TOOL ledger_search {"limit":10,"query":"mn_8022FEC8 main/melee/mn/mnmainrule","scope":"symbol"}
+10:TOOL past_prs_search {"limit":10,"query":"src/melee/mn/mnmainrule.c mn_8022FEC8"}
+12:TOOL grep {"context":130,"glob":"*.c","ignoreCase":false,"limit":5,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"void mn_8022FEC8"}
+14:TOOL bash {"command":"git status --short -- src/melee/mn/mnmainrule.c && git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+16:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+18:RESULT graph_related_functions "status": "ok", | "fuzzy": 99.333336, | "status": null | "score": 0.477, | "exact_match": false, | "matched": true, | …
+20:RESULT ledger_search status=ok | main/melee/mn/mnmainrule::mn_8022FEC8 was improvement locally at score 94.888885; upstream 945f28140e7ee4e…
+22:RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY d…
+29:**Inspecting symbol and instruction mismatches**
+33:TOOL grep {"context":3,"glob":"*","ignoreCase":false,"limit":50,"literal":true,"path":"","pattern":"mn_804DBDF0"}
+35:TOOL grep {"context":3,"glob":"*","ignoreCase":false,"limit":20,"literal":true,"path":"config","pattern":"804DBDF0"}
+37:TOOL grep {"context":8,"glob":"*.h","ignoreCase":false,"limit":20,"literal":false,"path":"src","pattern":"#define HSD_JObjAnimAll"}
+39:TOOL grep {"context":6,"glob":"*.h","ignoreCase":false,"limit":30,"literal":true,"path":"src","pattern":"HSD_JObjAnimAll"}
+41:TOOL mwcc_debug_diagnose_regflow {"function":"mn_8022FEC8","runner":"auto","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+43:TOOL asm_window_search {"all":false,"exclude_self_unit":true,"limit":10,"min_match":98,"symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+45:TOOL past_prs_search {"limit":10,"query":"PR 2668 mn_8022FEC8 declaration order"}
+47:TOOL ledger_search {"limit":10,"query":"mn_804DBDF0 anonymous literal mn_8022FEC8","scope":"area"}
+53:RESULT grep No matches found
+59:RESULT asm_window_search exit_code=0 | min_match=98 | fuzzy_match_percent=100 | similarity=0.81886 | similarity=0.73287 | similarity=0.649272 |…
+61:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-ma…
+70:TOOL bash {"command":"ls build/GALE01/src/melee/mn/mnmainrule.o 2>/dev/null || ls build/GALE01/src/melee/mn/mnmainrule.* 2>/dev/null; powerpc-eabi-nm -n build/GALE01/src/melee/mn/mnmainrule.o 2>/dev/null | tai…
+72:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"4503599627370496"}
+74:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn","pattern":"const f64"}
+76:TOOL grep {"context":3,"glob":"*.{c,h}","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"804DBDF0"}
+78:TOOL knowledge_graph_search {"limit":10,"query":"mn_804DBDF0 sdata2 compiler-generated conversion constant named definition"}
+80:TOOL mwcc_debug_lookup {"limit":10,"query":"named sdata2 double 4503599627370496 compiler local conversion constant coalesce"}
+88:RESULT grep No matches found
+90:RESULT knowledge_graph_search status=ok | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigbluerou…
+95:**Investigating source and assembly differences**
+97:TOOL bash {"command":"git log --oneline --all -- src/melee/mn/mnmainrule.c | head -30 && git log -p --all -S'mn_8022FEC8' -- src/melee/mn/mnmainrule.c | head -500","timeout":60}
+99:TOOL bash {"command":"ls build/GALE01 | head -40; ls build/GALE01/src/melee/mn/mnmainrule.o -l; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>/,/^$/p'","timeout":30}
+101:TOOL grep {"context":12,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnruleplus.c","pattern":"mn_804DBE38"}
+103:TOOL review_lint_sdata2_order_helper {"apply":false,"name":"mnMainRule_sdata2_order","prefer_named_macros":true,"source":"src/melee/mn/mnmainrule.c","symbols":["mn_804DBDF0","mn_804DBDF8","mn_804DBE10","mn_804DBE14"],"unit":"main/melee/…
+105:TOOL type_layout_lookup {"at":"","limit":10,"mode":"summary","prefix":false,"record":"mn_8022FB88_arg1_t"}
+107:RESULT bash 84e78c4 Recover linkable matches (#3233) | 91248db Add broad data matching pass (#3210) | diff --git a/src/melee/mn/mn…
+120:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn/mnruleplus.c","pattern":"(f32)"}
+122:TOOL checkdiff_run {"full_diff":true,"function":"mn_802324E4","timeout_seconds":120}
+124:TOOL bash {"command":"git show --stat --oneline 23762f5 && git show 23762f5^:src/melee/mn/mnmainrule.c | sed -n '520,630p'; git show 23762f5:src/melee/mn/mnmainrule.c | sed -n '520,630p'","timeout":30}
+126:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>/,/^$/p'; echo '--- symbols'; build/binutils/powerpc-eabi-nm -n build/GALE01/src/mel…
+130:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+132:RESULT bash [long result omitted: 6404 chars] 23762f5 worker-integration(job-03fd): main/melee/mn/mnmainrule::mn_8022FEC8 [checkpo…
+139:TOOL read {"limit":190,"offset":680,"path":"build/GALE01/asm/melee/mn/mnmainrule.s"}
+148:TOOL bash {"command":"echo SECTIONS; build/binutils/powerpc-eabi-readelf -S build/GALE01/src/melee/mn/mnmainrule.o | grep -E 'sdata2|\\.symtab'; echo SYMBOLS; build/binutils/powerpc-eabi-readelf -s build/GALE0…
+150:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBDFC"}
+152:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBE00"}
+154:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBE04"}
+156:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBE08"}
+158:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"mn_804DBE0C"}
+162:RESULT grep No matches found
+164:RESULT grep No matches found
+166:RESULT grep No matches found
+168:RESULT grep No matches found
+170:RESULT grep No matches found
+175:TOOL bash {"command":"build/binutils/powerpc-eabi-readelf -s build/GALE01/src/melee/mn/mnmainrule.o | awk '$7==7 {print}' && build/binutils/powerpc-eabi-objdump -s -j .sdata2 build/GALE01/src/melee/mn/mnmainru…
+189:TOOL edit {"edits":[{"newText":"const f64 mn_804DBDF0 = 4503599627370496.0;\nextern u16 const mn_804DBDF8;\nu32 const mn_804DBE10;\nu16 const mn_804DBE14;\n","oldText":"extern u16 const mn_804DBDF8;\nu32 const…
+196:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+198:TOOL direct_compile_tu {"function":"mn_8022FEC8","keep_object":false,"unit":"melee/mn/mnmainrule"}
+200:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+202:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_…
+207:**Investigating compiler register usage differences**
+211:TOOL edit {"edits":[{"newText":"extern u16 const mn_804DBDF8;\n","oldText":"const f64 mn_804DBDF0 = 4503599627370496.0;\nextern u16 const mn_804DBDF8;\n"}],"path":"src/melee/mn/mnmainrule.c"}
+216:**Planning historical function diff extraction**
+218:TOOL bash {"command":"for c in 23762f5 a874762 0f23ecb 20d7a20 880bcb1; do echo =====$c; git show $c:src/melee/mn/mnmainrule.c 2>/dev/null | sed -n '/void mn_8022FEC8(/,/^}/p' | shasum; git show $c:src/melee/m…
+220:TOOL grep {"context":8,"glob":"*.c","ignoreCase":false,"limit":30,"literal":false,"path":"src/melee","pattern":"if (.*== NULL).*\\n.*= NULL"}
+222:TOOL code_graph_search {"limit":20,"query":"mn_80231634_t x10 HSD_JObjReqAnimAll nullable accessor source pattern"}
+224:TOOL knowledge_graph_search {"limit":20,"query":"PowerPC mr versus addi zero MWCC source shape HSD_JObjReqAnimAll nullable local"}
+226:TOOL mwcc_debug_lookup {"limit":20,"query":"mr r3 addi r3 zero equivalent move source shape conditional pointer local"}
+228:RESULT bash [long result omitted: 11170 chars] =====23762f5
+230:RESULT grep When multiline mode is enabled, new line characters can be matched.
+234:RESULT knowledge_graph_search status=ok | summary PR 2738 improved GALE01 data matching across config symbols/splits and several source files, prima…
+246:TOOL m2c_decompile {"extra_args":[],"format":true,"input":"mn_8022FEC8","no_context":false,"timeout_seconds":120}
+253:TOOL edit {"edits":[{"newText":"    case 3:\n        tens_jobj = data->xA8 == NULL ? NULL : data->xA8->x10;\n        HSD_JObjReqAnimAll(tens_jobj, (f32) (u8) (arg3 / 10));\n        HSD_JObjAnimAll(tens_jobj);\…
+260:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+262:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+267:TOOL edit {"edits":[{"newText":"    case 3:\n        if (data->xA8 == NULL) {\n            tens_jobj = NULL;\n        } else {\n            tens_jobj = data->xA8->x10;\n        }\n        HSD_JObjReqAnimAll(te…
+274:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj2;\n    int tens_jobj;\n    int ones_jobj;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj2;\n    HSD_JObj* tens_jobj;\n    HSD_JObj* ones_jobj;\n…
+281:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+283:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+288:**Exploring aliasing to affect register moves**
+295:**Analyzing register allocation and instruction choices**
+302:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj2;\n    HSD_JObj* tens_jobj;\n    HSD_JObj* ones_jobj;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj2;\n    int tens_jobj;\n    int ones_jobj;\n…
+309:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+311:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+316:**Planning source permuter usage**
+318:TOOL edit {"edits":[{"newText":"        HSD_JObjReqAnimAll(tens_jobj, (f32) (u8) (arg3 / 10));\n        HSD_JObjAnimAll(tens_jobj);\n","oldText":"        digit_jobj = tens_jobj;\n        HSD_JObjReqAnimAll(dig…
+325:TOOL source_mutation_preview {"function":"mn_8022FEC8","no_types":false,"pass_name":"","seed":7,"source_path":"src/melee/mn/mnmainrule.c","steps":3,"timeout_seconds":120}
+327:TOOL grep {"context":8,"glob":"*.c","ignoreCase":false,"limit":50,"literal":false,"path":"src/melee/mn","pattern":"if (.*x10"}
+329:TOOL grep {"context":10,"glob":"*.c","ignoreCase":false,"limit":30,"literal":true,"path":"src/melee/mn/mnruleplus.c","pattern":"HSD_JObjReqAnimAll"}
+331:TOOL past_prs_search {"limit":20,"query":"mn_8022FEC8 mr addi HSD_JObjReqAnimAll case 3"}
+344:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    HSD_JObj* tens_jobj;\n    HSD_JObj…
+351:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+353:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+365:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    int value;\n"},{"newText":"    cas…
+372:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+374:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+379:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    HSD_JObj* tens_jobj;\n    HSD_JObj* ones_jobj;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* …
+384:**Planning source permuter runs**
+386:TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c; git status --short -- src/melee/mn/mnmainrule.c","timeout":30}
+391:**Running permuter tool**
+393:TOOL source_permuter_run {"function":"mn_8022FEC8","jobs":8,"keep_prob":0.2,"max_iters":1000,"mutate_functions":[],"no_narrow":false,"save_replay":"mn_8022FEC8_permuter.json","seed":8595207,"timeout_seconds":180}
+395:RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=666664 dup=100% compile-fail=0 | 1s iters=0 (0.0/s) best=666664 dup=…
+402:TOOL mwcc_alloc_snapshot {"capture":"pcode","function":"mn_8022FEC8","timeout_seconds":180,"unit":"src/melee/mn/mnmainrule.c"}
+404:RESULT mwcc_alloc_snapshot exit_code=0 | status=ok | "exit_code": 0, | "pair_diffs": [], | "status": "ok",
+409:TOOL read {"limit":120,"offset":1,"path":"build/mwcc-alloc/mn_8022FEC8-20260828T095907Z/allocator-0004.json"}
+416:TOOL grep {"context":5,"glob":"*.json","ignoreCase":false,"limit":20,"literal":true,"path":"build/mwcc-alloc/mn_8022FEC8-20260828T095907Z/allocator-0004.json","pattern":"HSD_JObjReqAnimAll"}
+418:RESULT grep No matches found
+423:TOOL edit {"edits":[{"newText":"        HSD_JObjReqAnimAll((tens_jobj = tens_jobj),\n                           (f32) (u8) (arg3 / 10));\n","oldText":"        HSD_JObjReqAnimAll(tens_jobj, (f32) (u8) (arg3 / 1…
+430:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+432:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+444:TOOL grep {"context":5,"glob":"*.h","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.h","pattern":"mn_80231634"}
+453:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"xA8"}
+460:TOOL edit {"edits":[{"newText":"    case 3:\n        tens_jobj = (HSD_JObj*) mn_80231634(\n            (struct mn_80231634_t*) data->xA8);\n        HSD_JObjReqAnimAll(tens_jobj, (f32) (u8) (arg3 / 10));\n     …
+467:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+469:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+476:TOOL edit {"edits":[{"newText":"static inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n                                                        u8 rule_value)\n{\n    u8 default_value;\n\n    if…
+483:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+485:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+490:TOOL edit {"edits":[{"newText":"static inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n                                                        u8 rule_value)\n{\n    u8 default_value;\n\n    if…
+499:TOOL edit {"edits":[{"newText":"    u8 pad_80[0xA8 - 0x80];\n    struct mn_80231634_t* xA8;\n    struct mn_80231634_t* xAC;\n};\n","oldText":"    u8 pad_80[0xA8 - 0x80];\n    struct mn_8022FEC8_jobj_ref_t* xA8…
+506:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+508:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+513:TOOL read {"limit":55,"offset":680,"path":"src/melee/mn/mnmainrule.c"}
+520:TOOL edit {"edits":[{"newText":"    struct mn_80231634_t* xAC;\n};\n\nstruct mn_8022FEC8_jobj_ref_t {\n    u8 pad_0[0x10];\n    HSD_JObj* x10;\n};\n\ntypedef union {\n","oldText":"    struct mn_80231634_t* xAC…
+527:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+529:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+536:TOOL edit {"edits":[{"newText":"        HSD_JObjReqAnimAll(tens_jobj, (f32) (u8) (arg3 / 10));\n        HSD_JObjAnimAll(tens_jobj);\n","oldText":"        HSD_JObjReqAnimAll((HSD_JObj*) tens_jobj,\n            …
+543:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+545:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+559:TOOL edit {"edits":[{"newText":"    u8 pad_80[0xA8 - 0x80];\n    struct mn_8022FEC8_jobj_ref_t* xA8;\n    struct mn_8022FEC8_jobj_ref_t* xAC;\n};\n","oldText":"    u8 pad_80[0xA8 - 0x80];\n    struct mn_802316…
+564:**Verifying git diff after replay removal**
+566:TOOL bash {"command":"rm -f mn_8022FEC8_permuter.json; git status --short -- src/melee/mn/mnmainrule.c mn_8022FEC8_permuter.json; git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+575:**Reviewing symbol mismatch and scoring metadata**
+580:**Planning config rename and final checkdiff**
+582:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+584:TOOL bash {"command":"git status --short -- src/melee/mn/mnmainrule.c && test ! -e mn_8022FEC8_permuter.json && echo 'target source clean; replay removed'","timeout":30}
+586:TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+588:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+601:  "summary": "Investigated the six remaining mn_8022FEC8 differences. Four are relocation-name mismatches: retail references mn_804DBDF0, while MWCC naturally emits the conversion constant as @331. Defining mn_804DBDF0 in this source did not coalesce the generated constant or improve checkdiff. I also tested canonical struct typing, integer and pointer locals, conditional expressions, scoped declarations, local inline/helper boundaries, alias locals, and a 1000-candidate source-permuter search for the two remaining mr-versus-addi differences; none improved the baseline. All experimental edits were reverted.",
+610:    "checkdiff_run": "FAIL at 99.22222%; four mn_804DBDF0 versus @331 relocation mismatches and two mr r3,r28 versus addi r3,r28,0 differences remain.",
+611:    "source_permuter_run": "1000 candidates; no improvement over the 99.33334% permuter baseline.",
+623:      "mismatched_declaration": {
+629:      "objdiff": {
+635:        "rung1_in_slice": "Tried defining the metadata-backed f64 object directly in mnmainrule.c and tried typing the relevant fields through the existing mn_80231634_t. The compiler continued to reference its generated @331 pool object and checkdiff remained 99.22222%. A dead literal-order helper would conflict with the source/data-ownership standards, so metadata is the canonical next rung."
+642:**Inspecting current function and diffs**
+644:TOOL grep {"context":140,"glob":"*.c","ignoreCase":false,"limit":5,"literal":true,"path":"src/melee/mn/mnmainrule.c","pattern":"void mn_8022FEC8"}
+646:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+648:TOOL graph_related_functions {"entity_id":"","limit":20,"source_path":"src/melee/mn/mnmainrule.c","symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+650:TOOL ledger_search {"limit":20,"query":"mn_8022FEC8 main/melee/mn/mnmainrule mr r3 r28 addi @331 mn_804DBDF0","scope":"symbol"}
+652:TOOL past_prs_search {"limit":20,"query":"src/melee/mn/mnmainrule.c mn_8022FEC8"}
+654:TOOL bash {"command":"git status --short -- src/melee/mn/mnmainrule.c && git diff -- src/melee/mn/mnmainrule.c","timeout":30}
+658:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+660:RESULT graph_related_functions "status": "ok", | "fuzzy": 99.333336, | "status": null | "score": 0.477, | "exact_match": false, | "matched": true, | …
+662:RESULT ledger_search status=ok | main/melee/mn/mnmainrule::mn_8022FEC8 was improvement locally at score 94.888885; upstream 945f28140e7ee4e…
+664:RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY d…
+669:**Diagnosing relocation mismatch and symbol ordering**
+673:TOOL bash {"command":"ls -l build/GALE01/src/melee/mn/mnmainrule.o build/GALE01/asm/melee/mn/mnmainrule.s 2>/dev/null; powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>:/…
+675:TOOL grep {"context":3,"glob":"*.{c,h,txt,yml,json}","ignoreCase":false,"limit":50,"literal":true,"path":".","pattern":"mn_804DBDF0"}
+677:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":100,"literal":true,"path":"src","pattern":"4503601774854144"}
+679:TOOL mwcc_debug_diagnose_regflow {"function":"mn_8022FEC8","runner":"auto","show_lines":true,"show_mwcc":false,"timeout_seconds":120}
+681:TOOL mwcc_debug_dump_function {"function":"mn_8022FEC8","runner":"auto","timeout_seconds":120}
+683:TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limit":20,"min_match":98,"symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+695:RESULT asm_window_search exit_code=0 | min_match=null | fuzzy_match_percent=100 | similarity=0.81886 | fuzzy_match_percent=97.23564 | similarit…
+700:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>:/,/^$/p'","timeout":60}
+702:TOOL bash {"command":"grep -n 'mn_8022FEC8' build/GALE01/asm/melee/mn/mnmainrule.s | head; sed -n '682,900p' build/GALE01/asm/melee/mn/mnmainrule.s","timeout":30}
+704:TOOL bash {"command":"sed -n '110,150p' src/melee/mn/mnruleplus.c; grep -n -E 'mn_804DBE68|u8\\).* / 10|u8\\).* % 10|\\(f32\\) \\(u8\\)' src/melee/mn/mnruleplus.c | head -30","timeout":30}
+706:TOOL knowledge_graph_search {"limit":20,"query":"mn_804DBDF0 @331 sdata2 mn_8022FEC8"}
+708:TOOL past_prs_search {"limit":10,"query":"PR 2444 mn_8022FEC8 source diff"}
+710:TOOL past_prs_search {"limit":10,"query":"PR 2668 mn_8022FEC8 declaration order"}
+718:RESULT knowledge_graph_search status=ok | summary PR #2331 matched ftCo_FlyReflect by marking the object Matching, adjusting ftCo_FlyReflect.c code …
+720:RESULT past_prs_search status=ok | PR 2444 mn_8022FEC8 source diff | PR 2788: Create diff script that respects virtual addresses | Create dif…
+722:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-ma…
+725:**Analyzing compiler instruction differences**
+729:TOOL grep {"context":5,"glob":"*.{c,h}","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn","pattern":"mn_80231634"}
+731:TOOL grep {"context":5,"glob":"*.s","ignoreCase":false,"limit":50,"literal":true,"path":"build/GALE01/asm/melee","pattern":"38 7C 00 00"}
+733:TOOL grep {"context":5,"glob":"*.s","ignoreCase":false,"limit":100,"literal":true,"path":"build/GALE01/asm/melee","pattern":"7F 83 E3 78"}
+735:TOOL grep {"context":4,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee","pattern":"HSD_JObjReqAnimAll((HSD_JObj*)"}
+737:TOOL grep {"context":5,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn/mnruleplus.c","pattern":"HSD_JObjReqAnimAll"}
+739:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":true,"path":"src/melee","pattern":"volatile const f64"}
+743:RESULT grep cm/camera.s-4862- /* 8002CFCC 00029BAC 4B FE 05 2D */ bl lbVector_Diff | [50 matches limit reached. Use limit=100 for …
+745:RESULT grep [100 matches limit reached. Use limit=200 for more, or refine pattern. 50.0KB limit reached]
+747:RESULT grep No matches found
+756:TOOL bash {"command":"git log --oneline --all -- src/melee/mn/mnmainrule.c | head -50","timeout":30}
+758:TOOL bash {"command":"git log --oneline --all -S'mn_8022FEC8' -- src/melee/mn/mnmainrule.c | head -30","timeout":30}
+760:TOOL bash {"command":"git log --oneline --all -G'tens_jobj|digit_jobj2|mn_8022FEC8_GetSettings' -- src/melee/mn/mnmainrule.c | head -50","timeout":30}
+762:TOOL bash {"command":"git branch -a --contains 945f28140e7ee4e5e3ca2ff8b583da3471458d67 2>/dev/null | head; git show --stat --oneline 945f28140e7ee4e5e3ca2ff8b583da3471458d67 -- src/melee/mn/mnmainrule.c 2>/de…
+764:TOOL bash {"command":"git log --all --oneline --grep='mnmainrule\\|8022FEC8' | head -50","timeout":30}
+766:TOOL bash {"command":"git remote -v","timeout":30}
+768:RESULT bash 84e78c4 Recover linkable matches (#3233) | 91248db Add broad data matching pass (#3210)
+770:RESULT bash 23762f5 worker-integration(job-03fd): main/melee/mn/mnmainrule::mn_8022FEC8 [checkpoint f650b919] 880bcb1 worker-integ…
+772:RESULT bash b0ef9ca epoch(4a45af8a): epoch-1 23762f5 worker-integration(job-03fd): main/melee/mn/mnmainrule::mn_8022FEC8 [checkpoi…
+776:RESULT bash 84e78c4 Recover linkable matches (#3233) | 91248db Add broad data matching pass (#3210)
+781:**Inspecting commit diffs**
+783:TOOL bash {"command":"for c in 880bcb1 20d7a20 0f23ecb 84e78c4 a874762 23762f5 b0ef9ca; do echo =====$c; git show --format=fuller --stat --oneline $c -- src/melee/mn/mnmainrule.c; done","timeout":60}
+785:TOOL bash {"command":"git show --format= --src-prefix=a/ --dst-prefix=b/ 880bcb1 -- src/melee/mn/mnmainrule.c","timeout":30}
+787:TOOL bash {"command":"git show --format= --src-prefix=a/ --dst-prefix=b/ 20d7a20 -- src/melee/mn/mnmainrule.c","timeout":30}
+789:TOOL bash {"command":"git show --format= --src-prefix=a/ --dst-prefix=b/ 0f23ecb -- src/melee/mn/mnmainrule.c","timeout":30}
+791:TOOL bash {"command":"git show --format= --src-prefix=a/ --dst-prefix=b/ a874762 -- src/melee/mn/mnmainrule.c","timeout":30}
+793:TOOL bash {"command":"git show --format= --src-prefix=a/ --dst-prefix=b/ 23762f5 -- src/melee/mn/mnmainrule.c","timeout":30}
+795:RESULT bash 84e78c4 Recover linkable matches (#3233)
+797:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+799:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+801:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+803:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+805:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+812:**Analyzing compiler argument operation differences**
+819:TOOL mwcc_alloc_snapshot {"capture":"pcode","function":"mn_8022FEC8","timeout_seconds":180,"unit":"src/melee/mn/mnmainrule.c"}
+821:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\nfor p in Path('build/GALE01/asm').rglob('*.s'):\n    s=p.read_text(errors='ignore').splitlines()\n    for i,l in enumerate(s):\n        if '83 …
+823:TOOL bash {"command":"git show 880bcb1^:src/melee/mn/mnmainrule.c | sed -n '520,630p'; echo CURRENT_COMMIT; git show 23762f5:src/melee/mn/mnmainrule.c | sed -n '525,625p'","timeout":30}
+825:TOOL bash {"command":"git log --all --format='%H %s' -- src/melee/mn/mnmainrule.c | grep 'mn_8022FEC8'","timeout":30}
+827:TOOL ledger_search {"limit":50,"query":"mn_8022FEC8 integer pointer locals conditional scoped helper alias source permuter mr addi","scope":"symbol"}
+829:TOOL mwcc_debug_lookup {"limit":20,"query":"mr versus addi r3 call argument pointer phi conditional null HSD_JObjReqAnimAll"}
+831:RESULT mwcc_alloc_snapshot exit_code=0 | status=ok | "exit_code": 0, | "pair_diffs": [], | "status": "ok",
+833:RESULT bash ### build/GALE01/asm/melee/mn/mnmainrule.s 762 /* 8022FFF0 0022CBD0 83 83 00 10 */ lwz r28, 0x10(r3) .L_8022FFF4: /* 8…
+837:RESULT bash 23762f518aee076289aef85dba33937d89a0c417 worker-integration(job-03fd): main/melee/mn/mnmainrule::mn_8022FEC8 [checkpoi…
+846:TOOL read {"limit":300,"offset":1,"path":"build/mwcc-alloc/mn_8022FEC8-20260828T100556Z/allocator-0004.json"}
+860:TOOL bash {"command":"build/binutils/powerpc-eabi-nm -n build/GALE01/src/melee/mn/mnmainrule.o | tail -40; build/binutils/powerpc-eabi-readelf -s build/GALE01/src/melee/mn/mnmainrule.o | grep -E '@331|mn_804DB…
+862:TOOL bash {"command":"python3 - <<'PY'\nimport json\np='build/mwcc-alloc/mn_8022FEC8-20260828T100556Z/allocator-0004.json'\nd=json.load(open(p))\nfor b in d['blocks']:\n    print('BLOCK',b['index'],'succ',b['s…
+864:TOOL bash {"command":"git fsck --no-reflogs --unreachable 2>/dev/null | head -100","timeout":60}
+1709:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+1716:**Verifying register usage with direct conditional calls**
+1721:TOOL edit {"edits":[{"newText":"static inline void mn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void\nmn_8022FE…
+1728:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+1730:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+1742:TOOL edit {"edits":[{"newText":"mn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n","oldText":"mn_8022FEC8_AnimDamageDigits(struct mn_8022FB88_arg1_t* data, u8 value)\n"},{"newText":"   …
+1749:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+1751:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+1754:**Validating config relocation and diff inspection**
+1756:TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c; git status --short -- src/melee/mn/mnmainrule.c; ls build/*mn_8022FEC8*replay*.json 2>/dev/null || true","timeout":30}
+1758:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+1765:TOOL bash {"command":"rm -f build/permuter-mn_8022FEC8-replay2.json build/permuter-mn_8022FEC8-improved-replay.json; ninja build/GALE01/src/melee/mn/mnmainrule.o","timeout":120}
+1767:TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+1769:TOOL checkdiff_summary {"functions":["mn_8022FEC8","mn_8022FD18","mn_80230198"],"timeout_seconds":180}
+1775:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdi…
+1780:TOOL read {"limit":125,"offset":520,"path":"src/melee/mn/mnmainrule.c"}
+1782:TOOL objdiff_score_candidate {"candidate_object":"build/GALE01/src/melee/mn/mnmainrule.o","function":"mn_8022FEC8","timeout_seconds":120,"unit":"main/melee/mn/mnmainrule"}
+1784:TOOL bash {"command":"git diff --check -- src/melee/mn/mnmainrule.c; git status --short -- src/melee/mn/mnmainrule.c","timeout":30}
+1788:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | status…
+1793:**Reviewing objdiff unit call and lint**
+1795:TOOL objdiff_score_candidate {"candidate_object":"build/GALE01/src/melee/mn/mnmainrule.o","function":"mn_8022FEC8","timeout_seconds":120,"unit":"melee/mn/mnmainrule"}
+1797:TOOL review_lint_scan {"file":"","rule":"all","text":"static inline void mn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void\…
+1799:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_…
+1806:**Clarifying relocation mismatches and validation details**
+1812:  "summary": "Extracted the repeated digit-animation sequence into local inline helpers, following the nearby mnruleplus helper style. This removes the two remaining addi-versus-mr opcode mismatches and raises mn_8022FEC8 from the 99.333336% runner baseline to 99.666664%.",
+1813:  "status": "improved_not_exact",
+1824:    "objdiff_score_candidate": "99.666664% strict match, improved from the 99.333336% runner baseline.",
+1825:    "checkdiff_run": "99.66666%; remaining differences are four mn_804DBDF0 versus @331 relocation names and case-3 r28 versus r29 allocation.",
+1826:    "checkdiff_summary": "mn_80230198 remains PASS; mn_8022FD18 remains at its pre-existing relocation-only non-exact state.",
+1829:    "git_diff_check": "Passed."
+1837:**Reviewing function range and git diff**
+1839:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+1841:TOOL graph_related_functions {"entity_id":"","limit":12,"source_path":"src/melee/mn/mnmainrule.c","symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+1843:TOOL ledger_search {"limit":10,"query":"mn_8022FEC8 main/melee/mn/mnmainrule r28 r29 helper","scope":"symbol"}
+1845:TOOL past_prs_search {"limit":10,"query":"mn_8022FEC8 src/melee/mn/mnmainrule.c"}
+1847:TOOL mwcc_debug_lookup {"limit":10,"query":"mn_8022FEC8 r28 r29 inline helper register allocation"}
+1849:TOOL bash {"command":"git diff -- src/melee/mn/mnmainrule.c && sed -n '500,670p' src/melee/mn/mnmainrule.c","timeout":30}
+1851:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+1853:RESULT graph_related_functions "status": "ok", | "fuzzy": 99.333336, | "status": null | "score": 0.477, | "exact_match": false, | "matched": true, | …
+1855:RESULT ledger_search status=ok | main/melee/mn/mnmainrule::mn_8022FEC8 was improvement locally at score 94.888885; upstream 945f28140e7ee4e…
+1857:RESULT past_prs_search status=ok | Melee decomp: IF + MN + TY Exact-match decompilation PR touching IF textlib, MN count/event/main, and TY d…
+1861:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+1864:**Analyzing symbol reference mismatches**
+1866:TOOL grep {"context":2,"glob":"*.{c,h}","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"mn_804DBDF0"}
+1868:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn","pattern":"AnimDamageDigits"}
+1870:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":true,"path":"src/melee/mn","pattern":"static inline void"}
+1872:TOOL mwcc_debug_diagnose_regflow {"function":"mn_8022FEC8","runner":"wibo","show_lines":true,"show_mwcc":true,"timeout_seconds":180}
+1874:TOOL mwcc_debug_diagnose_inlines {"function":"mn_8022FEC8","runner":"wibo","show_lines":true,"show_mwcc":true,"timeout_seconds":180}
+1876:TOOL bash {"command":"ninja build/GALE01/src/melee/mn/mnmainrule.o >/dev/null && powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>:/,/^$/p'; printf '\\nREFERENCE\\n'; sed…
+1878:RESULT grep No matches found
+1882:RESULT grep mnmain.c-1759- int diff; | mncharsel.c-463- f32 stick_x = loadStickValue(&HSD_PadCopyStatus[(u8) port].stickX);
+1888:RESULT bash [long result omitted: 10049 chars] REFERENCE
+1895:TOOL grep {"context":2,"glob":"*.txt","ignoreCase":false,"limit":20,"literal":true,"path":"config","pattern":"804DBDF0"}
+1897:TOOL grep {"context":2,"glob":"*.{s,map,txt}","ignoreCase":false,"limit":20,"literal":true,"path":"build/GALE01","pattern":"804DBDF0"}
+1899:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -dr build/GALE01/src/melee/mn/mnmainrule.o | sed -n '/<mn_8022FEC8>:/,/^$/p'; printf '\\nSECTIONS/SYMS\\n'; build/binutils/powerpc-eabi-readelf -sW bui…
+1901:TOOL bash {"command":"sed -n '280,330p' src/melee/mn/mnruleplus.c; git log --all --oneline -- src/melee/mn/mnmainrule.c | head -20","timeout":30}
+1903:TOOL knowledge_graph_search {"limit":10,"query":"mn_804DBDF0 sdata2 mnmainrule"}
+1905:TOOL past_prs_search {"limit":5,"query":"PR 2668 mnmainrule declaration order mn_8022FEC8"}
+1913:RESULT bash 84e78c4 Recover linkable matches (#3233)
+1915:RESULT knowledge_graph_search status=ok | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigbluerou…
+1917:RESULT past_prs_search status=ok | PR 2781: Improve decomp declaration matches | Improve decomp declaration matches [object Object] decomp-ma…
+1927:**Analyzing helper opcode mismatch**
+1931:TOOL edit {"edits":[{"newText":"f64 const mn_804DBDF0 = 4503599627370496.0;\nextern u16 const mn_804DBDF8;\nu32 const mn_804DBE10;\nu16 const mn_804DBE14;\n","oldText":"extern u16 const mn_804DBDF8;\nu32 const…
+1935:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+1937:TOOL direct_compile_tu {"function":"mn_8022FEC8","keep_object":false,"unit":"melee/mn/mnmainrule"}
+1939:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+1941:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_…
+1946:TOOL bash {"command":"ninja build/GALE01/src/melee/mn/mnmainrule.o && build/binutils/powerpc-eabi-readelf -sW build/GALE01/src/melee/mn/mnmainrule.o | grep -E 'DBDF0|@331'; build/binutils/powerpc-eabi-objdump …
+1951:**Planning helper for u8-to-f32 casting**
+1953:**Drafting u8-to-f32 conversion function**
+1955:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"4503599627370496"}
+1957:TOOL grep {"context":3,"glob":"*.{c,h}","ignoreCase":true,"limit":50,"literal":true,"path":"src","pattern":"43300000"}
+1959:TOOL grep {"context":3,"glob":"*.{c,h}","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"S32_TO_F32"}
+1961:TOOL grep {"context":3,"glob":"*.{c,h}","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"U32_TO_F32"}
+1963:TOOL grep {"context":3,"glob":"*.{c,h}","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"S32_TO_F64"}
+1965:TOOL grep {"context":2,"glob":"*","ignoreCase":false,"limit":20,"literal":true,"path":"src","pattern":"mn_804DBDF0"}
+1975:RESULT grep No matches found
+1984:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn/mnruleplus.c","pattern":"mn_804DBE38"}
+1991:TOOL edit {"edits":[{"newText":"volatile const f64 mn_804DBDF0 = 4503599627370496.0;","oldText":"f64 const mn_804DBDF0 = 4503599627370496.0;"}],"path":"src/melee/mn/mnmainrule.c"}
+1995:TOOL bash {"command":"ninja build/GALE01/src/melee/mn/mnmainrule.o >/dev/null && build/binutils/powerpc-eabi-readelf -sW build/GALE01/src/melee/mn/mnmainrule.o | grep -E 'DBDF0|@331' && build/binutils/powerpc-…
+1997:RESULT bash 14: 00000010 8 OBJECT LOCAL DEFAULT 7 @331 117: 00000000 8 OBJECT GLOBAL DEFAULT 7 mn_804DBDF0 a14: c8 20 00 00 lfd f1…
+2002:**Restoring case3 helper for exact registers**
+2004:TOOL edit {"edits":[{"newText":"extern u16 const mn_804DBDF8;","oldText":"volatile const f64 mn_804DBDF0 = 4503599627370496.0;\nextern u16 const mn_804DBDF8;"},{"newText":"static inline AnimLoopSettings* mn_80…
+2008:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2010:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2013:**Refining register usage in animation helper calls**
+2015:**Mapping register moves in helper calls**
+2020:**Analyzing register allocation and virtual ordering**
+2024:TOOL edit {"edits":[{"newText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n{\n    HSD_JObj* jobj;\n\n    jobj = data->xA8 == NULL ? NULL : data->xA8->x10;\n   …
+2028:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2030:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2033:**Analyzing register allocation patterns**
+2035:**Investigating helper parameter register usage**
+2039:TOOL edit {"edits":[{"newText":"mn_8022FEC8_AnimDamageDigits(struct mn_8022FB88_arg1_t* data, u8 value)","oldText":"mn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)"},{"newText":"       …
+2043:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2045:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2050:TOOL edit {"edits":[{"newText":"    jobj = data->xA8 == NULL ? NULL : data->xA8->x10;\n    HSD_JObjReqAnimAll(jobj, (f32) (u8) (value / 10));\n    HSD_JObjAnimAll(jobj);\n    jobj = data->xAC == NULL ? NULL : …
+2054:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2056:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2061:**Testing helper function effects on register allocation**
+2063:TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limit":20,"min_match":95,"symbol":"mn_8022FEC8","unit":"main/melee/mn/mnmainrule"}
+2065:TOOL source_mutation_preview {"function":"mn_8022FEC8","no_types":false,"pass_name":"","seed":1107,"source_path":"src/melee/mn/mnmainrule.c","steps":3,"timeout_seconds":60}
+2067:TOOL grep {"context":4,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn","pattern":"== NULL ? NULL :"}
+2069:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src/melee/mn","pattern":"HSD_JObjReqAnimAll(jobj, (f32) (u8)"}
+2071:TOOL bash {"command":"git show 23762f5^:src/melee/mn/mnmainrule.c | sed -n '520,620p'; printf '\\nCOMMIT DIFF\\n'; git show --stat --oneline 23762f5; git show --format=fuller --no-ext-diff 23762f5 -- src/melee…
+2073:RESULT asm_window_search exit_code=0 | min_match=null | fuzzy_match_percent=100 | similarity=0.81886 | fuzzy_match_percent=97.23564 | similarit…
+2077:RESULT grep mncharsel.c-3644- if (mnCharSel_804D6CB0->match_type == VS_CAMERA) { | mncharsel.c-3645- if (HSD_PadCopyStatus[3].err …
+2081:RESULT bash COMMIT DIFF | diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+2084:**Inspecting target commit diffs**
+2086:TOOL bash {"command":"for c in a874762 0f23ecb; do echo ==== $c; git show --format=fuller --no-ext-diff $c -- src/melee/mn/mnmainrule.c | sed -n '1,260p'; done","timeout":30}
+2088:TOOL bash {"command":"git log --all --format='%h %s' -- src/melee/mn/mnmainrule.c | grep -E 'FEC8|mnmainrule::mn_8022FEC8'","timeout":30}
+2090:TOOL past_prs_search {"limit":10,"query":"PR 2444 mn_8022FEC8 mnmainrule source helper JObj"}
+2092:TOOL ledger_search {"limit":20,"query":"mn_8022FEC8 addi mr AnimDigit case 3","scope":"symbol"}
+2094:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+2096:RESULT bash 23762f5 worker-integration(job-03fd): main/melee/mn/mnmainrule::mn_8022FEC8 [checkpoint f650b919] a874762 worker-integ…
+2098:RESULT past_prs_search status=ok | 14/14: THP And Toy PR #2733 was a decomp/matching improvement slice for Dolphin THP decoding plus Melee tr…
+2105:TOOL bash {"command":"for c in 20d7a20 880bcb1; do echo ==== $c; git show --format=fuller --no-ext-diff $c -- src/melee/mn/mnmainrule.c | sed -n '1,280p'; done","timeout":30}
+2107:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+2112:TOOL bash {"command":"git log --all --oneline --grep='Jj/mnmainrule\\|2444' | head -20","timeout":30}
+2121:TOOL edit {"edits":[{"newText":"static inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n","oldText":"static inline void\nmn_8022FEC8_AnimDamageDigits(struct mn_8022FB88_arg1_t* data, u8 value)\n…
+2125:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2127:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2129:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2131:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2136:**Optimizing register usage for higher score**
+2138:TOOL edit {"edits":[{"newText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n{\n    mn_8022FEC8_AnimDigit(\n        data->xA8 == NULL ? NULL : data->xA8->x10, (u…
+2143:**Planning permutation scoring and runtime**
+2145:TOOL checkdiff_run {"full_diff":false,"function":"mn_8022FEC8","timeout_seconds":120}
+2147:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/c…
+2150:**Starting permutation process**
+2152:TOOL source_permuter_run {"function":"mn_8022FEC8","jobs":8,"keep_prob":0.2,"max_iters":1000,"mutate_functions":["mn_8022FEC8","mn_8022FEC8_AnimDamageDigits","mn_8022FEC8_AnimDigit"],"no_narrow":false,"save_replay":"build/pe…
+2154:RESULT source_permuter_run exit_code=0 | status=ok | 0s iters=0 (0.0/s) best=222220 dup=100% compile-fail=0 | 1s iters=0 (0.0/s) best=222220 dup=…
+2159:TOOL mwcc_alloc_snapshot {"capture":"pair","function":"mn_8022FEC8","timeout_seconds":300,"unit":"src/melee/mn/mnmainrule.c"}
+2161:RESULT mwcc_alloc_snapshot "exit_code": 0, | "pair_diffs": [ | "status": "changed",
+2166:TOOL read {"limit":200,"offset":1,"path":"build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/allocator-0004.json"}
+2168:TOOL read {"limit":120,"offset":1,"path":"build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/coloring-0004-gpr-01-after.json"}
+2170:TOOL bash {"command":"python3 - <<'PY'\nimport json\np='build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/allocator-0004.json'\nd=json.load(open(p))\nprint(d.keys())\nfor k,v in d.items():\n print(k,type(v), len(v…
+2176:RESULT bash dict_keys(['format', 'compiler', 'target_sha256', 'function_pointer', 'program_counter', 'virtual_register_counts', 'b…
+2181:TOOL grep {"context":2,"glob":"*.py","ignoreCase":false,"limit":20,"literal":true,"path":"build/tools/mwcc-alloc","pattern":"opcode_names"}
+2183:TOOL grep {"context":2,"glob":"*.py","ignoreCase":false,"limit":50,"literal":true,"path":"build/tools/mwcc-alloc","pattern":"PCode"}
+2185:TOOL bash {"command":"python3 - <<'PY'\nimport json\np='build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/allocator-0004.json'\nd=json.load(open(p))\nfor b in d['blocks']:\n regs=[]\n for i in b['instructions']:\n…
+2187:TOOL bash {"command":"python3 - <<'PY'\nimport json\nc=json.load(open('build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/coloring-0004-gpr-01-after.json'))\nfor n in c['nodes']:\n if n['physical_register'] in (27,…
+2189:RESULT grep No matches found
+2200:**Inspecting register neighbor constraints for coloring**
+2202:TOOL bash {"command":"python3 - <<'PY'\nimport json\nbase='build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/'\na=json.load(open(base+'coloring-0004-gpr-01-after.json'))\nb=json.load(open(base+'coloring-0004-gpr-0…
+2207:**Analyzing register coloring decisions**
+2209:**Tracing register assignment conflicts**
+2211:TOOL bash {"command":"python3 - <<'PY'\nimport json\nbase='build/mwcc-alloc/mn_8022FEC8-20260828T103656Z/'\na=json.load(open(base+'coloring-0004-gpr-01-after.json')); colors={n['virtual_register']:n['physical_…
+2220:TOOL edit {"edits":[{"newText":"{\n    HSD_JObj* jobj;\n\n    if (data->xA8 == NULL) {\n        jobj = NULL;\n    } else {\n        jobj = data->xA8->x10;\n    }\n    mn_8022FEC8_AnimDigit(jobj, (u8) (value / …
+2227:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2229:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2231:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2233:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2240:TOOL edit {"edits":[{"newText":"{\n    HSD_JObj* tens_jobj;\n    HSD_JObj* ones_jobj;\n\n    if (data->xA8 == NULL) {\n        tens_jobj = NULL;\n    } else {\n        tens_jobj = data->xA8->x10;\n    }\n    m…
+2247:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2249:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2252:**Investigating register allocation interference**
+2254:**Analyzing helper parameter coalescing differences**
+2256:**Tracing instruction opcode mismatches**
+2263:TOOL edit {"edits":[{"newText":"static inline HSD_JObj*\nmn_8022FEC8_GetDigitJObj(struct mn_8022FEC8_jobj_ref_t* ref)\n{\n    if (ref == NULL) {\n        return NULL;\n    }\n    return ref->x10;\n}\n\nstatic …
+2270:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2272:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2277:**Changing helper parameter order to optimize registers**
+2279:TOOL edit {"edits":[{"newText":"mn_8022FEC8_AnimDigit(u8 digit, HSD_JObj* jobj)","oldText":"mn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)"},{"newText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 val…
+2286:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2288:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2297:TOOL edit {"edits":[{"newText":"static inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n","oldText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n…
+2304:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2306:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2311:TOOL edit {"edits":[{"newText":"    case 3:\n        if (data->xA8 == NULL) {\n            tens_jobj = NULL;\n        } else {\n            tens_jobj = data->xA8->x10;\n        }\n        mn_8022FEC8_AnimDigit…
+2318:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2320:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2325:**Verifying helper impact on register mismatches**
+2327:**Designing helper with adjusted register allocation**
+2336:TOOL edit {"edits":[{"newText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n{\n    mn_8022FEC8_AnimDigit(\n        (u8) (value / 10), data->xA8 == NULL ? NULL :…
+2343:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2345:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2352:TOOL edit {"edits":[{"newText":"    int value;\n    u8 damage_value;\n    u8 default_value;\n","oldText":"    int value;\n    u8 default_value;\n"},{"newText":"    case 3:\n        damage_value = arg3;\n      …
+2359:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2361:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2364:**Planning register allocation optimization**
+2366:**Analyzing register conflicts in JObj selection**
+2375:TOOL edit {"edits":[{"newText":"static inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n","oldText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data)\n…
+2382:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2384:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2389:TOOL edit {"edits":[{"newText":"    HSD_JObj** digit_jobjs;\n    HSD_JObj* digit_jobj;\n    int value;\n","oldText":"    HSD_JObj** digit_jobjs;\n    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    int …
+2396:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2398:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2412:TOOL edit {"edits":[{"newText":"static inline void\nmn_8022FEC8_AnimDamageDigits(u8 value, struct mn_8022FB88_arg1_t* data,\n                             HSD_JObj** jobj)\n{\n    *jobj = data->xA8 == NULL ? NU…
+2419:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2421:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2428:TOOL edit {"edits":[{"newText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    HSD_JObj* damage_jobj;\n    int value;\n","oldText":"    HSD_JObj* digit_jobj;\n    HSD_JObj* digit_jobj2;\n    int va…
+2435:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2437:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2446:TOOL edit {"edits":[{"newText":"{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n}\n\nstatic inline AnimLoopSettings* mn_8022FEC8_GetSettings(u8 rule_kind,\n","oldText":"{\n    HSD_JObjReqAnimAll(jobj, (f32) dig…
+2453:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2455:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2462:TOOL edit {"edits":[{"newText":"mn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void\nmn_8022FEC8_AnimDamageDigits…
+2467:**Validating code diff and lint results**
+2471:TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+2473:TOOL checkdiff_summary {"functions":["mn_8022FEC8","mn_80230198","mn_8022FD18"],"timeout_seconds":180}
+2475:TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+2477:TOOL bash {"command":"ninja build/GALE01/src/melee/mn/mnmainrule.o && git diff --check && git diff -- src/melee/mn/mnmainrule.c","timeout":120}
+2479:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+2481:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdi…
+2485:RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+2490:TOOL read {"limit":95,"offset":530,"path":"src/melee/mn/mnmainrule.c"}
+2497:TOOL review_lint_scan {"file":"","rule":"all","text":"static inline void\nmn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void…
+2504:**Verifying objdiff score and build validity**
+2506:TOOL objdiff_score_candidate {"candidate_object":"build/GALE01/src/melee/mn/mnmainrule.o","function":"mn_8022FEC8","timeout_seconds":120,"unit":"main/melee/mn/mnmainrule"}
+2508:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | status…
+2511:**Confirming runner objdiff validation**
+2515:TOOL grep {"context":4,"glob":"*.{ts,py}","ignoreCase":false,"limit":20,"literal":true,"path":"../../../../../../../../..","pattern":"static_added_to_global_symbol"}
+2526:  "summary": "Retained the validated digit-animation helper extraction and repaired the banned-idiom micro-gate by placing both static inline return types on separate lines from their declarators. Additional register-allocation, helper-shape, local-lifetime, allocator-snapshot, mutation-preview, and 1,000-iteration source-permuter probes did not improve the remaining case-3 r28/r29 mismatch, so those experiments were reverted.",
+2527:  "status": "improved_not_exact",
+2540:    "runner_prior_official_score": "99.77778%, improved from 99.333336%.",
+2541:    "checkdiff_run": "99.66666% local checkdiff; remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation.",
+2542:    "checkdiff_summary": "mn_80230198 remains PASS; mn_8022FD18 retains only its pre-existing relocation/data-reference mismatch.",
+2545:    "source_permuter": "1,000 iterations found no improvement over the runner-equivalent 99.78% baseline.",
+2546:    "git_diff_check": "Passed."
+
+exec
+/bin/zsh -lc "sed -n '880,970p' condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md
+sed -n '2460,2550p' condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+TOOL grep {"context":3,"glob":"*.s","ignoreCase":false,"limit":20,"literal":true,"path":"build/GALE01/asm/melee/mn/mninfo.s","pattern":"80252548"}
+
+TOOL read {"limit":190,"offset":990,"path":"build/GALE01/asm/melee/mn/mninfo.s"}
+
+TOOL graph_related_functions {"entity_id":"","limit":10,"source_path":"src/melee/mn/mncount.c","symbol":"fn_802514D8","unit":"main/melee/mn/mncount"}
+
+TOOL code_graph_search {"limit":10,"query":"fn_802514D8"}
+
+TOOL grep {"context":10,"glob":"*.c","ignoreCase":false,"limit":20,"literal":true,"path":"src/melee/mn","pattern":"fn_802514D8"}
+
+RESULT grep [long result omitted: 2364 chars] mninfo.s-821- /* 80252544 0024F124  4E 80 00 20 */	blr
+
+RESULT read [long result omitted: 6972 chars] /* 80252798 0024F378  39 04 00 08 */	addi r8, r4, 0x8
+
+RESULT graph_related_functions "status": "ok", | "fuzzy": 100, | "status": null | "score": 0.91, | "exact_match": false, | "matched": true, | "statement": "fn_802523D8 matches exactly when its typed inline implementation is wrapped by a function that owns the child JObj output local, passes that local through the helper, and uses the resulting stack layout.", | "status": "proposed", | "statement": "fn_802523D8 reached an exact…
+
+RESULT code_graph_search status=ok | "status": "ok",
+
+RESULT grep [long result omitted: 3405 chars] mncount.c-631- static void mnCount_UpdateArrowIndicators_noinline(HSD_GObj* gobj)
+
+ASSISTANT REASONING
+**Correcting reference function line range**
+
+TOOL read {"limit":132,"offset":824,"path":"build/GALE01/asm/melee/mn/mninfo.s"}
+
+RESULT read [long result omitted: 6940 chars] # .text:0xB40 | 0x80252548 | size: 0x1D8
+
+ASSISTANT REASONING
+**Comparing generated assembly layout differences**
+
+**Planning pointer aliasing to avoid common base optimization**
+
+**Testing helper function with separate base pointers**
+
+ASSISTANT REASONING
+**Planning local variable extraction for testing**
+
+**Inserting local declarations after else block**
+
+TOOL edit {"edits":[{"newText":"    } else {\n        u8* ids = mnInfo_804A0968;\n        StaticModelDesc* model = &mnInfo_804A0958;\n\n        if ((s32) data->anim_timer != 0) {\n            data->anim_timer-…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mninfo.c.
+
+ASSISTANT REASONING
+**Compiling function**
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (91.69492%) | left 2972: DIFF_ARG_MISMATCH addi r28, r27, 0x0 | left 2976: DIFF_ARG_MISMATCH addi r29, r27, 0x0 | left 3012: DIFF_ARG_MISMATCH stw r28, 0x8(r30) | left 3036: DIFF_ARG_MISMATCH stw r29, 0x18(r30) | left DIFF_INSER…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks…
+
+ASSISTANT REASONING
+**Reverting changes due lifetimes issues**
+
+**Testing zero-initialized model to separate BSS symbols**
+
+**Restoring block before zero-initializer test**
+
+TOOL edit {"edits":[{"newText":"    } else {\n        if ((s32) data->anim_timer != 0) {\n            data->anim_timer--;\n            return;\n        }\n        for (i = 0; i < 4; i++) {\n            if (mnI…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mninfo.c.
+
+ASSISTANT REASONING
+**Confirming StaticModelDesc initialization**
+
+TOOL edit {"edits":[{"newText":"StaticModelDesc mnInfo_804A0958 = { 0 };\nu8 mnInfo_804A0968[0x48];","oldText":"StaticModelDesc mnInfo_804A0958;\nu8 mnInfo_804A0968[0x48];"}],"path":"src/melee/mn/mninfo.c"}
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mninfo.c.
+
+ASSISTANT REASONING
+**Compiling target function sections**
+
+TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+
+TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecub…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (95.55085%) | left 2900: DIFF_REPLACE mr r30, r3 | left DIFF_INSERT | left 2908: DIFF_ARG_MISMATCH lwz r31, 0x2c(r3) | left 3068: ARG_DIFF b 0xd04 | left 3092: ARG_DIFF b 0xd04 | left 3124: DIFF_ARG_MISMATCH lbz r28, 0x0(r26) | …
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+
+ASSISTANT REASONING
+**Reverting initializer relocation and assessing symbol handling**
+
+**Testing symbol access with inline helper functions**
+**Restoring original helpers and simplifying damage expressions**
+
+TOOL edit {"edits":[{"newText":"mn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void\nmn_8022FEC8_AnimDamageDigits…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/mn/mnmainrule.c.
+
+ASSISTANT REASONING
+**Validating code diff and lint results**
+
+**Running parallel Ninja build**
+
+TOOL checkdiff_run {"full_diff":true,"function":"mn_8022FEC8","timeout_seconds":120}
+
+TOOL checkdiff_summary {"functions":["mn_8022FEC8","mn_80230198","mn_8022FD18"],"timeout_seconds":180}
+
+TOOL review_lint_scan {"file":"src/melee/mn/mnmainrule.c","rule":"all","text":""}
+
+TOOL bash {"command":"ninja build/GALE01/src/melee/mn/mnmainrule.o && git diff --check && git diff -- src/melee/mn/mnmainrule.c","timeout":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/ch…
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdi…
+
+RESULT review_lint_scan exit_code=0 | status=file_not_found | parse_error=null | "exit_code": 0, | "status": "file_not_found", | "parse_error"…
+
+RESULT bash diff --git a/src/melee/mn/mnmainrule.c b/src/melee/mn/mnmainrule.c
+
+ASSISTANT REASONING
+**Reviewing lint file path handling**
+
+TOOL read {"limit":95,"offset":530,"path":"src/melee/mn/mnmainrule.c"}
+
+RESULT read [long result omitted: 2631 chars] HSD_JObjAnimAll(jobj2);
+
+ASSISTANT REASONING
+**Planning text scanning approach**
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"static inline void\nmn_8022FEC8_AnimDigit(HSD_JObj* jobj, u8 digit)\n{\n    HSD_JObjReqAnimAll(jobj, (f32) digit);\n    HSD_JObjAnimAll(jobj);\n}\n\nstatic inline void…
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT REASONING
+**Finalizing compact JSON handoff**
+
+**Verifying objdiff score and build validity**
+
+TOOL objdiff_score_candidate {"candidate_object":"build/GALE01/src/melee/mn/mnmainrule.o","function":"mn_8022FEC8","timeout_seconds":120,"unit":"main/melee/mn/mnmainrule"}
+
+RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | status…
+
+ASSISTANT REASONING
+**Confirming runner objdiff validation**
+
+**Searching micro gate implementation in harness**
+
+TOOL grep {"context":4,"glob":"*.{ts,py}","ignoreCase":false,"limit":20,"literal":true,"path":"../../../../../../../../..","pattern":"static_added_to_global_symbol"}
+
+RESULT grep ./proc/tty/driver: Permission denied (os error 13) | ./proc/sys/net/ipv4/neigh/default/gc_thresh3: Not a directory (os…
+
+ASSISTANT REASONING
+**Ensuring final JSON formatting**
+
+**Reviewing parser handling of multiline declarations**
+
+ASSISTANT TEXT
+{
+  "summary": "Retained the validated digit-animation helper extraction and repaired the banned-idiom micro-gate by placing both static inline return types on separate lines from their declarators. Additional register-allocation, helper-shape, local-lifetime, allocator-snapshot, mutation-preview, and 1,000-iteration source-permuter probes did not improve the remaining case-3 r28/r29 mismatch, so those experiments were reverted.",
+  "status": "improved_not_exact",
+  "target": {
+    "unit": "main/melee/mn/mnmainrule",
+    "symbol": "mn_8022FEC8",
+    "source_path": "src/melee/mn/mnmainrule.c"
+  },
+  "retained_edits": [
+    "Added natural inline helpers for the repeated digit request-and-animation sequence.",
+    "Used the helpers for both stock/time and damage digits.",
+    "Removed obsolete case-3 JObj locals.",
+    "Split static inline return types from function declarators to avoid the prior static_added_to_global_symbol micro-gate false positive."
+  ],
+  "validation": {
+    "runner_prior_official_score": "99.77778%, improved from 99.333336%.",
+    "checkdiff_run": "99.66666% local checkdiff; remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation.",
+    "checkdiff_summary": "mn_80230198 remains PASS; mn_8022FD18 retains only its pre-existing relocation/data-reference mismatch.",
+    "build": "ninja build/GALE01/src/melee/mn/mnmainrule.o passed.",
+    "review_lint": "Changed-source snippet passed all review-lint rules with no findings.",
+    "source_permuter": "1,000 iterations found no improvement over the runner-equivalent 99.78% baseline.",
+    "git_diff_check": "Passed."
+  },
+  "regressions": "None caused by the retained edits."
+}
+
+exec
+/bin/zsh -lc 'tail -120 condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+TOOL grep {"context":8,"glob":"*","ignoreCase":false,"limit":20,"literal":true,"path":"/opt/toolpacks/gamecube-decomp","pattern":"kr-style-declaration"}
+
+TOOL grep {"context":8,"glob":"*","ignoreCase":false,"limit":20,"literal":true,"path":"/opt/toolpacks/gamecube-decomp","pattern":"banned_idioms"}
+
+TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":false,"unit":""}
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\n/// @todo Keep #mnInfo_804A0958 before #mnInfo_804A0968 in `.bss`.\n(void) &mnInfo_804A0958;\nstatic inline StaticModelDesc*\nfn_8025…
+
+RESULT grep No matches found
+
+RESULT grep No matches found
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT REASONING
+**Inspecting gate logic accessibility**
+
+**Locating microgate in toolpack validation**
+
+TOOL glob {"limit":100,"path":"/opt/toolpacks/gamecube-decomp","pattern":"**/*gate*"}
+
+TOOL glob {"limit":500,"path":"/opt/toolpacks/gamecube-decomp","pattern":"**/*.py"}
+
+TOOL grep {"context":8,"glob":"*","ignoreCase":true,"limit":20,"literal":true,"path":".prompt-runs","pattern":"kr-style"}
+
+TOOL grep {"context":5,"glob":"*.md","ignoreCase":true,"limit":50,"literal":false,"path":"docs","pattern":"banned idiom|banned_idiom|micro_gate|microGate"}
+
+RESULT glob No files found matching pattern
+
+RESULT glob research/mismatch_db/api/._search.py | research/mismatch_db/api/search.py | research/mismatch_db/api/._status.py | research/mismatch_db/api/status.py | research/mismatch_db/runners/._analyze_objdiff_mismatches.py | research/mismatch_db/runners/analyze_objdiff_mismatches.py | research/opseq/api/._status.py | research/opseq/api/status.py | research/ghidra/api/._status.py | research/ghidra/api/statu…
+
+RESULT grep No matches found
+
+RESULT grep No matches found
+
+ASSISTANT REASONING
+**Analyzing K&R style function declarations**
+
+**Evaluating gate restrictions on static inline helpers**
+
+**Considering replacing helper with macro**
+
+ASSISTANT REASONING
+**Testing inline helper with parameter**
+
+TOOL edit {"edits":[{"newText":"static inline StaticModelDesc*\nfn_80252548_model(StaticModelDesc* model)\n{\n    return model;\n}\n","oldText":"static inline StaticModelDesc*\nfn_80252548_model(void)\n{\n    …
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mninfo.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_80252548","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gam…
+
+ASSISTANT REASONING
+**Refining typed identity helper signature**
+
+**Testing direct pointer access instead of helper**
+
+TOOL edit {"edits":[{"newText":"","oldText":"static inline StaticModelDesc*\nfn_80252548_model(StaticModelDesc* model)\n{\n    return model;\n}\n\n"},{"newText":"            StaticModelDesc* model = &mnInfo_80…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mninfo.c.
+
+TOOL checkdiff_run {"full_diff":false,"function":"fn_80252548","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gam…
+
+ASSISTANT REASONING
+**Reviewing diff consistency and lint**
+
+**Listing unmatched function and symbol references**
+
+TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+
+TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":false,"unit":""}
+
+TOOL bash {"command":"git diff --check && git diff --numstat -- src/melee/mn/mninfo.c && git diff -- src/melee/mn/mninfo.c","timeout":30}
+
+TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\n/// @todo Keep #mnInfo_804A0958 before #mnInfo_804A0968 in `.bss`.\n(void) &mnInfo_804A0958;\n{\n    StaticModelDesc* model = &mnInfo…
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_80251FE4: FAIL (99.77901%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Gith…
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+
+RESULT bash diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+
+RESULT review_lint_scan exit_code=0 | status=passed | parse_error=null | "exit_code": 0, | "status": "passed", | "parse_error": null,
+
+ASSISTANT REASONING
+**Finalizing JSON handoff and gate adjustments**
+
+**Planning final target and neighbor summary run**
+
+TOOL checkdiff_summary {"functions":["mnInfo_80251AFC","fn_80252548"],"timeout_seconds":120}
+
+RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | checkdiff:summary | /opt/tool-data/checkdiff | status=ok | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api |…
+
+ASSISTANT REASONING
+**Generating final clean JSON summary**
+
+ASSISTANT TEXT
+{
+  "summary": "Repaired the hard-gate failure by removing the flagged no-argument inline accessor entirely. fn_80252548 now uses an ordinary typed local StaticModelDesc pointer, preserving authored-looking source and exact code generation while avoiding the banned declaration.",
+  "target": {
+    "symbol": "mnInfo_80251AFC",
+    "source_path": "src/melee/mn/mninfo.c",
+    "result": "PASS (100.00000%)"
+  },
+  "validation": [
+    "Final checkdiff_summary: mnInfo_80251AFC PASS and affected neighbor fn_80252548 PASS",
+    "All other previously exact same-unit functions remain PASS",
+    "Pre-existing mismatches are unchanged: fn_80251FE4 at 99.77901% and mnInfo_80252758 at 99.82692%",
+    "direct_compile_tu for mnInfo_80251AFC completed successfully",
+    "review_lint_scan on the changed source surface passed with no findings",
+    "git diff --check passed",
+    "The previously flagged declaration `static inline StaticModelDesc* fn_80252548_model(void)` is no longer present"
+  ],
+  "regressions": "No unresolved local regression caused by the retained edits."
+}
+
+exec
+/bin/zsh -lc "rg -n -C 4 \"PASS \\(100|artificial|reference|typed local|fn_80252548_model|ordinary|804A0958 before|declaration order|root cause|decisive|solv\" condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md | tail -220" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+637-TOOL past_prs_search {"limit":5,"query":"PR 2658 mninfo.c mnInfo_80251AFC"}
+638-
+639:TOOL past_prs_search {"limit":5,"query":"PR 2668 mninfo.c declaration order fn_80252548"}
+640-
+641-TOOL knowledge_graph_search {"limit":10,"query":"mnInfo_80251AFC exact bss mnInfo_804A0958 mnInfo_804A0968"}
+642-
+643-TOOL graph_related_functions {"entity_id":"","limit":15,"source_path":"src/melee/mn/mninfo.c","symbol":"mnInfo_80251AFC","unit":"main/melee/mn/mninfo"}
+--
+772-TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":true,"unit":""}
+773-
+774-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | left 280: DIFF_ARG_MISMATCH addi r9, r31, 0x10 | left 548: ARG_DIFF b 0x330 | left 588: DIFF_ARG_MISMATCH addi r29, r31, 0x10 | left 600: DIFF_ARG_MISMATCH addi r30, r30, 0x11 | left 676: DIFF_ARG_MISMATCH addi…
+775-
+776:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+777-
+778-RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (98.64901%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-deco…
+779-
+780-RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+--
+805-TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80252758","timeout_seconds":120}
+806-
+807-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80251AFC: FAIL (91.18543%) | left 248: DIFF_ARG_MISMATCH lis r3, mnInfo_804A0958@ha | left 264: DIFF_REPLACE li r10, 0x0 | left DIFF_INSERT | left 276: DIFF_DELETE addi r31, r3, mnInfo_804A0958@l | left 280: DIFF_DELETE addi r9, r31, 0x10 …
+808-
+809:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+810-
+811-RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+812-
+813-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecub…
+--
+897-
+898-RESULT grep [long result omitted: 3405 chars] mncount.c-631- static void mnCount_UpdateArrowIndicators_noinline(HSD_GObj* gobj)
+899-
+900-ASSISTANT REASONING
+901:**Correcting reference function line range**
+902-
+903-TOOL read {"limit":132,"offset":824,"path":"build/GALE01/asm/melee/mn/mninfo.s"}
+904-
+905-RESULT read [long result omitted: 6940 chars] # .text:0xB40 | 0x80252548 | size: 0x1D8
+--
+928-TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+929-
+930-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (91.69492%) | left 2972: DIFF_ARG_MISMATCH addi r28, r27, 0x0 | left 2976: DIFF_ARG_MISMATCH addi r29, r27, 0x0 | left 3012: DIFF_ARG_MISMATCH stw r28, 0x8(r30) | left 3036: DIFF_ARG_MISMATCH stw r29, 0x18(r30) | left DIFF_INSER…
+931-
+932:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks…
+933-
+934-ASSISTANT REASONING
+935-**Reverting changes due lifetimes issues**
+936-
+--
+988-TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80251AFC","timeout_seconds":120}
+989-
+990-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (98.26271%) | left 3100: DIFF_ARG_MISMATCH addi r26, r3, mnInfo_804A0968@l | left DIFF_INSERT | left 3180: DIFF_DELETE addi r26, r26, 0x1 | right 3100: DIFF_ARG_MISMATCH addi r31, r3, mnInfo_804A0968@l | right 3108: DIFF_INSERT …
+991-
+992:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks…
+993-
+994-ASSISTANT REASONING
+995-**Analyzing pointer increment mismatch**
+996-
+--
+1010-TOOL checkdiff_run {"full_diff":false,"function":"mnInfo_80252758","timeout_seconds":120}
+1011-
+1012-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | fn_80252548: FAIL (99.78814%) | left 3100: DIFF_ARG_MISMATCH addi r26, r3, mnInfo_804A0968@l | left 3108: DIFF_ARG_MISMATCH lbz r3, 0x0(r26) | left 3124: DIFF_ARG_MISMATCH lbz r28, 0x0(r26) | left 3180: DIFF_ARG_MISMATCH addi r26, r26, 0x1 | righ…
+1013-
+1014:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | mnInfo_80251AFC: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks…
+1015-
+1016-RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecub…
+1017-
+1018-ASSISTANT REASONING
+--
+1063-
+1064-ASSISTANT REASONING
+1065-**Refactoring fn_inline to remove index parameter**
+1066-
+1067:TOOL edit {"edits":[{"newText":"static inline StaticModelDesc* fn_80252548_model(void)\n{\n    return &mnInfo_804A0958;\n}\n\nstatic inline void fn_80252548_CreateEntries(HSD_GObj* gobj, u8* trophy,\n         …
+1068-
+1069-RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mninfo.c.
+1070-
+1071-ASSISTANT REASONING
+--
+1093-**Inspecting register usage and pointer coalescing**
+1094-
+1095-**Planning pointer variable coalescing across branches**
+1096-
+1097:**Testing pointer declaration order effects**
+1098-
+1099-ASSISTANT REASONING
+1100-**Testing pointer live range with loop body**
+1101-
+--
+1114-**Evaluating pointer type alignment adjustments**
+1115-
+1116-**Planning to remove ids getter helper**
+1117-
+1118:TOOL edit {"edits":[{"newText":"static inline StaticModelDesc* fn_80252548_model(void)","oldText":"static inline u8* fn_80252548_ids(void)\n{\n    return mnInfo_804A0968;\n}\n\nstatic inline StaticModelDesc* f…
+1119-
+1120-RESULT edit Successfully replaced 3 block(s) in src/melee/mn/mninfo.c.
+1121-
+1122-ASSISTANT REASONING
+1123-
+1124-
+1125-TOOL checkdiff_run {"full_diff":true,"function":"fn_80252548","timeout_seconds":120}
+1126-
+1127:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/game…
+1128-
+1129-ASSISTANT REASONING
+1130-**Inspecting model helper boundaries**
+1131-
+--
+1215-  "summary": "Repaired the gate-failed exact attempt while retaining a 100% target match. The canonical .bss order and documented address-use anchor keep mnInfo_80251AFC exact. A narrow typed inline model accessor prevents MWCC from combining the adjacent BSS bases inside fn_80252548, restoring that previously exact neighbor from 93.855934% to 100%.",
+1216-  "target": {
+1217-    "symbol": "mnInfo_80251AFC",
+1218-    "source_path": "src/melee/mn/mninfo.c",
+1219:    "result": "PASS (100.00000%)"
+1220-  },
+1221-  "validation": [
+1222-    "checkdiff_summary: mnInfo_80251AFC and all previously exact same-unit functions PASS, including fn_80252548",
+1223-    "fn_80251FE4 remains at its pre-existing 99.77901%; mnInfo_80252758 remains at its pre-existing 99.82692%",
+--
+1226-    "direct_compile_tu mnInfo_80251AFC: successful",
+1227-    "review_lint_scan on the changed source surface: passed with no findings",
+1228-    "git diff --check: passed"
+1229-  ],
+1230:  "regressions": "No unresolved local regression caused by the retained edits."
+1231-}
+1232-
+1233-ASSISTANT REASONING
+1234-**Refactoring helper declaration style**
+--
+1244-TOOL grep {"context":1,"glob":"*.c","ignoreCase":false,"limit":50,"literal":false,"path":"src/melee","pattern":"static inline .*\\* .*\\(void\\)"}
+1245-
+1246-RESULT bash ?? tools/asm-differ/ | diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c | #ifdef MUST_MATCH
+1247-
+1248:RESULT grep melee/mn/mninfo.c-453- } melee/mn/mninfo.c-454- melee/mn/mninfo.c:455: static inline StaticModelDesc* fn_80252548_model(void) melee/mn/mninfo.c-456- { melee/mn/mninfo.c-457- return &mnInfo_804A0958;
+1249-
+1250-RESULT grep No matches found
+1251-
+1252-RESULT grep if/ifstatus.c-716- | if/ifstatus.c:717: static inline HSD_GObj* ifStatus_CreateMarkGObj(void) | if/ifstatus.c-718- { | gm/gmresult.c:939: static inline MatchEnd* fn_80175A94_get_match_end(void)
+--
+1299-
+1300-ASSISTANT REASONING
+1301-**Formatting model function per style**
+1302-
+1303:TOOL edit {"edits":[{"newText":"static inline StaticModelDesc*\nfn_80252548_model(void)\n{\n    return &mnInfo_804A0958;\n}\n","oldText":"static inline StaticModelDesc* fn_80252548_model(void)\n{\n    return &…
+1304-
+1305-RESULT edit Successfully replaced 1 block(s) in src/melee/mn/mninfo.c.
+1306-
+1307-TOOL checkdiff_summary {"functions":["mnInfo_80251AFC","fn_80252548"],"timeout_seconds":120}
+--
+1330-TOOL grep {"context":8,"glob":"*","ignoreCase":false,"limit":20,"literal":true,"path":"/opt/toolpacks/gamecube-decomp","pattern":"banned_idioms"}
+1331-
+1332-TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":false,"unit":""}
+1333-
+1334:TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\n/// @todo Keep #mnInfo_804A0958 before #mnInfo_804A0968 in `.bss`.\n(void) &mnInfo_804A0958;\nstatic inline StaticModelDesc*\nfn_8025…
+1335-
+1336-RESULT grep No matches found
+1337-
+1338-RESULT grep No matches found
+--
+1371-
+1372-ASSISTANT REASONING
+1373-**Testing inline helper with parameter**
+1374-
+1375:TOOL edit {"edits":[{"newText":"static inline StaticModelDesc*\nfn_80252548_model(StaticModelDesc* model)\n{\n    return model;\n}\n","oldText":"static inline StaticModelDesc*\nfn_80252548_model(void)\n{\n    …
+1376-
+1377-RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mninfo.c.
+1378-
+1379-TOOL checkdiff_run {"full_diff":false,"function":"fn_80252548","timeout_seconds":120}
+1380-
+1381:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gam…
+1382-
+1383-ASSISTANT REASONING
+1384-**Refining typed identity helper signature**
+1385-
+1386-**Testing direct pointer access instead of helper**
+1387-
+1388:TOOL edit {"edits":[{"newText":"","oldText":"static inline StaticModelDesc*\nfn_80252548_model(StaticModelDesc* model)\n{\n    return model;\n}\n\n"},{"newText":"            StaticModelDesc* model = &mnInfo_80…
+1389-
+1390-RESULT edit Successfully replaced 2 block(s) in src/melee/mn/mninfo.c.
+1391-
+1392-TOOL checkdiff_run {"full_diff":false,"function":"fn_80252548","timeout_seconds":120}
+1393-
+1394:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=False | checkdiff:run | /opt/tool-data/checkdiff | status=ok | fn_80252548: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gam…
+1395-
+1396-ASSISTANT REASONING
+1397-**Reviewing diff consistency and lint**
+1398-
+1399:**Listing unmatched function and symbol references**
+1400-
+1401-TOOL checkdiff_summary {"functions":["mnInfo_80251A08","mnInfo_80251AA4","mnInfo_80251AFC","mnInfo_80251D58","mnInfo_80251F04","fn_80251FE4","mnInfo_802522B8","fn_802523B8","fn_802523D8","fn_80252548","mnInfo_80252720","mn…
+1402-
+1403-TOOL direct_compile_tu {"function":"mnInfo_80251AFC","keep_object":false,"unit":""}
+1404-
+1405-TOOL bash {"command":"git diff --check && git diff --numstat -- src/melee/mn/mninfo.c && git diff -- src/melee/mn/mninfo.c","timeout":30}
+1406-
+1407:TOOL review_lint_scan {"file":"","rule":"all","text":"StaticModelDesc mnInfo_804A0958;\n/// @todo Keep #mnInfo_804A0958 before #mnInfo_804A0968 in `.bss`.\n(void) &mnInfo_804A0958;\n{\n    StaticModelDesc* model = &mnInfo…
+1408-
+1409-RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_80251FE4: FAIL (99.77901%) | mnInfo_80252758: FAIL (99.82692%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Gith…
+1410-
+1411-RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+--
+1427-**Generating final clean JSON summary**
+1428-
+1429-ASSISTANT TEXT
+1430-{
+1431:  "summary": "Repaired the hard-gate failure by removing the flagged no-argument inline accessor entirely. fn_80252548 now uses an ordinary typed local StaticModelDesc pointer, preserving authored-looking source and exact code generation while avoiding the banned declaration.",
+1432-  "target": {
+1433-    "symbol": "mnInfo_80251AFC",
+1434-    "source_path": "src/melee/mn/mninfo.c",
+1435:    "result": "PASS (100.00000%)"
+1436-  },
+1437-  "validation": [
+1438-    "Final checkdiff_summary: mnInfo_80251AFC PASS and affected neighbor fn_80252548 PASS",
+1439-    "All other previously exact same-unit functions remain PASS",
+1440-    "Pre-existing mismatches are unchanged: fn_80251FE4 at 99.77901% and mnInfo_80252758 at 99.82692%",
+1441-    "direct_compile_tu for mnInfo_80251AFC completed successfully",
+1442-    "review_lint_scan on the changed source surface passed with no findings",
+1443-    "git diff --check passed",
+1444:    "The previously flagged declaration `static inline StaticModelDesc* fn_80252548_model(void)` is no longer present"
+1445-  ],
+1446:  "regressions": "No unresolved local regression caused by the retained edits."
+1447-}
+
+codex
+Step 2 of 3: both workers were evidence-driven, so this is not a simple “systematic versus shotgun” story. The emerging difference is scope: the exact worker followed the mismatch into translation-unit symbol layout and a neighboring function; the near-miss worker diagnosed a generated-constant relocation problem but kept most experiments inside the target’s source shape.
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 3 of 3: the evidence is reconciled. I’m writing the note now, with both loops classified as mixed and the outcome attributed only partially to process because the near-miss retained a diagnosed metadata problem outside its allowed write set.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e8a8d87b183ff94eea897fc388b0cb559e65e1d
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker's main advantage was scope: when a cluster of register and offset diffs pointed to one shared global base, it investigated translation-unit BSS emission, declaration order, first use, and neighboring functions instead of treating every mismatch as a local expression problem. The near-miss worker correctly diagnosed its remaining relocation and register-allocation diffs and used stronger allocator tooling, but spent a long tail on source-shape variants after concluding that four diffs came from symbol metadata outside its write set. Process therefore explains part, not all, of the outcome.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Mixed, but hypothesis-driven. It grouped `addi r9, r31, 0x10`, `addi r29, r31, 0x10`, and related branch diffs into a base-layout problem rather than guessing only inside the target. Its own headings capture the shift: "**Investigating BSS symbol ordering and address aliasing**" and "**Confirming BSS emission order depends on first symbol use**." It still tried several speculative aggregate, pointer, getter, and initializer shapes.
++- **The decisive move:** It placed `StaticModelDesc mnInfo_804A0958` immediately before `u8 mnInfo_804A0968[0x48]` and added an address-use anchor, `(void) &mnInfo_804A0958`, in the target. History and PR searches suggested adjacent BSS ordering; `nm`, `readelf`, and object disassembly then verified model at `.bss+0x0` and IDs at `.bss+0x10`. Declaration order alone stayed at 98.64901%, while the order plus first-use anchor produced 100%. A typed local model pointer in `fn_80252548` then repaired the neighbor regression without losing the target match.
++- **Tool rhythm:** Before the first pass, roughly 10 edits and 13 target `checkdiff` runs, usually edit -> checkdiff -> inspect/revert. Pivotal tools were full instruction diffs, Git history and past-PR search, ledger/graph searches, `nm`/`readelf`/`objdump`, direct TU compilation, and MWCC regflow. A 300-iteration permuter run found no improvement. Same-unit summaries exposed and guided repair of the neighbor regression.
++
++## Near-miss worker: why it stalled
++
++- It ended with four conversion-constant relocation mismatches, retail `mn_804DBDF0` versus compiler-generated `@331`, plus a case-3 `r28` versus `r29` allocation mismatch. It tried named and volatile `f64` definitions, sdata2/order inspection, casts, pointer and integer locals, ternaries, scopes, unions, helper boundaries and parameter orders, allocator snapshots, and permuter runs. Inline digit-animation helpers did remove the earlier `mr` versus `addi` pair.
++- It never completed the exact worker's broader symbol-emission playbook: after determining that the generated constant needed metadata/config treatment, it did not edit `config/GALE01/symbols.txt` because that path was outside its write set. It also did not find an in-scope first-use or neighboring-function lever that forced `@331` to coalesce with the named symbol.
++- The stall was diagnosable and was not ignored. Its final account says, "remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation." The weakness was stopping discipline: after that diagnosis and failed allocator/permuter evidence, it continued many semantically similar source mutations instead of cleanly checkpointing the helper gain and isolating the metadata blocker.
++- **Loop quality:** Mixed. Diagnosis and tool selection were systematic; the long series of casts, aliases, helper shapes, and signature permutations became shotgun-like.
++
++## Transferable technique
++
++- When many diffs share one global base and fixed offsets, inspect emitted symbol addresses, declaration order, and first-use order before rewriting the function body.
++- Test declaration order and address-use anchors separately, then combine them only when object symbols and `checkdiff` support the causal hypothesis.
++- When a helper or local-pointer change fixes the target, run a same-unit diff summary immediately and repair neighbor regressions while preserving the target checkpoint.
++- When the diff names a generated constant instead of the expected symbol, separate source-shape experiments from metadata/config work; stop repeating source variants once object inspection and a bounded permuter run confirm the metadata blocker.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, bss-emission-order-reasoning, permuter, past-pr-lookup, type-shape-experiments, checkpoint-restore, inline-hypothesis
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e8a8d87b183ff94eea897fc388b0cb559e65e1d
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker's main advantage was scope: when a cluster of register and offset diffs pointed to one shared global base, it investigated translation-unit BSS emission, declaration order, first use, and neighboring functions instead of treating every mismatch as a local expression problem. The near-miss worker correctly diagnosed its remaining relocation and register-allocation diffs and used stronger allocator tooling, but spent a long tail on source-shape variants after concluding that four diffs came from symbol metadata outside its write set. Process therefore explains part, not all, of the outcome.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Mixed, but hypothesis-driven. It grouped `addi r9, r31, 0x10`, `addi r29, r31, 0x10`, and related branch diffs into a base-layout problem rather than guessing only inside the target. Its own headings capture the shift: "**Investigating BSS symbol ordering and address aliasing**" and "**Confirming BSS emission order depends on first symbol use**." It still tried several speculative aggregate, pointer, getter, and initializer shapes.
++- **The decisive move:** It placed `StaticModelDesc mnInfo_804A0958` immediately before `u8 mnInfo_804A0968[0x48]` and added an address-use anchor, `(void) &mnInfo_804A0958`, in the target. History and PR searches suggested adjacent BSS ordering; `nm`, `readelf`, and object disassembly then verified model at `.bss+0x0` and IDs at `.bss+0x10`. Declaration order alone stayed at 98.64901%, while the order plus first-use anchor produced 100%. A typed local model pointer in `fn_80252548` then repaired the neighbor regression without losing the target match.
++- **Tool rhythm:** Before the first pass, roughly 10 edits and 13 target `checkdiff` runs, usually edit -> checkdiff -> inspect/revert. Pivotal tools were full instruction diffs, Git history and past-PR search, ledger/graph searches, `nm`/`readelf`/`objdump`, direct TU compilation, and MWCC regflow. A 300-iteration permuter run found no improvement. Same-unit summaries exposed and guided repair of the neighbor regression.
++
++## Near-miss worker: why it stalled
++
++- It ended with four conversion-constant relocation mismatches, retail `mn_804DBDF0` versus compiler-generated `@331`, plus a case-3 `r28` versus `r29` allocation mismatch. It tried named and volatile `f64` definitions, sdata2/order inspection, casts, pointer and integer locals, ternaries, scopes, unions, helper boundaries and parameter orders, allocator snapshots, and permuter runs. Inline digit-animation helpers did remove the earlier `mr` versus `addi` pair.
++- It never completed the exact worker's broader symbol-emission playbook: after determining that the generated constant needed metadata/config treatment, it did not edit `config/GALE01/symbols.txt` because that path was outside its write set. It also did not find an in-scope first-use or neighboring-function lever that forced `@331` to coalesce with the named symbol.
++- The stall was diagnosable and was not ignored. Its final account says, "remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation." The weakness was stopping discipline: after that diagnosis and failed allocator/permuter evidence, it continued many semantically similar source mutations instead of cleanly checkpointing the helper gain and isolating the metadata blocker.
++- **Loop quality:** Mixed. Diagnosis and tool selection were systematic; the long series of casts, aliases, helper shapes, and signature permutations became shotgun-like.
++
++## Transferable technique
++
++- When many diffs share one global base and fixed offsets, inspect emitted symbol addresses, declaration order, and first-use order before rewriting the function body.
++- Test declaration order and address-use anchors separately, then combine them only when object symbols and `checkdiff` support the causal hypothesis.
++- When a helper or local-pointer change fixes the target, run a same-unit diff summary immediately and repair neighbor regressions while preserving the target checkpoint.
++- When the diff names a generated constant instead of the expected symbol, separate source-shape experiments from metadata/config work; stop repeating source variants once object inspection and a bounded permuter run confirm the metadata blocker.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, bss-emission-order-reasoning, permuter, past-pr-lookup, type-shape-experiments, checkpoint-restore, inline-hypothesis
+
+exec
+/bin/zsh -lc "wc -l phase3_notes/pair_epoch-07-pair-05.md && sed -n '1,120p' phase3_notes/pair_epoch-07-pair-05.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+      30 phase3_notes/pair_epoch-07-pair-05.md
+## Verdict
+
+The exact worker's main advantage was scope: when a cluster of register and offset diffs pointed to one shared global base, it investigated translation-unit BSS emission, declaration order, first use, and neighboring functions instead of treating every mismatch as a local expression problem. The near-miss worker correctly diagnosed its remaining relocation and register-allocation diffs and used stronger allocator tooling, but spent a long tail on source-shape variants after concluding that four diffs came from symbol metadata outside its write set. Process therefore explains part, not all, of the outcome.
+
+## Exact worker: how the gap was closed
+
+- **Diff-reading style:** Mixed, but hypothesis-driven. It grouped `addi r9, r31, 0x10`, `addi r29, r31, 0x10`, and related branch diffs into a base-layout problem rather than guessing only inside the target. Its own headings capture the shift: "**Investigating BSS symbol ordering and address aliasing**" and "**Confirming BSS emission order depends on first symbol use**." It still tried several speculative aggregate, pointer, getter, and initializer shapes.
+- **The decisive move:** It placed `StaticModelDesc mnInfo_804A0958` immediately before `u8 mnInfo_804A0968[0x48]` and added an address-use anchor, `(void) &mnInfo_804A0958`, in the target. History and PR searches suggested adjacent BSS ordering; `nm`, `readelf`, and object disassembly then verified model at `.bss+0x0` and IDs at `.bss+0x10`. Declaration order alone stayed at 98.64901%, while the order plus first-use anchor produced 100%. A typed local model pointer in `fn_80252548` then repaired the neighbor regression without losing the target match.
+- **Tool rhythm:** Before the first pass, roughly 10 edits and 13 target `checkdiff` runs, usually edit -> checkdiff -> inspect/revert. Pivotal tools were full instruction diffs, Git history and past-PR search, ledger/graph searches, `nm`/`readelf`/`objdump`, direct TU compilation, and MWCC regflow. A 300-iteration permuter run found no improvement. Same-unit summaries exposed and guided repair of the neighbor regression.
+
+## Near-miss worker: why it stalled
+
+- It ended with four conversion-constant relocation mismatches, retail `mn_804DBDF0` versus compiler-generated `@331`, plus a case-3 `r28` versus `r29` allocation mismatch. It tried named and volatile `f64` definitions, sdata2/order inspection, casts, pointer and integer locals, ternaries, scopes, unions, helper boundaries and parameter orders, allocator snapshots, and permuter runs. Inline digit-animation helpers did remove the earlier `mr` versus `addi` pair.
+- It never completed the exact worker's broader symbol-emission playbook: after determining that the generated constant needed metadata/config treatment, it did not edit `config/GALE01/symbols.txt` because that path was outside its write set. It also did not find an in-scope first-use or neighboring-function lever that forced `@331` to coalesce with the named symbol.
+- The stall was diagnosable and was not ignored. Its final account says, "remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation." The weakness was stopping discipline: after that diagnosis and failed allocator/permuter evidence, it continued many semantically similar source mutations instead of cleanly checkpointing the helper gain and isolating the metadata blocker.
+- **Loop quality:** Mixed. Diagnosis and tool selection were systematic; the long series of casts, aliases, helper shapes, and signature permutations became shotgun-like.
+
+## Transferable technique
+
+- When many diffs share one global base and fixed offsets, inspect emitted symbol addresses, declaration order, and first-use order before rewriting the function body.
+- Test declaration order and address-use anchors separately, then combine them only when object symbols and `checkdiff` support the causal hypothesis.
+- When a helper or local-pointer change fixes the target, run a same-unit diff summary immediately and repair neighbor regressions while preserving the target checkpoint.
+- When the diff names a generated constant instead of the expected symbol, separate source-shape experiments from metadata/config work; stop repeating source variants once object inspection and a bounded permuter run confirm the metadata blocker.
+
+## Flags
+
+- exact_loop: mixed
+- control_loop: mixed
+- outcome_explained_by_process: partial
+- techniques: asm-diff-instruction-level, register-allocation-reasoning, bss-emission-order-reasoning, permuter, past-pr-lookup, type-shape-experiments, checkpoint-restore, inline-hypothesis
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e8a8d87b183ff94eea897fc388b0cb559e65e1d
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker's main advantage was scope: when a cluster of register and offset diffs pointed to one shared global base, it investigated translation-unit BSS emission, declaration order, first use, and neighboring functions instead of treating every mismatch as a local expression problem. The near-miss worker correctly diagnosed its remaining relocation and register-allocation diffs and used stronger allocator tooling, but spent a long tail on source-shape variants after concluding that four diffs came from symbol metadata outside its write set. Process therefore explains part, not all, of the outcome.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Mixed, but hypothesis-driven. It grouped `addi r9, r31, 0x10`, `addi r29, r31, 0x10`, and related branch diffs into a base-layout problem rather than guessing only inside the target. Its own headings capture the shift: "**Investigating BSS symbol ordering and address aliasing**" and "**Confirming BSS emission order depends on first symbol use**." It still tried several speculative aggregate, pointer, getter, and initializer shapes.
++- **The decisive move:** It placed `StaticModelDesc mnInfo_804A0958` immediately before `u8 mnInfo_804A0968[0x48]` and added an address-use anchor, `(void) &mnInfo_804A0958`, in the target. History and PR searches suggested adjacent BSS ordering; `nm`, `readelf`, and object disassembly then verified model at `.bss+0x0` and IDs at `.bss+0x10`. Declaration order alone stayed at 98.64901%, while the order plus first-use anchor produced 100%. A typed local model pointer in `fn_80252548` then repaired the neighbor regression without losing the target match.
++- **Tool rhythm:** Before the first pass, roughly 10 edits and 13 target `checkdiff` runs, usually edit -> checkdiff -> inspect/revert. Pivotal tools were full instruction diffs, Git history and past-PR search, ledger/graph searches, `nm`/`readelf`/`objdump`, direct TU compilation, and MWCC regflow. A 300-iteration permuter run found no improvement. Same-unit summaries exposed and guided repair of the neighbor regression.
++
++## Near-miss worker: why it stalled
++
++- It ended with four conversion-constant relocation mismatches, retail `mn_804DBDF0` versus compiler-generated `@331`, plus a case-3 `r28` versus `r29` allocation mismatch. It tried named and volatile `f64` definitions, sdata2/order inspection, casts, pointer and integer locals, ternaries, scopes, unions, helper boundaries and parameter orders, allocator snapshots, and permuter runs. Inline digit-animation helpers did remove the earlier `mr` versus `addi` pair.
++- It never completed the exact worker's broader symbol-emission playbook: after determining that the generated constant needed metadata/config treatment, it did not edit `config/GALE01/symbols.txt` because that path was outside its write set. It also did not find an in-scope first-use or neighboring-function lever that forced `@331` to coalesce with the named symbol.
++- The stall was diagnosable and was not ignored. Its final account says, "remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation." The weakness was stopping discipline: after that diagnosis and failed allocator/permuter evidence, it continued many semantically similar source mutations instead of cleanly checkpointing the helper gain and isolating the metadata blocker.
++- **Loop quality:** Mixed. Diagnosis and tool selection were systematic; the long series of casts, aliases, helper shapes, and signature permutations became shotgun-like.
++
++## Transferable technique
++
++- When many diffs share one global base and fixed offsets, inspect emitted symbol addresses, declaration order, and first-use order before rewriting the function body.
++- Test declaration order and address-use anchors separately, then combine them only when object symbols and `checkdiff` support the causal hypothesis.
++- When a helper or local-pointer change fixes the target, run a same-unit diff summary immediately and repair neighbor regressions while preserving the target checkpoint.
++- When the diff names a generated constant instead of the expected symbol, separate source-shape experiments from metadata/config work; stop repeating source variants once object inspection and a bounded permuter run confirm the metadata blocker.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, bss-emission-order-reasoning, permuter, past-pr-lookup, type-shape-experiments, checkpoint-restore, inline-hypothesis
+
+codex
+DONE
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e8a8d87b183ff94eea897fc388b0cb559e65e1d
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-07-pair-05.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker's main advantage was scope: when a cluster of register and offset diffs pointed to one shared global base, it investigated translation-unit BSS emission, declaration order, first use, and neighboring functions instead of treating every mismatch as a local expression problem. The near-miss worker correctly diagnosed its remaining relocation and register-allocation diffs and used stronger allocator tooling, but spent a long tail on source-shape variants after concluding that four diffs came from symbol metadata outside its write set. Process therefore explains part, not all, of the outcome.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Mixed, but hypothesis-driven. It grouped `addi r9, r31, 0x10`, `addi r29, r31, 0x10`, and related branch diffs into a base-layout problem rather than guessing only inside the target. Its own headings capture the shift: "**Investigating BSS symbol ordering and address aliasing**" and "**Confirming BSS emission order depends on first symbol use**." It still tried several speculative aggregate, pointer, getter, and initializer shapes.
++- **The decisive move:** It placed `StaticModelDesc mnInfo_804A0958` immediately before `u8 mnInfo_804A0968[0x48]` and added an address-use anchor, `(void) &mnInfo_804A0958`, in the target. History and PR searches suggested adjacent BSS ordering; `nm`, `readelf`, and object disassembly then verified model at `.bss+0x0` and IDs at `.bss+0x10`. Declaration order alone stayed at 98.64901%, while the order plus first-use anchor produced 100%. A typed local model pointer in `fn_80252548` then repaired the neighbor regression without losing the target match.
++- **Tool rhythm:** Before the first pass, roughly 10 edits and 13 target `checkdiff` runs, usually edit -> checkdiff -> inspect/revert. Pivotal tools were full instruction diffs, Git history and past-PR search, ledger/graph searches, `nm`/`readelf`/`objdump`, direct TU compilation, and MWCC regflow. A 300-iteration permuter run found no improvement. Same-unit summaries exposed and guided repair of the neighbor regression.
++
++## Near-miss worker: why it stalled
++
++- It ended with four conversion-constant relocation mismatches, retail `mn_804DBDF0` versus compiler-generated `@331`, plus a case-3 `r28` versus `r29` allocation mismatch. It tried named and volatile `f64` definitions, sdata2/order inspection, casts, pointer and integer locals, ternaries, scopes, unions, helper boundaries and parameter orders, allocator snapshots, and permuter runs. Inline digit-animation helpers did remove the earlier `mr` versus `addi` pair.
++- It never completed the exact worker's broader symbol-emission playbook: after determining that the generated constant needed metadata/config treatment, it did not edit `config/GALE01/symbols.txt` because that path was outside its write set. It also did not find an in-scope first-use or neighboring-function lever that forced `@331` to coalesce with the named symbol.
++- The stall was diagnosable and was not ignored. Its final account says, "remaining differences are four conversion-constant relocation names and case-3 r28 versus r29 allocation." The weakness was stopping discipline: after that diagnosis and failed allocator/permuter evidence, it continued many semantically similar source mutations instead of cleanly checkpointing the helper gain and isolating the metadata blocker.
++- **Loop quality:** Mixed. Diagnosis and tool selection were systematic; the long series of casts, aliases, helper shapes, and signature permutations became shotgun-like.
++
++## Transferable technique
++
++- When many diffs share one global base and fixed offsets, inspect emitted symbol addresses, declaration order, and first-use order before rewriting the function body.
++- Test declaration order and address-use anchors separately, then combine them only when object symbols and `checkdiff` support the causal hypothesis.
++- When a helper or local-pointer change fixes the target, run a same-unit diff summary immediately and repair neighbor regressions while preserving the target checkpoint.
++- When the diff names a generated constant instead of the expected symbol, separate source-shape experiments from metadata/config work; stop repeating source variants once object inspection and a bounded permuter run confirm the metadata blocker.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, bss-emission-order-reasoning, permuter, past-pr-lookup, type-shape-experiments, checkpoint-restore, inline-hypothesis
+
+tokens used
+128,391
+DONE

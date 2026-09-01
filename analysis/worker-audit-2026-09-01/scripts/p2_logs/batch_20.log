@@ -1,0 +1,2465 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d89-c8af-78f2-9a86-e1772f36204a
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 20
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_20.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m splitting the batch across parallel readers, then I’ll merge and validate one record per TSV row. Only the two requested files will be written.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'
+wc -l scripts/p2_batches/batch_20.tsv
+sed -n '1,12p' scripts/p2_batches/batch_20.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      27 scripts/p2_batches/batch_20.tsv
+d3cbbd86-df39-42bc-8ce0-0700461dd10d	no_progress	13	main/melee/gr/grbigblue::grBigBlue_801E6C60	99.26579	99.26579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d
+ff754bd8-3399-4f8c-bad7-e5779cfb155e	no_progress	13	main/melee/gr/grinishie1::grInishie1_801FB3F0	98.76559	98.76559	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ff754bd8-3399-4f8c-bad7-e5779cfb155e
+26af52ed-73e9-4cf6-a627-dc4bea70d834	near_miss	13	main/melee/mn/mnmainrule::mn_8022FEC8	99.77778	99.77778	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/26af52ed-73e9-4cf6-a627-dc4bea70d834
+7c17a8f7-f74b-423c-9f9b-ede18f229d2b	progressed	13	main/melee/mn/mnruleplus::mn_80233218	97.78812	98.05347	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7c17a8f7-f74b-423c-9f9b-ede18f229d2b
+04ee030e-77c1-4aaf-a784-e744458d0924	near_miss	13	main/melee/mn/mnitemsw::mnItemSw_8023453C	99.64253	99.64253	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/04ee030e-77c1-4aaf-a784-e744458d0924
+07feb168-a18d-4e3d-9bbb-44cce3d31438	near_miss	13	main/melee/mn/mnstagesw::mnStageSw_80235C58	99.51087	99.51087	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/07feb168-a18d-4e3d-9bbb-44cce3d31438
+fbd0f414-f05a-492b-9f40-b7bb3a5044fe	no_progress	13	main/melee/mn/mnname::CompareNameStrings	98.809525	98.809525	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbd0f414-f05a-492b-9f40-b7bb3a5044fe
+5cdd6fcb-ff2e-4a51-b397-281b61eccf85	progressed	13	main/melee/mn/mnnamenew::mnNameNew_MainInput	97.125	97.21181	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5cdd6fcb-ff2e-4a51-b397-281b61eccf85
+fbe0e92c-65b4-4100-8fc6-a6091568093f	no_progress	13	main/melee/mn/mndiagram::mnDiagram_InputProc	99.29299	99.29299	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbe0e92c-65b4-4100-8fc6-a6091568093f
+0757d38e-bdfa-4f85-b780-726f7ab62d0b	near_miss	13	main/melee/mn/mndiagram2::mnDiagram2_HandleInput	99.6579	99.6579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0757d38e-bdfa-4f85-b780-726f7ab62d0b
+3f9a07b7-266f-4ab1-9f4d-59d196a0f81c	no_progress	13	main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings	97.91281999999998	97.91281999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3f9a07b7-266f-4ab1-9f4d-59d196a0f81c
+222f6873-7d4b-41c1-ae50-f7cefd9cbb55	no_progress	13	main/melee/mn/mnvibration::mnVibration_HandleInput	97.52387	97.52387	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/222f6873-7d4b-41c1-ae50-f7cefd9cbb55
+
+  → Read all worker summaries in parallel
+  • Normalize and merge evidence-based records
+  • Write JSON and Markdown outputs
+  • Validate row count, schema, and line limit
+exec
+/bin/zsh -lc "awk -F '\\t' '{c["'$2]++} END {for (k in c) print k,c[k]}'"' scripts/p2_batches/batch_20.tsv
+while IFS="'$'"'\\t' read -r ws cohort epoch target base best dir; do n="'$(find "$dir" -maxdepth 1 -type f -name '"'worker_*.txt' 2>/dev/null | wc -l | tr -d ' '); printf '%s\\t%s\\t%s\\n' \""'$ws" "$cohort" "$n"; done < scripts/p2_batches/batch_20.tsv' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 78ms:
+1db58fd9-88d8-474e-9e05-b553c85ada66	progressed	0
+8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7	near_miss	0
+2e805203-5767-46dd-9888-28ab99966229	no_progress	0
+86c57880-6973-4f23-9a04-71908e0c5dca	no_progress	0
+5c322405-508c-47c5-b5ff-c329dcdcf499	no_progress	0
+74eba416-0047-4d2e-9659-f65934d26c3a	no_progress	0
+84c85493-0554-4a7f-972b-06af96d550b3	near_miss	0
+83631465-056f-4933-b744-2c5c8030954b	no_progress	0
+beede46d-1e1f-4f1c-b7f0-cef283af00b2	near_miss	0
+197a7425-f673-49f0-992b-939dbf54cbdf	no_progress	0
+f67833be-8553-4462-97ef-30b8842a5687	progressed	0
+
+codex
+All 27 artifact directories contain zero direct `worker_*.txt` files. I’m still checking each assigned row so the missing-summary state is recorded consistently.
+exec
+/bin/zsh -lc 'dir=$(awk -F '"'\\t' 'NR==1{print "'$7}'"' scripts/p2_batches/batch_20.tsv); if [ -d \""'$dir" ]; then echo DIR_EXISTS; find "$dir" -maxdepth 2 -type f | sed -n '"'1,30p'; else echo DIR_MISSING; fi" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+DIR_EXISTS
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_unit_snapshot.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_baseline.summary.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_object_build.stderr.txt
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_changed_paths.txt
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_unit_diff.stdout.txt
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_write_set.diff
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_object_build.stdout.txt
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_unit_diff.stderr.txt
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/runner_validation/pre_worker_unit_diff.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/tool_events.jsonl
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/task_failure.2026-08-31T14:46:32.096Z.log
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/task_spec.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/state/recovered_worker_state.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/activity.jsonl
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d/task_failure.2026-08-31T20:28:54.764Z.log
+
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 of 4 done: every artifact directory exists, but none has a direct self-summary file. The output will therefore preserve TSV metadata and mark techniques, stalls, success factors, and loop quality as unavailable.
+exec
+/bin/zsh -lc "sed -n '1,40p' scripts/p2_batches/batch_20.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+d3cbbd86-df39-42bc-8ce0-0700461dd10d	no_progress	13	main/melee/gr/grbigblue::grBigBlue_801E6C60	99.26579	99.26579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d
+ff754bd8-3399-4f8c-bad7-e5779cfb155e	no_progress	13	main/melee/gr/grinishie1::grInishie1_801FB3F0	98.76559	98.76559	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ff754bd8-3399-4f8c-bad7-e5779cfb155e
+26af52ed-73e9-4cf6-a627-dc4bea70d834	near_miss	13	main/melee/mn/mnmainrule::mn_8022FEC8	99.77778	99.77778	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/26af52ed-73e9-4cf6-a627-dc4bea70d834
+7c17a8f7-f74b-423c-9f9b-ede18f229d2b	progressed	13	main/melee/mn/mnruleplus::mn_80233218	97.78812	98.05347	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7c17a8f7-f74b-423c-9f9b-ede18f229d2b
+04ee030e-77c1-4aaf-a784-e744458d0924	near_miss	13	main/melee/mn/mnitemsw::mnItemSw_8023453C	99.64253	99.64253	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/04ee030e-77c1-4aaf-a784-e744458d0924
+07feb168-a18d-4e3d-9bbb-44cce3d31438	near_miss	13	main/melee/mn/mnstagesw::mnStageSw_80235C58	99.51087	99.51087	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/07feb168-a18d-4e3d-9bbb-44cce3d31438
+fbd0f414-f05a-492b-9f40-b7bb3a5044fe	no_progress	13	main/melee/mn/mnname::CompareNameStrings	98.809525	98.809525	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbd0f414-f05a-492b-9f40-b7bb3a5044fe
+5cdd6fcb-ff2e-4a51-b397-281b61eccf85	progressed	13	main/melee/mn/mnnamenew::mnNameNew_MainInput	97.125	97.21181	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5cdd6fcb-ff2e-4a51-b397-281b61eccf85
+fbe0e92c-65b4-4100-8fc6-a6091568093f	no_progress	13	main/melee/mn/mndiagram::mnDiagram_InputProc	99.29299	99.29299	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbe0e92c-65b4-4100-8fc6-a6091568093f
+0757d38e-bdfa-4f85-b780-726f7ab62d0b	near_miss	13	main/melee/mn/mndiagram2::mnDiagram2_HandleInput	99.6579	99.6579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0757d38e-bdfa-4f85-b780-726f7ab62d0b
+3f9a07b7-266f-4ab1-9f4d-59d196a0f81c	no_progress	13	main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings	97.91281999999998	97.91281999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3f9a07b7-266f-4ab1-9f4d-59d196a0f81c
+222f6873-7d4b-41c1-ae50-f7cefd9cbb55	no_progress	13	main/melee/mn/mnvibration::mnVibration_HandleInput	97.52387	97.52387	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/222f6873-7d4b-41c1-ae50-f7cefd9cbb55
+c395a1bf-bfaa-4bd3-aaae-8554edb7385c	no_progress	13	main/melee/mn/mnsound::mnSound_802492CC	99.47008499999998	99.47008499999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c395a1bf-bfaa-4bd3-aaae-8554edb7385c
+8307ad0b-7795-4e72-9afd-6e4d24813ee4	near_miss	13	main/melee/mn/mninfo::fn_80251FE4	99.88949999999998	99.88949999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8307ad0b-7795-4e72-9afd-6e4d24813ee4
+5f19de81-30ec-4673-9cb3-ede2fc74a373	near_miss	13	main/melee/mn/mnsnap::fn_802545C4	99.82894	99.82894	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5f19de81-30ec-4673-9cb3-ede2fc74a373
+67ac9e95-b06d-441b-9b58-c0cb7327f797	near_miss	13	main/melee/if/ifstatus::ifStatus_802F4EDC	99.98113	99.98113	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/67ac9e95-b06d-441b-9b58-c0cb7327f797
+1db58fd9-88d8-474e-9e05-b553c85ada66	progressed	13	main/melee/if/ifstock::ifStock_802F8298	96.87287999999998	97.06356	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1db58fd9-88d8-474e-9e05-b553c85ada66
+8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7	near_miss	13	main/melee/ty/toy::_Toy_80309404	99.92699	99.92699	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7
+2e805203-5767-46dd-9888-28ab99966229	no_progress	13	main/melee/ty/tydisplay::_tyDisplay_80318CB4	99.19927	99.19927	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/2e805203-5767-46dd-9888-28ab99966229
+86c57880-6973-4f23-9a04-71908e0c5dca	no_progress	13	main/sysdolphin/baselib/hsd_3915::hsd_80391F28	90.87742	90.87742	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/86c57880-6973-4f23-9a04-71908e0c5dca
+5c322405-508c-47c5-b5ff-c329dcdcf499	no_progress	13	main/sysdolphin/baselib/debugconsole_main::hsd_80394F48	98.544044	98.544044	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5c322405-508c-47c5-b5ff-c329dcdcf499
+74eba416-0047-4d2e-9659-f65934d26c3a	no_progress	13	main/sysdolphin/baselib/particle::hsd_8039930C	97.67505	97.67505	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/74eba416-0047-4d2e-9659-f65934d26c3a
+84c85493-0554-4a7f-972b-06af96d550b3	near_miss	13	main/sysdolphin/baselib/generator::hsd_8039DAD4	99.66991	99.66991	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/84c85493-0554-4a7f-972b-06af96d550b3
+83631465-056f-4933-b744-2c5c8030954b	no_progress	13	main/sysdolphin/baselib/psdisp::psDispParticles	98.7667	98.7667	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/83631465-056f-4933-b744-2c5c8030954b
+beede46d-1e1f-4f1c-b7f0-cef283af00b2	near_miss	13	main/sysdolphin/baselib/hsd_3A94::fn_803B0120	99.54693	99.54693	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/beede46d-1e1f-4f1c-b7f0-cef283af00b2
+197a7425-f673-49f0-992b-939dbf54cbdf	no_progress	13	main/sysdolphin/baselib/hsd_3B34::hsd_803B3408	88.76498	88.76498	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/197a7425-f673-49f0-992b-939dbf54cbdf
+f67833be-8553-4462-97ef-30b8842a5687	progressed	13	main/sysdolphin/baselib/hsd_3B5C::fn_803B6820	93.390045	93.59750999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f67833be-8553-4462-97ef-30b8842a5687
+
+exec
+/bin/zsh -lc "sed -n '1,200p' scripts/p2_batches/batch_20.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+d3cbbd86-df39-42bc-8ce0-0700461dd10d	no_progress	13	main/melee/gr/grbigblue::grBigBlue_801E6C60	99.26579	99.26579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3cbbd86-df39-42bc-8ce0-0700461dd10d
+ff754bd8-3399-4f8c-bad7-e5779cfb155e	no_progress	13	main/melee/gr/grinishie1::grInishie1_801FB3F0	98.76559	98.76559	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ff754bd8-3399-4f8c-bad7-e5779cfb155e
+26af52ed-73e9-4cf6-a627-dc4bea70d834	near_miss	13	main/melee/mn/mnmainrule::mn_8022FEC8	99.77778	99.77778	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/26af52ed-73e9-4cf6-a627-dc4bea70d834
+7c17a8f7-f74b-423c-9f9b-ede18f229d2b	progressed	13	main/melee/mn/mnruleplus::mn_80233218	97.78812	98.05347	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7c17a8f7-f74b-423c-9f9b-ede18f229d2b
+04ee030e-77c1-4aaf-a784-e744458d0924	near_miss	13	main/melee/mn/mnitemsw::mnItemSw_8023453C	99.64253	99.64253	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/04ee030e-77c1-4aaf-a784-e744458d0924
+07feb168-a18d-4e3d-9bbb-44cce3d31438	near_miss	13	main/melee/mn/mnstagesw::mnStageSw_80235C58	99.51087	99.51087	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/07feb168-a18d-4e3d-9bbb-44cce3d31438
+fbd0f414-f05a-492b-9f40-b7bb3a5044fe	no_progress	13	main/melee/mn/mnname::CompareNameStrings	98.809525	98.809525	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbd0f414-f05a-492b-9f40-b7bb3a5044fe
+5cdd6fcb-ff2e-4a51-b397-281b61eccf85	progressed	13	main/melee/mn/mnnamenew::mnNameNew_MainInput	97.125	97.21181	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5cdd6fcb-ff2e-4a51-b397-281b61eccf85
+fbe0e92c-65b4-4100-8fc6-a6091568093f	no_progress	13	main/melee/mn/mndiagram::mnDiagram_InputProc	99.29299	99.29299	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fbe0e92c-65b4-4100-8fc6-a6091568093f
+0757d38e-bdfa-4f85-b780-726f7ab62d0b	near_miss	13	main/melee/mn/mndiagram2::mnDiagram2_HandleInput	99.6579	99.6579	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0757d38e-bdfa-4f85-b780-726f7ab62d0b
+3f9a07b7-266f-4ab1-9f4d-59d196a0f81c	no_progress	13	main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings	97.91281999999998	97.91281999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3f9a07b7-266f-4ab1-9f4d-59d196a0f81c
+222f6873-7d4b-41c1-ae50-f7cefd9cbb55	no_progress	13	main/melee/mn/mnvibration::mnVibration_HandleInput	97.52387	97.52387	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/222f6873-7d4b-41c1-ae50-f7cefd9cbb55
+c395a1bf-bfaa-4bd3-aaae-8554edb7385c	no_progress	13	main/melee/mn/mnsound::mnSound_802492CC	99.47008499999998	99.47008499999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c395a1bf-bfaa-4bd3-aaae-8554edb7385c
+8307ad0b-7795-4e72-9afd-6e4d24813ee4	near_miss	13	main/melee/mn/mninfo::fn_80251FE4	99.88949999999998	99.88949999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8307ad0b-7795-4e72-9afd-6e4d24813ee4
+5f19de81-30ec-4673-9cb3-ede2fc74a373	near_miss	13	main/melee/mn/mnsnap::fn_802545C4	99.82894	99.82894	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5f19de81-30ec-4673-9cb3-ede2fc74a373
+67ac9e95-b06d-441b-9b58-c0cb7327f797	near_miss	13	main/melee/if/ifstatus::ifStatus_802F4EDC	99.98113	99.98113	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/67ac9e95-b06d-441b-9b58-c0cb7327f797
+1db58fd9-88d8-474e-9e05-b553c85ada66	progressed	13	main/melee/if/ifstock::ifStock_802F8298	96.87287999999998	97.06356	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1db58fd9-88d8-474e-9e05-b553c85ada66
+8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7	near_miss	13	main/melee/ty/toy::_Toy_80309404	99.92699	99.92699	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7
+2e805203-5767-46dd-9888-28ab99966229	no_progress	13	main/melee/ty/tydisplay::_tyDisplay_80318CB4	99.19927	99.19927	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/2e805203-5767-46dd-9888-28ab99966229
+86c57880-6973-4f23-9a04-71908e0c5dca	no_progress	13	main/sysdolphin/baselib/hsd_3915::hsd_80391F28	90.87742	90.87742	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/86c57880-6973-4f23-9a04-71908e0c5dca
+5c322405-508c-47c5-b5ff-c329dcdcf499	no_progress	13	main/sysdolphin/baselib/debugconsole_main::hsd_80394F48	98.544044	98.544044	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5c322405-508c-47c5-b5ff-c329dcdcf499
+74eba416-0047-4d2e-9659-f65934d26c3a	no_progress	13	main/sysdolphin/baselib/particle::hsd_8039930C	97.67505	97.67505	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/74eba416-0047-4d2e-9659-f65934d26c3a
+84c85493-0554-4a7f-972b-06af96d550b3	near_miss	13	main/sysdolphin/baselib/generator::hsd_8039DAD4	99.66991	99.66991	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/84c85493-0554-4a7f-972b-06af96d550b3
+83631465-056f-4933-b744-2c5c8030954b	no_progress	13	main/sysdolphin/baselib/psdisp::psDispParticles	98.7667	98.7667	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/83631465-056f-4933-b744-2c5c8030954b
+beede46d-1e1f-4f1c-b7f0-cef283af00b2	near_miss	13	main/sysdolphin/baselib/hsd_3A94::fn_803B0120	99.54693	99.54693	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/beede46d-1e1f-4f1c-b7f0-cef283af00b2
+197a7425-f673-49f0-992b-939dbf54cbdf	no_progress	13	main/sysdolphin/baselib/hsd_3B34::hsd_803B3408	88.76498	88.76498	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/197a7425-f673-49f0-992b-939dbf54cbdf
+f67833be-8553-4462-97ef-30b8842a5687	progressed	13	main/sysdolphin/baselib/hsd_3B5C::fn_803B6820	93.390045	93.59750999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f67833be-8553-4462-97ef-30b8842a5687
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+No self-summary files were present, so normalization records the missing evidence without score-based inference.
+  ✓ Read all worker summaries in parallel
+  ✓ Normalize and merge evidence-based records
+  ✓ Write JSON and Markdown outputs
+  → Validate row count, schema, and line limit
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+exec
+/bin/zsh -lc "node - <<'NODE'
+const fs=require('fs');
+const tsv=fs.readFileSync('scripts/p2_batches/batch_20.tsv','utf8').trim().split('\\n').map(x=>x.split('\\t'));
+const out=JSON.parse(fs.readFileSync('phase2_notes/batch_20.json','utf8'));
+const keys=['ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'];
+if(out.length"'!==tsv.length) throw Error(`count ${out.length} != ${tsv.length}`);
+out.forEach((r,i)=>{ if(JSON.stringify(Object.keys(r))!==JSON.stringify(keys)) throw Error(`keys row ${i+1}`); if(r.ws_id!==tsv[i][0]||r.cohort!==tsv[i][1]||r.epoch!==Number(tsv[i][2])||r.target_key!==tsv[i][3]) throw Error(`metadata row ${i+1}`); });
+console.log(`JSON_OK records=${out.length}`);
+NODE
+wc -l phase2_notes/batch_20.md
+find phase2_notes -maxdepth 1 -type f '"\\( -name 'batch_20.json' -o -name 'batch_20.md' \\) -print
+git status --short -- phase2_notes/batch_20.json phase2_notes/batch_20.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+JSON_OK records=27
+      37 phase2_notes/batch_20.md
+phase2_notes/batch_20.md
+phase2_notes/batch_20.json
+?? phase2_notes/batch_20.json
+?? phase2_notes/batch_20.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+  ✓ Read all worker summaries in parallel
+  ✓ Normalize and merge evidence-based records
+  ✓ Write JSON and Markdown outputs
+  ✓ Validate row count, schema, and line limit
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+codex
+DONE — 27 records.
+
+- [batch_20.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json)
+- [batch_20.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md)
+
+All 27 artifact directories existed, but none contained a direct `worker_*.txt` file. The Markdown report is 37 lines.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..83581f7a595caff0aef6a15614283904425b25f1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json
+@@ -0,0 +1,300 @@
++[
++  {
++    "ws_id": "d3cbbd86-df39-42bc-8ce0-0700461dd10d",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grbigblue::grBigBlue_801E6C60",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "ff754bd8-3399-4f8c-bad7-e5779cfb155e",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/gr/grinishie1::grInishie1_801FB3F0",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "26af52ed-73e9-4cf6-a627-dc4bea70d834",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnmainrule::mn_8022FEC8",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "7c17a8f7-f74b-423c-9f9b-ede18f229d2b",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnruleplus::mn_80233218",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "04ee030e-77c1-4aaf-a784-e744458d0924",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnitemsw::mnItemSw_8023453C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "07feb168-a18d-4e3d-9bbb-44cce3d31438",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnstagesw::mnStageSw_80235C58",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbd0f414-f05a-492b-9f40-b7bb3a5044fe",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnname::CompareNameStrings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5cdd6fcb-ff2e-4a51-b397-281b61eccf85",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnnamenew::mnNameNew_MainInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "fbe0e92c-65b4-4100-8fc6-a6091568093f",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram::mnDiagram_InputProc",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "0757d38e-bdfa-4f85-b780-726f7ab62d0b",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram2::mnDiagram2_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "3f9a07b7-266f-4ab1-9f4d-59d196a0f81c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mndiagram3::mnDiagram3_PopulateRankings",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "222f6873-7d4b-41c1-ae50-f7cefd9cbb55",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnvibration::mnVibration_HandleInput",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "c395a1bf-bfaa-4bd3-aaae-8554edb7385c",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsound::mnSound_802492CC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8307ad0b-7795-4e72-9afd-6e4d24813ee4",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mninfo::fn_80251FE4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5f19de81-30ec-4673-9cb3-ede2fc74a373",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/mn/mnsnap::fn_802545C4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "67ac9e95-b06d-441b-9b58-c0cb7327f797",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstatus::ifStatus_802F4EDC",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "1db58fd9-88d8-474e-9e05-b553c85ada66",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/melee/if/ifstock::ifStock_802F8298",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "8ab0b73b-60f4-48e2-9f8a-6d4a4dee1fd7",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/melee/ty/toy::_Toy_80309404",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "2e805203-5767-46dd-9888-28ab99966229",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/melee/ty/tydisplay::_tyDisplay_80318CB4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "86c57880-6973-4f23-9a04-71908e0c5dca",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3915::hsd_80391F28",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "5c322405-508c-47c5-b5ff-c329dcdcf499",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/debugconsole_main::hsd_80394F48",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "74eba416-0047-4d2e-9659-f65934d26c3a",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/particle::hsd_8039930C",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "84c85493-0554-4a7f-972b-06af96d550b3",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/generator::hsd_8039DAD4",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "83631465-056f-4933-b744-2c5c8030954b",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/psdisp::psDispParticles",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "beede46d-1e1f-4f1c-b7f0-cef283af00b2",
++    "cohort": "near_miss",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3A94::fn_803B0120",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "197a7425-f673-49f0-992b-939dbf54cbdf",
++    "cohort": "no_progress",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B34::hsd_803B3408",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  },
++  {
++    "ws_id": "f67833be-8553-4462-97ef-30b8842a5687",
++    "cohort": "progressed",
++    "epoch": 13,
++    "target_key": "main/sysdolphin/baselib/hsd_3B5C::fn_803B6820",
++    "techniques": [],
++    "stall_reason": null,
++    "success_factor": null,
++    "loop_quality": "unknown",
++    "notable": "Artifact directory exists but contains no worker_*.txt self-summary files."
++  }
++]
++
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..eefed056c6cd6e71f5be9ba6383e0ccd4757695e
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md
+@@ -0,0 +1,37 @@
++# Batch 20 Self-Summary Audit
++
++## Coverage
++
++- Workers: 27
++- Cohorts: no_progress 13, near_miss 10, progressed 4, exact 0
++- Self-summary files found: 0
++- Artifact directories missing: 0
++
++## Technique Counts by Cohort
++
++No techniques could be counted. Every worker had zero direct `worker_*.txt` files.
++
++| Cohort | Workers | Technique mentions |
++| --- | ---: | ---: |
++| exact | 0 | 0 |
++| near_miss | 10 | 0 |
++| progressed | 4 | 0 |
++| no_progress | 13 | 0 |
++
++## Interesting Exact-Worker Accounts
++
++This batch has no exact workers, so there are no exact-worker accounts to rank.
++
++## Most Common Stall Reason by Cohort
++
++| Cohort | Most common stall reason |
++| --- | --- |
++| exact | Not applicable, no workers |
++| near_miss | Unknown, all 10 summaries missing |
++| progressed | Unknown, all 4 summaries missing |
++| no_progress | Unknown, all 13 summaries missing |
++
++## Surprise
++
++All 27 artifact directories exist, yet none contains a direct `worker_*.txt` self-summary. Scores alone were not used to infer techniques, stalls, success factors, or loop quality.
++
+
+tokens used
+49,974
+DONE — 27 records.
+
+- [batch_20.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.json)
+- [batch_20.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_20.md)
+
+All 27 artifact directories existed, but none contained a direct `worker_*.txt` file. The Markdown report is 37 lines.

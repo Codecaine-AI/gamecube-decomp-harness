@@ -1,0 +1,511 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-1ff4-7313-94e4-f422cea86077
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 12
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_12.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the required `unslop` skill to keep the audit notes concrete and free of filler. I’ll split the batch across parallel sub-agents, then validate and write only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_12.tsv && sed -n '1,8p' scripts/p2_batches/batch_12.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_12.tsv
+0e9fa7a5-3bd8-43f8-b5e3-6aaa9ea0b283	progressed	7	main/sysdolphin/baselib/hsd_3B5C::fn_803B6820	91.19087	91.25310999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0e9fa7a5-3bd8-43f8-b5e3-6aaa9ea0b283
+63d458fe-56d5-453f-bfa9-5727ca811d1f	near_miss	7	main/melee/mn/mnnamenew::mnNameNew_8023D130	99.65517399999999	99.88505599999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/63d458fe-56d5-453f-bfa9-5727ca811d1f
+3ff470e0-471a-4ffc-9c17-c48c72a47bfd	near_miss	7	main/melee/mn/mnsnap::fn_802545C4	99.73219	99.76585	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3ff470e0-471a-4ffc-9c17-c48c72a47bfd
+62602f7e-346f-4cd8-85de-e731c4fd2be6	exact	7	main/melee/ft/chara/ftCommon/ftCo_0D95::fn_800D9558	99.85773	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/62602f7e-346f-4cd8-85de-e731c4fd2be6
+6d76dead-93ff-4247-9ee9-3054c7f4c2c9	progressed	7	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A4038	99.36522	99.37391999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6d76dead-93ff-4247-9ee9-3054c7f4c2c9
+b4b107f0-c44f-4ead-a8b9-f87acb321743	progressed	7	main/melee/lb/lbsnap::lbSnap_8001DA5C	67.546295	67.638885	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/b4b107f0-c44f-4ead-a8b9-f87acb321743
+eaad4a82-5f59-486d-a361-5af33f5fa965	progressed	7	main/melee/gr/grbigblue::grBigBlue_801EC6C0	98.613014	98.68493	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/eaad4a82-5f59-486d-a361-5af33f5fa965
+55b7b241-5662-4d7b-bc43-d78bb30ecb02	progressed	7	main/melee/gr/grkongo::grKongo_801D6AFC	97.22612999999998	98.771355	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/55b7b241-5662-4d7b-bc43-d78bb30ecb02
+
+  → Read all worker summaries across 80 batch rows
+  • Normalize evidence into one JSON record per row
+  • Write the cohort analysis Markdown
+  • Validate file count, schema, and line limit
+codex
+Step 1 of 4 is running across five parallel slices of 16 workers. Missing directories or summaries will stay as explicit unknown records, so the output remains one-to-one with all 80 TSV rows.
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+2026-09-01T15:08:34.301026Z ERROR codex_core::tools::router: error=apply_patch verification failed: invalid patch: multiple operations target /tmp/b12_1_16.json
+collab: Wait
+collab: Wait
+codex
+Step 1 of 4 is complete for 64 records and in final validation for the remaining 16. One slice caught and repaired a missing row before aggregation.
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/b12_1_16.json /tmp/b12_17_32.json /tmp/b12_33_48.json /tmp/b12_49_64.json /tmp/b12_65_80.json > /tmp/b12_all.json
+jq 'length, (group_by(.cohort)|map({cohort:.[0].cohort,count:length})), ([.[].ws_id]|unique|length)' /tmp/b12_all.json
+comm -3 <(cut -f1 scripts/p2_batches/batch_12.tsv | sort) <(jq -r '.[].ws_id' /tmp/b12_all.json | sort)" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+80
+[
+  {
+    "cohort": "exact",
+    "count": 6
+  },
+  {
+    "cohort": "near_miss",
+    "count": 29
+  },
+  {
+    "cohort": "no_progress",
+    "count": 14
+  },
+  {
+    "cohort": "progressed",
+    "count": 31
+  }
+]
+79
+	a071ac22-28cf-4f4c-9b64-7373baa90f74
+fb04bd57-7d77-4780-9c0c-f9b1b6537f4d
+
+collab: Wait
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/b12_1_16.json /tmp/b12_17_32.json /tmp/b12_33_48.json /tmp/b12_49_64.json /tmp/b12_65_80.json > /tmp/b12_all.json
+ruby -rjson -rcsv -e '
+rows=CSV.read(\"scripts/p2_batches/batch_12.tsv\", col_sep:\"\\t\"); a=JSON.parse(File.read(\"/tmp/b12_all.json\")); by=a.to_h{|x|[x[\"ws_id\"],x]};
+mp={\"source-permuter\"=>\"permuter\",\"declaration-ordering\"=>\"declaration-order-experiments\",\"declaration-order\"=>\"declaration-order-experiments\",\"local-declaration-reordering\"=>\"declaration-order-experiments\",\"declaration-order\"=>\"declaration-order-experiments\",\"lifetime-scope-tuning\"=>\"local-lifetime-scoping\",\"pointer-lifetime-scoping\"=>\"local-lifetime-scoping\",\"pointer-lifetime-experiments\"=>\"local-lifetime-scoping\",\"variable-lifetime-scoping\"=>\"local-lifetime-scoping\",\"local-lifetime-tuning\"=>\"local-lifetime-scoping\",\"scope-lifetime-shaping\"=>\"local-lifetime-scoping\",\"lifetime-steering\"=>\"local-lifetime-scoping\",\"pad-stack\"=>\"stack-padding-tuning\",\"pad-stack-tuning\"=>\"stack-padding-tuning\",\"stack-padding-experiments\"=>\"stack-padding-tuning\",\"stack-frame-tuning\"=>\"stack-padding-tuning\",\"stack-layout-shaping\"=>\"stack-layout-tuning\",\"stack-slot-shaping\"=>\"stack-layout-tuning\",\"allocator-snapshot\"=>\"allocator-diagnostics\",\"allocator-dump-analysis\"=>\"allocator-diagnostics\",\"instruction-scheduling\"=>\"instruction-scheduling-reasoning\",\"instruction-scheduling-analysis\"=>\"instruction-scheduling-reasoning\",\"inline-helper-boundary-experiments\"=>\"helper-boundary-experiments\",\"inline-helper-shaping\"=>\"helper-boundary-experiments\",\"inline-helper-extraction\"=>\"helper-boundary-experiments\",\"loop-form-experiments\"=>\"loop-restructure\"};
+out=rows.map{|r| x=by.fetch(r[0]); x[\"epoch\"]=x[\"epoch\"].to_i; x[\"techniques\"]=x[\"techniques\"].map{|t|mp.fetch(t,t)}.uniq; x}; File.write(\"/tmp/b12_final.json\",JSON.pretty_generate(out)+\"\\n\")
+' 
+ruby -rjson -e 'a=JSON.parse(File.read(\"/tmp/b12_final.json\")); %w[exact near_miss progressed no_progress].each{|c| h=Hash.new(0); a.select{|x|x[\"cohort\"]==c}.each{|x|x[\"techniques\"].each{|t|h[t]+=1}}; puts \"#{c}: \"+h.sort_by{|k,v|[-v,k]}.map{|k,v|\"#{k}=#{v}\"}.join(\", \")}'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 66ms:
+exact: asm-diff-instruction-level=5, inline-hypothesis=4, local-lifetime-scoping=4, permuter=3, loop-restructure=2, register-allocation-reasoning=2, type-shape-experiments=2, branch-shape-restructure=1, caller-owned-scratch-locals=1, caller-signature-analysis=1, checkpoint-repair=1, checkpoint-restore=1, data-section-ordering=1, declaration-order-experiments=1, direct-symbol-reference=1, expression-reassociation=1, include-exposure-tuning=1, instruction-scheduling-reasoning=1, linkage-correction=1, neighbor-preservation=1, pointer-walk=1, stack-layout-tuning=1, stack-padding-tuning=1, statement-reordering=1
+near_miss: permuter=22, local-lifetime-scoping=21, asm-diff-instruction-level=20, register-allocation-reasoning=20, type-shape-experiments=15, inline-hypothesis=13, declaration-order-experiments=12, checkpoint-restore=10, allocator-diagnostics=9, loop-restructure=7, past-pr-lookup=5, stack-padding-tuning=5, helper-boundary-experiments=4, pointer-alias-experiments=4, control-flow-restructure=3, stack-layout-tuning=3, data-layout-reordering=2, expression-reassociation=2, expression-shape-experiments=2, relocation-analysis=2, adjacent-function-analogy=1, alignment-tuning=1, assert-macro-shape-experiments=1, boolean-expression-rewrite=1, caller-signature-analysis=1, data-layout-experiments=1, git-history-lookup=1, helper-inlining=1, instruction-scheduling-reasoning=1, integer-promotion=1, integer-width-adjustment=1, linkage-experiments=1, manual-inline-expansion=1, matched-analog-lookup=1, matched-sibling-lookup=1, nearby-function-idiom-lookup=1, padding-compensation=1, parameter-type-matrix=1, past-source-shape-lookup=1, persistent-pointer-local=1, pointer-induction=1, pointer-traversal-experiments=1, sibling-code-pattern=1, solved-analog-lookup=1, stack-frame-analysis=1, stack-layout-reasoning=1, string-literal-shape-experiments=1, string-pool-experiments=1, string-relocation-analysis=1, ternary-restructure=1, translation-unit-order-test=1, typed-field-access=1, write-set-widening-request=1
+progressed: register-allocation-reasoning=24, permuter=22, asm-diff-instruction-level=19, local-lifetime-scoping=18, inline-hypothesis=17, declaration-order-experiments=12, type-shape-experiments=11, loop-restructure=10, checkpoint-restore=9, allocator-diagnostics=4, expression-reassociation=4, stack-padding-tuning=4, typed-accessor=4, pointer-induction=3, stack-layout-tuning=3, checkpoint-repair=2, declaration-initialization-shape=2, expression-order-tuning=2, expression-reordering=2, helper-reuse=2, solved-analog-lookup=2, typed-overlay=2, adjacent-function-analogy=1, caller-regression-check=1, global-value-caching=1, helper-boundary-experiments=1, instruction-scheduling-reasoning=1, loop-counter-reuse=1, offset-preservation=1, operand-load-order=1, parameter-width-experiment=1, pointer-alias-experiments=1, pointer-shape-experiments=1, scoped-typed-alias=1, sdata2-ordering-experiments=1, sibling-function-analogy=1, stack-frame-analysis=1, struct-overlay=1, temporary-variable-introduction=1, variable-reuse=1
+no_progress: permuter=12, asm-diff-instruction-level=11, type-shape-experiments=11, register-allocation-reasoning=10, allocator-diagnostics=9, declaration-order-experiments=8, local-lifetime-scoping=8, loop-restructure=7, checkpoint-restore=6, helper-boundary-experiments=5, inline-hypothesis=5, past-pr-lookup=5, matched-analog-lookup=4, stack-layout-tuning=3, stack-padding-tuning=3, global-address-expression-experiments=2, constant-relocation-analysis=1, control-flow-restructure=1, data-symbol-boundary-experiments=1, global-address-materialization=1, header-shape-hypothesis=1, iterator-reuse=1, manual-qemu-compile=1, matched-sibling-lookup=1, pointer-shape-experiments=1, recursive-traversal-restructure=1, sibling-function-analogy=1, string-pooling-shape=1, volatile-placement-experiments=1
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..025fffa5beb1de1780acf2856084f206d1a7fbbd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+@@ -0,0 +1,34 @@
++# Worker-Audit Phase 2, Batch 12
++
++## Batch Shape
++
++- 80 workers: 6 exact, 29 near-miss, 31 progressed, 14 no-progress.
++- Loop quality: 69 systematic, 8 mixed, 3 unknown.
++
++## Technique Counts by Cohort
++
++Counts below are worker occurrences. Slugs used by only one worker are grouped as `other` to keep the sweep readable.
++
++- Exact: `asm-diff-instruction-level` 5; `inline-hypothesis` 4; `local-lifetime-scoping` 4; `permuter` 3; `loop-restructure`, `register-allocation-reasoning`, and `type-shape-experiments` 2 each; other 17.
++- Near-miss: `permuter` 22; `local-lifetime-scoping` 21; `asm-diff-instruction-level` and `register-allocation-reasoning` 20 each; `type-shape-experiments` 15; `inline-hypothesis` 13; `declaration-order-experiments` 12; `checkpoint-restore` 10; `allocator-diagnostics` 9; `loop-restructure` 7; `past-pr-lookup` and `stack-padding-tuning` 5 each; `helper-boundary-experiments` and `pointer-alias-experiments` 4 each; `control-flow-restructure` and `stack-layout-tuning` 3 each; `data-layout-reordering`, `expression-reassociation`, `expression-shape-experiments`, and `relocation-analysis` 2 each; other 33.
++- Progressed: `register-allocation-reasoning` 24; `permuter` 22; `asm-diff-instruction-level` 19; `local-lifetime-scoping` 18; `inline-hypothesis` 17; `declaration-order-experiments` 12; `type-shape-experiments` 11; `loop-restructure` 10; `checkpoint-restore` 9; `allocator-diagnostics`, `expression-reassociation`, `stack-padding-tuning`, and `typed-accessor` 4 each; `pointer-induction` and `stack-layout-tuning` 3 each; seven techniques occurred twice; other 19.
++- No-progress: `permuter` 12; `asm-diff-instruction-level` and `type-shape-experiments` 11 each; `register-allocation-reasoning` 10; `allocator-diagnostics` 9; `declaration-order-experiments` and `local-lifetime-scoping` 8 each; `loop-restructure` 7; `checkpoint-restore` 6; `helper-boundary-experiments`, `inline-hypothesis`, and `past-pr-lookup` 5 each; `matched-analog-lookup` 4; `stack-layout-tuning` and `stack-padding-tuning` 3 each; `global-address-expression-experiments` 2; other 13.
++
++## Three Exact Accounts
++
++- `62602f7e-346f-4cd8-85de-e731c4fd2be6`: The worker isolated a six-operand r24/r25 swap before changing the loop to a single `i * 3 + 0x14` counter. Typed `user_data` access and a `PAD_STACK` increase from 0x10 to 0x18 closed the remaining gap.
++- `72f8107d-db81-4c25-99e5-29efe6519b11`: One stale `u8` return declaration caused MWCC to insert a `clrlwi`. Removing that exposure and adding explicit conversions at narrow neighboring callers reached exact without breaking the already-exact neighbor.
++- `89cb4a5f-3f0e-4b65-8d57-269d6a712018`: Thousands of permutations failed on one case-3 scheduling difference. Removing artificial temporaries and placing the arithmetic directly at the call site produced the target order.
++
++## Common Stall Reasons
++
++- Exact: none. All six accounts identify a closing factor.
++- Near-miss: register allocation or register coloring, often coupled to stack slots or frame size, dominates 21 of 29 accounts.
++- Progressed: register allocation, often coupled to stack layout or pointer materialization, dominates 26 of 31 accounts.
++- No-progress: register allocation or coloring dominates 11 of 14 accounts; two others contain only worker/provider launch failures.
++
++## Surprises
++
++- Several workers found a measured 100% probe but reverted it because it required an out-of-scope header edit, damaged neighboring functions, or used prohibited data-order and assertion tricks.
++- `55a57f86-cdf4-4a90-b753-1e217ab5e6ea` reports a manual qemu-verified 100% match in a later summary even though the batch row remains no-progress at 96.44444%; the record preserves that conflict rather than treating it as an exact result.
++- Workers repeatedly rejected higher-scoring candidates when they changed semantics or looked like matching-only source. Score maximization was not their only acceptance rule.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..025fffa5beb1de1780acf2856084f206d1a7fbbd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+@@ -0,0 +1,34 @@
++# Worker-Audit Phase 2, Batch 12
++
++## Batch Shape
++
++- 80 workers: 6 exact, 29 near-miss, 31 progressed, 14 no-progress.
++- Loop quality: 69 systematic, 8 mixed, 3 unknown.
++
++## Technique Counts by Cohort
++
++Counts below are worker occurrences. Slugs used by only one worker are grouped as `other` to keep the sweep readable.
++
++- Exact: `asm-diff-instruction-level` 5; `inline-hypothesis` 4; `local-lifetime-scoping` 4; `permuter` 3; `loop-restructure`, `register-allocation-reasoning`, and `type-shape-experiments` 2 each; other 17.
++- Near-miss: `permuter` 22; `local-lifetime-scoping` 21; `asm-diff-instruction-level` and `register-allocation-reasoning` 20 each; `type-shape-experiments` 15; `inline-hypothesis` 13; `declaration-order-experiments` 12; `checkpoint-restore` 10; `allocator-diagnostics` 9; `loop-restructure` 7; `past-pr-lookup` and `stack-padding-tuning` 5 each; `helper-boundary-experiments` and `pointer-alias-experiments` 4 each; `control-flow-restructure` and `stack-layout-tuning` 3 each; `data-layout-reordering`, `expression-reassociation`, `expression-shape-experiments`, and `relocation-analysis` 2 each; other 33.
++- Progressed: `register-allocation-reasoning` 24; `permuter` 22; `asm-diff-instruction-level` 19; `local-lifetime-scoping` 18; `inline-hypothesis` 17; `declaration-order-experiments` 12; `type-shape-experiments` 11; `loop-restructure` 10; `checkpoint-restore` 9; `allocator-diagnostics`, `expression-reassociation`, `stack-padding-tuning`, and `typed-accessor` 4 each; `pointer-induction` and `stack-layout-tuning` 3 each; seven techniques occurred twice; other 19.
++- No-progress: `permuter` 12; `asm-diff-instruction-level` and `type-shape-experiments` 11 each; `register-allocation-reasoning` 10; `allocator-diagnostics` 9; `declaration-order-experiments` and `local-lifetime-scoping` 8 each; `loop-restructure` 7; `checkpoint-restore` 6; `helper-boundary-experiments`, `inline-hypothesis`, and `past-pr-lookup` 5 each; `matched-analog-lookup` 4; `stack-layout-tuning` and `stack-padding-tuning` 3 each; `global-address-expression-experiments` 2; other 13.
++
++## Three Exact Accounts
++
++- `62602f7e-346f-4cd8-85de-e731c4fd2be6`: The worker isolated a six-operand r24/r25 swap before changing the loop to a single `i * 3 + 0x14` counter. Typed `user_data` access and a `PAD_STACK` increase from 0x10 to 0x18 closed the remaining gap.
++- `72f8107d-db81-4c25-99e5-29efe6519b11`: One stale `u8` return declaration caused MWCC to insert a `clrlwi`. Removing that exposure and adding explicit conversions at narrow neighboring callers reached exact without breaking the already-exact neighbor.
++- `89cb4a5f-3f0e-4b65-8d57-269d6a712018`: Thousands of permutations failed on one case-3 scheduling difference. Removing artificial temporaries and placing the arithmetic directly at the call site produced the target order.
++
++## Common Stall Reasons
++
++- Exact: none. All six accounts identify a closing factor.
++- Near-miss: register allocation or register coloring, often coupled to stack slots or frame size, dominates 21 of 29 accounts.
++- Progressed: register allocation, often coupled to stack layout or pointer materialization, dominates 26 of 31 accounts.
++- No-progress: register allocation or coloring dominates 11 of 14 accounts; two others contain only worker/provider launch failures.
++
++## Surprises
++
++- Several workers found a measured 100% probe but reverted it because it required an out-of-scope header edit, damaged neighboring functions, or used prohibited data-order and assertion tricks.
++- `55a57f86-cdf4-4a90-b753-1e217ab5e6ea` reports a manual qemu-verified 100% match in a later summary even though the batch row remains no-progress at 96.44444%; the record preserves that conflict rather than treating it as an exact result.
++- Workers repeatedly rejected higher-scoring candidates when they changed semantics or looked like matching-only source. Score maximization was not their only acceptance rule.
+
+exec
+/bin/zsh -lc "{ printf '%s\\n' '*** Begin Patch' '*** Add File: phase2_notes/batch_12.json'; sed 's/"'^/+/'"' /tmp/b12_final.json; printf '%s\\n' '*** End Patch'; } > /tmp/b12.patch
+apply_patch < /tmp/b12.patch
+jq -e 'length == 80 and (map(.ws_id)|unique|length == 80) and all(.[]; (keys == [\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"]) and (.loop_quality|IN(\"systematic\",\"mixed\",\"shotgun\",\"unknown\")))' phase2_notes/batch_12.json
+wc -l phase2_notes/batch_12.md
+comm -3 <(cut -f1 scripts/p2_batches/batch_12.tsv | sort) <(jq -r '.[].ws_id' phase2_notes/batch_12.json | sort)
+git status --short -- phase2_notes/batch_12.json phase2_notes/batch_12.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+Success. Updated the following files:
+A phase2_notes/batch_12.json
+true
+      34 phase2_notes/batch_12.md
+?? phase2_notes/batch_12.json
+?? phase2_notes/batch_12.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..025fffa5beb1de1780acf2856084f206d1a7fbbd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+@@ -0,0 +1,34 @@
++# Worker-Audit Phase 2, Batch 12
++
++## Batch Shape
++
++- 80 workers: 6 exact, 29 near-miss, 31 progressed, 14 no-progress.
++- Loop quality: 69 systematic, 8 mixed, 3 unknown.
++
++## Technique Counts by Cohort
++
++Counts below are worker occurrences. Slugs used by only one worker are grouped as `other` to keep the sweep readable.
++
++- Exact: `asm-diff-instruction-level` 5; `inline-hypothesis` 4; `local-lifetime-scoping` 4; `permuter` 3; `loop-restructure`, `register-allocation-reasoning`, and `type-shape-experiments` 2 each; other 17.
++- Near-miss: `permuter` 22; `local-lifetime-scoping` 21; `asm-diff-instruction-level` and `register-allocation-reasoning` 20 each; `type-shape-experiments` 15; `inline-hypothesis` 13; `declaration-order-experiments` 12; `checkpoint-restore` 10; `allocator-diagnostics` 9; `loop-restructure` 7; `past-pr-lookup` and `stack-padding-tuning` 5 each; `helper-boundary-experiments` and `pointer-alias-experiments` 4 each; `control-flow-restructure` and `stack-layout-tuning` 3 each; `data-layout-reordering`, `expression-reassociation`, `expression-shape-experiments`, and `relocation-analysis` 2 each; other 33.
++- Progressed: `register-allocation-reasoning` 24; `permuter` 22; `asm-diff-instruction-level` 19; `local-lifetime-scoping` 18; `inline-hypothesis` 17; `declaration-order-experiments` 12; `type-shape-experiments` 11; `loop-restructure` 10; `checkpoint-restore` 9; `allocator-diagnostics`, `expression-reassociation`, `stack-padding-tuning`, and `typed-accessor` 4 each; `pointer-induction` and `stack-layout-tuning` 3 each; seven techniques occurred twice; other 19.
++- No-progress: `permuter` 12; `asm-diff-instruction-level` and `type-shape-experiments` 11 each; `register-allocation-reasoning` 10; `allocator-diagnostics` 9; `declaration-order-experiments` and `local-lifetime-scoping` 8 each; `loop-restructure` 7; `checkpoint-restore` 6; `helper-boundary-experiments`, `inline-hypothesis`, and `past-pr-lookup` 5 each; `matched-analog-lookup` 4; `stack-layout-tuning` and `stack-padding-tuning` 3 each; `global-address-expression-experiments` 2; other 13.
++
++## Three Exact Accounts
++
++- `62602f7e-346f-4cd8-85de-e731c4fd2be6`: The worker isolated a six-operand r24/r25 swap before changing the loop to a single `i * 3 + 0x14` counter. Typed `user_data` access and a `PAD_STACK` increase from 0x10 to 0x18 closed the remaining gap.
++- `72f8107d-db81-4c25-99e5-29efe6519b11`: One stale `u8` return declaration caused MWCC to insert a `clrlwi`. Removing that exposure and adding explicit conversions at narrow neighboring callers reached exact without breaking the already-exact neighbor.
++- `89cb4a5f-3f0e-4b65-8d57-269d6a712018`: Thousands of permutations failed on one case-3 scheduling difference. Removing artificial temporaries and placing the arithmetic directly at the call site produced the target order.
++
++## Common Stall Reasons
++
++- Exact: none. All six accounts identify a closing factor.
++- Near-miss: register allocation or register coloring, often coupled to stack slots or frame size, dominates 21 of 29 accounts.
++- Progressed: register allocation, often coupled to stack layout or pointer materialization, dominates 26 of 31 accounts.
++- No-progress: register allocation or coloring dominates 11 of 14 accounts; two others contain only worker/provider launch failures.
++
++## Surprises
++
++- Several workers found a measured 100% probe but reverted it because it required an out-of-scope header edit, damaged neighboring functions, or used prohibited data-order and assertion tricks.
++- `55a57f86-cdf4-4a90-b753-1e217ab5e6ea` reports a manual qemu-verified 100% match in a later summary even though the batch row remains no-progress at 96.44444%; the record preserves that conflict rather than treating it as an exact result.
++- Workers repeatedly rejected higher-scoring candidates when they changed semantics or looked like matching-only source. Score maximization was not their only acceptance rule.
+
+All 80 summary records were audited, normalized, written, and validated against the TSV.
+  ✓ Read all worker summaries across 80 batch rows
+  ✓ Normalize evidence into one JSON record per row
+  ✓ Write the cohort analysis Markdown
+  ✓ Validate file count, schema, and line limit
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..025fffa5beb1de1780acf2856084f206d1a7fbbd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+@@ -0,0 +1,34 @@
++# Worker-Audit Phase 2, Batch 12
++
++## Batch Shape
++
++- 80 workers: 6 exact, 29 near-miss, 31 progressed, 14 no-progress.
++- Loop quality: 69 systematic, 8 mixed, 3 unknown.
++
++## Technique Counts by Cohort
++
++Counts below are worker occurrences. Slugs used by only one worker are grouped as `other` to keep the sweep readable.
++
++- Exact: `asm-diff-instruction-level` 5; `inline-hypothesis` 4; `local-lifetime-scoping` 4; `permuter` 3; `loop-restructure`, `register-allocation-reasoning`, and `type-shape-experiments` 2 each; other 17.
++- Near-miss: `permuter` 22; `local-lifetime-scoping` 21; `asm-diff-instruction-level` and `register-allocation-reasoning` 20 each; `type-shape-experiments` 15; `inline-hypothesis` 13; `declaration-order-experiments` 12; `checkpoint-restore` 10; `allocator-diagnostics` 9; `loop-restructure` 7; `past-pr-lookup` and `stack-padding-tuning` 5 each; `helper-boundary-experiments` and `pointer-alias-experiments` 4 each; `control-flow-restructure` and `stack-layout-tuning` 3 each; `data-layout-reordering`, `expression-reassociation`, `expression-shape-experiments`, and `relocation-analysis` 2 each; other 33.
++- Progressed: `register-allocation-reasoning` 24; `permuter` 22; `asm-diff-instruction-level` 19; `local-lifetime-scoping` 18; `inline-hypothesis` 17; `declaration-order-experiments` 12; `type-shape-experiments` 11; `loop-restructure` 10; `checkpoint-restore` 9; `allocator-diagnostics`, `expression-reassociation`, `stack-padding-tuning`, and `typed-accessor` 4 each; `pointer-induction` and `stack-layout-tuning` 3 each; seven techniques occurred twice; other 19.
++- No-progress: `permuter` 12; `asm-diff-instruction-level` and `type-shape-experiments` 11 each; `register-allocation-reasoning` 10; `allocator-diagnostics` 9; `declaration-order-experiments` and `local-lifetime-scoping` 8 each; `loop-restructure` 7; `checkpoint-restore` 6; `helper-boundary-experiments`, `inline-hypothesis`, and `past-pr-lookup` 5 each; `matched-analog-lookup` 4; `stack-layout-tuning` and `stack-padding-tuning` 3 each; `global-address-expression-experiments` 2; other 13.
++
++## Three Exact Accounts
++
++- `62602f7e-346f-4cd8-85de-e731c4fd2be6`: The worker isolated a six-operand r24/r25 swap before changing the loop to a single `i * 3 + 0x14` counter. Typed `user_data` access and a `PAD_STACK` increase from 0x10 to 0x18 closed the remaining gap.
++- `72f8107d-db81-4c25-99e5-29efe6519b11`: One stale `u8` return declaration caused MWCC to insert a `clrlwi`. Removing that exposure and adding explicit conversions at narrow neighboring callers reached exact without breaking the already-exact neighbor.
++- `89cb4a5f-3f0e-4b65-8d57-269d6a712018`: Thousands of permutations failed on one case-3 scheduling difference. Removing artificial temporaries and placing the arithmetic directly at the call site produced the target order.
++
++## Common Stall Reasons
++
++- Exact: none. All six accounts identify a closing factor.
++- Near-miss: register allocation or register coloring, often coupled to stack slots or frame size, dominates 21 of 29 accounts.
++- Progressed: register allocation, often coupled to stack layout or pointer materialization, dominates 26 of 31 accounts.
++- No-progress: register allocation or coloring dominates 11 of 14 accounts; two others contain only worker/provider launch failures.
++
++## Surprises
++
++- Several workers found a measured 100% probe but reverted it because it required an out-of-scope header edit, damaged neighboring functions, or used prohibited data-order and assertion tricks.
++- `55a57f86-cdf4-4a90-b753-1e217ab5e6ea` reports a manual qemu-verified 100% match in a later summary even though the batch row remains no-progress at 96.44444%; the record preserves that conflict rather than treating it as an exact result.
++- Workers repeatedly rejected higher-scoring candidates when they changed semantics or looked like matching-only source. Score maximization was not their only acceptance rule.
+
+codex
+DONE — 80 records.
+
+- [batch_12.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.json)
+- [batch_12.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md)
+
+Validated: 80 unique TSV workers, required schema, and Markdown is 34 lines.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..025fffa5beb1de1780acf2856084f206d1a7fbbd
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md
+@@ -0,0 +1,34 @@
++# Worker-Audit Phase 2, Batch 12
++
++## Batch Shape
++
++- 80 workers: 6 exact, 29 near-miss, 31 progressed, 14 no-progress.
++- Loop quality: 69 systematic, 8 mixed, 3 unknown.
++
++## Technique Counts by Cohort
++
++Counts below are worker occurrences. Slugs used by only one worker are grouped as `other` to keep the sweep readable.
++
++- Exact: `asm-diff-instruction-level` 5; `inline-hypothesis` 4; `local-lifetime-scoping` 4; `permuter` 3; `loop-restructure`, `register-allocation-reasoning`, and `type-shape-experiments` 2 each; other 17.
++- Near-miss: `permuter` 22; `local-lifetime-scoping` 21; `asm-diff-instruction-level` and `register-allocation-reasoning` 20 each; `type-shape-experiments` 15; `inline-hypothesis` 13; `declaration-order-experiments` 12; `checkpoint-restore` 10; `allocator-diagnostics` 9; `loop-restructure` 7; `past-pr-lookup` and `stack-padding-tuning` 5 each; `helper-boundary-experiments` and `pointer-alias-experiments` 4 each; `control-flow-restructure` and `stack-layout-tuning` 3 each; `data-layout-reordering`, `expression-reassociation`, `expression-shape-experiments`, and `relocation-analysis` 2 each; other 33.
++- Progressed: `register-allocation-reasoning` 24; `permuter` 22; `asm-diff-instruction-level` 19; `local-lifetime-scoping` 18; `inline-hypothesis` 17; `declaration-order-experiments` 12; `type-shape-experiments` 11; `loop-restructure` 10; `checkpoint-restore` 9; `allocator-diagnostics`, `expression-reassociation`, `stack-padding-tuning`, and `typed-accessor` 4 each; `pointer-induction` and `stack-layout-tuning` 3 each; seven techniques occurred twice; other 19.
++- No-progress: `permuter` 12; `asm-diff-instruction-level` and `type-shape-experiments` 11 each; `register-allocation-reasoning` 10; `allocator-diagnostics` 9; `declaration-order-experiments` and `local-lifetime-scoping` 8 each; `loop-restructure` 7; `checkpoint-restore` 6; `helper-boundary-experiments`, `inline-hypothesis`, and `past-pr-lookup` 5 each; `matched-analog-lookup` 4; `stack-layout-tuning` and `stack-padding-tuning` 3 each; `global-address-expression-experiments` 2; other 13.
++
++## Three Exact Accounts
++
++- `62602f7e-346f-4cd8-85de-e731c4fd2be6`: The worker isolated a six-operand r24/r25 swap before changing the loop to a single `i * 3 + 0x14` counter. Typed `user_data` access and a `PAD_STACK` increase from 0x10 to 0x18 closed the remaining gap.
++- `72f8107d-db81-4c25-99e5-29efe6519b11`: One stale `u8` return declaration caused MWCC to insert a `clrlwi`. Removing that exposure and adding explicit conversions at narrow neighboring callers reached exact without breaking the already-exact neighbor.
++- `89cb4a5f-3f0e-4b65-8d57-269d6a712018`: Thousands of permutations failed on one case-3 scheduling difference. Removing artificial temporaries and placing the arithmetic directly at the call site produced the target order.
++
++## Common Stall Reasons
++
++- Exact: none. All six accounts identify a closing factor.
++- Near-miss: register allocation or register coloring, often coupled to stack slots or frame size, dominates 21 of 29 accounts.
++- Progressed: register allocation, often coupled to stack layout or pointer materialization, dominates 26 of 31 accounts.
++- No-progress: register allocation or coloring dominates 11 of 14 accounts; two others contain only worker/provider launch failures.
++
++## Surprises
++
++- Several workers found a measured 100% probe but reverted it because it required an out-of-scope header edit, damaged neighboring functions, or used prohibited data-order and assertion tricks.
++- `55a57f86-cdf4-4a90-b753-1e217ab5e6ea` reports a manual qemu-verified 100% match in a later summary even though the batch row remains no-progress at 96.44444%; the record preserves that conflict rather than treating it as an exact result.
++- Workers repeatedly rejected higher-scoring candidates when they changed semantics or looked like matching-only source. Score maximization was not their only acceptance rule.
+
+tokens used
+108,151
+DONE — 80 records.
+
+- [batch_12.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.json)
+- [batch_12.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_12.md)
+
+Validated: 80 unique TSV workers, required schema, and Markdown is 34 lines.

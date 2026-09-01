@@ -4,7 +4,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
 import { requireActiveLease } from "@server/core/harness-state";
-import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 import {
   activeClaimsForRun,
   claimNextEpochTarget,
@@ -363,7 +362,6 @@ export function onWorkerJobComplete(
     WHERE worker_state.id = ?`).get(workerStateId) as { ended_at: string | null; claim_status: string | null } | null;
   let sandboxDeletion: Promise<void> | undefined;
   if (state?.ended_at) {
-    enqueueBackgroundKnowledgeForWorker(ctx.store, workerStateId);
     if (state.claim_status === "closed" && deps.sandboxProvider && typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id) {
       // onComplete runs inside the job settlement transaction. Defer provider I/O
       // until that transaction has committed, and never reject into the host path.

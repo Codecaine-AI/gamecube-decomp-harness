@@ -1,0 +1,775 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7a-d31b-7521-9b57-e290880dfec8
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 01
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_01.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the `unslop` skill because these audit notes need compact, evidence-based wording. I’ll split the batch across parallel agents, then validate the merged JSON and ≤60-line report.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_01.tsv && sed -n '1,8p' scripts/p2_batches/batch_01.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_01.tsv
+68ea0008-0b09-4481-9bac-01c00512e4ec	near_miss	None	main/melee/mn/mnsnap::fn_802545C4	99.72378	99.72378	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/68ea0008-0b09-4481-9bac-01c00512e4ec
+32529d7e-cb4f-4f86-9d2b-03e482aa6ff3	no_progress	None	main/melee/gm/gmallstar::gm_801B5624	97.96459999999999	97.96459999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/32529d7e-cb4f-4f86-9d2b-03e482aa6ff3
+8ee50eef-8732-4b7c-a107-9b2a57d41bf3	no_progress	None	main/melee/mn/mnevent::mnEvent_8024D15C	98.74222599999999	98.74222599999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8ee50eef-8732-4b7c-a107-9b2a57d41bf3
+cb99a0c1-e567-4309-be62-39fbb5dd4be7	no_progress	None	main/melee/lb/lbbgflash::fn_80020AEC	99.26539999999999	99.26539999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/cb99a0c1-e567-4309-be62-39fbb5dd4be7
+6f6d8f62-16e8-424f-ad8f-e25984195e7e	near_miss	None	main/melee/mn/mnstagesw::fn_80236998	99.77612	99.77612	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6f6d8f62-16e8-424f-ad8f-e25984195e7e
+da707889-3d44-40ec-a0fb-44b732384554	near_miss	None	main/melee/if/ifstatus::ifStatus_802F4EDC	99.71069	99.71069	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/da707889-3d44-40ec-a0fb-44b732384554
+fe1ee632-139f-4b43-85f6-88fa605b39a2	no_progress	None	main/melee/gm/gmtoulib::fn_8018A514	98.60215	98.60215	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fe1ee632-139f-4b43-85f6-88fa605b39a2
+eb822b45-0421-4ace-a114-cea4f4c6304c	no_progress	None	main/sysdolphin/baselib/hsd_3B34::hsd_803B51C8	97.990974	97.990974	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/eb822b45-0421-4ace-a114-cea4f4c6304c
+
+  → Read all worker summaries and extract evidence-based records
+  • Merge records and compute cohort statistics
+  • Write and validate the two required output files
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,glob,os,collections
+p='scripts/p2_batches/batch_01.tsv'
+rows=list(csv.reader(open(p),delimiter='\\t'))
+print('rows',len(rows),'cohorts',dict(collections.Counter(r[1] for r in rows)))
+counts=collections.Counter()
+missing=[]
+for r in rows:
+ fs=glob.glob(os.path.join(r[6],'worker_*.txt'))
+ counts[len(fs)]+=1
+ if not fs: missing.append(r[0])
+print('summary_file_counts',dict(counts),'missing',len(missing))
+print('\\n'.join(missing))
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+rows 80 cohorts {'near_miss': 34, 'no_progress': 46}
+summary_file_counts {0: 72, 2: 2, 1: 6} missing 72
+68ea0008-0b09-4481-9bac-01c00512e4ec
+32529d7e-cb4f-4f86-9d2b-03e482aa6ff3
+8ee50eef-8732-4b7c-a107-9b2a57d41bf3
+cb99a0c1-e567-4309-be62-39fbb5dd4be7
+6f6d8f62-16e8-424f-ad8f-e25984195e7e
+da707889-3d44-40ec-a0fb-44b732384554
+fe1ee632-139f-4b43-85f6-88fa605b39a2
+eb822b45-0421-4ace-a114-cea4f4c6304c
+1e7f0f83-14f1-40c7-ad90-8c99d29f4a54
+a8de3190-90ed-4124-bf30-fff692f369ec
+e6a8a71f-754b-42fc-9168-2e03ff6fc532
+225ffc8f-e3c7-4355-877a-0f5e1519040f
+9349bc18-6cfa-4d59-930d-3419d1913470
+a2b0d117-e834-4573-8e30-4828552814a1
+75e525dc-ee49-435d-8f1b-13d3e9761194
+868e9909-554d-41f6-869f-8a0e76bcf94c
+11e17b87-ae59-40ce-af4b-1df74f4f87b2
+ed339ce0-de1d-415f-aa39-bb9f9adb8d98
+fd19dec8-dac8-4e8b-9ebb-8420ef51010c
+c45f4345-2519-4c17-8565-86b83bee63c0
+52073ba0-8e8d-4a7f-831f-130af62d60d2
+2acb00ee-4523-4524-bf52-4315039a05e0
+13d06273-bec8-48c2-bc92-10cfcf7d5676
+e6c6ba1e-e95d-4cdb-bf65-60e31faa6d9d
+9d809d57-7a8c-4730-a1ea-fa44b4591c82
+4d18be8a-8587-459c-a067-701e204bcce9
+c2346276-3b57-4596-877d-635383778df5
+33f197c4-b935-4720-9c43-450b88729606
+462c1d55-f651-40d3-883f-844cd1cdb652
+8286a7f3-91d9-4ccc-a1d6-dced0cc050a5
+8cdff441-aacb-46a3-89dd-f55c4a4ac33b
+a42dd57b-fb46-4c21-b271-30c4aa83daa2
+254869f5-0621-4c9d-b3ff-0e40bc61ceca
+7b451eee-745b-458d-ad6f-cd1b836bdfab
+435fbebb-ad29-43e6-9e30-a632f23b5f55
+004ac6bb-498a-4f14-9fee-5451b1aa3586
+94a1e076-3b34-4fb4-b7ca-787941a73992
+8635bb0c-45fb-4509-b441-f109061f77ad
+15f6ce22-6bf6-41c7-b4b1-273632c57f98
+0fabc9b2-f669-4944-a280-22360593ffeb
+2252c866-399c-44b4-a704-0d198c12b826
+b0f46d69-b3e2-4127-b942-ef96660ece4e
+62bae1da-8558-4308-92d3-835e0fd61e63
+adfbfc37-40e5-4d8d-b4d9-ea3f43aa5e7a
+2b8b5976-d6b8-4819-9b81-ffaa3a0253ba
+e147b136-58ec-4d63-ae89-b882526741cf
+937fdde1-240a-4b16-bb84-4ff1f35d09b0
+23919359-f3d9-46a8-afb2-b6c17f177a95
+410e6860-67ed-4077-88d1-be4996e57ed1
+82b1922a-e9ae-4a80-b632-b6e9c772dc69
+d0b7cc6e-38ce-43ce-97e1-093638a41cff
+57de6905-f218-443f-bb8f-6fd52bb543a8
+1cd61166-1c43-41b1-ba35-e86a1771f229
+463d6a94-480d-4201-92cc-b3d709ff799c
+0767fa3d-7815-49cd-bf3e-9cf394d5c631
+8d4aec55-98f2-4f0e-9d7f-685010dbe7d4
+7be598f8-06e5-47f7-b9e9-a90cc402111d
+814e4f18-14ec-4a94-8b34-f81438a2855d
+8829e535-2e63-4444-bcce-823f429805d5
+b5dfd6ae-1764-4864-99e7-36b8f93b8bf8
+b09cf23c-2aba-43b4-865e-5a72abe6a441
+65ac0046-5f38-4b34-9ba0-ade3a3b0d5ec
+e352e4b6-9fd0-43d3-96e4-43e1dfa7ec16
+6ef59c13-0ba8-464d-a779-d933fe0a5245
+2c0f1331-2f90-4742-8d35-cc889a16c814
+cfbda32b-69ba-4ef3-970e-eec8990fcef7
+c1ec56c8-3957-4f4b-b426-e6558a7ff5a7
+4906b90a-ac0c-4637-b222-736bdbe96d60
+2a54ef99-a784-4d9c-8fcb-eebf6509958a
+930e1b0f-78fe-46aa-b26e-21a9de4ef48e
+8a2a7c3a-bc5f-42f4-a2dc-36c388027940
+7eef5c2d-2bc7-41c6-92f2-a28b46347c30
+
+codex
+Step 1 of 3 is in progress. The batch has 80 workers, but only 8 have self-summary files; 72 will be recorded as missing evidence. It also contains no `exact` workers, so the report will state that the requested exact-worker section is unavailable rather than substituting another cohort.
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,glob,os
+for i,r in enumerate(csv.reader(open('scripts/p2_batches/batch_01.tsv'),delimiter='\\t'),1):
+ fs=glob.glob(os.path.join(r[6],'worker_*.txt'))
+ if fs: print(i,r[0],r[1],len(fs),*[os.path.basename(x) for x in fs])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+73 64158164-a047-4108-9310-d354c8b21a9f near_miss 2 worker_b5a7c7ce-ab48-4e2e-be4e-cd697602ed81.txt worker_01a03f07-6e1c-7f4b-a4c9-ee775abc4194.txt
+74 d5f9b6fa-1c5d-4690-ba37-9137eb32ac3d near_miss 1 worker_ef964e6b-5626-43e0-8e79-e96f82e88c05.txt
+75 5e1dcda4-3086-4656-9e8b-8ce39b7c216d no_progress 1 worker_e74d6c83-d250-4fa7-bb79-b4d88ca43b98.txt
+76 e4fd257f-6960-4b27-b4e0-f5a26687fa70 no_progress 1 worker_c51c5528-b6ee-49b1-a34e-e0c8856d490b.txt
+77 950b3c9b-e062-4240-acac-d712796aa6fd no_progress 1 worker_f77c952a-0803-4d08-85b7-5467aaf0e3a7.txt
+78 e55e6bfc-493a-458c-9f42-7afbf513d3f6 no_progress 1 worker_824fb45f-91e3-4f81-a434-d8b34105a95f.txt
+79 1476a3be-a464-4afb-8509-0bfe77a57750 near_miss 1 worker_01a03f06-0220-7e65-99e3-b505658eff1f.txt
+80 362a671e-c9a7-4c5d-bf4a-100b26558603 near_miss 2 worker_01a03f05-fa5c-7636-999c-f65ffba1933e.txt worker_b47a3752-2269-4975-8711-434b7afe66cd.txt
+
+collab: Wait
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,glob,os
+rows=list(csv.reader(open('scripts/p2_batches/batch_01.tsv'),delimiter='\\t'))
+for i,r in enumerate(rows[72:],73):
+ print('\\n### ROW',i,r[0],r[1],r[3])
+ for f in glob.glob(os.path.join(r[6],'worker_*.txt')):
+  print('\\nFILE',os.path.basename(f))
+  print(open(f,errors='replace').read())
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+
+### ROW 73 64158164-a047-4108-9310-d354c8b21a9f near_miss main/melee/gm/gm_1832::fn_80186634
+
+FILE worker_b5a7c7ce-ab48-4e2e-be4e-cd697602ed81.txt
+[Pi provider error]
+server_is_overloaded: Our servers are currently overloaded. Please try again later.
+
+
+FILE worker_01a03f07-6e1c-7f4b-a4c9-ee775abc4194.txt
+{
+  "summary": "No source edit was retained. The target TU compiles cleanly, but targeted source-shape and data-layout probes did not improve the existing match.",
+  "target": {
+    "unit": "main/melee/gm/gm_1832",
+    "symbol": "fn_80186634",
+    "source_path": "src/melee/gm/gm_1832.c"
+  },
+  "status": "stalled_no_retained_change",
+  "evidence": {
+    "current_checkdiff": "fn_80186634: FAIL (99.94177%). Remaining reported differences are two .data-relative string offsets, the 16-byte archive-name temporary at r1+0x1C versus target r1+0x18, and the shared scene-data string relocation.",
+    "historical_source": "The prior integration commit 852b039 introduced the current small inline helpers and ClassicArchiveNameArray aggregate. Its parent used explicit names[0], names[1], names[3], names[2] assignments; restoring that assignment shape while retaining the helpers regressed to 96.63253%, so it was reverted.",
+    "permuter": "source_permuter_run, 200 candidates, seed 1740: no improvement; baseline score 18074 (99.98%).",
+    "failed_hypotheses_reverted": [
+      "PAD_STACK(12) reduced the frame and regressed to 99.91164%; PAD_STACK(13) produced no change.",
+      "Replacing the aggregate copy with a direct local array initializer regressed to 93.43574%.",
+      "Replacing it with explicit historical array assignments regressed to 96.63253%.",
+      "Reordering the related static data declarations, changing linkage on lbl_803D9248, and recovering a typed ClassicCharData object produced no measurable target or neighboring-function improvement."
+    ]
+  },
+  "validation": {
+    "direct_compile_tu": "PASS for melee/gm/gm_1832 after all probes were reverted.",
+    "checkdiff_summary": [
+      "fn_801851C0: FAIL (99.36709%)",
+      "fn_80186634: FAIL (99.94177%)"
+    ],
+    "source_state": "git diff --check and the gm_1832.c diff were clean; no local regression from this turn remains."
+  },
+  "unresolved_local_regression": false
+}
+
+### ROW 74 d5f9b6fa-1c5d-4690-ba37-9137eb32ac3d near_miss main/melee/mn/mndiagram2::mnDiagram2_Create
+
+FILE worker_ef964e6b-5626-43e0-8e79-e96f82e88c05.txt
+[Pi provider error]
+upstream_unavailable: Request to upstream timed out
+
+
+### ROW 75 5e1dcda4-3086-4656-9e8b-8ce39b7c216d no_progress main/sysdolphin/baselib/hsd_3A94::fn_803B0E9C
+
+FILE worker_e74d6c83-d250-4fa7-bb79-b4d88ca43b98.txt
+[Pi provider error]
+upstream_unavailable: Request to upstream timed out
+
+
+### ROW 76 e4fd257f-6960-4b27-b4e0-f5a26687fa70 no_progress main/melee/gm/gmregclear::fn_80180630
+
+FILE worker_c51c5528-b6ee-49b1-a34e-e0c8856d490b.txt
+[Pi provider error]
+upstream_unavailable: Request to upstream timed out
+
+
+### ROW 77 950b3c9b-e062-4240-acac-d712796aa6fd no_progress main/melee/mn/mnevent::mnEvent_8024D15C
+
+FILE worker_f77c952a-0803-4d08-85b7-5467aaf0e3a7.txt
+[Pi provider error]
+upstream_unavailable: Request to upstream timed out
+
+
+### ROW 78 e55e6bfc-493a-458c-9f42-7afbf513d3f6 no_progress main/melee/mn/mndiagram::mnDiagram_DrawFighterHeaders
+
+FILE worker_824fb45f-91e3-4f81-a434-d8b34105a95f.txt
+[Pi provider error]
+upstream_unavailable: Request to upstream timed out
+
+
+### ROW 79 1476a3be-a464-4afb-8509-0bfe77a57750 near_miss main/melee/gr/grbigblue::grBigBlue_801E93D8
+
+FILE worker_01a03f06-0220-7e65-99e3-b505658eff1f.txt
+{
+  "summary": "Improved grBigBlue_801E93D8 by moving the Ground* gp declaration before check_pos. This changes check_pos's stack slot to the target layout and removes its associated mismatch window while retaining natural source style.",
+  "target": "grBigBlue_801E93D8",
+  "source_path": "src/melee/gr/grbigblue.c",
+  "validation": {
+    "checkdiff": "FAIL (99.68819%), improved from 99.68269%",
+    "direct_compile_tu": "passed",
+    "review_lint": "passed for the retained changed declaration block",
+    "git_diff_check": "passed"
+  },
+  "remaining_mismatch": "Register allocation remains in the manager/count loop and rotation-target float paths. A locally authored assignment-expression probe for target_y and declaration-order probes were evaluated and reverted because they regressed or did not improve the target.",
+  "regressions": "None caused by the retained edit."
+}
+
+### ROW 80 362a671e-c9a7-4c5d-bf4a-100b26558603 near_miss main/melee/gm/gm_1BA8::gm_801BC00C
+
+FILE worker_01a03f05-fa5c-7636-999c-f65ffba1933e.txt
+```json
+{
+  "summary": "Stalled without retaining edits. The remaining mismatch is a pure saved-register allocation swap: the reference keeps event index `idx` in r30 and event-data pointer `ev` in r31, while the current candidate keeps them in r31 and r30 respectively. All emitted opcodes and control flow otherwise align.",
+  "target": "gm_801BC00C",
+  "source_path": "src/melee/gm/gm_1BA8.c",
+  "retained_edits": [],
+  "evidence": {
+    "baseline_checkdiff": "gm_801BC00C: FAIL (99.54703%)",
+    "mismatch_shape": "23 DIFF_ARG_MISMATCH sites, consistently caused by the r30/r31 `idx`/`ev` swap.",
+    "allocator_snapshot": {
+      "artifact": "build/mwcc-alloc/gm_801BC00C-20260826T170803Z",
+      "idx_virtual_register": 37,
+      "idx_physical_register": 31,
+      "idx_spill_cost": 27,
+      "ev_virtual_register": 38,
+      "ev_physical_register": 30,
+      "ev_spill_cost": 23,
+      "observation": "The two long-lived values interfere and have equal degree; reversing this coloring/simplification ordering is the remaining codegen problem."
+    },
+    "historical_source_probe": "Removing the current local `gm` base pointer regressed to 98.43205%, confirming that the current pointer binding is needed to preserve the otherwise matching r5 base/prologue shape.",
+    "source_permuter": "160 candidates, seed 815: no improvement over baseline.",
+    "debug_tools": "mwcc debug dump/regflow could not produce pcdump for this function (MWDBG326 reports `Unhandled function 190`)."
+  },
+  "attempts_reverted": [
+    "Local declaration reordering and explicit initialization statements: no codegen change.",
+    "u32 index type: no codegen change; s32 index regressed to 99.35540%.",
+    "A redundant EventData alias regressed to 99.52962%.",
+    "Direct/global versus local-base field expressions and early ev accesses regressed substantially.",
+    "Comma-expression initialization introduced a larger stack frame and regressed to 99.52962%."
+  ],
+  "validation": {
+    "checkdiff_summary": "gm_801BC00C: FAIL (99.54703%)",
+    "source_diff": "No retained diff in src/melee/gm/gm_1BA8.c.",
+    "local_regression_caused_by_edits": false
+  }
+}
+```
+
+FILE worker_b47a3752-2269-4975-8711-434b7afe66cd.txt
+[Pi provider error]
+server_is_overloaded: Our servers are currently overloaded. Please try again later.
+
+
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+2026-09-01T15:00:12.466434Z ERROR codex_core::tools::router: error=patch rejected: writing outside of the project; rejected by user approval settings
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json
+p='/tmp/batch01_rows_61_80.json'
+for x in json.load(open(p)):
+ if x['techniques'] or (x['notable'] and 'summary' not in x['notable'].lower() and 'worker_' not in x['notable'].lower() and 'provider' not in x['notable'].lower() and 'upstream' not in x['notable'].lower()): print(json.dumps(x,indent=2))
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+{
+  "ws_id": "64158164-a047-4108-9310-d354c8b21a9f",
+  "cohort": "near_miss",
+  "epoch": 1,
+  "target_key": "main/melee/gm/gm_1832::fn_80186634",
+  "techniques": [
+    "asm-diff-instruction-level",
+    "source-shape-experiments",
+    "data-layout-experiments",
+    "version-history-lookup",
+    "permuter",
+    "stack-padding-experiments",
+    "type-shape-experiments",
+    "declaration-order-experiments"
+  ],
+  "stall_reason": "stack slot and string relocation mismatches",
+  "success_factor": null,
+  "loop_quality": "systematic",
+  "notable": "Historical assignment shapes, stack padding, data declaration changes, and a 200-candidate permuter run all regressed or failed to improve the target, so the worker retained no edit."
+}
+{
+  "ws_id": "1476a3be-a464-4afb-8509-0bfe77a57750",
+  "cohort": "near_miss",
+  "epoch": 1,
+  "target_key": "main/melee/gr/grbigblue::grBigBlue_801E93D8",
+  "techniques": [
+    "asm-diff-instruction-level",
+    "declaration-order-experiments",
+    "stack-layout-reasoning",
+    "source-shape-experiments",
+    "float-expression-experiments"
+  ],
+  "stall_reason": "register allocation in loop and float paths",
+  "success_factor": null,
+  "loop_quality": "systematic",
+  "notable": "Moving the Ground* declaration before check_pos corrected that local's stack slot and raised the score from 99.68269% to 99.68819%."
+}
+{
+  "ws_id": "362a671e-c9a7-4c5d-bf4a-100b26558603",
+  "cohort": "near_miss",
+  "epoch": 1,
+  "target_key": "main/melee/gm/gm_1BA8::gm_801BC00C",
+  "techniques": [
+    "asm-diff-instruction-level",
+    "register-allocation-reasoning",
+    "compiler-allocation-dump",
+    "version-history-lookup",
+    "permuter",
+    "declaration-order-experiments",
+    "type-shape-experiments",
+    "aliasing-experiments",
+    "expression-shape-experiments",
+    "compiler-debug-tools"
+  ],
+  "stall_reason": "saved-register allocation swap",
+  "success_factor": null,
+  "loop_quality": "systematic",
+  "notable": "All opcodes and control flow matched except a consistent r30/r31 swap, and the allocator snapshot traced it to two interfering long-lived values with equal degree."
+}
+
+codex
+Step 1 of 3 is done: 80 records extracted. Usable accounts exist for 3 near-miss workers; 5 summaries contain only provider errors, and 72 workers have no summary file. Step 2 is now merging technique counts and stall reasons.
+All four row ranges are audited. The batch has sparse summary evidence and no exact cohort.
+  ✓ Read all worker summaries and extract evidence-based records
+  → Merge records and compute cohort statistics
+  • Write and validate the two required output files
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json,collections
+xs=[]
+for a,b in [(1,20),(21,40),(41,60),(61,80)]: xs += json.load(open(f'/tmp/batch01_rows_{a}_{b}.json'))
+for x in xs:
+ print(x['cohort'],*x['techniques'])
+print('STALLS')
+for x in xs:
+ if x['stall_reason']: print(x['cohort'],x['stall_reason'])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+near_miss
+no_progress
+no_progress
+no_progress
+near_miss
+near_miss
+no_progress
+no_progress
+near_miss
+near_miss
+no_progress
+no_progress
+near_miss
+no_progress
+no_progress
+no_progress
+no_progress
+no_progress
+near_miss
+no_progress
+near_miss
+near_miss
+no_progress
+no_progress
+near_miss
+no_progress
+no_progress
+no_progress
+no_progress
+no_progress
+no_progress
+no_progress
+near_miss
+no_progress
+near_miss
+near_miss
+no_progress
+no_progress
+no_progress
+near_miss
+near_miss
+near_miss
+near_miss
+no_progress
+near_miss
+no_progress
+near_miss
+near_miss
+no_progress
+near_miss
+near_miss
+no_progress
+no_progress
+no_progress
+near_miss
+no_progress
+no_progress
+no_progress
+near_miss
+no_progress
+no_progress
+near_miss
+near_miss
+no_progress
+near_miss
+no_progress
+no_progress
+near_miss
+near_miss
+no_progress
+near_miss
+no_progress
+near_miss asm-diff-instruction-level source-shape-experiments data-layout-experiments version-history-lookup permuter stack-padding-experiments type-shape-experiments declaration-order-experiments
+near_miss
+no_progress
+no_progress
+no_progress
+no_progress
+near_miss asm-diff-instruction-level declaration-order-experiments stack-layout-reasoning source-shape-experiments float-expression-experiments
+near_miss asm-diff-instruction-level register-allocation-reasoning compiler-allocation-dump version-history-lookup permuter declaration-order-experiments type-shape-experiments aliasing-experiments expression-shape-experiments compiler-debug-tools
+STALLS
+near_miss stack slot and string relocation mismatches
+near_miss register allocation in loop and float paths
+near_miss saved-register allocation swap
+
+exec
+/bin/zsh -lc 'ls -l phase2_notes/batch_01.json phase2_notes/batch_01.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json
+x=json.load(open('/tmp/batch01_rows_61_80.json'))
+for y in x[12:]: print(y['ws_id'], y['notable'])
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+64158164-a047-4108-9310-d354c8b21a9f Historical assignment shapes, stack padding, data declaration changes, and a 200-candidate permuter run all regressed or failed to improve the target, so the worker retained no edit.
+d5f9b6fa-1c5d-4690-ba37-9137eb32ac3d The only worker_*.txt file contains an upstream timeout error, so it provides no audit evidence.
+5e1dcda4-3086-4656-9e8b-8ce39b7c216d The only worker_*.txt file contains an upstream timeout error, so it provides no audit evidence.
+e4fd257f-6960-4b27-b4e0-f5a26687fa70 The only worker_*.txt file contains an upstream timeout error, so it provides no audit evidence.
+950b3c9b-e062-4240-acac-d712796aa6fd The only worker_*.txt file contains an upstream timeout error, so it provides no audit evidence.
+e55e6bfc-493a-458c-9f42-7afbf513d3f6 The only worker_*.txt file contains an upstream timeout error, so it provides no audit evidence.
+1476a3be-a464-4afb-8509-0bfe77a57750 Moving the Ground* declaration before check_pos corrected that local's stack slot and raised the score from 99.68269% to 99.68819%.
+362a671e-c9a7-4c5d-bf4a-100b26558603 All opcodes and control flow matched except a consistent r30/r31 swap, and the allocator snapshot traced it to two interfering long-lived values with equal degree.
+
+exec
+/bin/zsh -lc "python3 - <<'PY' | apply_patch
+import csv,json,collections
+chunks=[]
+for a,b in [(1,20),(21,40),(41,60),(61,80)]: chunks += json.load(open(f'/tmp/batch01_rows_{a}_{b}.json'))
+tsv=list(csv.reader(open('scripts/p2_batches/batch_01.tsv'),delimiter='\\t'))
+for x,r in zip(chunks,tsv):
+    x['epoch']=None if r[2]=='None' else int(r[2])
+# Consistent missing-file wording while preserving provider-error and substantive notes.
+for x in chunks:
+    if not x['techniques'] and x['notable'] and not any(k in x['notable'].lower() for k in ('timeout','provider','upstream')):
+        x['notable']='No worker_*.txt self-summary files were present directly in artifact_dir.'
+content=json.dumps(chunks,indent=2,ensure_ascii=False)+'\\n'
+counts={c:collections.Counter(t for x in chunks if x['cohort']==c for t in x['techniques']) for c in ('exact','near_miss','progressed','no_progress')}
+md='''# Worker-Audit Phase 2, Batch 01
+
+## Coverage
+
+- 80 workers: 34 near_miss and 46 no_progress.
+- 3 workers had usable self-summaries, all near_miss.
+- 72 had no direct worker_*.txt file; 5 had only an upstream timeout/provider-error summary.
+- This batch contains no exact or progressed workers.
+
+## Technique Counts by Cohort
+
+| Technique | exact | near_miss | progressed | no_progress |
+|---|---:|---:|---:|---:|
+'''
+techs=sorted(set().union(*[set(c) for c in counts.values()]), key=lambda t:(-sum(counts[c][t] for c in counts),t))
+for t in techs:
+    md += f\"| {t} | {counts['exact'][t]} | {counts['near_miss'][t]} | {counts['progressed'][t]} | {counts['no_progress'][t]} |\\n\"
+md+='''
+## Exact-Worker Accounts
+
+No exact workers occur in batch 01, so there are no exact-worker accounts to rank.
+
+## Most Common Stall Reason by Cohort
+
+- exact: unavailable; no workers in cohort.
+- near_miss: three-way tie at one each: stack slot and string relocation mismatches; register allocation in loop and float paths; saved-register allocation swap.
+- progressed: unavailable; no workers in cohort.
+- no_progress: unavailable; none of the 46 workers supplied usable summary evidence.
+
+## Surprises
+
+Only 3 of 80 workers supplied usable accounts. The strongest diagnosis was ws_id 362a671e-c9a7-4c5d-bf4a-100b26558603, which isolated 23 diff sites to one r30/r31 coloring swap and backed it with allocator data, yet a 160-candidate permuter run could not change it.
+
+ws_id 1476a3be-a464-4afb-8509-0bfe77a57750 found a tiny declaration-order win: moving Ground* before check_pos corrected one stack slot and improved 99.68269% to 99.68819%. ws_id 64158164-a047-4108-9310-d354c8b21a9f tested history, stack padding, aggregate shapes, data layout, and 200 permuter candidates, but every probe either regressed or left the 99.94177% mismatch unchanged.
+'''
+print('*** Begin Patch')
+print('*** Add File: phase2_notes/batch_01.json')
+for line in content.splitlines(): print('+'+line)
+print('*** Add File: phase2_notes/batch_01.md')
+for line in md.splitlines(): print('+'+line)
+print('*** End Patch')
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+Success. Updated the following files:
+A phase2_notes/batch_01.json
+A phase2_notes/batch_01.md
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json,collections,glob,os
+base='phase2_notes/batch_01'
+xs=json.load(open(base+'.json'))
+rows=list(csv.reader(open('scripts/p2_batches/batch_01.tsv'),delimiter='\\t'))
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+assert len(xs)==len(rows)==80
+assert all(set(x)==keys for x in xs)
+assert [x['ws_id'] for x in xs]==[r[0] for r in rows]
+assert all(x['cohort']==r[1] and x['target_key']==r[3] for x,r in zip(xs,rows))
+assert all(x['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for x in xs)
+assert all((x['success_factor'] is None) for x in xs)
+lines=sum(1 for _ in open(base+'.md'))
+assert lines<=60,lines
+print('records',len(xs))
+print('markdown_lines',lines)
+print('loop_quality',dict(collections.Counter(x['loop_quality'] for x in xs)))
+print('usable_accounts',sum(bool(x['techniques']) for x in xs))
+print('files',base+'.json',base+'.md')
+PY
+find phase2_notes -maxdepth 1 -type f -name 'batch_01.*' -print
+git status --short -- phase2_notes/batch_01.json phase2_notes/batch_01.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+records 80
+markdown_lines 45
+loop_quality {'unknown': 77, 'systematic': 3}
+usable_accounts 3
+files phase2_notes/batch_01.json phase2_notes/batch_01.md
+phase2_notes/batch_01.md
+phase2_notes/batch_01.json
+?? phase2_notes/batch_01.json
+?? phase2_notes/batch_01.md
+
+Merged output is validated against all 80 TSV rows. JSON schema, row order, loop-quality enum, file count, and the 60-line Markdown limit all pass.
+  ✓ Read all worker summaries and extract evidence-based records
+  ✓ Merge records and compute cohort statistics
+  ✓ Write and validate the two required output files
+codex
+DONE — 80 records.
+
+- [batch_01.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.json)
+- [batch_01.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.md)
+
+Validated JSON schema/order and Markdown length: 45 lines.
+tokens used
+71,492
+DONE — 80 records.
+
+- [batch_01.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.json)
+- [batch_01.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_01.md)
+
+Validated JSON schema/order and Markdown length: 45 lines.

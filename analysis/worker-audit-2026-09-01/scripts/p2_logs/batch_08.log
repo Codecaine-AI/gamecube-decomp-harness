@@ -1,0 +1,1675 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-1fb8-7101-b7e4-08f82396629e
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 08
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_08.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the required `unslop` skill to keep the audit terse and evidence-based. I’ll split the batch across parallel sub-agents, then validate and write the two outputs.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'
+wc -l scripts/p2_batches/batch_08.tsv
+sed -n '1,6p' scripts/p2_batches/batch_08.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_08.tsv
+b127af72-bb97-4380-aacf-0d734860c78b	no_progress	5	main/sysdolphin/baselib/hsd_3A94::fn_803B1338	98.90944	98.90944	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/b127af72-bb97-4380-aacf-0d734860c78b
+38c361d1-e0b9-4867-9534-1b19a0f3f9d0	progressed	5	main/melee/ty/tydisplay::_tyDisplay_8031830C	98.06201	98.189926	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/38c361d1-e0b9-4867-9534-1b19a0f3f9d0
+2ab908d8-1006-4c79-99d1-d3b3cc7edd2f	near_miss	5	main/melee/gm/gm_16A2::gm_8016A22C	99.84746	99.84746	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/2ab908d8-1006-4c79-99d1-d3b3cc7edd2f
+bfb526ec-7019-4812-a507-1b76aee76f05	near_miss	5	main/melee/ty/toy::_Toy_80309404	99.75836	99.76307	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bfb526ec-7019-4812-a507-1b76aee76f05
+6633fe20-d9e8-446f-a705-efb0cf59e7a1	near_miss	5	main/melee/gm/gm_1832::fn_80188EE8	99.89744	99.89744	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6633fe20-d9e8-446f-a705-efb0cf59e7a1
+40176f41-a3ce-48da-8349-8d29b4ea6b91	progressed	5	main/melee/gm/gm_1832::gm_80187F48_OnEnter	97.49429	97.50571	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/40176f41-a3ce-48da-8349-8d29b4ea6b91
+
+  → Split 80 batch rows into four audit shards
+  • Read every worker summary and extract evidence-based records
+  • Merge records and write cohort analysis
+  • Validate record count, schema, paths, and Markdown length
+exec
+/bin/zsh -lc "awk -F '\\t' '{c["'$2]++} END {for(k in c) print k,c[k]}'"' scripts/p2_batches/batch_08.tsv
+mkdir -p phase2_notes
+find phase2_notes -maxdepth 1 -type f -name 'batch_08*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+no_progress 37
+near_miss 20
+progressed 22
+exact 1
+
+codex
+Step 1 of 4 done: 80 workers split into four 20-row shards. The batch has 37 no-progress, 22 progressed, 20 near-miss, and only 1 exact worker, so the report will explicitly note that three exact accounts do not exist in this batch.
+  ✓ Split 80 batch rows into four audit shards
+  → Read every worker summary and extract evidence-based records
+  • Merge records and write cohort analysis
+  • Validate record count, schema, paths, and Markdown length
+collab: Wait
+collab: Wait
+2026-09-01T15:05:42.743575Z ERROR codex_core::tools::router: error=collab spawn failed: agent thread limit reached
+collab: Wait
+codex
+Step 2 of 4 is in progress: all 80 summary sets are being read in parallel. I’m holding the merge until each shard has evidence for every row; missing summaries will remain explicit records, not disappear from the count.
+collab: Wait
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -type f -name 'batch_08_shard*.json' -print -exec wc -c {} \\;" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -type f -name 'batch_08_shard*.json' -print -exec wc -l {} \\;" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+phase2_notes/batch_08_shard4.json
+     394 phase2_notes/batch_08_shard4.json
+
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -type f -name 'batch_08_shard*.json' -print -exec sh -c 'jq length \""'$1"'"' _ {} \\;" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+phase2_notes/batch_08_shard1.json
+20
+phase2_notes/batch_08_shard3.json
+20
+phase2_notes/batch_08_shard4.json
+20
+
+collab: Wait
+collab: Wait
+codex
+Step 2 of 4 done: 80 records are extracted and all four shards passed local schema and order checks. One exact worker’s summary conflicts with the batch score, reporting 99.85782% and six residual relocations despite the batch marking 100%; the final note will preserve that discrepancy.
+  ✓ Split 80 batch rows into four audit shards
+  ✓ Read every worker summary and extract evidence-based records
+  → Merge records and write cohort analysis
+  • Validate record count, schema, paths, and Markdown length
+exec
+/bin/zsh -lc "jq -s 'add' phase2_notes/batch_08_shard1.json phase2_notes/batch_08_shard2.json phase2_notes/batch_08_shard3.json phase2_notes/batch_08_shard4.json > /tmp/batch_08.json
+jq -r '[.[] | .cohort as "'$c | .techniques[] | [$c,.]] | group_by(.) | map({cohort:.[0][0],technique:.[0][1],count:length}) | sort_by(.cohort,-.count,.technique)[] | [.cohort,.count,.technique] | @tsv'"' /tmp/batch_08.json
+jq -r '[.[]|select(.stall_reason"'!=null)|[.cohort,.stall_reason]] | group_by(.) | map({cohort:.[0][0],reason:.[0][1],count:length}) | sort_by(.cohort,-.count,.reason)[] | [.cohort,.count,.reason] | @tsv'"' /tmp/batch_08.json | head -40
+jq '.[]|select(.cohort==\"exact\")' /tmp/batch_08.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exact	1	asm-diff-instruction-level
+exact	1	checkpoint-restore
+exact	1	declaration-order-experiments
+exact	1	sdata2-ordering-experiments
+exact	1	stack-layout-reasoning
+near_miss	17	asm-diff-instruction-level
+near_miss	14	checkpoint-restore
+near_miss	14	permuter
+near_miss	12	register-allocation-reasoning
+near_miss	9	declaration-order-experiments
+near_miss	7	type-shape-experiments
+near_miss	7	variable-lifetime-experiments
+near_miss	5	allocator-snapshot
+near_miss	4	mwcc-diagnostics
+near_miss	3	local-lifetime-experiments
+near_miss	3	mwcc-regflow-diagnostics
+near_miss	3	regflow-diagnostics
+near_miss	2	control-flow-restructure
+near_miss	2	helper-boundary-experiments
+near_miss	2	ledger-lookup
+near_miss	2	loop-restructure
+near_miss	2	prior-run-ledger-lookup
+near_miss	2	qemu-compiler-workaround
+near_miss	2	scoped-pointer-temporaries
+near_miss	2	sibling-function-comparison
+near_miss	2	stack-padding-experiments
+near_miss	1	assignment-order-experiments
+near_miss	1	comparison-orientation-experiments
+near_miss	1	compiler-regflow-diagnostics
+near_miss	1	counter-role-experiments
+near_miss	1	cross-tu-signature-analysis
+near_miss	1	data-layout-reasoning
+near_miss	1	data-order-experiments
+near_miss	1	direct-global-access
+near_miss	1	environment-diagnosis
+near_miss	1	exact-analog-lookup
+near_miss	1	expression-restructure
+near_miss	1	expression-shape-experiments
+near_miss	1	gate-repair
+near_miss	1	graph-analog-lookup
+near_miss	1	header-declaration-review
+near_miss	1	helper-interface-experiments
+near_miss	1	historical-source-lookup
+near_miss	1	infrastructure-diagnosis
+near_miss	1	initialization-order-experiments
+near_miss	1	inline-hypothesis
+near_miss	1	local-reuse
+near_miss	1	loop-counter-scope-experiments
+near_miss	1	loop-initializer-experiments
+near_miss	1	manual-compile-validation
+near_miss	1	mwcc-stack-diagnostics
+near_miss	1	object-disassembly
+near_miss	1	object-relocation-analysis
+near_miss	1	object-symbol-inspection
+near_miss	1	parameter-order-experiments
+near_miss	1	past-checkpoint-lookup
+near_miss	1	pointer-access-shape-experiments
+near_miss	1	pointer-alias-experiments
+near_miss	1	pointer-lifetime-shaping
+near_miss	1	prior-attempt-ledger
+near_miss	1	relocation-analysis
+near_miss	1	return-type-reasoning
+near_miss	1	sdata2-order-repair
+near_miss	1	sibling-function-analogs
+near_miss	1	source-history-lookup
+near_miss	1	stack-layout-diagnostics
+near_miss	1	stack-layout-reasoning
+near_miss	1	statement-reordering
+near_miss	1	symbol-ownership-analysis
+near_miss	1	symbol-table-inspection
+near_miss	1	symbol-visibility-experiments
+near_miss	1	typed-pointer-experiments
+near_miss	1	variable-scope-experiments
+near_miss	1	write-set-widening-request
+near_miss	1	zero-local-experiments
+no_progress	30	asm-diff-instruction-level
+no_progress	30	permuter
+no_progress	29	register-allocation-reasoning
+no_progress	26	declaration-order-experiments
+no_progress	22	checkpoint-restore
+no_progress	10	inline-hypothesis
+no_progress	9	mwcc-regflow-diagnostics
+no_progress	9	type-shape-experiments
+no_progress	9	variable-lifetime-experiments
+no_progress	8	allocator-snapshot
+no_progress	8	compiler-regflow-diagnostics
+no_progress	7	loop-restructure
+no_progress	6	local-lifetime-experiments
+no_progress	5	expression-shape-experiments
+no_progress	5	ledger-lookup
+no_progress	5	mwcc-stack-diagnostics
+no_progress	5	pointer-shape-experiments
+no_progress	4	graph-analog-lookup
+no_progress	3	compiler-stack-diagnostics
+no_progress	3	infrastructure-diagnosis
+no_progress	3	past-pr-lookup
+no_progress	3	pointer-loop-restructure
+no_progress	3	prior-run-ledger-lookup
+no_progress	3	sibling-function-analogs
+no_progress	3	stack-layout-diagnostics
+no_progress	3	stack-padding-experiments
+no_progress	2	asm-diff-validation
+no_progress	2	declaration-scope-experiments
+no_progress	2	dependency-graph-lookup
+no_progress	2	helper-interface-experiments
+no_progress	2	mwcc-allocator-snapshot
+no_progress	2	mwcc-diagnostics
+no_progress	2	object-disassembly
+no_progress	2	operand-order-experiments
+no_progress	2	past-checkpoint-lookup
+no_progress	2	pointer-lifetime-shaping
+no_progress	2	prior-attempt-ledger
+no_progress	2	qemu-compiler-workaround
+no_progress	2	regflow-diagnostics
+no_progress	2	sibling-function-comparison
+no_progress	2	source-history-replay
+no_progress	2	stack-layout-reasoning
+no_progress	2	symbol-ownership-analysis
+no_progress	1	array-indexing-restructure
+no_progress	1	assignment-order-experiments
+no_progress	1	assignment-shape-experiments
+no_progress	1	bss-layout-reconstruction
+no_progress	1	compiler-environment-diagnosis
+no_progress	1	control-flow-restructure
+no_progress	1	declaration-initializer-experiments
+no_progress	1	direct-global-access
+no_progress	1	environment-diagnosis
+no_progress	1	environment-diagnostics
+no_progress	1	helper-boundary-experiments
+no_progress	1	helper-signature-experiments
+no_progress	1	historical-source-lookup
+no_progress	1	increment-expression-experiments
+no_progress	1	inline-diagnostics
+no_progress	1	instruction-scheduling-experiments
+no_progress	1	instruction-scheduling-reasoning
+no_progress	1	integer-width-experiments
+no_progress	1	liveness-anchor-experiments
+no_progress	1	local-copy-experiments
+no_progress	1	m2c
+no_progress	1	macro-shape-experiments
+no_progress	1	mutation-preview
+no_progress	1	null-expression-experiments
+no_progress	1	pointer-access-shape-experiments
+no_progress	1	pointer-constness-experiments
+no_progress	1	pointer-initialization-experiments
+no_progress	1	pointer-reuse-experiments
+no_progress	1	pragma-boundary-experiments
+no_progress	1	qa-gate-validation
+no_progress	1	qemu-compile-workaround
+no_progress	1	register-qualifier-experiments
+no_progress	1	relocation-analysis
+no_progress	1	semantic-candidate-review
+no_progress	1	signedness-experiments
+no_progress	1	source-history-lookup
+no_progress	1	source-review
+no_progress	1	statement-order-experiments
+no_progress	1	switch-restructure
+no_progress	1	type-narrowing-experiments
+no_progress	1	type-overlay-experiments
+no_progress	1	variable-scope-experiments
+progressed	20	asm-diff-instruction-level
+progressed	12	permuter
+progressed	11	checkpoint-restore
+progressed	11	register-allocation-reasoning
+progressed	10	declaration-order-experiments
+progressed	8	inline-hypothesis
+progressed	5	compiler-regflow-diagnostics
+progressed	4	type-shape-experiments
+progressed	3	ledger-lookup
+progressed	3	loop-restructure
+progressed	3	stack-layout-diagnostics
+progressed	3	stack-padding-experiments
+progressed	2	compiler-stack-diagnostics
+progressed	2	direct-field-access
+progressed	2	helper-boundary-experiments
+progressed	2	historical-source-lookup
+progressed	2	local-lifetime-experiments
+progressed	2	local-temporary-introduction
+progressed	2	mwcc-diagnostics
+progressed	2	mwcc-regflow-diagnostics
+progressed	2	mwcc-stack-diagnostics
+progressed	2	nearby-code-analogy
+progressed	2	pointer-induction
+progressed	2	pointer-shape-experiments
+progressed	2	regflow-diagnostics
+progressed	2	semantic-candidate-review
+progressed	2	stack-layout-reasoning
+progressed	2	stack-padding-placement
+progressed	2	statement-reordering
+progressed	1	allocator-snapshot
+progressed	1	analog-function-lookup
+progressed	1	commutative-expression-rewrite
+progressed	1	comparison-orientation-experiments
+progressed	1	compound-assignment-shape
+progressed	1	expression-order-experiments
+progressed	1	float-register-flow-reasoning
+progressed	1	float-temporary-experiments
+progressed	1	gate-repair
+progressed	1	graph-analog-lookup
+progressed	1	initialization-order-experiments
+progressed	1	intermediate-local-experiments
+progressed	1	local-reuse
+progressed	1	null-check-restoration
+progressed	1	packed-literal-experiments
+progressed	1	pointer-lifetime-shaping
+progressed	1	prior-attempt-ledger
+progressed	1	prior-run-ledger-lookup
+progressed	1	review-lint
+progressed	1	scoped-pointer-temporaries
+progressed	1	semantic-candidate-rejection
+progressed	1	sibling-function-comparison
+progressed	1	source-history-lookup
+progressed	1	source-history-replay
+progressed	1	source-pattern-lookup
+progressed	1	stack-padding-adjustment
+progressed	1	temporary-elimination
+progressed	1	variable-alias-experiments
+progressed	1	variable-lifetime-experiments
+near_miss	1	allocator coloring across r28 and r29
+near_miss	1	branch targets and x1A88 pointer register allocation
+near_miss	1	coupled f30/f31 and integer-register allocation
+near_miss	1	coupled gobj/root_jobj register swap
+near_miss	1	eight post-mpCheckFloor register-operand mismatches
+near_miss	1	f28/f29 allocation swap
+near_miss	1	focused validation blocked by direct i386 wibo execution
+near_miss	1	foreign u8 prototype forces extra zero-extension
+near_miss	1	ignored-floor branch shape and floating-point register flow
+near_miss	1	incompatible i386 wibo blocked scoring
+near_miss	1	loop induction-pointer r27/r29 mismatch
+near_miss	1	r25/r26 pointer-counter register swap
+near_miss	1	r26/r30 allocator swap
+near_miss	1	section-base relocation selection
+near_miss	1	single iterator-base register mismatch
+near_miss	1	single range-check register mismatch
+near_miss	1	single x1A88 pointer register mismatch
+near_miss	1	string-pool relocation symbol identity
+near_miss	1	transition-object register allocation
+no_progress	1	archive stack slot and clearing-loop register ownership
+no_progress	1	broad register allocation across unrolled copy loops
+no_progress	1	broad saved-register allocator coloring mismatch
+no_progress	1	callee-saved register permutation
+no_progress	1	column-header register coalescing
+no_progress	1	coupled arg2/color-buffer register allocation
+no_progress	1	coupled register allocation and scheduling
+no_progress	1	coupled saved-register allocation and lifetime shape
+no_progress	1	cursor-block GPR/FPR allocation
+no_progress	1	distributed register allocation and loop mismatches
+no_progress	1	distributed register-allocation and lifetime mismatches
+no_progress	1	early saved-register and queued-read loop allocation
+no_progress	1	global-address materialization and initialization ordering
+no_progress	1	incompatible 32-bit wibo compiler wrapper
+no_progress	1	incompatible i386 wibo blocked normal validation
+no_progress	1	incompatible i386 wibo blocked rebuild validation
+no_progress	1	incompatible i386 wibo blocked validation
+no_progress	1	incompatible wibo execution blocked validation
+no_progress	1	initial copy-loop register allocation
+no_progress	1	inlined-helper stack-slot allocation
+no_progress	1	long-lived saved-register allocation
+{
+  "ws_id": "7e2da56a-e0cf-4286-aefb-b6339ba565cc",
+  "cohort": "exact",
+  "epoch": 6,
+  "target_key": "main/melee/lb/lbbgflash::fn_80020AEC",
+  "techniques": [
+    "asm-diff-instruction-level",
+    "declaration-order-experiments",
+    "stack-layout-reasoning",
+    "sdata2-ordering-experiments",
+    "checkpoint-restore"
+  ],
+  "stall_reason": null,
+  "success_factor": "Mtx-before-Vec3 declaration order restored stack-slot layout",
+  "loop_quality": "systematic",
+  "notable": "The batch marks this worker exact at 100%, but its sole summary reports 99.85782% with matching instructions and six residual .sdata2 relocations."
+}
+
+exec
+/bin/zsh -lc "jq -r '.[]|select(.stall_reason"'!=null)|[.cohort,.stall_reason]|@tsv'"' /tmp/batch_08.json | awk -F '\\t' '{n["'$1]++; if(tolower($2) ~ /register|allocator|regalloc/) r[$1]++; if(tolower($2) ~ /wibo|validation blocked|scoring/) w[$1]++} END{for(c in n) print c,"total="n[c],"regalloc="r[c],"infra="w[c]}'"'
+jq -r '.[] | [.cohort,.loop_quality] | @tsv' /tmp/batch_08.json | sort | uniq -c
+jq -r '.[]|select(.notable|test(\"No worker_\"))|.ws_id' /tmp/batch_08.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ exited 5 in 0ms:
+no_progress total=37 regalloc=20 infra=8
+near_miss total=19 regalloc=12 infra=2
+progressed total=20 regalloc=16 infra=
+   1 exact	systematic
+   7 near_miss	mixed
+  11 near_miss	systematic
+   2 near_miss	unknown
+  15 no_progress	mixed
+  18 no_progress	systematic
+   4 no_progress	unknown
+   5 progressed	mixed
+  17 progressed	systematic
+7f5a4764-23cf-4ec9-a769-3605da319c1d
+jq: error (at /tmp/batch_08.json:1614): null (null) cannot be matched, as it is not a string
+
+exec
+/bin/zsh -lc "jq -r '[.[] | .cohort as "'$c | .techniques[] | [$c,.]] | group_by(.) | map({c:.[0][0],t:.[0][1],n:length}) | group_by(.c)[] | .[0].c as $c | [$c, ([.[]|select(.n>=2)|"'"\\(.t)=\\(.n)\"]|join(\", \")), ([.[]|select(.n==1)]|length)] | @tsv' /tmp/batch_08.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exact		5
+near_miss	allocator-snapshot=5, asm-diff-instruction-level=17, checkpoint-restore=14, control-flow-restructure=2, declaration-order-experiments=9, helper-boundary-experiments=2, ledger-lookup=2, local-lifetime-experiments=3, loop-restructure=2, mwcc-diagnostics=4, mwcc-regflow-diagnostics=3, permuter=14, prior-run-ledger-lookup=2, qemu-compiler-workaround=2, regflow-diagnostics=3, register-allocation-reasoning=12, scoped-pointer-temporaries=2, sibling-function-comparison=2, stack-padding-experiments=2, type-shape-experiments=7, variable-lifetime-experiments=7	49
+no_progress	allocator-snapshot=8, asm-diff-instruction-level=30, asm-diff-validation=2, checkpoint-restore=22, compiler-regflow-diagnostics=8, compiler-stack-diagnostics=3, declaration-order-experiments=26, declaration-scope-experiments=2, dependency-graph-lookup=2, expression-shape-experiments=5, graph-analog-lookup=4, helper-interface-experiments=2, infrastructure-diagnosis=3, inline-hypothesis=10, ledger-lookup=5, local-lifetime-experiments=6, loop-restructure=7, mwcc-allocator-snapshot=2, mwcc-diagnostics=2, mwcc-regflow-diagnostics=9, mwcc-stack-diagnostics=5, object-disassembly=2, operand-order-experiments=2, past-checkpoint-lookup=2, past-pr-lookup=3, permuter=30, pointer-lifetime-shaping=2, pointer-loop-restructure=3, pointer-shape-experiments=5, prior-attempt-ledger=2, prior-run-ledger-lookup=3, qemu-compiler-workaround=2, regflow-diagnostics=2, register-allocation-reasoning=29, sibling-function-analogs=3, sibling-function-comparison=2, source-history-replay=2, stack-layout-diagnostics=3, stack-layout-reasoning=2, stack-padding-experiments=3, symbol-ownership-analysis=2, type-shape-experiments=9, variable-lifetime-experiments=9	42
+progressed	asm-diff-instruction-level=20, checkpoint-restore=11, compiler-regflow-diagnostics=5, compiler-stack-diagnostics=2, declaration-order-experiments=10, direct-field-access=2, helper-boundary-experiments=2, historical-source-lookup=2, inline-hypothesis=8, ledger-lookup=3, local-lifetime-experiments=2, local-temporary-introduction=2, loop-restructure=3, mwcc-diagnostics=2, mwcc-regflow-diagnostics=2, mwcc-stack-diagnostics=2, nearby-code-analogy=2, permuter=12, pointer-induction=2, pointer-shape-experiments=2, regflow-diagnostics=2, register-allocation-reasoning=11, semantic-candidate-review=2, stack-layout-diagnostics=3, stack-layout-reasoning=2, stack-padding-experiments=3, stack-padding-placement=2, statement-reordering=2, type-shape-experiments=4	29
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..19c064cead567e8cda56890d679ab7d2aa2654b1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,74 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++| Cohort | Workers |
++|---|---:|
++| exact | 1 |
++| near_miss | 20 |
++| progressed | 22 |
++| no_progress | 37 |
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++### Exact
++
++`asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++### Near Miss
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++### Progressed
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++### No Progress
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..19c064cead567e8cda56890d679ab7d2aa2654b1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,74 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++| Cohort | Workers |
++|---|---:|
++| exact | 1 |
++| near_miss | 20 |
++| progressed | 22 |
++| no_progress | 37 |
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++### Exact
++
++`asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++### Near Miss
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++### Progressed
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++### No Progress
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+exec
+/bin/zsh -lc "mv /tmp/batch_08.json phase2_notes/batch_08.json
+rm phase2_notes/batch_08_shard1.json phase2_notes/batch_08_shard2.json phase2_notes/batch_08_shard3.json phase2_notes/batch_08_shard4.json
+jq -e 'length == 80 and all(.[]; (keys | sort) == ([\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"] | sort)) and all(.[]; (.loop_quality == \"systematic\" or .loop_quality == \"mixed\" or .loop_quality == \"shotgun\" or .loop_quality == \"unknown\"))' phase2_notes/batch_08.json
+paste <(cut -f1 scripts/p2_batches/batch_08.tsv) <(jq -r '.[].ws_id' phase2_notes/batch_08.json) | awk '"'$1!=$2{print NR,$0; bad=1} END{exit bad}'"'
+wc -l phase2_notes/batch_08.md
+find phase2_notes -maxdepth 1 -type f -name 'batch_08*' -print
+jq -r 'group_by(.cohort)|map(\"\\(.[0].cohort)=\\(length)\")|join(\" \")' phase2_notes/batch_08.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+true
+      74 phase2_notes/batch_08.md
+phase2_notes/batch_08.json
+phase2_notes/batch_08.md
+exact=1 near_miss=20 no_progress=37 progressed=22
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..19c064cead567e8cda56890d679ab7d2aa2654b1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,74 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++| Cohort | Workers |
++|---|---:|
++| exact | 1 |
++| near_miss | 20 |
++| progressed | 22 |
++| no_progress | 37 |
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++### Exact
++
++`asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++### Near Miss
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++### Progressed
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++### No Progress
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+exec
+/bin/zsh -lc 'nl -ba phase2_notes/batch_08.md' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+     1	# Batch 08 Self-Summary Sweep
+     2	
+     3	## Cohort Sizes
+     4	
+     5	| Cohort | Workers |
+     6	|---|---:|
+     7	| exact | 1 |
+     8	| near_miss | 20 |
+     9	| progressed | 22 |
+    10	| no_progress | 37 |
+    11	
+    12	## Technique Counts by Cohort
+    13	
+    14	Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
+    15	
+    16	### Exact
+    17	
+    18	`asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
+    19	
+    20	### Near Miss
+    21	
+    22	| Technique | Count | Technique | Count |
+    23	|---|---:|---|---:|
+    24	| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
+    25	| permuter | 14 | register-allocation-reasoning | 12 |
+    26	| declaration-order-experiments | 9 | type-shape-experiments | 7 |
+    27	| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
+    28	| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
+    29	| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
+    30	
+    31	Nine other techniques appeared twice; 49 appeared once.
+    32	
+    33	### Progressed
+    34	
+    35	| Technique | Count | Technique | Count |
+    36	|---|---:|---|---:|
+    37	| asm-diff-instruction-level | 20 | permuter | 12 |
+    38	| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
+    39	| declaration-order-experiments | 10 | inline-hypothesis | 8 |
+    40	| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
+    41	| ledger-lookup | 3 | loop-restructure | 3 |
+    42	| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
+    43	
+    44	Seventeen other techniques appeared twice; 29 appeared once.
+    45	
+    46	### No Progress
+    47	
+    48	| Technique | Count | Technique | Count |
+    49	|---|---:|---|---:|
+    50	| asm-diff-instruction-level | 30 | permuter | 30 |
+    51	| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
+    52	| checkpoint-restore | 22 | inline-hypothesis | 10 |
+    53	| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
+    54	| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
+    55	| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
+    56	
+    57	Thirty-one other techniques appeared two to six times; 42 appeared once.
+    58	
+    59	## Exact-Worker Accounts
+    60	
+    61	Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
+    62	
+    63	## Common Stall Reasons
+    64	
+    65	| Cohort | Most Common Stall Family |
+    66	|---|---|
+    67	| exact | None reported |
+    68	| near_miss | Register allocation, 12 of 19 workers with a stated stall |
+    69	| progressed | Register allocation, 16 of 20 workers with a stated stall |
+    70	| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
+    71	
+    72	## Surprise
+    73	
+    74	The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..19c064cead567e8cda56890d679ab7d2aa2654b1
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,74 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++| Cohort | Workers |
++|---|---:|
++| exact | 1 |
++| near_miss | 20 |
++| progressed | 22 |
++| no_progress | 37 |
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++### Exact
++
++`asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++### Near Miss
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++### Progressed
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++### No Progress
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6bb5939065e4a1fe3abb955b38a624f4960ac2a8
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,63 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6bb5939065e4a1fe3abb955b38a624f4960ac2a8
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,63 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+exec
+/bin/zsh -lc "wc -l phase2_notes/batch_08.md
+nl -ba phase2_notes/batch_08.md | tail -8
+jq empty phase2_notes/batch_08.json
+find phase2_notes -maxdepth 1 -type f -name 'batch_08*' | wc -l" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+      63 phase2_notes/batch_08.md
+    56	| exact | None reported |
+    57	| near_miss | Register allocation, 12 of 19 workers with a stated stall |
+    58	| progressed | Register allocation, 16 of 20 workers with a stated stall |
+    59	| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
+    60	
+    61	## Surprise
+    62	
+    63	The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+       2
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6bb5939065e4a1fe3abb955b38a624f4960ac2a8
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,63 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+codex
+Step 3 of 4 done: the final JSON and Markdown are written, and the four temporary shard files were removed. The report is compacted to the 60-line limit and treats register-allocation stalls as a normalized family because the workers used many one-off phrasings.
+  ✓ Split 80 batch rows into four audit shards
+  ✓ Read every worker summary and extract evidence-based records
+  ✓ Merge records and write cohort analysis
+  → Validate record count, schema, paths, and Markdown length
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+exec
+/bin/zsh -lc "jq -e '
+  length == 80 and
+  ([.[].ws_id] | unique | length) == 80 and
+  all(.[];
+    (.ws_id|type)==\"string\" and
+    (.cohort|IN(\"exact\",\"near_miss\",\"progressed\",\"no_progress\")) and
+    (.epoch|type)==\"number\" and
+    (.target_key|type)==\"string\" and
+    (.techniques|type)==\"array\" and all(.techniques[]; type==\"string\") and
+    (.stall_reason==null or (.stall_reason|type)==\"string\") and
+    (.success_factor==null or (.success_factor|type)==\"string\") and
+    (.loop_quality|IN(\"systematic\",\"mixed\",\"shotgun\",\"unknown\")) and
+    (.notable==null or (.notable|type)==\"string\")
+  )' phase2_notes/batch_08.json
+jq -r '.[] | [.ws_id,.cohort,(.epoch|tostring),.target_key] | @tsv' phase2_notes/batch_08.json > /tmp/batch_08_meta.tsv
+cut -f1-4 scripts/p2_batches/batch_08.tsv > /tmp/batch_08_expected.tsv
+diff -u /tmp/batch_08_expected.tsv /tmp/batch_08_meta.tsv
+printf 'records='; jq length phase2_notes/batch_08.json
+printf 'markdown_lines='; wc -l < phase2_notes/batch_08.md
+printf 'batch_outputs='; find phase2_notes -maxdepth 1 -type f -name 'batch_08*' | wc -l" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+true
+records=80
+markdown_lines=      60
+batch_outputs=       2
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+  ✓ Split 80 batch rows into four audit shards
+  ✓ Read every worker summary and extract evidence-based records
+  ✓ Merge records and write cohort analysis
+  ✓ Validate record count, schema, paths, and Markdown length
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+codex
+DONE — 80 records.
+
+- [batch_08.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.json)
+- [batch_08.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md)
+
+Validated: 80 unique workers, source order/metadata match, valid schema, exactly two batch outputs, Markdown is 60 lines.
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d801ea4121c6063d27b940c86c14a7506c128a61
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md
+@@ -0,0 +1,60 @@
++# Batch 08 Self-Summary Sweep
++
++## Cohort Sizes
++
++Exact 1, near_miss 20, progressed 22, no_progress 37.
++
++## Technique Counts by Cohort
++
++Counts are workers mentioning the technique. To keep the sweep readable, the tables show techniques used by at least two workers; singleton slugs are counted separately. The exact cohort lists its five singleton techniques because it contains only one worker.
++
++Exact: `asm-diff-instruction-level` 1, `checkpoint-restore` 1, `declaration-order-experiments` 1, `sdata2-ordering-experiments` 1, `stack-layout-reasoning` 1.
++
++Near miss:
++
++| Technique | Count | Technique | Count |
++|---|---:|---|---:|
++| asm-diff-instruction-level | 17 | checkpoint-restore | 14 |
++| permuter | 14 | register-allocation-reasoning | 12 |
++| declaration-order-experiments | 9 | type-shape-experiments | 7 |
++| variable-lifetime-experiments | 7 | allocator-snapshot | 5 |
++| mwcc-diagnostics | 4 | local-lifetime-experiments | 3 |
++| mwcc-regflow-diagnostics | 3 | regflow-diagnostics | 3 |
++Nine other techniques appeared twice; 49 appeared once.
++
++Progressed:
++
++| asm-diff-instruction-level | 20 | permuter | 12 |
++| checkpoint-restore | 11 | register-allocation-reasoning | 11 |
++| declaration-order-experiments | 10 | inline-hypothesis | 8 |
++| compiler-regflow-diagnostics | 5 | type-shape-experiments | 4 |
++| ledger-lookup | 3 | loop-restructure | 3 |
++| stack-layout-diagnostics | 3 | stack-padding-experiments | 3 |
++Seventeen other techniques appeared twice; 29 appeared once.
++
++No progress:
++
++| asm-diff-instruction-level | 30 | permuter | 30 |
++| register-allocation-reasoning | 29 | declaration-order-experiments | 26 |
++| checkpoint-restore | 22 | inline-hypothesis | 10 |
++| mwcc-regflow-diagnostics | 9 | type-shape-experiments | 9 |
++| variable-lifetime-experiments | 9 | allocator-snapshot | 8 |
++| compiler-regflow-diagnostics | 8 | loop-restructure | 7 |
++Thirty-one other techniques appeared two to six times; 42 appeared once.
++
++## Exact-Worker Accounts
++
++Only one exact worker exists in this batch, so three exact accounts cannot be selected. `7e2da56a-e0cf-4286-aefb-b6339ba565cc` attributed its gain to declaring `Mtx` before `Vec3`, which restored the intended stack-slot layout. Its sole summary still reported 99.85782% and six `.sdata2` relocation mismatches, conflicting with the batch's 100% score.
++
++## Common Stall Reasons
++
++| Cohort | Most Common Stall Family |
++|---|---|
++| exact | None reported |
++| near_miss | Register allocation, 12 of 19 workers with a stated stall |
++| progressed | Register allocation, 16 of 20 workers with a stated stall |
++| no_progress | Register allocation, 20 of 37 workers; tool or validation failures were next at 8 |
++
++## Surprise
++
++The sharpest surprise was not a source trick but the audit metadata conflict on the only exact worker. One near-miss worker had no direct `worker_*.txt` summary, and several no-progress accounts spent their whole run blocked by an incompatible 32-bit `wibo` rather than by code generation.
+
+tokens used
+102,167
+DONE — 80 records.
+
+- [batch_08.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.json)
+- [batch_08.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_08.md)
+
+Validated: 80 unique workers, source order/metadata match, valid schema, exactly two batch outputs, Markdown is 60 lines.

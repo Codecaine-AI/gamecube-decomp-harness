@@ -1,5 +1,110 @@
 import { describe, expect, test } from "bun:test";
-import { createPiChildProcessReaper } from "./kernel-pi-runner.js";
+import { meleeKernelAgent, type KernelAgentId } from "@server/core/agent-catalog/kernel-catalog";
+import {
+  createMeleeKernelPiAgentRunner,
+  createPiChildProcessReaper,
+  type MeleeKernelPiRunOptions,
+} from "./kernel-pi-runner.js";
+
+function dryRunOptions(
+  overrides: Partial<MeleeKernelPiRunOptions> = {},
+): MeleeKernelPiRunOptions {
+  return {
+    role: "worker",
+    cwd: "/repo",
+    outputDir: "/out",
+    dryRun: true,
+    autoInitializeKernelRuntime: false,
+    prompt: {
+      systemPrompt: "system prompt",
+      userPrompt: "user prompt",
+      systemTemplatePath: "/templates/system.ts",
+      userTemplatePath: "/templates/user.ts",
+    },
+    ...overrides,
+  };
+}
+
+describe("Melee kernel Pi agent resolution", () => {
+  test("prefers catalogAgentId when it differs from the runtime role", async () => {
+    const resolvedNames: string[] = [];
+    const runner = createMeleeKernelPiAgentRunner({
+      resolveKernelAgent(role, catalogAgentId) {
+        return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
+      },
+      toKernelParsedAgentFromBundle(entry, bundle) {
+        resolvedNames.push(entry.name);
+        return {
+          parsed: {
+            config: {
+              name: entry.name,
+              description: "test agent",
+              model: "test-model",
+              tools: [],
+              variables: {},
+            },
+            body: bundle.systemPrompt,
+          },
+          userPrompt: bundle.userPrompt,
+        };
+      },
+      runPiAgent: async () => ({
+        sessionId: "session-1",
+        sessionDir: "/sessions/pr-reviewer",
+        outputPath: "/out/result.txt",
+        systemPromptPath: "/out/system.md",
+        userPromptPath: "/out/user.md",
+        rawText: "summary",
+        dryRun: true,
+      }),
+    });
+
+    await runner(dryRunOptions({
+      role: "pr-reviewer",
+      catalogAgentId: "worker-summarizer",
+    }));
+
+    expect(resolvedNames).toEqual(["worker-summarizer"]);
+  });
+
+  test("keeps role-based catalog resolution without catalogAgentId", async () => {
+    const resolvedNames: string[] = [];
+    const runner = createMeleeKernelPiAgentRunner({
+      resolveKernelAgent(role, catalogAgentId) {
+        return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
+      },
+      toKernelParsedAgentFromBundle(entry, bundle) {
+        resolvedNames.push(entry.name);
+        return {
+          parsed: {
+            config: {
+              name: entry.name,
+              description: "test agent",
+              model: "test-model",
+              tools: [],
+              variables: {},
+            },
+            body: bundle.systemPrompt,
+          },
+          userPrompt: bundle.userPrompt,
+        };
+      },
+      runPiAgent: async () => ({
+        sessionId: "session-2",
+        sessionDir: "/sessions/pr-reviewer",
+        outputPath: "/out/result.txt",
+        systemPromptPath: "/out/system.md",
+        userPromptPath: "/out/user.md",
+        rawText: "review",
+        dryRun: true,
+      }),
+    });
+
+    await runner(dryRunOptions());
+
+    expect(resolvedNames).toEqual(["worker"]);
+  });
+});
 
 describe("Pi child process reaper", () => {
   test("SIGTERM reaps registered process groups before exiting", () => {

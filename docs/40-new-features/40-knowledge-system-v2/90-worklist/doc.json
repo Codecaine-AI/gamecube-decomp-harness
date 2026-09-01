@@ -65,28 +65,28 @@
         "rows": [
           [
             "V2 schema DDL: core objects, knowledge system, target ledger tables",
-            "in flight",
-            "Owned by the separate migration session; contracts settled in Record Contracts"
+            "done",
+            "Restructured per operator direction: targets are workable items only (function | data, 22237 rows); translation units are entities (unit_entity_id FK); pull_request carries a target XOR entity subject; store rebuilt from scratch, all constraints tested"
           ],
           [
             "Source tables: discord_message, wiki_section",
-            "open",
-            "Draft shapes in the source docs await review; land with the schema"
+            "done",
+            "discord_message and wiki_section landed with the schema; shapes per the source docs"
           ],
           [
             "indexing_state tables: source_watermark, index_task, subject_index_state",
-            "open",
-            "Drafts in the Librarian Pathways overview await review"
+            "done",
+            "source_watermark, index_task (status derived from timestamps), subject_index_state (subject XOR) landed with the schema"
           ],
           [
             "Old-ledger classification: migrate attempts, quarantine the rest",
-            "open",
-            "Archive-first; the old ledger is preserved as an immutable audit source"
+            "in flight",
+            "Classification report tool + attempts migration landed (knowledge-v2/ingest); mechanical rules over produced_by/origin/evidence.type; real run pending the migration gate"
           ],
           [
             "Search indexes: FTS per source + embedding index",
-            "open",
-            "Remote embedding API, concurrent requests; needs OPENAI_API_KEY in the harness env"
+            "done",
+            "knowledge-index.sqlite: FTS5 per source + text-embedding-3-small indexer (concurrent requests, fake provider in tests); rebuildable wholesale; code has no index"
           ]
         ]
       },
@@ -117,23 +117,23 @@
         "rows": [
           [
             "Discord importer → V2 rows + watermark + enqueue",
-            "open",
-            "Deterministic; wraps the existing sync_via_discord_cli pipeline"
+            "done",
+            "knowledge-v2/ingest/discord.ts over the raw JSONL export files; watermark + archival_ingest tasks; kg2-ingest CLI"
           ],
           [
             "Wiki importer → wiki_section rows per mirror revision",
-            "open",
-            "Deterministic; wraps mirror.py"
+            "done",
+            "knowledge-v2/ingest/wiki.ts; one row per (page, section, revid), re-sync inserts at new revision"
           ],
           [
             "PR importer: archive + mechanical enrichment (touched targets from diff)",
-            "open",
-            "No narrative pass; the librarian writes narrative during indexing"
+            "done",
+            "Unit-attributed rows key on the translation_unit entity; CI-table rows attribute functions (8052) and data sections (1270); 97 section rows unresolvable; deterministic throughout"
           ],
           [
-            "Entity extractor: file, struct, struct_field, parameter from the checkout",
-            "open",
-            "Deterministic; runs with report reconciliation"
+            "Entity extractor: translation_unit, struct, struct_field, parameter from the report and checkout",
+            "done",
+            "translation_unit (from report.units[], locator = source path), struct, struct_field from headers; file kind removed; parameter deferred"
           ]
         ]
       },
@@ -164,18 +164,18 @@
         "rows": [
           [
             "Librarian design: context strategy, output contract, write gates",
-            "open",
-            "The next design session; blocks librarian implementation"
+            "in flight",
+            "librarian-v2 + backfill-librarian drafted, registered, and now TOOLED: 8 kv2 read-only search/read tools (FTS + vector + record/locator resolution) live on the librarian profile; proposal-only envelope; apply layer built with scope isolation and a serialized curated-entity gate; at review gate 1"
           ],
           [
             "Backfill librarian design: per-target sweep across all search surfaces",
-            "open",
-            "Same write gates as the librarian; only the entry point differs"
+            "in flight",
+            "Full chain pilot-proven on a real dry-run pass (__assert): tools -> agent -> librarian_pass_v1 envelope -> validated apply, 63s/pass, store untouched; awaiting gate-1/2 approval to run"
           ],
           [
             "Summarizer job + run-close seam wiring",
-            "deferred",
-            "Definition registered; job blocked on V2 storage"
+            "done",
+            "worker_summary job kind + consumer wired behind --worker-summary, default OFF with a throwing-store test proving zero footprint; narrative-only model output joined mechanically"
           ],
           [
             "Worker summarizer definition registered in the agents view",
@@ -216,18 +216,18 @@
         "rows": [
           [
             "Target prioritization query: rank targets by material across sources",
-            "open",
-            "Deterministic; mention counts per source, richest first"
+            "done",
+            "kg2-prioritize, read-only; after function-level PR attribution 7584 of 20903 targets carry material (was 2743); ranking re-measured"
           ],
           [
             "Backfill run plan: batches, coverage via subject_index_state, stop condition",
-            "open",
-            "Runs against the current library and codebase state, never from scratch"
+            "in flight",
+            "Plan + post-restructure addendum + funnel ordering delivered; pilot dry-run artifact captured; execution awaits operator approval of the cut and the go"
           ],
           [
             "Initial-build execution: phases 0–2 then backfill",
-            "open",
-            "Order in the migration doc; phase 3 is the backfill librarian over the prioritized list"
+            "in flight",
+            "Phases 0-2 re-executed on the restructured schema: 22237 targets, 6316 entities, 22275 PR rows across the subject XOR, 5378 runs, 76452 discord, 12995 wiki; FTS + embeddings complete (110860 chunks); phase 3 backfill awaits the review gate"
           ]
         ]
       },
@@ -258,13 +258,13 @@
         "rows": [
           [
             "Target card / knowledge-record card rebuilt on V2 records",
-            "open",
-            "Facts by type with confidence, inferred names always marked as guesses, ledger view first"
+            "done",
+            "knowledge-v2/card.ts on V2 records: ledger view first, facts by type with confidence, inferred names always marked as guesses; injected additively and gated on V2 data presence"
           ],
           [
             "Worker knowledge tooling audit",
-            "open",
-            "What workers may query; workers never search knowledge sources directly"
+            "done",
+            "smashwiki_search/get_page + decomp_standards_proposals closed to workers (librarian-only); ledger_search left as the documented legacy exception until migration"
           ],
           [
             "Retire kgLibrarianCondense + the template-only pr-indexer",
@@ -299,6 +299,11 @@
         ],
         "rows": [
           [
+            "Record-linkage canvas regeneration",
+            "open",
+            "assets/canvases/record-linkage-map.canvas.json predates the current contracts: it still shows related_target and human page-edit revisioning; the doc.json pages are current, the canvas is not"
+          ],
+          [
             "Style and prose audit across the section",
             "open",
             "Round-2 second deliverable"
@@ -310,8 +315,8 @@
           ],
           [
             "Commit the V2 docs + agent code",
-            "open",
-            "Everything since the round-1 baseline is uncommitted; includes the resolver removal"
+            "done",
+            "Baseline commit landed: docs rename + contracts/sources/pathways/worklist, integration-resolver removal, worker-summarizer scaffold"
           ],
           [
             "Done this round: fact/evidence/link contracts, knowledge sources + search surfaces, pathways + diagrams, conflict requeue, summarizer registered, resolver removed",

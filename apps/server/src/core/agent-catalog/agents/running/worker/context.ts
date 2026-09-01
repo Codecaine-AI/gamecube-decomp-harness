@@ -14,6 +14,10 @@ import {
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import {
+  loadV2TargetCard,
+  targetKnowledgeCardV2Xml,
+} from "@server/core/knowledge-v2/card.js";
+import {
   renderTemplate,
   stableJson,
 } from "@server/infrastructure/agent-runtime/runtime";
@@ -656,6 +660,23 @@ function targetGraphFileCardXml(
   ].join("\n");
 }
 
+function workerTargetKnowledgeCardV2Xml(
+  packet: Record<string, unknown>,
+  game: RunGameMetadata | undefined,
+  contextBudget: WorkerPromptContextBudget,
+): string {
+  const target = asRecord(packet.target);
+  const unit = optionalString(target.unit);
+  if (!unit) return "";
+  const card = loadV2TargetCard({
+    gameId: game?.gameId,
+    unit,
+    symbol: optionalString(target.symbol) ?? null,
+    budget: contextBudget,
+  });
+  return card ? targetKnowledgeCardV2Xml(card) : "";
+}
+
 function contextBudgetXml(contextBudget: WorkerPromptContextBudget): string {
   const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
   return [
@@ -771,9 +792,15 @@ export function buildWorkerKernelContext(
     `{{CONTEXT_BUDGET_XML}}\n\n${WORKER_PACKET_CONTEXT_TEMPLATE}`,
     values,
   ).trim();
+  const v2CardXml = workerTargetKnowledgeCardV2Xml(
+    options.packet,
+    options.game,
+    contextBudget,
+  );
   const renderedContext = [
     workerPacketContext,
     values.TARGET_GRAPH_FILE_CARD_XML,
+    v2CardXml,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -790,6 +817,15 @@ export function buildWorkerKernelContext(
         inputRef: "knowledge-graph-file-card",
         content: values.TARGET_GRAPH_FILE_CARD_XML,
       },
+      ...(v2CardXml
+        ? [
+            {
+              loaderKind: "target-knowledge-card-v2",
+              inputRef: "target-knowledge-card-v2",
+              content: v2CardXml,
+            },
+          ]
+        : []),
     ],
     defaultKernelTurnPrompt("worker"),
   );

@@ -25,6 +25,7 @@ import {
   createKnowledgeMaintenanceClock,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
+  startWorkerSummaryIfEnabled,
   shouldEvaluateEpochBoundary,
   waitForRestingTrigger,
   workerJobClaimRecoveryFilters,
@@ -98,6 +99,52 @@ function tempState(): { dir: string; store: StateStore } {
 
 afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("startWorkerSummaryIfEnabled", () => {
+  test("has zero footprint when the flag is off", () => {
+    const start = jest.fn();
+    const store = new Proxy({} as StateStore, {
+      get() {
+        throw new Error("flag-off path accessed the store");
+      },
+    });
+
+    expect(startWorkerSummaryIfEnabled({
+      args: new Map(),
+      store,
+      runId: "run-off",
+      globals: {} as never,
+      start,
+    })).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  test("records and handles the enabled flag before starting the processor", () => {
+    const { store } = tempState();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const stop = async () => {};
+      const start = jest.fn(() => stop);
+
+      expect(startWorkerSummaryIfEnabled({
+        args: new Map([["--worker-summary", true]]),
+        store,
+        runId: run.id,
+        globals: {} as never,
+        start,
+      })).toBe(stop);
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(store.db.query<{ event_type: string; handled_at: string | null }, [string]>(
+        "SELECT event_type, handled_at FROM events WHERE run_id = ? AND event_type = 'worker_summary_flag_recorded'",
+      ).get(run.id)).toMatchObject({
+        event_type: "worker_summary_flag_recorded",
+        handled_at: expect.any(String),
+      });
+    } finally {
+      store.db.close();
+    }
+  });
 });
 
 describe("run-loop exit settlement", () => {

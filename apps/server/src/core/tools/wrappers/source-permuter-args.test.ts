@@ -2,7 +2,12 @@ import { describe, expect, mock, test } from "bun:test";
 import type { AgentToolRuntimeContext } from "../types.js";
 
 mock.module("../runtime/execution.js", () => ({
+  // The stub must cover every named export other wrapper modules import from execution.js because bun module mocks are process-wide.
+  graphFileCard: () => ({}),
+  graphRelatedFunctions: () => ({}),
+  graphSearch: () => ({}),
   runKnowledgeToolApiForContext: async () => ({}),
+  runSourceApi: async () => ({}),
 }));
 
 const { sourcePermuterRunArgs } = await import("./capabilities.js");

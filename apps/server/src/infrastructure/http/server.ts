@@ -24,13 +24,6 @@ import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-l
 import { handleEventsApiRoute } from "@server/api/routes/events";
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
-import { triggerBackgroundKnowledgeProcess } from "@server/core/knowledge/background/index.js";
-import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
-import {
-  DEFAULT_PI_MODEL,
-  DEFAULT_PI_PROVIDER,
-  DEFAULT_PI_THINKING_LEVEL,
-} from "@server/core/game-registry/runtime-defaults.js";
 import {
   listGameEventCorrelations,
   queryGameEvents,
@@ -868,31 +861,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     loadStandardsPayload: (game) => standards.loadStandardsPayload(game as ResolvedGame | null),
     requestPaths: gameContext.requestPaths,
-    triggerBackgroundKnowledgeProcess: async (paths) => {
-      const game = paths.game as ResolvedGame | undefined;
-      if (!game) throw new Error("knowledge.process requires a resolved game");
-      const store = openState(paths.stateDir);
-      try {
-        return await triggerBackgroundKnowledgeProcess(store, (job) =>
-          kgLibrarianCondense({
-            repoRoot: game.repoRoot,
-            stateDir: paths.stateDir,
-            gameId: game.gameId,
-            game,
-            graphDbPath: game.graphDbPath,
-            dryRunAgents: false,
-            provider: DEFAULT_PI_PROVIDER,
-            model: DEFAULT_PI_MODEL,
-            thinkingLevel: DEFAULT_PI_THINKING_LEVEL,
-            agentTimeoutSeconds: game.dashboard.agentTimeoutSeconds,
-          }, new Map<string, string | true>([
-            ["--worker-state-id", job.workerStateId],
-            ["--run-id", typeof job.provenance.run_id === "string" ? job.provenance.run_id : ""],
-          ])),
-        );
-      } finally {
-        store.db.close();
-      }
+    triggerBackgroundKnowledgeProcess: async () => {
+      // The legacy absorption lane was retired, so there is no queued work to process.
+      return { outcome: "empty", jobId: null, revision: null };
     },
   });
   if (knowledge) return knowledge;

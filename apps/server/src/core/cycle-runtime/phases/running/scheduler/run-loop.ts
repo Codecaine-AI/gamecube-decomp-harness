@@ -30,6 +30,7 @@ import {
   numberArg,
   stringArg,
   syncMergePolicyArg,
+  workerSummaryFlag,
   writeSetIntegrationFlags,
   type GlobalArgs,
 } from "@server/core/game-registry/runtime-options.js";
@@ -57,9 +58,7 @@ import {
   type WorkerJobRunContext,
 } from "@server/core/cycle-runtime/phases/running/workers/worker-job.js";
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
-import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
-import { startBackgroundKnowledgeProcessor } from "@server/core/knowledge/background/index.js";
-import { createBackgroundKnowledgeTraceHooks } from "@server/core/knowledge/background/trace.js";
+import { startWorkerSummaryProcessor } from "@server/core/knowledge-v2/summarizer-job/index.js";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/cycle-runtime/phases/running/worker-ttl.js";
 import { runEpochBoundary } from "./epoch-boundary.js";
@@ -158,6 +157,32 @@ export type TriggerAgentResult = RunLoopResult;
 
 export interface RunLoopDeps {
   sandboxProvider?: SandboxProvider;
+}
+
+export function startWorkerSummaryIfEnabled(params: {
+  args: Map<string, string | true>;
+  store: StateStore;
+  runId: string;
+  globals: GlobalArgs;
+  gameId?: string;
+  shouldClaim?: () => boolean;
+  onFatalError?: (cause: unknown, context: { job: JobRecord | null; operation: string }) => void;
+  onShutdownAbandoned?: (count: number) => void;
+  start?: typeof startWorkerSummaryProcessor;
+}): ((options?: { maxWaitMs?: number }) => Promise<void>) | null {
+  if (!workerSummaryFlag(params.args)) return null;
+  const { store, runId, globals, gameId, shouldClaim, onFatalError, onShutdownAbandoned } = params;
+  const flagEvent = addEvent(store, runId, "worker_summary_flag_recorded", "run-loop", {
+    worker_summary: true,
+    created_by: "run-loop",
+  });
+  markEventHandled(store, flagEvent);
+  return (params.start ?? startWorkerSummaryProcessor)(store, { globals }, {
+    gameId,
+    shouldClaim,
+    onFatalError,
+    onShutdownAbandoned,
+  });
 }
 
 function sleep(ms: number): Promise<void> {
@@ -457,6 +482,7 @@ export async function runRunLoop(
   let runLoopFailure: unknown = null;
   let fatalStateError: unknown = null;
   let abandonedBackgroundBorrowers = 0;
+  let stopWorkerSummary: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
   let runLoopWakeResolve: (() => void) | null = null;
   const stop = () => {
     stopRequested = true;
@@ -481,26 +507,6 @@ export async function runRunLoop(
     );
     runLoopWakeResolve?.();
   };
-  const stopBackgroundKnowledge = startBackgroundKnowledgeProcessor(
-    borrowedStore,
-    async (backgroundJob) => {
-      const publication = await kgLibrarianCondense(globals, new Map<string, string | true>([
-        ["--worker-state-id", backgroundJob.workerStateId],
-        ["--run-id", typeof backgroundJob.provenance.run_id === "string" ? backgroundJob.provenance.run_id : ""],
-      ]));
-      return publication;
-    },
-    // The run loop is a CLI process with no DashboardKernelRuntimeService, so
-    // the hooks reach the kernel through the default runtime directly.
-    {
-      gameId,
-      onFatalError: onFatalStateError,
-      onShutdownAbandoned: (count) => { abandonedBackgroundBorrowers = count; },
-      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
-      trace: createBackgroundKnowledgeTraceHooks(borrowedStore),
-    },
-  );
-
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 
@@ -545,6 +551,18 @@ export async function runRunLoop(
       });
       markEventHandled(store, flagEvent);
     }
+    stopWorkerSummary = startWorkerSummaryIfEnabled({
+      args,
+      store: borrowedStore,
+      runId,
+      globals,
+      gameId,
+      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+      onFatalError: onFatalStateError,
+      onShutdownAbandoned: (count) => {
+        abandonedBackgroundBorrowers = Math.max(abandonedBackgroundBorrowers, count);
+      },
+    });
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
     const workerConfigureCommand = stringArg(args, "--worker-configure-command", defaultConfigureCommand(globals));
@@ -1104,7 +1122,7 @@ export async function runRunLoop(
         console.error(`[run-loop] worker consumer cleanup failed: ${cause instanceof Error ? cause.message : String(cause)}`);
       }
     }
-    await stopBackgroundKnowledge({ maxWaitMs: 15_000 });
+    if (stopWorkerSummary) await stopWorkerSummary({ maxWaitMs: 15_000 });
     const closed = stateStoreCloseInfo(store);
     if (observedRunId && !closed) {
       try {

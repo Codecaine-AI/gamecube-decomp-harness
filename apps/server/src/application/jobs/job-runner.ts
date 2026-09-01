@@ -4,25 +4,22 @@ import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests 
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/game-registry/runtime-options.js";
+import { kg2Backfill } from "@server/core/knowledge-v2/backfill/cli.js";
+import { kg2Ingest } from "@server/core/knowledge-v2/ingest/cli.js";
+import { kg2Index } from "@server/core/knowledge-v2/index/job.js";
+import { kg2Prioritize } from "@server/core/knowledge-v2/migration/prioritize.js";
 import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
 import { savePoint } from "@server/core/cycle-runtime/phases/pr/jobs/save-point.js";
 import {
-  kgCurate,
   kgFileCard,
   kgImportAgentState,
-  kgKnowledgeIntakeAgent,
   kgMaintain,
-  kgPrIndexerAgent,
   kgRebuildGraph,
   kgSearch,
   kgSmoke,
   kgSources,
   kgStatus,
 } from "@server/core/knowledge/jobs/kg.js";
-import { kgLibrarianCondense } from "@server/core/knowledge/jobs/librarian.js";
-import { kgLibrarianCorroborate } from "@server/core/knowledge/jobs/librarian-corroborate.js";
-import { kgLibrarianBackfill } from "@server/core/knowledge/jobs/librarian-backfill.js";
-import { kgLibrarianBatch } from "@server/core/knowledge/jobs/librarian-batch.js";
 import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
 import { runLoop } from "@server/core/cycle-runtime/phases/running/scheduler/run-loop.js";
@@ -67,18 +64,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg-sources") await kgSources();
     else if (command === "kg-status") await kgStatus(globals, args);
     else if (command === "kg-import-agent-state") await kgImportAgentState(args);
-    else if (command === "kg-curate") await kgCurate(globals, args);
-    else if (command === "kg-librarian-condense") await kgLibrarianCondense(globals, args);
-    else if (command === "kg-librarian-corroborate") await kgLibrarianCorroborate(globals, args);
-    else if (command === "kg-librarian-backfill") await kgLibrarianBackfill(globals, args);
-    else if (command === "kg-librarian-batch") await kgLibrarianBatch(globals, args);
     else if (command === "kg-maintain") await kgMaintain(globals, args);
-    else if (command === "kg-pr-indexer-agent") await kgPrIndexerAgent(globals, args);
-    else if (command === "kg-knowledge-intake-agent") await kgKnowledgeIntakeAgent(globals, args);
     else if (command === "kg-rebuild-graph") await kgRebuildGraph(globals, args);
     else if (command === "kg-search") await kgSearch(globals, args);
     else if (command === "kg-smoke") await kgSmoke(globals, args);
     else if (command === "kg-file-card") await kgFileCard(globals, args);
+    else if (command === "kg2-ingest") await kg2Ingest(globals, args);
+    else if (command === "kg2-index") await kg2Index(globals, args);
+    else if (command === "kg2-prioritize") await kg2Prioritize(globals, args);
+    else if (command === "kg2-backfill") await kg2Backfill(globals, args);
     else if (command === "status") await status(globals);
     else throw new Error(`Unknown server job: ${command}`);
   } finally {

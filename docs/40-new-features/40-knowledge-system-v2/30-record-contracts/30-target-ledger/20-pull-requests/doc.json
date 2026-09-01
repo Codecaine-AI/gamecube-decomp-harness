@@ -35,43 +35,34 @@
       "props": {},
       "text": [
         {
-          "insert": "PULL REQUEST — One "
+          "insert": "PULL REQUEST — One pull_request row per external PR per subject it touched: a maintainer or contributor change, imported after the fact. The row is reconstructed — no worker trace exists — and its subject follows the attribution the archive supports: a "
         },
         {
-          "insert": "pull_request",
+          "insert": "function",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " row per external PR that touched a target: a maintainer or contributor change, imported after the fact. The row is reconstructed — no worker trace exists, so the PR importer deduces what the PR did from its diff and discussion and writes one "
+          "insert": " or "
         },
         {
-          "insert": "summary",
+          "insert": "data",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": ", honestly labeled as reconstruction. There are no "
+          "insert": " target when the CI report comment names the exact items with before/after scores, or the "
         },
         {
-          "insert": "submission",
+          "insert": "translation_unit",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " rows: scored tries belong to "
-        },
-        {
-          "insert": "worker_run",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " entries, and inventing them for a PR would fabricate a trace. Written once by the PR importer; immutable after capture."
+          "insert": " entity when only the diff's file paths are known (every PR before the CI bot existed). There are no submission rows: scored tries belong to worker_run entries, and inventing them for a PR would fabricate a trace. Written once by the PR importer; immutable after capture."
         }
       ],
       "children": []
@@ -100,7 +91,7 @@
       "type": "state-shape",
       "props": {
         "name": "pull_request",
-        "description": "One reconstructed ledger entry per external PR per target. Immutable; no submission rows, no runtime provenance.",
+        "description": "One reconstructed ledger entry per external PR per subject. Immutable; no submission rows, no runtime provenance. Exactly one of target_id and entity_id is set.",
         "fields": [
           {
             "name": "id",
@@ -110,7 +101,14 @@
           {
             "name": "target_id",
             "type": "target id",
-            "description": "FK → target; the target the PR touched"
+            "required": false,
+            "description": "The function or data target the PR is attributed to, when per-item attribution exists (CI report tables); exactly one of `target_id` and `entity_id` is set"
+          },
+          {
+            "name": "entity_id",
+            "type": "entity id",
+            "required": false,
+            "description": "The `translation_unit` entity, when only diff-path attribution exists — the pre-CI-bot era; the subject XOR mirrors `fact`"
           },
           {
             "name": "pr_ref",
@@ -481,34 +479,13 @@
         ],
         "rows": [
           [
-            [
-              {
-                "insert": "pull_request.target_id",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
-            [
-              {
-                "insert": "target",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
-            "Exactly one; one row per target the PR touched",
-            "The target the entry belongs to; the ledger view selects by this column"
+            "pull_request.target_id / pull_request.entity_id",
+            "target / entity (kind translation_unit)",
+            "Exactly one of the two; one row per subject the PR touched",
+            "The subject the entry is attributed to; the ledger view selects target rows by target_id and folds in the unit entity's rows for context"
           ],
           [
-            [
-              {
-                "insert": "pull_request.pr_ref",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
+            "pull_request.pr_ref",
             "The PR in the PR archive (outside the store)",
             "Exactly one",
             "What to open to see the diff and discussion; read-only"

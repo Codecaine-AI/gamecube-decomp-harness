@@ -1,0 +1,1090 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7a-d373-7d32-9272-5104832c95bf
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 06
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_06.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the `unslop` skill to keep the audit notes concrete and free of vague AI phrasing. I’ll split the rows across parallel sub-agents, then validate the merged JSON and Markdown before writing only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_06.tsv && sed -n '1,8p' scripts/p2_batches/batch_06.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_06.tsv
+909364cb-152f-4c63-a156-8a41661ee052	progressed	3	main/melee/gm/gmregclear::gm_8017CE34	98.86964	98.960396	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/909364cb-152f-4c63-a156-8a41661ee052
+ff566724-51ff-4e94-9c11-390c84cfc27e	no_progress	3	main/sysdolphin/baselib/hsd_3A94::fn_803B0E9C	98.27118999999999	98.27118999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ff566724-51ff-4e94-9c11-390c84cfc27e
+cf8f749d-4932-424b-833c-f6fcd0d16c11	progressed	3	main/melee/gm/gmtoulib::fn_8018B090	98.76304	98.785576	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/cf8f749d-4932-424b-833c-f6fcd0d16c11
+604b93b7-b624-459d-9927-c1f7ab58dbb9	near_miss	3	main/melee/mn/mnsnap::fn_802545C4	99.72378	99.72378	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/604b93b7-b624-459d-9927-c1f7ab58dbb9
+53df0b65-f7c8-4f6c-b8df-6a999230f67a	no_progress	3	main/sysdolphin/baselib/debugconsole_main::hsd_80394F48	97.981865	97.981865	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/53df0b65-f7c8-4f6c-b8df-6a999230f67a
+fc785b6a-3e61-4b34-9094-bbff4844dbbc	no_progress	3	main/melee/mn/mnnamenew::mnNameNew_MainInput	91.44618	91.44618	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fc785b6a-3e61-4b34-9094-bbff4844dbbc
+4a5bf180-9517-42d1-be92-a72d3f9b2ec5	no_progress	3	main/melee/mn/mnsound::mnSound_802492CC	99.23505	99.23505	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4a5bf180-9517-42d1-be92-a72d3f9b2ec5
+4ced3173-f607-46e1-9a50-f6f7679c16c0	near_miss	3	main/melee/gm/gmregclear::gm_80182174	99.8658	99.8658	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4ced3173-f607-46e1-9a50-f6f7679c16c0
+
+  → Read all worker summaries and extract evidence-based records
+  • Merge records and compute cohort statistics
+  • Write and validate the two requested output files
+exec
+/bin/zsh -lc "awk -F '\\t' '{c["'$2]++} END {for(k in c) print k,c[k]}'"' scripts/p2_batches/batch_06.tsv
+while IFS="'$'"'\\t' read -r ws cohort epoch target base best dir; do set -- \""'$dir"/worker_*.txt; [ -e "$1" ] || printf '"'%s\\t%s\\n' \""'$ws" '"'MISSING'; done < scripts/p2_batches/batch_06.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+no_progress 44
+near_miss 15
+progressed 20
+exact 1
+
+codex
+The batch has 80 workers: 44 no-progress, 20 progressed, 15 near-miss, and only 1 exact. The Markdown will therefore include the sole exact account, not invent three. No artifact directory is missing its `worker_*.txt` files.
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_06.tsv | sed -n '58,73p'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    58	198fdcfb-7249-4c17-9d69-c9a574329de4	near_miss	5	main/melee/gr/grkongo::grKongo_801D7134	99.636116	99.636116	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/198fdcfb-7249-4c17-9d69-c9a574329de4
+    59	c357b730-3e8e-4999-8d14-8ccbf9fa92fc	no_progress	5	main/melee/gm/gmresultplayer::fn_80178050	98.7064	98.7064	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c357b730-3e8e-4999-8d14-8ccbf9fa92fc
+    60	6d5400c2-d755-4b36-9920-f20ae2f2e728	progressed	5	main/melee/lb/lbcollision::lbColl_80006094	96.83721	96.89006	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6d5400c2-d755-4b36-9920-f20ae2f2e728
+    61	12870d6c-c829-4055-a239-663fc8b9dcdb	no_progress	5	main/melee/mn/mnstagesw::mnStageSw_80236CBC	99.460556	99.460556	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/12870d6c-c829-4055-a239-663fc8b9dcdb
+    62	7fe47ec6-4091-4e20-8f97-42ebee9ad239	no_progress	5	main/melee/gm/gm_1601::fn_80169000	98.09155	98.09155	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7fe47ec6-4091-4e20-8f97-42ebee9ad239
+    63	5349b1bb-63de-4e86-a8c8-5bc73bfbcc2f	no_progress	5	main/melee/gm/gmallstar::gm_801B5624	97.96459999999999	97.96459999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5349b1bb-63de-4e86-a8c8-5bc73bfbcc2f
+    64	aa930b9e-6a4d-4b8f-8a8b-0efeb834616e	no_progress	5	main/melee/gm/gmmain_lib::gmMainLib_8015DBF4	95.858215	95.858215	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/aa930b9e-6a4d-4b8f-8a8b-0efeb834616e
+    65	8d024ace-82b1-4eac-9add-36ac9235a19a	no_progress	5	main/melee/gr/granime::grAnime_801C7228	99.06735999999998	99.06735999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8d024ace-82b1-4eac-9add-36ac9235a19a
+    66	497cf7db-67d6-41ab-9325-1f799c985c8b	progressed	5	main/melee/if/ifstatus::ifStatus_802F61FC	98.30769	98.35896999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/497cf7db-67d6-41ab-9325-1f799c985c8b
+    67	c702233f-2ea3-4a14-8ee1-f21dcf4b8a99	progressed	5	main/melee/mn/mnevent::fn_8024D864	89.47651	94.58725	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c702233f-2ea3-4a14-8ee1-f21dcf4b8a99
+    68	a267ac54-ece3-4223-8277-f152c6f41a8d	no_progress	5	main/melee/lb/lbbgflash::lbBgFlash_80021410	98.44504	98.44504	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/a267ac54-ece3-4223-8277-f152c6f41a8d
+    69	48527bfb-0ab2-4b65-a532-5154ee1e13ff	no_progress	5	main/melee/if/ifstatus::ifStatus_802F5EC0	97.32044	97.32044	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/48527bfb-0ab2-4b65-a532-5154ee1e13ff
+    70	83342a31-eb72-4932-b2bc-95cb322e93a4	progressed	5	main/melee/gm/gm_16F1::fn_801701C0	98.68159	98.73203	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/83342a31-eb72-4932-b2bc-95cb322e93a4
+    71	695fc37c-4123-4805-9f03-bf7445ebef05	no_progress	5	main/melee/mn/mnsnap::mnSnap_80257F24	95.3694	95.3694	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/695fc37c-4123-4805-9f03-bf7445ebef05
+    72	053f46b5-600a-4d11-8201-4613ef0fe2dd	progressed	5	main/melee/mn/mnmainrule::mn_80230274	98.78187	98.966	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/053f46b5-600a-4d11-8201-4613ef0fe2dd
+    73	daad3659-cee4-487c-85a0-e1fc4855e9d8	no_progress	5	main/melee/gr/grinishie1::grInishie1_801FB3F0	98.49126999999999	98.49126999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/daad3659-cee4-487c-85a0-e1fc4855e9d8
+
+collab: Wait
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_06.tsv | sed -n '39,63p' | cut -f1-3" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    39	4044aac9-3854-4c9e-b17e-a1c2df333307	near_miss
+    40	bf1ac84b-33f8-4cb8-bbf0-0a4a9e26f2bc	near_miss
+    41	93c0b4d8-070e-420c-bebe-78fdb5efd425	no_progress
+    42	276ded98-4b53-4915-9a76-fd05e1162730	no_progress
+    43	fb7cc2eb-f790-46d8-bbd9-f99b1d4a5099	no_progress
+    44	90fa6161-30b0-4dba-92f5-37efc13f8095	progressed
+    45	cd5ffd58-e9ae-4f74-9651-1088868116d8	near_miss
+    46	4722befd-3659-4dc6-a169-f526bf815e3a	progressed
+    47	e0497cf2-dc7f-48a6-a590-04ca6a96d49a	progressed
+    48	4320ac65-f2fb-43d5-aec0-90dc9dc61ce7	no_progress
+    49	bd6cd438-41ec-4cd1-8634-eda2ff371bec	near_miss
+    50	9f387e5c-4c11-44a3-b48c-2d1f55a17b3e	no_progress
+    51	18c8befa-872a-4a28-8677-336559a3d232	progressed
+    52	b05ea17c-f848-4b14-9c20-232a89047758	progressed
+    53	8d949a99-524f-44cb-ab9c-882ef5a453ad	no_progress
+    54	26a0c006-3efa-410a-9cf5-6ae078043505	no_progress
+    55	cdff449f-dcb3-4af8-8b85-0bf0d0cea716	no_progress
+    56	d1123c77-060a-4f71-b0ad-b7857f54e8c6	near_miss
+    57	01b151d6-24ba-4cc3-9003-31a60ed80468	no_progress
+    58	198fdcfb-7249-4c17-9d69-c9a574329de4	near_miss
+    59	c357b730-3e8e-4999-8d14-8ccbf9fa92fc	no_progress
+    60	6d5400c2-d755-4b36-9920-f20ae2f2e728	progressed
+    61	12870d6c-c829-4055-a239-663fc8b9dcdb	no_progress
+    62	7fe47ec6-4091-4e20-8f97-42ebee9ad239	no_progress
+    63	5349b1bb-63de-4e86-a8c8-5bc73bfbcc2f	no_progress
+
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+All 80 records are now extracted. One parallel chunk overlapped TSV row 71; I’m deduplicating by `ws_id` against the batch file’s exact order, then checking schema, cohort totals, technique counts, and the 60-line Markdown limit.
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/b06_01_10.json /tmp/b06_11_20.json /tmp/b06_21_30.json /tmp/b06_31_40.json /tmp/b06_41_50.json /tmp/b06_51.json /tmp/b06_52_61.json /tmp/b06_62_71.json /tmp/b06_71_80.json > /tmp/b06_all.json
+jq 'length' /tmp/b06_all.json
+jq -r '.[].ws_id' /tmp/b06_all.json | sort | uniq -d
+ls -ld phase2_notes" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+81
+695fc37c-4123-4805-9f03-bf7445ebef05
+93c0b4d8-070e-420c-bebe-78fdb5efd425
+drwxr-xr-x@ 12 Ford  staff  384 Sep  1 10:02 phase2_notes
+
+exec
+/bin/zsh -lc "cut -f1 scripts/p2_batches/batch_06.tsv | sort > /tmp/batch_ids
+jq -r '.[].ws_id' /tmp/b06_all.json | sort -u > /tmp/json_ids
+comm -23 /tmp/batch_ids /tmp/json_ids
+comm -13 /tmp/batch_ids /tmp/json_ids" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+73d04091-546c-4930-816b-1103e485cddd
+
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_06.tsv | rg '73d04091'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    31	73d04091-546c-4930-816b-1103e485cddd	no_progress	3	main/melee/gm/gmtoulib::fn_8018A514	98.60215	98.60215	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/73d04091-546c-4930-816b-1103e485cddd
+
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "rg -n '93c0b4d8|695fc37c' scripts/p2_batches/batch_06.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+41:93c0b4d8-070e-420c-bebe-78fdb5efd425	no_progress	5	main/melee/mn/mndiagram::mnDiagram_DrawFighterHeaders	99.02621499999998	99.02621499999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/93c0b4d8-070e-420c-bebe-78fdb5efd425
+71:695fc37c-4123-4805-9f03-bf7445ebef05	no_progress	5	main/melee/mn/mnsnap::mnSnap_80257F24	95.3694	95.3694	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/695fc37c-4123-4805-9f03-bf7445ebef05
+
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/b06_01_10.json /tmp/b06_11_20.json /tmp/b06_21_30.json /tmp/b06_31.json /tmp/b06_31_40.json /tmp/b06_41_50.json /tmp/b06_51.json /tmp/b06_52_61.json /tmp/b06_62_71.json /tmp/b06_71_80.json > /tmp/b06_all.json
+cut -f1 scripts/p2_batches/batch_06.tsv | jq -Rsc 'split(\"\\n\")[:-1]' > /tmp/b06_order.json
+jq --slurpfile ids /tmp/b06_order.json '[group_by(.ws_id)[] | last | .epoch |= tonumber] as "'$r | $ids[0] | map(. as $id | $r[] | select(.ws_id == $id))'"' /tmp/b06_all.json > phase2_notes/batch_06.json
+jq '{length:length, cohorts:(group_by(.cohort)|map({key:.[0].cohort,value:length})|from_entries), invalid:[.[]|select((keys|sort) "'!= (["cohort","epoch","loop_quality","notable","stall_reason","success_factor","target_key","techniques","ws_id"]|sort) or (.loop_quality|IN("systematic","mixed","shotgun","unknown")|not))]|length}'"' phase2_notes/batch_06.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | "'"\\("'$c)'"\\t\" + (map(\"\\(.t)=\\(.n)\")|join(\", \"))' phase2_notes/batch_06.json > /tmp/tech_counts
+cat /tmp/tech_counts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+{
+  "length": 80,
+  "cohorts": {
+    "exact": 1,
+    "near_miss": 15,
+    "no_progress": 44,
+    "progressed": 20
+  },
+  "invalid": 0
+}
+exact	float-literal-tricks=1
+near_miss	asm-diff-instruction-level=12, declaration-order-experiments=8, register-allocation-reasoning=7, checkpoint-restore=6, permuter=6, loop-restructure=3, type-shape-experiments=3, allocator-diagnostics=2, compiler-regflow-diagnostics=2, compiler-stack-diagnostics=2, control-flow-restructure=2, inline-hypothesis=2, mwcc-regflow-diagnostics=2, stack-padding-experiments=2, symbol-layout-inspection=2, branch-condition-experiment=1, const-qualification-experiments=1, data-layout-analysis=1, data-layout-experiments=1, declaration-order-testing=1, direct-matrix-access=1, explicit-zero-initializer=1, focused-checkdiff=1, graph-analog-lookup=1, initializer-shape-experiments=1, instruction-scheduling-experiments=1, iterator-expression-experiments=1, library-helper-selection=1, linkage-experiments=1, linkage-qualification-experiments=1, loop-counter-lifetime-experiments=1, object-symbol-inspection=1, operand-order-rewrite=1, parameter-order-testing=1, parent-chain-matrix-operations=1, past-attempt-ledger=1, pointer-aliasing-workaround=1, pointer-walk-experiment=1, regflow-diagnostics=1, related-function-analogy=1, relocation-addend-analysis=1, relocation-analysis=1, scope-lifetime-experiments=1, shared-scale-reuse=1, sibling-function-analogy=1, source-permuter=1, stack-layout-experiments=1, stack-layout-reasoning=1, stack-padding-experiment=1, string-pool-ordering=1, symbol-metadata-lookup=1, temporary-elimination=1, volatile-qualifier-experiment=1
+no_progress	asm-diff-instruction-level=41, register-allocation-reasoning=34, permuter=29, declaration-order-experiments=27, type-shape-experiments=15, allocator-snapshot=9, checkpoint-restore=9, ledger-lookup=9, inline-hypothesis=8, historical-source-lookup=7, local-lifetime-experiments=7, loop-restructure=7, past-pr-lookup=7, pointer-alias-experiments=7, allocator-diagnostics=6, helper-boundary-experiments=5, compiler-diagnostics=4, graph-analog-lookup=4, ledger-review=4, mwcc-regflow-diagnostics=4, stack-frame-diagnostics=4, stack-layout-diagnostics=4, declaration-order-testing=3, expression-shape-experiments=3, related-function-analogy=3, relocation-analysis=3, scope-lifetime-experiments=3, declaration-initialization-experiments=2, emulator-workaround=2, inline-helper-extraction=2, lifetime-experiments=2, manual-cross-arch-build=2, pointer-walk-experiment=2, related-function-lookup=2, section-level-objdiff=2, analog-function-lookup=1, byte-payload-comparison=1, call-order-experiments=1, checkpoint-lookup=1, commutative-expression-rewrite=1, comparison-orientation-experiments=1, compiler-regflow-diagnostics=1, const-qualification-experiments=1, data-layout-analysis=1, data-layout-experiments=1, expression-order-experiments=1, float-literal-tricks=1, focused-checkdiff=1, function-pointer-cast-experiment=1, function-size-reasoning=1, graph-context-review=1, helper-parameter-order-experiments=1, historical-result-lookup=1, include-shape-experiment=1, initialization-shape-experiments=1, inline-diagnostics=1, instruction-scheduling-experiments=1, instruction-scheduling-reasoning=1, ledger-analysis=1, lifetime-anchor-experiments=1, lifetime-anchor-testing=1, lifetime-ordering=1, lifetime-splitting=1, linkage-experiment=1, linkage-section-experiments=1, m2c=1, manual-toolchain-workaround=1, object-artifact-validation=1, parameter-alias-testing=1, past-attempt-ledger=1, pointer-induction-experiments=1, pointer-lifetime-experiments=1, pointer-lifetime-splitting=1, pointer-walk=1, qemu-compiler-workaround=1, return-type-reasoning=1, scope-experiments=1, source-permuter=1, source-shape-experiments=1, stack-frame-experiments=1, stack-frame-reasoning=1, stale-report-rebuild=1, storage-linkage-experiment=1, symbol-metadata-lookup=1, symbol-ownership-experiments=1, temporary-expression-splitting=1, temporary-lifetime-experiments=1, variable-coalescing=1, variable-lifetime-experiments=1
+progressed	asm-diff-instruction-level=14, register-allocation-reasoning=11, declaration-order-experiments=9, permuter=8, type-shape-experiments=7, loop-restructure=6, inline-hypothesis=5, mwcc-regflow-diagnostics=3, allocator-snapshot=2, cast-removal=2, checkpoint-restore=2, focused-checkdiff=2, inline-helper-extraction=2, local-lifetime-experiments=2, pointer-alias-experiments=2, stack-frame-diagnostics=2, stack-layout-diagnostics=2, stack-padding-adjustment=2, aggregate-copy-reconstruction=1, allocator-diagnostics=1, array-index-expression-shaping=1, contiguous-table-base-materialization=1, control-flow-restructure=1, declaration-initialization-experiments=1, declaration-order-testing=1, float-literal-tricks=1, graph-analog-lookup=1, helper-boundary-recovery=1, historical-source-lookup=1, inline-helper-recovery=1, instruction-scheduling-reasoning=1, ledger-opseq-analysis=1, lifetime-experiments=1, lifetime-ordering=1, local-variable-ownership=1, loop-condition-reversal=1, operand-order-experiments=1, past-attempt-ledger=1, pointer-loop-restructure=1, pointer-progression=1, pointer-walk=1, relocation-analysis=1, scope-experiments=1, stack-frame-reasoning=1, stack-layout-reasoning=1, store-scheduling=1, struct-padding-experiments=1, temporary-lifetime-experiments=1, typed-struct-overlay=1
+
+exec
+/bin/zsh -lc "jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(select(.stall_reason != null).stall_reason) | group_by(.) | map({r:.[0],n:length}) | sort_by(-.n,.r) | "'"\\("'$c): " + (.[0] // {r:"none",n:0} | "'"\\(.r) (\\(.n))\")' phase2_notes/batch_06.json
+jq -r '.[]|select(.ws_id==\"73d04091-546c-4930-816b-1103e485cddd\")' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exact: none (0)
+near_miss: BSS symbol ownership and layout (1)
+no_progress: runner cannot execute 32-bit wibo (2)
+progressed: HUD setup register allocation (1)
+{
+  "ws_id": "73d04091-546c-4930-816b-1103e485cddd",
+  "cohort": "no_progress",
+  "epoch": 3,
+  "target_key": "main/melee/gm/gmtoulib::fn_8018A514",
+  "techniques": [
+    "asm-diff-instruction-level",
+    "register-allocation-reasoning",
+    "declaration-order-experiments",
+    "lifetime-experiments",
+    "loop-restructure",
+    "pointer-walk-experiment",
+    "type-shape-experiments",
+    "allocator-diagnostics",
+    "permuter",
+    "checkpoint-restore"
+  ],
+  "stall_reason": "swapped global-base register allocation",
+  "success_factor": null,
+  "loop_quality": "mixed",
+  "notable": "Ten summaries isolated a swap of the lbl_803D9D20 and lbl_80473AB8 base registers, but allocator capture, several lifetime restructures, and 1,700 aggregate permuter iterations found no improvement."
+}
+
+exec
+/bin/zsh -lc "jq 'map(.techniques |= (map({
+\"focused-checkdiff\":\"asm-diff-instruction-level\",
+\"source-permuter\":\"permuter\",
+\"declaration-order-testing\":\"declaration-order-experiments\",
+\"allocator-diagnostics\":\"compiler-regflow-diagnostics\",
+\"mwcc-regflow-diagnostics\":\"compiler-regflow-diagnostics\",
+\"regflow-diagnostics\":\"compiler-regflow-diagnostics\",
+\"compiler-diagnostics\":\"compiler-regflow-diagnostics\",
+\"stack-frame-diagnostics\":\"stack-layout-diagnostics\",
+\"stack-frame-reasoning\":\"stack-layout-diagnostics\",
+\"stack-layout-reasoning\":\"stack-layout-diagnostics\",
+\"past-attempt-ledger\":\"ledger-lookup\",
+\"ledger-review\":\"ledger-lookup\",
+\"ledger-analysis\":\"ledger-lookup\",
+\"inline-helper-recovery\":\"inline-helper-extraction\",
+\"helper-boundary-recovery\":\"inline-helper-extraction\",
+\"related-function-analogy\":\"related-function-lookup\",
+\"graph-analog-lookup\":\"related-function-lookup\",
+\"analog-function-lookup\":\"related-function-lookup\",
+\"historical-result-lookup\":\"historical-source-lookup\",
+\"local-lifetime-experiments\":\"lifetime-experiments\",
+\"temporary-lifetime-experiments\":\"lifetime-experiments\",
+\"variable-lifetime-experiments\":\"lifetime-experiments\"
+}[.] // .) | unique)))' phase2_notes/batch_06.json > /tmp/b06_canon.json
+mv /tmp/b06_canon.json phase2_notes/batch_06.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | map(select(.n>=2)) as $major | "'"\\("'$c)'"\\t\" + ("'$major|map("'"\\(.t) \\(.n)\")|join(\", \")) + \"; singleton techniques \" + ((length-("'$major|map(.n)|add // 0))|tostring)'"' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+jq: error: syntax error, unexpected INVALID_CHARACTER, expecting $end (Unix shell quoting issues?) at <top-level>, line 24:
+}[.] // .) | unique)))                     
+jq: 1 compile error
+
+apply patch
+patch: completed
+/tmp/canon.jq
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+exec
+/bin/zsh -lc "test -f /tmp/canon.jq && jq -f /tmp/canon.jq phase2_notes/batch_06.json > /tmp/b06_canon.json && mv /tmp/b06_canon.json phase2_notes/batch_06.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | map(select(.n>=2)) as $major | "'"\\("'$c)'"\\t\" + ("'$major|map("'"\\(.t) \\(.n)\")|join(\", \")) + \"; singleton techniques \" + ((length-("'$major|map(.n)|add // 0))|tostring)'"' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+exec
+/bin/zsh -lc "jq 'map(.techniques |= ({\"focused-checkdiff\":\"asm-diff-instruction-level\",\"source-permuter\":\"permuter\",\"declaration-order-testing\":\"declaration-order-experiments\",\"allocator-diagnostics\":\"compiler-regflow-diagnostics\",\"mwcc-regflow-diagnostics\":\"compiler-regflow-diagnostics\",\"regflow-diagnostics\":\"compiler-regflow-diagnostics\",\"compiler-diagnostics\":\"compiler-regflow-diagnostics\",\"stack-frame-diagnostics\":\"stack-layout-diagnostics\",\"stack-frame-reasoning\":\"stack-layout-diagnostics\",\"stack-layout-reasoning\":\"stack-layout-diagnostics\",\"past-attempt-ledger\":\"ledger-lookup\",\"ledger-review\":\"ledger-lookup\",\"ledger-analysis\":\"ledger-lookup\",\"inline-helper-recovery\":\"inline-helper-extraction\",\"helper-boundary-recovery\":\"inline-helper-extraction\",\"related-function-analogy\":\"related-function-lookup\",\"graph-analog-lookup\":\"related-function-lookup\",\"analog-function-lookup\":\"related-function-lookup\",\"historical-result-lookup\":\"historical-source-lookup\",\"local-lifetime-experiments\":\"lifetime-experiments\",\"temporary-lifetime-experiments\":\"lifetime-experiments\",\"variable-lifetime-experiments\":\"lifetime-experiments\"} as "'$m | map(. as $x | $m[$x] // $x) | unique))'"' phase2_notes/batch_06.json > /tmp/b06_canon.json
+mv /tmp/b06_canon.json phase2_notes/batch_06.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | map(select(.n>=2)) as $major | "'"\\("'$c)'"\\t\" + ("'$major|map("'"\\(.t) \\(.n)\")|join(\", \")) + \"; singleton techniques \" + ((length-("'$major|map(.n)|add // 0))|tostring)'"' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+exec
+/bin/zsh -lc 'ls -l phase2_notes/batch_06.json /tmp/b06_all.json && head -c 50 phase2_notes/batch_06.json' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  wheel  58701 Sep  1 10:03 /tmp/b06_all.json
+-rw-r--r--@ 1 Ford  wheel      0 Sep  1 10:03 phase2_notes/batch_06.json
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+exec
+/bin/zsh -lc "jq --slurpfile ids /tmp/b06_order.json '[group_by(.ws_id)[] | last | .epoch |= tonumber] as "'$r | $ids[0] | map(. as $id | $r[] | select(.ws_id == $id))'"' /tmp/b06_all.json > phase2_notes/batch_06.json
+jq 'map(.techniques |= ({\"focused-checkdiff\":\"asm-diff-instruction-level\",\"source-permuter\":\"permuter\",\"declaration-order-testing\":\"declaration-order-experiments\",\"allocator-diagnostics\":\"compiler-regflow-diagnostics\",\"mwcc-regflow-diagnostics\":\"compiler-regflow-diagnostics\",\"regflow-diagnostics\":\"compiler-regflow-diagnostics\",\"compiler-diagnostics\":\"compiler-regflow-diagnostics\",\"stack-frame-diagnostics\":\"stack-layout-diagnostics\",\"stack-frame-reasoning\":\"stack-layout-diagnostics\",\"stack-layout-reasoning\":\"stack-layout-diagnostics\",\"past-attempt-ledger\":\"ledger-lookup\",\"ledger-review\":\"ledger-lookup\",\"ledger-analysis\":\"ledger-lookup\",\"inline-helper-recovery\":\"inline-helper-extraction\",\"helper-boundary-recovery\":\"inline-helper-extraction\",\"related-function-analogy\":\"related-function-lookup\",\"graph-analog-lookup\":\"related-function-lookup\",\"analog-function-lookup\":\"related-function-lookup\",\"historical-result-lookup\":\"historical-source-lookup\",\"local-lifetime-experiments\":\"lifetime-experiments\",\"temporary-lifetime-experiments\":\"lifetime-experiments\",\"variable-lifetime-experiments\":\"lifetime-experiments\"} as "'$m | map(. as $x | $m[$x] // $x) | unique))'"' phase2_notes/batch_06.json > /tmp/b06_canon.json
+mv /tmp/b06_canon.json phase2_notes/batch_06.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | map(select(.n>=2)) as $major | "'"\\("'$c)'"\\t\" + ("'$major|map("'"\\(.t) \\(.n)\")|join(\", \")) + \"; singleton techniques \" + ((length-("'$major|map(.n)|add // 0))|tostring)'"' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 77ms:
+exact	; singleton techniques 1
+near_miss	asm-diff-instruction-level 13, declaration-order-experiments 9, compiler-regflow-diagnostics 7, permuter 7, register-allocation-reasoning 7, checkpoint-restore 6, loop-restructure 3, type-shape-experiments 3, compiler-stack-diagnostics 2, control-flow-restructure 2, inline-hypothesis 2, related-function-lookup 2, stack-padding-experiments 2, symbol-layout-inspection 2; singleton techniques -21
+no_progress	asm-diff-instruction-level 42, register-allocation-reasoning 34, declaration-order-experiments 30, permuter 30, compiler-regflow-diagnostics 15, ledger-lookup 15, type-shape-experiments 15, lifetime-experiments 11, related-function-lookup 10, allocator-snapshot 9, checkpoint-restore 9, stack-layout-diagnostics 9, historical-source-lookup 8, inline-hypothesis 8, loop-restructure 7, past-pr-lookup 7, pointer-alias-experiments 7, helper-boundary-experiments 5, expression-shape-experiments 3, relocation-analysis 3, scope-lifetime-experiments 3, declaration-initialization-experiments 2, emulator-workaround 2, inline-helper-extraction 2, manual-cross-arch-build 2, pointer-walk-experiment 2, section-level-objdiff 2; singleton techniques -221
+progressed	asm-diff-instruction-level 16, register-allocation-reasoning 11, declaration-order-experiments 10, permuter 8, type-shape-experiments 7, loop-restructure 6, stack-layout-diagnostics 6, inline-hypothesis 5, compiler-regflow-diagnostics 4, inline-helper-extraction 4, lifetime-experiments 4, allocator-snapshot 2, cast-removal 2, checkpoint-restore 2, pointer-alias-experiments 2, stack-padding-adjustment 2; singleton techniques -52
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+exec
+/bin/zsh -lc "jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | map(.techniques[]) | group_by(.) | map({t:.[0],n:length}) | sort_by(-.n,.t) | "'"\\("'$c): " + (map(select(.n>=2)|"'"\\(.t) \\(.n)\")|join(\", \")) + \"; techniques used once \" + (map(select(.n==1))|length|tostring)' phase2_notes/batch_06.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+exact: ; techniques used once 1
+near_miss: asm-diff-instruction-level 13, declaration-order-experiments 9, compiler-regflow-diagnostics 7, permuter 7, register-allocation-reasoning 7, checkpoint-restore 6, loop-restructure 3, type-shape-experiments 3, compiler-stack-diagnostics 2, control-flow-restructure 2, inline-hypothesis 2, related-function-lookup 2, stack-padding-experiments 2, symbol-layout-inspection 2; techniques used once 32
+no_progress: asm-diff-instruction-level 42, register-allocation-reasoning 34, declaration-order-experiments 30, permuter 30, compiler-regflow-diagnostics 15, ledger-lookup 15, type-shape-experiments 15, lifetime-experiments 11, related-function-lookup 10, allocator-snapshot 9, checkpoint-restore 9, stack-layout-diagnostics 9, historical-source-lookup 8, inline-hypothesis 8, loop-restructure 7, past-pr-lookup 7, pointer-alias-experiments 7, helper-boundary-experiments 5, expression-shape-experiments 3, relocation-analysis 3, scope-lifetime-experiments 3, declaration-initialization-experiments 2, emulator-workaround 2, inline-helper-extraction 2, manual-cross-arch-build 2, pointer-walk-experiment 2, section-level-objdiff 2; techniques used once 44
+progressed: asm-diff-instruction-level 16, register-allocation-reasoning 11, declaration-order-experiments 10, permuter 8, type-shape-experiments 7, loop-restructure 6, stack-layout-diagnostics 6, inline-hypothesis 5, compiler-regflow-diagnostics 4, inline-helper-extraction 4, lifetime-experiments 4, allocator-snapshot 2, cast-removal 2, checkpoint-restore 2, pointer-alias-experiments 2, stack-padding-adjustment 2; techniques used once 23
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..08bf0777c5de23385a5c86ac0b466aec70e4f604
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+@@ -0,0 +1,33 @@
++# Worker Audit Phase 2, Batch 06
++
++## Batch Shape
++
++80 workers: 1 exact, 15 near-miss, 20 progressed, 44 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `float-literal-tricks` 1.
++- Near-miss: `asm-diff-instruction-level` 13, `declaration-order-experiments` 9, `compiler-regflow-diagnostics` 7, `permuter` 7, `register-allocation-reasoning` 7, `checkpoint-restore` 6, `loop-restructure` 3, `type-shape-experiments` 3; six techniques occurred twice and 32 occurred once.
++- Progressed: `asm-diff-instruction-level` 16, `register-allocation-reasoning` 11, `declaration-order-experiments` 10, `permuter` 8, `type-shape-experiments` 7, `loop-restructure` 6, `stack-layout-diagnostics` 6, `inline-hypothesis` 5, `compiler-regflow-diagnostics` 4, `inline-helper-extraction` 4, `lifetime-experiments` 4; five techniques occurred twice and 23 occurred once.
++- No-progress: `asm-diff-instruction-level` 42, `register-allocation-reasoning` 34, `declaration-order-experiments` 30, `permuter` 30, `compiler-regflow-diagnostics` 15, `ledger-lookup` 15, `type-shape-experiments` 15, `lifetime-experiments` 11, `related-function-lookup` 10, `allocator-snapshot` 9, `checkpoint-restore` 9, `stack-layout-diagnostics` 9, `historical-source-lookup` 8, `inline-hypothesis` 8, `loop-restructure` 7, `past-pr-lookup` 7, `pointer-alias-experiments` 7, `helper-boundary-experiments` 5; nine techniques occurred two or three times and 44 occurred once.
++
++Counts are worker occurrences, not attempt counts. Equivalent agent wording was normalized to reusable slugs before counting.
++
++## Exact Worker Accounts
++
++Only one exact worker appears in this batch, so there are not three accounts to report.
++
++`314aa899-fb04-4f5f-8b6b-c4ac172a244b`: The worker corrected a mistyped float sentinel to `-F32_MAX`. That one change restored the intended value and the correct `.sdata2` reference, closing the match.
++
++## Most Common Stall Reason
++
++- Exact: none; the sole worker matched.
++- Near-miss: no phrase repeated. The accounts were dominated by register allocation, relocation identity, and data-layout edge cases.
++- Progressed: no phrase repeated. Register allocation or stack layout appears in 15 of the 20 worker-specific phrases.
++- No-progress: `runner cannot execute 32-bit wibo` occurred twice. Several equivalent runner failures used different wording, so toolchain validation failure was more common than this literal count suggests.
++
++## Surprises
++
++- One no-progress `extab` worker reported that direct section comparison was already byte-exact; the failure came from scoring a data section as a function symbol.
++- One worker briefly reached exact code by removing in-translation-unit definitions, but restored the lower-scoring source because the change broke BSS ownership and QA rules.
++- Large permuter sweeps often confirmed local maxima. Several workers searched 1,000 or more candidates after reducing the diff to register operands, with no gain.
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..08bf0777c5de23385a5c86ac0b466aec70e4f604
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+@@ -0,0 +1,33 @@
++# Worker Audit Phase 2, Batch 06
++
++## Batch Shape
++
++80 workers: 1 exact, 15 near-miss, 20 progressed, 44 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `float-literal-tricks` 1.
++- Near-miss: `asm-diff-instruction-level` 13, `declaration-order-experiments` 9, `compiler-regflow-diagnostics` 7, `permuter` 7, `register-allocation-reasoning` 7, `checkpoint-restore` 6, `loop-restructure` 3, `type-shape-experiments` 3; six techniques occurred twice and 32 occurred once.
++- Progressed: `asm-diff-instruction-level` 16, `register-allocation-reasoning` 11, `declaration-order-experiments` 10, `permuter` 8, `type-shape-experiments` 7, `loop-restructure` 6, `stack-layout-diagnostics` 6, `inline-hypothesis` 5, `compiler-regflow-diagnostics` 4, `inline-helper-extraction` 4, `lifetime-experiments` 4; five techniques occurred twice and 23 occurred once.
++- No-progress: `asm-diff-instruction-level` 42, `register-allocation-reasoning` 34, `declaration-order-experiments` 30, `permuter` 30, `compiler-regflow-diagnostics` 15, `ledger-lookup` 15, `type-shape-experiments` 15, `lifetime-experiments` 11, `related-function-lookup` 10, `allocator-snapshot` 9, `checkpoint-restore` 9, `stack-layout-diagnostics` 9, `historical-source-lookup` 8, `inline-hypothesis` 8, `loop-restructure` 7, `past-pr-lookup` 7, `pointer-alias-experiments` 7, `helper-boundary-experiments` 5; nine techniques occurred two or three times and 44 occurred once.
++
++Counts are worker occurrences, not attempt counts. Equivalent agent wording was normalized to reusable slugs before counting.
++
++## Exact Worker Accounts
++
++Only one exact worker appears in this batch, so there are not three accounts to report.
++
++`314aa899-fb04-4f5f-8b6b-c4ac172a244b`: The worker corrected a mistyped float sentinel to `-F32_MAX`. That one change restored the intended value and the correct `.sdata2` reference, closing the match.
++
++## Most Common Stall Reason
++
++- Exact: none; the sole worker matched.
++- Near-miss: no phrase repeated. The accounts were dominated by register allocation, relocation identity, and data-layout edge cases.
++- Progressed: no phrase repeated. Register allocation or stack layout appears in 15 of the 20 worker-specific phrases.
++- No-progress: `runner cannot execute 32-bit wibo` occurred twice. Several equivalent runner failures used different wording, so toolchain validation failure was more common than this literal count suggests.
++
++## Surprises
++
++- One no-progress `extab` worker reported that direct section comparison was already byte-exact; the failure came from scoring a data section as a function symbol.
++- One worker briefly reached exact code by removing in-translation-unit definitions, but restored the lower-scoring source because the change broke BSS ownership and QA rules.
++- Large permuter sweeps often confirmed local maxima. Several workers searched 1,000 or more candidates after reducing the diff to register operands, with no gain.
+
+exec
+/bin/zsh -lc "jq empty phase2_notes/batch_06.json
+jq -e 'length==80 and all(.[]; (.ws_id|type)==\"string\" and (.epoch|type)==\"number\" and (.techniques|type)==\"array\" and (.loop_quality|IN(\"systematic\",\"mixed\",\"shotgun\",\"unknown\")))' phase2_notes/batch_06.json
+paste <(cut -f1-4 scripts/p2_batches/batch_06.tsv) <(jq -r '.[]|[.ws_id,.cohort,(.epoch|tostring),.target_key]|@tsv' phase2_notes/batch_06.json) | awk -F '\\t' '"'$1!=$5||$2!=$6||$3!=$7||$4!=$8{bad++} END{print "metadata_mismatches=" (bad+0)}'"'
+wc -l phase2_notes/batch_06.md
+find phase2_notes -maxdepth 1 -type f -newermt '2026-09-01 10:00:00' -print | sort" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+true
+metadata_mismatches=0
+      33 phase2_notes/batch_06.md
+phase2_notes/batch_00.json
+phase2_notes/batch_00.md
+phase2_notes/batch_01.json
+phase2_notes/batch_01.md
+phase2_notes/batch_02.json
+phase2_notes/batch_02.md
+phase2_notes/batch_03.json
+phase2_notes/batch_03.md
+phase2_notes/batch_04.json
+phase2_notes/batch_04.md
+phase2_notes/batch_05.json
+phase2_notes/batch_05.md
+phase2_notes/batch_06.json
+phase2_notes/batch_06.md
+
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..08bf0777c5de23385a5c86ac0b466aec70e4f604
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+@@ -0,0 +1,33 @@
++# Worker Audit Phase 2, Batch 06
++
++## Batch Shape
++
++80 workers: 1 exact, 15 near-miss, 20 progressed, 44 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `float-literal-tricks` 1.
++- Near-miss: `asm-diff-instruction-level` 13, `declaration-order-experiments` 9, `compiler-regflow-diagnostics` 7, `permuter` 7, `register-allocation-reasoning` 7, `checkpoint-restore` 6, `loop-restructure` 3, `type-shape-experiments` 3; six techniques occurred twice and 32 occurred once.
++- Progressed: `asm-diff-instruction-level` 16, `register-allocation-reasoning` 11, `declaration-order-experiments` 10, `permuter` 8, `type-shape-experiments` 7, `loop-restructure` 6, `stack-layout-diagnostics` 6, `inline-hypothesis` 5, `compiler-regflow-diagnostics` 4, `inline-helper-extraction` 4, `lifetime-experiments` 4; five techniques occurred twice and 23 occurred once.
++- No-progress: `asm-diff-instruction-level` 42, `register-allocation-reasoning` 34, `declaration-order-experiments` 30, `permuter` 30, `compiler-regflow-diagnostics` 15, `ledger-lookup` 15, `type-shape-experiments` 15, `lifetime-experiments` 11, `related-function-lookup` 10, `allocator-snapshot` 9, `checkpoint-restore` 9, `stack-layout-diagnostics` 9, `historical-source-lookup` 8, `inline-hypothesis` 8, `loop-restructure` 7, `past-pr-lookup` 7, `pointer-alias-experiments` 7, `helper-boundary-experiments` 5; nine techniques occurred two or three times and 44 occurred once.
++
++Counts are worker occurrences, not attempt counts. Equivalent agent wording was normalized to reusable slugs before counting.
++
++## Exact Worker Accounts
++
++Only one exact worker appears in this batch, so there are not three accounts to report.
++
++`314aa899-fb04-4f5f-8b6b-c4ac172a244b`: The worker corrected a mistyped float sentinel to `-F32_MAX`. That one change restored the intended value and the correct `.sdata2` reference, closing the match.
++
++## Most Common Stall Reason
++
++- Exact: none; the sole worker matched.
++- Near-miss: no phrase repeated. The accounts were dominated by register allocation, relocation identity, and data-layout edge cases.
++- Progressed: no phrase repeated. Register allocation or stack layout appears in 15 of the 20 worker-specific phrases.
++- No-progress: `runner cannot execute 32-bit wibo` occurred twice. Several equivalent runner failures used different wording, so toolchain validation failure was more common than this literal count suggests.
++
++## Surprises
++
++- One no-progress `extab` worker reported that direct section comparison was already byte-exact; the failure came from scoring a data section as a function symbol.
++- One worker briefly reached exact code by removing in-translation-unit definitions, but restored the lower-scoring source because the change broke BSS ownership and QA rules.
++- Large permuter sweeps often confirmed local maxima. Several workers searched 1,000 or more candidates after reducing the diff to register operands, with no gain.
+
+Audited all summaries, merged and normalized 80 records, generated cohort statistics, and validated both outputs.
+  ✓ Read all worker summaries and extract evidence-based records
+  ✓ Merge records and compute cohort statistics
+  ✓ Write and validate the two requested output files
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..08bf0777c5de23385a5c86ac0b466aec70e4f604
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+@@ -0,0 +1,33 @@
++# Worker Audit Phase 2, Batch 06
++
++## Batch Shape
++
++80 workers: 1 exact, 15 near-miss, 20 progressed, 44 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `float-literal-tricks` 1.
++- Near-miss: `asm-diff-instruction-level` 13, `declaration-order-experiments` 9, `compiler-regflow-diagnostics` 7, `permuter` 7, `register-allocation-reasoning` 7, `checkpoint-restore` 6, `loop-restructure` 3, `type-shape-experiments` 3; six techniques occurred twice and 32 occurred once.
++- Progressed: `asm-diff-instruction-level` 16, `register-allocation-reasoning` 11, `declaration-order-experiments` 10, `permuter` 8, `type-shape-experiments` 7, `loop-restructure` 6, `stack-layout-diagnostics` 6, `inline-hypothesis` 5, `compiler-regflow-diagnostics` 4, `inline-helper-extraction` 4, `lifetime-experiments` 4; five techniques occurred twice and 23 occurred once.
++- No-progress: `asm-diff-instruction-level` 42, `register-allocation-reasoning` 34, `declaration-order-experiments` 30, `permuter` 30, `compiler-regflow-diagnostics` 15, `ledger-lookup` 15, `type-shape-experiments` 15, `lifetime-experiments` 11, `related-function-lookup` 10, `allocator-snapshot` 9, `checkpoint-restore` 9, `stack-layout-diagnostics` 9, `historical-source-lookup` 8, `inline-hypothesis` 8, `loop-restructure` 7, `past-pr-lookup` 7, `pointer-alias-experiments` 7, `helper-boundary-experiments` 5; nine techniques occurred two or three times and 44 occurred once.
++
++Counts are worker occurrences, not attempt counts. Equivalent agent wording was normalized to reusable slugs before counting.
++
++## Exact Worker Accounts
++
++Only one exact worker appears in this batch, so there are not three accounts to report.
++
++`314aa899-fb04-4f5f-8b6b-c4ac172a244b`: The worker corrected a mistyped float sentinel to `-F32_MAX`. That one change restored the intended value and the correct `.sdata2` reference, closing the match.
++
++## Most Common Stall Reason
++
++- Exact: none; the sole worker matched.
++- Near-miss: no phrase repeated. The accounts were dominated by register allocation, relocation identity, and data-layout edge cases.
++- Progressed: no phrase repeated. Register allocation or stack layout appears in 15 of the 20 worker-specific phrases.
++- No-progress: `runner cannot execute 32-bit wibo` occurred twice. Several equivalent runner failures used different wording, so toolchain validation failure was more common than this literal count suggests.
++
++## Surprises
++
++- One no-progress `extab` worker reported that direct section comparison was already byte-exact; the failure came from scoring a data section as a function symbol.
++- One worker briefly reached exact code by removing in-translation-unit definitions, but restored the lower-scoring source because the change broke BSS ownership and QA rules.
++- Large permuter sweeps often confirmed local maxima. Several workers searched 1,000 or more candidates after reducing the diff to register operands, with no gain.
+
+codex
+DONE — 80 records.
+
+- [batch_06.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.json)
+- [batch_06.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md)
+
+Validated JSON schema, TSV ordering/metadata, cohort totals, and the 33-line Markdown limit.
+diff --git a//tmp/canon.jq b//tmp/canon.jq
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00dc7d5d747de8626b2bdee21f6b5a9f2ac9d30
+--- /dev/null
++++ b//tmp/canon.jq
+@@ -0,0 +1,27 @@
++def canon:
++  {
++    "focused-checkdiff":"asm-diff-instruction-level",
++    "source-permuter":"permuter",
++    "declaration-order-testing":"declaration-order-experiments",
++    "allocator-diagnostics":"compiler-regflow-diagnostics",
++    "mwcc-regflow-diagnostics":"compiler-regflow-diagnostics",
++    "regflow-diagnostics":"compiler-regflow-diagnostics",
++    "compiler-diagnostics":"compiler-regflow-diagnostics",
++    "stack-frame-diagnostics":"stack-layout-diagnostics",
++    "stack-frame-reasoning":"stack-layout-diagnostics",
++    "stack-layout-reasoning":"stack-layout-diagnostics",
++    "past-attempt-ledger":"ledger-lookup",
++    "ledger-review":"ledger-lookup",
++    "ledger-analysis":"ledger-lookup",
++    "inline-helper-recovery":"inline-helper-extraction",
++    "helper-boundary-recovery":"inline-helper-extraction",
++    "related-function-analogy":"related-function-lookup",
++    "graph-analog-lookup":"related-function-lookup",
++    "analog-function-lookup":"related-function-lookup",
++    "historical-result-lookup":"historical-source-lookup",
++    "local-lifetime-experiments":"lifetime-experiments",
++    "temporary-lifetime-experiments":"lifetime-experiments",
++    "variable-lifetime-experiments":"lifetime-experiments"
++  } as $m | . as $x | $m[$x] // $x;
++
++map(.techniques |= (map(canon) | unique))
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..08bf0777c5de23385a5c86ac0b466aec70e4f604
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md
+@@ -0,0 +1,33 @@
++# Worker Audit Phase 2, Batch 06
++
++## Batch Shape
++
++80 workers: 1 exact, 15 near-miss, 20 progressed, 44 no-progress.
++
++## Technique Counts by Cohort
++
++- Exact: `float-literal-tricks` 1.
++- Near-miss: `asm-diff-instruction-level` 13, `declaration-order-experiments` 9, `compiler-regflow-diagnostics` 7, `permuter` 7, `register-allocation-reasoning` 7, `checkpoint-restore` 6, `loop-restructure` 3, `type-shape-experiments` 3; six techniques occurred twice and 32 occurred once.
++- Progressed: `asm-diff-instruction-level` 16, `register-allocation-reasoning` 11, `declaration-order-experiments` 10, `permuter` 8, `type-shape-experiments` 7, `loop-restructure` 6, `stack-layout-diagnostics` 6, `inline-hypothesis` 5, `compiler-regflow-diagnostics` 4, `inline-helper-extraction` 4, `lifetime-experiments` 4; five techniques occurred twice and 23 occurred once.
++- No-progress: `asm-diff-instruction-level` 42, `register-allocation-reasoning` 34, `declaration-order-experiments` 30, `permuter` 30, `compiler-regflow-diagnostics` 15, `ledger-lookup` 15, `type-shape-experiments` 15, `lifetime-experiments` 11, `related-function-lookup` 10, `allocator-snapshot` 9, `checkpoint-restore` 9, `stack-layout-diagnostics` 9, `historical-source-lookup` 8, `inline-hypothesis` 8, `loop-restructure` 7, `past-pr-lookup` 7, `pointer-alias-experiments` 7, `helper-boundary-experiments` 5; nine techniques occurred two or three times and 44 occurred once.
++
++Counts are worker occurrences, not attempt counts. Equivalent agent wording was normalized to reusable slugs before counting.
++
++## Exact Worker Accounts
++
++Only one exact worker appears in this batch, so there are not three accounts to report.
++
++`314aa899-fb04-4f5f-8b6b-c4ac172a244b`: The worker corrected a mistyped float sentinel to `-F32_MAX`. That one change restored the intended value and the correct `.sdata2` reference, closing the match.
++
++## Most Common Stall Reason
++
++- Exact: none; the sole worker matched.
++- Near-miss: no phrase repeated. The accounts were dominated by register allocation, relocation identity, and data-layout edge cases.
++- Progressed: no phrase repeated. Register allocation or stack layout appears in 15 of the 20 worker-specific phrases.
++- No-progress: `runner cannot execute 32-bit wibo` occurred twice. Several equivalent runner failures used different wording, so toolchain validation failure was more common than this literal count suggests.
++
++## Surprises
++
++- One no-progress `extab` worker reported that direct section comparison was already byte-exact; the failure came from scoring a data section as a function symbol.
++- One worker briefly reached exact code by removing in-translation-unit definitions, but restored the lower-scoring source because the change broke BSS ownership and QA rules.
++- Large permuter sweeps often confirmed local maxima. Several workers searched 1,000 or more candidates after reducing the diff to register operands, with no gain.
+
+tokens used
+119,076
+DONE — 80 records.
+
+- [batch_06.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.json)
+- [batch_06.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_06.md)
+
+Validated JSON schema, TSV ordering/metadata, cohort totals, and the 33-line Markdown limit.

@@ -1,0 +1,27 @@
+# Batch 11 Worker Self-Summary Audit
+
+Records: 80. Cohorts: exact 6, near_miss 22, progressed 47, no_progress 5.
+
+## Technique Counts by Cohort
+
+- exact: register-allocation-reasoning 5; asm-diff-instruction-level 4; allocator-analysis 3; lifetime-scope-control 3; loop-restructure 3; permuter 3; array-indexing 1; cached-pointer-call 1; checkpoint-regression-check 1; constant-pool-ordering 1; declaration-ordering 1; dependent-self-assignment 1; derived-offset-expression 1; expression-inlining 1; expression-shape-experiments 1; index-arithmetic-recovery 1; inline-helper-shaping 1; loop-counter-elimination 1; pointer-loop-restructure 1; source-pattern-lookup 1; temporary-elimination 1; temporary-splitting 1; type-shape-experiments 1
+- near_miss: permuter 16; asm-diff-instruction-level 13; register-allocation-reasoning 12; type-shape-experiments 12; inline-helper-shaping 11; lifetime-scope-control 11; allocator-analysis 10; declaration-ordering 9; inline-hypothesis 8; checkpoint-regression-check 7; loop-restructure 7; constant-pool-ordering 6; source-pattern-lookup 6; relocation-data-analysis 5; stack-layout-reasoning 5; pointer-loop-restructure 3; stack-padding-tuning 3; expression-shape-experiments 2; object-layout-analysis 2; alias-local-experiments 1; alignment-tuning 1; branch-shape-experiments 1; direct-indexing 1; exact-expression-probe 1; function-pointer-cast 1; header-ownership-diagnosis 1; helper-parameter-shaping 1; index-role-recovery 1; lifetime-anchor 1; linkage-experiments 1; loop-initialization-restructure 1; parameter-reuse 1; pointer-alias-experiments 1; return-type-probe 1; role-specific-locals 1; target-metadata-simulation 1; temporary-elimination 1; toolchain-workaround 1; typed-union 1; value-caching 1
+- progressed: permuter 36; asm-diff-instruction-level 28; register-allocation-reasoning 27; lifetime-scope-control 22; declaration-ordering 20; type-shape-experiments 20; inline-helper-shaping 19; expression-shape-experiments 15; loop-restructure 14; stack-padding-tuning 13; source-pattern-lookup 11; inline-hypothesis 10; stack-layout-reasoning 10; allocator-analysis 9; pointer-loop-restructure 6; temporary-elimination 6; checkpoint-regression-check 4; instruction-scheduling-reasoning 4; constant-pool-ordering 3; float-literal-tricks 3; pointer-shape-experiments 3; helper-parameter-ordering 2; scoped-temporary 2; temporary-extraction 2; value-caching 2; aggregate-copy-recovery 1; alias-local-experiments 1; arithmetic-recurrence-rewrite 1; assignment-condition 1; assignment-expression-experiments 1; bss-symbol-visibility 1; cursor-local-experiments 1; cursor-reuse 1; data-reference-repair 1; direct-indexing 1; direct-indexing-experiments 1; direct-parameter-use 1; direct-struct-field-access 1; direct-symbol-experiment 1; direct-typed-copy 1; double-precision-temporary 1; explicit-assignment-rewrite 1; field-getter-pattern 1; fisher-yates-direct-indexing 1; global-reload-experiments 1; header-declaration-audit 1; header-prototype-audit 1; helper-parameter-shaping 1; helper-reuse 1; helper-signature-refactor 1; inline-string-literal 1; local-hoisting 1; local-state-aggregate 1; lookup-simplification 1; offset-local-introduction 1; persistent-field-pointers 1; pointer-alias-experiments 1; pointer-alias-reuse 1; pointer-lifetime-experiments 1; pointer-reuse 1; pointer-table-access 1; prototype-shape-experiment 1; relocation-data-analysis 1; return-type-probe 1; scratch-tu-probing 1; semantic-temporaries 1; shadow-header-build 1; signedness-tuning 1; stack-diagnostics 1; symbol-linkage-experiments 1; temporary-introduction 1; temporary-reuse 1; toolchain-workaround 1; typed-pointer-recovery 1; variable-initialization-timing 1; variable-role-separation 1; vec3-aggregate-recovery 1; volatile-access-shaping 1
+- no_progress: inline-helper-shaping 5; allocator-analysis 4; asm-diff-instruction-level 4; permuter 4; register-allocation-reasoning 4; declaration-ordering 3; lifetime-scope-control 3; type-shape-experiments 3; loop-restructure 2; stack-padding-tuning 2; canonical-accessor-restore 1; expression-shape-experiments 1; global-reload-preservation 1; helper-parameter-shaping 1; inline-hypothesis 1; owning-header-probe 1; pointer-alias-experiments 1; prototype-width-matrix 1; source-pattern-lookup 1; stack-layout-reasoning 1; toolchain-workaround 1
+
+## Three Exact-Worker Accounts
+
+- 93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7: natural table indexing eliminated the redundant pointer copy. After 3,600 permuter iterations failed, replacing a manual iterator with gm_803DBFD8[staff_idx] removed the sole extra instruction.
+- 35747593-d2cb-4c74-8cc0-846304c17844: dependent state assignment plus cached JObj call fixed coalescing. The exact source uses a dependent self-assignment to force MWCC to emit the target load and copy registers.
+- 4d365749-1fce-48b7-b930-a9823c9e851c: typed pointer-walk loop forced the induction cursor into r27. After thousands of failed variants, a nearby pointer-walk idiom supplied the authored structure that resolved the final three register operands.
+
+## Most Common Stall Reason
+
+- exact: none; exact workers reported no stall
+- near_miss: register allocation (17)
+- progressed: register allocation (38)
+- no_progress: register allocation (4)
+
+## Surprise
+
+- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.

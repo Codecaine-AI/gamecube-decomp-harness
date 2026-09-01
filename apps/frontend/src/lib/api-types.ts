@@ -223,22 +223,11 @@ export interface DashboardSyncKnowledgeJobGroupSummary {
 }
 
 export interface DashboardSyncDiscordSummary {
-  corpus?: {
-    batches_done: number;
-    messages_indexed: number;
-    through_month: string | null;
-  };
   refresh: {
     status: "running" | "ok" | "failed";
     detail: string | null;
     at: string | null;
     messages_pulled: number | null;
-  } | null;
-  staged: {
-    batches: number;
-    messages: number;
-    days: number;
-    channels: number;
   } | null;
 }
 

@@ -1,0 +1,1477 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-2004-7c10-8c1a-8b7b8227c99b
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 11
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_11.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the `unslop` skill to keep the audit labels terse and evidence-based. I’ll split the batch across parallel sub-agents, then validate and write only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_11.tsv && sed -n '1,8p' scripts/p2_batches/batch_11.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_11.tsv
+3ccac292-5803-4fce-8f3a-a85a2b769708	progressed	7	main/melee/gm/gmallstar::gm_801B5ACC	84.495766	84.82203999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3ccac292-5803-4fce-8f3a-a85a2b769708
+f44c9060-d624-47d4-a9ad-888e1a30d211	near_miss	7	main/melee/gm/gm_1832::fn_80186634	99.99196999999998	99.99196999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f44c9060-d624-47d4-a9ad-888e1a30d211
+720e36f6-2944-43cf-80b6-0074f06e0e87	progressed	7	main/melee/lb/lbcollision::lbColl_80006094	96.93235	98.81606999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/720e36f6-2944-43cf-80b6-0074f06e0e87
+868ca3bf-bbf4-433a-84b8-e2398ac6e31b	near_miss	7	main/melee/gm/gmregclear::gm_80181998	99.84615	99.84615	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/868ca3bf-bbf4-433a-84b8-e2398ac6e31b
+4d365749-1fce-48b7-b930-a9823c9e851c	exact	7	main/melee/mn/mndiagram2::mnDiagram2_Create	99.85915	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4d365749-1fce-48b7-b930-a9823c9e851c
+b98c4d4a-2aeb-4fbf-971c-ecc3034a5320	near_miss	7	main/melee/mn/mnvibration::mnVibration_IntroProc	99.480286	99.56989	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/b98c4d4a-2aeb-4fbf-971c-ecc3034a5320
+0c9acd40-dd0f-42ad-bd19-9cf45d98b74a	near_miss	7	main/melee/mn/mnname::mnName_8023A59C	99.69466	99.69466	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0c9acd40-dd0f-42ad-bd19-9cf45d98b74a
+113a078c-7e9d-4cfc-bb12-cff11e54257c	near_miss	7	main/melee/if/ifstock::ifStock_802F7EFC	99.65801	99.69263999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/113a078c-7e9d-4cfc-bb12-cff11e54257c
+
+  → Read all worker summaries and extract evidence-backed records
+  • Merge records and compute cohort statistics
+  • Write and validate the two requested output files
+codex
+Step 1 of 3 is running: eight agents are reading ten workers each. I’m holding the shared slug vocabulary and output validation until all 80 records return.
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_11.tsv | sed -n '27,34p;67,80p'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    27	19b7e7f2-ad8c-49cd-854f-f0914224d01d	progressed	7	main/melee/ty/tydisplay::_tyDisplay_80318CB4	98.48994399999998	98.51919599999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/19b7e7f2-ad8c-49cd-854f-f0914224d01d
+    28	93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7	exact	7	main/melee/gm/gmstaffroll::fn_801AAB74	99.74940499999998	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7
+    29	293817c0-36ab-48d3-bb7a-b2ab4e9b679a	near_miss	7	main/melee/ty/toy::_Toy_8030E110	99.8948	99.9078	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/293817c0-36ab-48d3-bb7a-b2ab4e9b679a
+    30	bcc79b40-6696-4372-a630-ee46507dd26b	progressed	7	main/sysdolphin/baselib/hsd_3A94::fn_803B0E9C	98.77966	98.96609999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bcc79b40-6696-4372-a630-ee46507dd26b
+    31	3f67ff09-f7b6-469d-95a4-3354c3b71c8e	progressed	7	main/melee/mn/mnruleplus::mn_80233218	96.9703	97.04951	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3f67ff09-f7b6-469d-95a4-3354c3b71c8e
+    32	42aed164-4426-4a1f-9671-c490f118dfcb	no_progress	7	main/melee/mn/mnname::mnName_80239A24	99.0	99.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/42aed164-4426-4a1f-9671-c490f118dfcb
+    33	051a6d18-7f9a-4312-9788-050d785a8dc6	progressed	7	main/melee/if/ifstatus::ifStatus_802F4EDC	98.40126	98.41132	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/051a6d18-7f9a-4312-9788-050d785a8dc6
+    34	da5c944b-22d5-4b22-bd15-d26faeac9e28	near_miss	7	main/melee/mn/mnsound::mnSound_80249C08	99.56997	99.59386	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/da5c944b-22d5-4b22-bd15-d26faeac9e28
+    67	38fc6552-851f-4606-a426-160bfd8a25f2	near_miss	7	main/melee/gm/gmregclear::gm_8017CE34	99.15842	99.76073	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/38fc6552-851f-4606-a426-160bfd8a25f2
+    68	79aa0d35-27b7-4619-ace0-cba80a4c4734	progressed	7	main/melee/ty/tydisplay::_tyDisplay_8031830C	99.06200999999999	99.17829	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/79aa0d35-27b7-4619-ace0-cba80a4c4734
+    69	adccd5c4-9c10-4039-9173-e4e4593b2f36	progressed	7	main/sysdolphin/baselib/hsd_3B5C::hsd_803B6BE4	98.064514	98.95782	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/adccd5c4-9c10-4039-9173-e4e4593b2f36
+    70	c336ea39-a325-4e04-85d4-564ea83f48da	progressed	7	main/melee/gr/grbigblue::grBigBlue_801E6C60	98.93809	99.15197	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c336ea39-a325-4e04-85d4-564ea83f48da
+    71	d69aaac4-5423-408e-9175-2e51c457c93d	progressed	7	main/melee/mn/mnnamenew::mnNameNew_MainInput	91.97396	93.58854	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d69aaac4-5423-408e-9175-2e51c457c93d
+    72	be0412b8-78a5-49bf-bbd2-3a391c20f87f	no_progress	7	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A6D2C	99.30723	99.30723	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/be0412b8-78a5-49bf-bbd2-3a391c20f87f
+    73	02a855e9-46ba-4208-94b6-f05abbaa0606	progressed	7	main/sysdolphin/baselib/psdisp::psDispParticles	98.709274	98.7148	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/02a855e9-46ba-4208-94b6-f05abbaa0606
+    74	d3d83451-04bb-43ee-97ed-21e9fd8f550a	near_miss	7	main/melee/gm/gm_16A2::fn_80169C54	99.42409	99.63350999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d3d83451-04bb-43ee-97ed-21e9fd8f550a
+    75	5328eee0-adae-4cbf-a61d-3e54c6baebf5	progressed	7	main/melee/mn/mnvibration::mnVibration_HandleInput	96.99180999999999	97.0191	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5328eee0-adae-4cbf-a61d-3e54c6baebf5
+    76	24a86ddb-b636-49af-b1e7-3b154de9290f	progressed	7	main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC	97.62774	97.66422999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/24a86ddb-b636-49af-b1e7-3b154de9290f
+    77	bab1da3a-c6c7-4d48-b629-ef58841e3309	progressed	7	main/melee/ft/ftcpuattack::ftCo_800B5AB0	98.27021	99.39149	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bab1da3a-c6c7-4d48-b629-ef58841e3309
+    78	a10e994a-a168-4f16-a5cd-8ff8e74ae00a	progressed	7	main/melee/gr/grbigblue::grBigBlue_801EE398	98.33562	98.36301399999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/a10e994a-a168-4f16-a5cd-8ff8e74ae00a
+    79	7d9b5a4c-0a83-463b-a001-75ab6dc8192c	progressed	7	main/melee/gm/gm_1832::fn_801891F4	99.01142	99.25612	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/7d9b5a4c-0a83-463b-a001-75ab6dc8192c
+    80	5b707da8-fbef-48a3-ba3b-64e2f7849192	near_miss	7	main/melee/gr/grbigblue::grBigBlue_801EDF44	99.63899	99.73285	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5b707da8-fbef-48a3-ba3b-64e2f7849192
+
+collab: Wait
+exec
+/bin/zsh -lc 'ls -la phase2_notes/.batch_11_part_*.json 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  staff  6512 Sep  1 10:06 phase2_notes/.batch_11_part_01.json
+-rw-r--r--@ 1 Ford  staff  5619 Sep  1 10:06 phase2_notes/.batch_11_part_02.json
+-rw-r--r--@ 1 Ford  staff  5141 Sep  1 10:06 phase2_notes/.batch_11_part_03.json
+-rw-r--r--@ 1 Ford  staff  6137 Sep  1 10:06 phase2_notes/.batch_11_part_04.json
+-rw-r--r--@ 1 Ford  staff  6051 Sep  1 10:06 phase2_notes/.batch_11_part_05.json
+-rw-r--r--@ 1 Ford  staff  7173 Sep  1 10:06 phase2_notes/.batch_11_part_06.json
+-rw-r--r--@ 1 Ford  staff  5845 Sep  1 10:07 phase2_notes/.batch_11_part_07.json
+-rw-r--r--@ 1 Ford  staff  6787 Sep  1 10:07 phase2_notes/.batch_11_part_08.json
+
+2026-09-01T15:07:22.530243Z ERROR codex_core::tools::router: error=apply_patch verification failed: invalid patch: multiple operations target /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/.batch_11_part_03.json
+collab: Wait
+collab: Wait
+codex
+Step 1 of 3 done: all 80 rows now have summaries, including corrected boundary rows 21 and 61. Step 2 is merging equivalent technique labels such as allocator snapshots and declaration-order variants so cohort counts are meaningful.
+apply patch
+patch: completed
+/tmp/build_batch11.mjs
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+exec
+/bin/zsh -lc 'node /tmp/build_batch11.mjs' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ exited 1 in 0ms:
+file:///private/tmp/build_batch11.mjs:37
+  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
+                                         ^
+
+Error: order mismatch row 41: e5da0a38-ef99-448e-95e3-fc86be4dbfa6 != c31ba6a9-57de-4293-8119-93ca27d8ad59
+    at file:///private/tmp/build_batch11.mjs:37:42
+    at ModuleJob.run (node:internal/modules/esm/module_job:272:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:583:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:98:5)
+
+Node.js v23.8.0
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+exec
+/bin/zsh -lc "nl -ba scripts/p2_batches/batch_11.tsv | sed -n '39,53p'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+    39	674450c4-c83c-4db7-83c4-7c49860121b7	near_miss	7	main/melee/mn/mninfo::fn_80251FE4	99.77900999999999	99.88949999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/674450c4-c83c-4db7-83c4-7c49860121b7
+    40	ac74828b-a06f-49f6-894a-5447e56732c3	no_progress	7	main/melee/ty/tyfigupon::_tyFigupon_80315C44	97.87009399999998	97.87009399999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/ac74828b-a06f-49f6-894a-5447e56732c3
+    41	c31ba6a9-57de-4293-8119-93ca27d8ad59	near_miss	7	main/melee/mn/mnruleplus::mn_802327A4	99.11602	99.558014	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c31ba6a9-57de-4293-8119-93ca27d8ad59
+    42	e5da0a38-ef99-448e-95e3-fc86be4dbfa6	near_miss	7	main/melee/ty/toy::_Toy_80309404	99.85445399999999	99.86011	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/e5da0a38-ef99-448e-95e3-fc86be4dbfa6
+    43	71050078-b14e-468f-a5cf-b59416bbaa97	progressed	7	main/melee/gm/gmstaffroll::fn_801AB200	99.273834	99.27535999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/71050078-b14e-468f-a5cf-b59416bbaa97
+    44	0e1a8a11-5cc8-4934-a92a-285838a1b6f5	progressed	7	main/melee/gm/gmclassic::gmClassic_OnLoad	94.6131	95.6875	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/0e1a8a11-5cc8-4934-a92a-285838a1b6f5
+    45	cea9a312-066e-4ed9-9aba-5119a900f241	progressed	7	main/melee/gm/gm_16F1::fn_801701C0	98.83292	98.88335399999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/cea9a312-066e-4ed9-9aba-5119a900f241
+    46	54e86262-2ef7-4a42-8e7b-09be1b3249d7	progressed	7	main/melee/gm/gmregclear::gm_80182578	98.53846	98.56764	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/54e86262-2ef7-4a42-8e7b-09be1b3249d7
+    47	fc335e83-91bf-466d-92ca-8c9458895486	near_miss	7	main/melee/gr/grmutecity::grMuteCity_801F1A34	99.87027	99.87027	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fc335e83-91bf-466d-92ca-8c9458895486
+    48	f359feb7-df12-4f46-ac01-1b0e2092b141	progressed	7	main/melee/gr/grgreens::grGreens_80215ED8	99.357	99.3925	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/f359feb7-df12-4f46-ac01-1b0e2092b141
+    49	1514ef8b-b4b9-45b3-90f7-a4521832e366	no_progress	7	main/melee/mn/mnnamenew::mnNameNew_GlyphVariantSetup	99.119896	99.119896	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/1514ef8b-b4b9-45b3-90f7-a4521832e366
+    50	e74ed859-0d82-4f5f-9ca9-cfa256e0788f	progressed	7	main/melee/gm/gm_1601::fn_80169000	98.09155	98.33802999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/e74ed859-0d82-4f5f-9ca9-cfa256e0788f
+    51	8fe1da59-4167-4572-88cc-51b3fd487355	progressed	7	main/melee/mn/mnname::CompareNameStrings	94.10714	96.42857	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/8fe1da59-4167-4572-88cc-51b3fd487355
+    52	590f33b3-aeff-4583-9101-750bd9951435	near_miss	7	main/sysdolphin/baselib/hsd_3915::hsd_8039254C	99.544	99.74399999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/590f33b3-aeff-4583-9101-750bd9951435
+    53	97b09e78-0ee6-4337-b32a-b922a510b9af	progressed	7	main/sysdolphin/baselib/debugconsole_main::hsd_80394F48	98.033676	98.18135	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/97b09e78-0ee6-4337-b32a-b922a510b9af
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+collab: Wait
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+collab: Wait
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+exec
+/bin/zsh -lc 'node /tmp/build_batch11.mjs' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+{
+  "records": 80,
+  "exact": 6,
+  "markdownLines": 27,
+  "stalls": {
+    "exact": null,
+    "near_miss": [
+      "register allocation",
+      17
+    ],
+    "progressed": [
+      "register allocation",
+      38
+    ],
+    "no_progress": [
+      "register allocation",
+      4
+    ]
+  }
+}
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+All records merged in TSV order; equivalent technique labels were normalized for reusable cohort counts.
+  ✓ Read all worker summaries and extract evidence-backed records
+  ✓ Merge records and compute cohort statistics
+  → Write and validate the two requested output files
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+codex
+Step 2 of 3 done: the merge has 80 records in exact TSV order. The dominant stall category is register allocation in near_miss, progressed, and no_progress; exact workers reported no stalls.
+exec
+/bin/zsh -lc "jq -e 'length == 80 and all(.[]; (keys | sort) == ([\"cohort\",\"epoch\",\"loop_quality\",\"notable\",\"stall_reason\",\"success_factor\",\"target_key\",\"techniques\",\"ws_id\"] | sort)) and all(.[]; (.loop_quality == \"systematic\" or .loop_quality == \"mixed\" or .loop_quality == \"shotgun\" or .loop_quality == \"unknown\")) and all(.[] | select(.cohort == \"exact\"); .success_factor "'!= null)'"' phase2_notes/batch_11.json >/dev/null && test \""'$(wc -l < phase2_notes/batch_11.md | tr -d '"' ')\" -le 60 && test \""'$(find phase2_notes -maxdepth 1 -type f -name '"'*batch_11*' | wc -l | tr -d ' ')\" -eq 2 && wc -l phase2_notes/batch_11.md && jq -r 'group_by(.cohort)[] | \"\\(.[0].cohort) \\(length)\"' phase2_notes/batch_11.json && find phase2_notes -maxdepth 1 -type f -name '*batch_11*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+      27 phase2_notes/batch_11.md
+exact 6
+near_miss 22
+no_progress 5
+progressed 47
+phase2_notes/batch_11.md
+phase2_notes/batch_11.json
+
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+Both deliverables passed schema, ordering, record-count, cohort-count, line-count, and output-file-count checks.
+  ✓ Read all worker summaries and extract evidence-backed records
+  ✓ Merge records and compute cohort statistics
+  ✓ Write and validate the two requested output files
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+codex
+DONE — 80 records.
+
+- [batch_11.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.json)
+- [batch_11.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.md)
+diff --git a//tmp/build_batch11.mjs b//tmp/build_batch11.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..010d9ea1018008cedb088555143b552c53c89bbd
+--- /dev/null
++++ b//tmp/build_batch11.mjs
+@@ -0,0 +1,80 @@
++import fs from 'fs';
++
++const base = '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01';
++const parts = Array.from({length: 8}, (_, i) => `${base}/phase2_notes/.batch_11_part_${String(i + 1).padStart(2, '0')}.json`);
++let rows = parts.flatMap(p => JSON.parse(fs.readFileSync(p, 'utf8')));
++
++const canon = (s) => {
++  const rules = [
++    [/^(allocator-(snapshot|capture|diagnostics|snapshot-analysis)|pcode-lowering-analysis)$/, 'allocator-analysis'],
++    [/^(declaration-(order|ordering|reordering|order-experiments)|initialization-order-tuning)$/, 'declaration-ordering'],
++    [/^(scope-|variable-scope|scoped-lifetime|variable-lifetime|lifetime-shaping|declaration-scope|scope-narrowing|variable-scope-tuning)/, 'lifetime-scope-control'],
++    [/^(stack-padding|stack-padding-tuning|stack-padding-adjustment|stack-padding-removal|stack-padding-experiments)$/, 'stack-padding-tuning'],
++    [/^(stack-layout|aggregate-stack-layout|stack-layout-shaping|stack-layout-reasoning)($|-)/, 'stack-layout-reasoning'],
++    [/^(helper-boundary|helper-shape|inline-helper|helper-extraction|inline-removal|accessor-refactor|inline-accessor-restructure|canonical-inline-restore|inline-helper-extraction)/, 'inline-helper-shaping'],
++    [/^(past-|historical-|same-file-pattern|sibling-|past-function|past-source|past-code)/, 'source-pattern-lookup'],
++    [/^(expression-(shape|regrouping|reassociation|reorder)|operand-order|comparison-operand-reordering|assignment-order|comparator-orientation|comparison-rewrite|loop-comparison-reorder)/, 'expression-shape-experiments'],
++    [/^(pointer-walk|typed-pointer-walk|pointer-advance|pointer-advancement|pointer-stride-loop|pointer-induction-shape)/, 'pointer-loop-restructure'],
++    [/^(relocation-|relocation-analysis|data-section-ownership-analysis|constant-section-ownership|translation-unit-split-diagnosis)/, 'relocation-data-analysis'],
++    [/^(string-pool-analysis|literal-pool-ordering|constant-pool-ordering|sdata2-ordering|sdata2-order-reconstruction|sdata2-order-repair|data-order-reconstruction)$/, 'constant-pool-ordering'],
++    [/^(temporary-elimination|scoped-temporary-removal|local-alias-removal|alias-removal|variable-consolidation|dead-store-removal)$/, 'temporary-elimination'],
++    [/^(type-shape-experiments|typed-data-overlay|typed-overlay|type-overlay-experiments|packed-data-overlay|byte-view-pointer-shape|typed-pointer-view|typed-pointer-alias|typed-row-pointer|typed-field-access|typed-accessor)$/, 'type-shape-experiments'],
++    [/^(register-allocation-reasoning|float-register-reasoning)$/, 'register-allocation-reasoning'],
++    [/^(instruction-scheduling|instruction-scheduling-reasoning)$/, 'instruction-scheduling-reasoning'],
++    [/^(checkpoint-restore|neighbor-regression-check|data-section-preservation)$/, 'checkpoint-regression-check'],
++    [/^(permuter|persistent-objdiff-search)$/, 'permuter'],
++    [/^(inline-hypothesis)$/, 'inline-hypothesis'],
++    [/^(loop-restructure|control-flow-restructure|pointer-walk-loop)$/, 'loop-restructure'],
++  ];
++  for (const [re, out] of rules) if (re.test(s)) return out;
++  return s;
++};
++
++rows = rows.map(r => ({...r, epoch: Number(r.epoch), techniques: [...new Set(r.techniques.map(canon))]}));
++const tsv = fs.readFileSync(`${base}/scripts/p2_batches/batch_11.tsv`, 'utf8').trim().split('\n').map(x => x.split('\t'));
++if (rows.length !== 80) throw new Error(`record count ${rows.length}`);
++for (let i = 0; i < 80; i++) {
++  if (rows[i].ws_id !== tsv[i][0]) throw new Error(`order mismatch row ${i+1}: ${rows[i].ws_id} != ${tsv[i][0]}`);
++  if (rows[i].cohort !== tsv[i][1] || rows[i].target_key !== tsv[i][3]) throw new Error(`metadata mismatch row ${i+1}`);
++}
++fs.writeFileSync(`${base}/phase2_notes/batch_11.json`, JSON.stringify(rows, null, 2) + '\n');
++
++const cohorts = ['exact','near_miss','progressed','no_progress'];
++const counts = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) for (const t of r.techniques) m.set(t, (m.get(t)||0)+1);
++  counts[c] = [...m].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
++}
++const category = s => {
++  if (!s) return null;
++  if (/register|GPR|FPR|coloring|coalesc|allocation/i.test(s)) return 'register allocation';
++  if (/stack|frame|slot/i.test(s)) return 'stack layout';
++  if (/relocation|constant.pool|section ownership|symbol/i.test(s)) return 'relocation/data ownership';
++  if (/schedul/i.test(s)) return 'instruction scheduling';
++  if (/prototype|header declaration|signature/i.test(s)) return 'prototype/header mismatch';
++  return s;
++};
++const stalls = {};
++for (const c of cohorts) {
++  const m = new Map();
++  for (const r of rows.filter(x => x.cohort === c)) { const k=category(r.stall_reason); if(k) m.set(k,(m.get(k)||0)+1); }
++  stalls[c] = [...m].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))[0] || null;
++}
++const exact = rows.filter(r => r.cohort === 'exact');
++const pickIds = ['93eea2a1-b33b-4c88-a0e1-a40ea1f75fa7','35747593-d2cb-4c74-8cc0-846304c17844','4d365749-1fce-48b7-b930-a9823c9e851c'];
++const selected = pickIds.map(id => exact.find(r=>r.ws_id===id)).filter(Boolean);
++let md = '# Batch 11 Worker Self-Summary Audit\n\n';
++md += `Records: ${rows.length}. Cohorts: ${cohorts.map(c=>`${c} ${rows.filter(r=>r.cohort===c).length}`).join(', ')}.\n\n`;
++md += '## Technique Counts by Cohort\n\n';
++for (const c of cohorts) md += `- ${c}: ${counts[c].map(([k,v])=>`${k} ${v}`).join('; ')}\n`;
++md += '\n## Three Exact-Worker Accounts\n\n';
++for (const r of selected) md += `- ${r.ws_id}: ${r.success_factor}. ${r.notable || 'The worker reported no additional unusual detail.'}\n`;
++md += '\n## Most Common Stall Reason\n\n';
++for (const c of cohorts) md += `- ${c}: ${stalls[c] ? `${stalls[c][0]} (${stalls[c][1]})` : 'none; exact workers reported no stall'}\n`;
++md += '\n## Surprise\n\n';
++md += '- `ac74828b-a06f-49f6-894a-5447e56732c3` is labeled no_progress at 97.870094%, but all five self-summaries claim an exact 100% result. The discrepancy is in the source evidence and should be checked against the scorer history.\n';
++fs.writeFileSync(`${base}/phase2_notes/batch_11.md`, md);
++
++for (const p of parts) fs.unlinkSync(p);
++console.log(JSON.stringify({records: rows.length, exact: exact.length, markdownLines: md.trimEnd().split('\n').length, stalls}, null, 2));
+
+tokens used
+78,074
+DONE — 80 records.
+
+- [batch_11.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.json)
+- [batch_11.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_11.md)

@@ -1,0 +1,863 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-2004-7421-8f81-2482082ec680
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 09
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_09.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the `unslop` skill because the outputs must be compact, evidence-based, and free of generic AI phrasing. I’ll split the batch across parallel sub-agents, then validate and write only the two requested files.
+exec
+/bin/zsh -lc "cat '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l scripts/p2_batches/batch_09.tsv && sed -n '1,8p' scripts/p2_batches/batch_09.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+      80 scripts/p2_batches/batch_09.tsv
+75f16a89-5e1f-44a0-ab4f-1d1b5d661602	progressed	6	main/melee/mn/mnmainrule::mn_80230274	98.966	99.07931999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/75f16a89-5e1f-44a0-ab4f-1d1b5d661602
+9d2821c4-08b8-4f2a-beab-8ae04159fd57	progressed	6	main/melee/if/ifstatus::ifStatus_802F5EC0	97.32044	99.41989	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/9d2821c4-08b8-4f2a-beab-8ae04159fd57
+29e9cbba-36e0-4aa4-a8f0-de841dec773b	no_progress	6	main/melee/mn/mndiagram3::mnDiagram3_Init	99.34685	99.34685	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/29e9cbba-36e0-4aa4-a8f0-de841dec773b
+44dbf33e-7fc2-4183-9241-1f9517dabe96	progressed	6	main/melee/gr/grbigblue::grBigBlue_801E6C60	98.93183	98.93809	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/44dbf33e-7fc2-4183-9241-1f9517dabe96
+a215809d-5306-4b80-8770-f463726beb66	near_miss	6	main/melee/mn/mnstagesw::fn_80236998	99.77612	99.77612	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/a215809d-5306-4b80-8770-f463726beb66
+d33472d7-afc0-4f57-b224-5d015acc39a2	no_progress	6	main/melee/gr/grkongo::grKongo_801D6AFC	97.22612999999998	97.22612999999998	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d33472d7-afc0-4f57-b224-5d015acc39a2
+bef348be-8dd8-4a3b-ba56-5aa55baa80ce	no_progress	6	main/sysdolphin/baselib/hsd_3B34::fn_803B376C	97.838615	97.838615	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bef348be-8dd8-4a3b-ba56-5aa55baa80ce
+362d6e74-7cc1-4110-96e5-f2bf594ae8cf	no_progress	6	main/melee/mn/mnname::mnName_80239A24	99.0	99.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/362d6e74-7cc1-4110-96e5-f2bf594ae8cf
+
+codex
+Step 1 of 3: batch loaded. It has 79 workers. Eight parallel auditors will each handle about 10 rows and write temporary fragments outside the project output directory.
+collab: Wait
+collab: Wait
+codex
+Step 1 of 3 is in progress: all 79 summaries are assigned and being read. Next I’ll merge the fragments, normalize technique names, and check every batch row appears exactly once.
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 2 of 3 done: all eight auditors returned 79 validated records, and every assigned artifact directory contained summaries. I’m now checking schema, row order, duplicate IDs, and cross-chunk slug consistency before writing the two deliverables.
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/batch09_chunk_{1..8}.json > /tmp/batch09_all.json
+jq -r '.[].techniques[]' /tmp/batch09_all.json | sort | uniq -c | sort -nr
+jq -r 'group_by(.cohort)[] | \"\\(.[0].cohort) \\(length)\"' /tmp/batch09_all.json
+jq -r '.[] | select(.cohort==\"exact\") | [.ws_id,.success_factor,.stall_reason,(.techniques|join(\",\")),.notable] | @tsv' /tmp/batch09_all.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+  69 asm-diff-instruction-level
+  53 permuter
+  42 register-allocation-reasoning
+  31 declaration-order-experiments
+  23 inline-hypothesis
+  21 loop-restructure
+  19 type-shape-experiments
+  19 checkpoint-restore
+  14 mwcc-regflow-diagnostics
+  11 prior-attempt-ledger
+  11 mwcc-stack-diagnostics
+  10 source-permuter
+   9 variable-lifetime-shaping
+   7 past-pr-lookup
+   7 allocator-snapshot
+   6 regflow-diagnostics
+   6 mwcc-allocator-snapshot
+   5 variable-lifetime-experiments
+   5 scope-lifetime-experiments
+   5 neighbor-regression-check
+   5 local-scope-shaping
+   5 lifetime-scope-tuning
+   5 helper-extraction
+   5 float-literal-tricks
+   4 variable-reuse
+   4 stack-layout-reasoning
+   4 pointer-lifetime-tuning
+   4 parameter-order-experiments
+   4 lifetime-scoping
+   4 ledger-lookup
+   4 declaration-scope-experiments
+   4 control-flow-restructure
+   3 typed-union-overlay
+   3 temporary-variable-experiments
+   3 stack-padding-experiments
+   3 stack-padding
+   3 stack-layout-diagnostics
+   3 solved-sibling-lookup
+   3 signedness-experiments
+   3 qa-gate-repair
+   3 pointer-lifetime-experiments
+   3 past-attempt-lookup
+   3 inline-helper-experiments
+   3 expression-shape-experiments
+   3 expression-restructure
+   3 declaration-order-tuning
+   2 variable-ordering
+   2 typed-pointer-experiments
+   2 temporary-introduction
+   2 stack-layout-experiments
+   2 stack-frame-diagnostics
+   2 stack-frame-analysis
+   2 register-flow-diagnostics
+   2 redundant-temporary-removal
+   2 pointer-walk-loop
+   2 past-run-lookup
+   2 pad-stack-experiments
+   2 operand-order-experiments
+   2 neighbor-function-validation
+   2 local-lifetime-shaping
+   2 inline-helper-extraction
+   2 historical-source-lookup
+   2 helper-shape-experiments
+   2 graph-analog-lookup
+   2 float-expression-restructure
+   2 expression-reassociation
+   2 expression-order-experiments
+   2 direct-global-access
+   2 declaration-cleanup
+   2 data-ordering
+   2 data-layout-reasoning
+   2 cross-file-ownership-reasoning
+   2 assignment-order-experiments
+   2 argument-order-experiments
+   1 volatile-shaping
+   1 volatile-qualifier-experiments
+   1 typed-temporary-experiments
+   1 typed-temporaries
+   1 typed-pointer-local
+   1 typed-pointer-consolidation
+   1 typed-pointer-cast
+   1 typed-pointer-cache
+   1 typed-pointer-arithmetic
+   1 typed-overlay-pointer
+   1 typed-aliases
+   1 typed-aggregate-experiments
+   1 typed-aggregate-copy
+   1 typed-accessor
+   1 type-signature-reasoning
+   1 translation-unit-ownership-analysis
+   1 ternary-recovery
+   1 ternary-control-flow
+   1 symbol-linkage-experiments
+   1 string-pooling-experiments
+   1 storage-class-experiments
+   1 stack-padding-experiment
+   1 stack-frame-reasoning
+   1 split-config-analysis
+   1 shadow-compile
+   1 scoped-local-experiments
+   1 same-file-pattern-lookup
+   1 reverse-array-indexing
+   1 relocation-base-reasoning
+   1 relocation-analysis
+   1 prototype-return-type-probe
+   1 pointer-walk-experiments
+   1 pointer-union-view
+   1 pointer-stride-loop-recovery
+   1 pointer-shape-experiments
+   1 pointer-reload-experiment
+   1 pointer-post-increment
+   1 pointer-output-experiment
+   1 pointer-initialization-experiments
+   1 pointer-induction-experiments
+   1 pointer-induction-experiment
+   1 pointer-indexing-experiments
+   1 pointer-expression-variants
+   1 pointer-expression-experiments
+   1 pointer-base-correction
+   1 pointer-alias-shaping
+   1 pointer-advancement
+   1 pointer-address-shaping
+   1 permuter-replay
+   1 past-source-lookup
+   1 past-function-analog
+   1 padding-stack-experiments
+   1 padding-local-placement
+   1 offset-reuse-experiments
+   1 nearby-function-analogy
+   1 mwcc-allocator-inspection
+   1 must-match-conditional
+   1 matrix-initialization-fix
+   1 loop-index-reuse
+   1 loop-counter-experiments
+   1 loop-bound-type-shaping
+   1 local-scope-experiments
+   1 literal-symbol-experiments
+   1 linkage-experiment
+   1 instruction-scheduling-reasoning
+   1 instruction-scheduling
+   1 instruction-reordering
+   1 inline-expression-reuse
+   1 inline-accessor
+   1 initializer-section-experiments
+   1 initialization-order
+   1 induction-pointer-reasoning
+   1 indexed-access-experiment
+   1 include-visibility-probe
+   1 historical-commit-lookup
+   1 helper-parameter-reorder
+   1 helper-expansion
+   1 helper-boundary-experiments
+   1 global-reload-experiments
+   1 git-history-lookup
+   1 function-pointer-cast
+   1 float-temporary-experiment
+   1 expression-reordering
+   1 expression-reorder
+   1 expression-recomputation
+   1 expression-ordering
+   1 expression-folding
+   1 explicit-void-use
+   1 exact-source-idiom-lookup
+   1 double-precision-shaping
+   1 direct-indexing-experiment
+   1 dependency-injection
+   1 declaration-definition-order
+   1 dead-store-removal
+   1 data-section-layout-reasoning
+   1 data-layout-experiments
+   1 data-layout-experiment
+   1 custom-section-experiments
+   1 condition-record-reasoning
+   1 compiler-ir-analysis
+   1 compiler-diagnostics
+   1 comparison-order-experiments
+   1 comparison-operand-order
+   1 checkpoint-lookup
+   1 cast-shape-experiments
+   1 caller-owned-temporaries
+   1 caller-owned-scratch
+   1 byte-cursor-pointer
+   1 bss-order-experiments
+   1 bss-linkage-experiment
+   1 bss-layout-reasoning
+   1 bss-layout-experiment
+   1 authored-analog-lookup
+   1 array-layout-experiments
+   1 arithmetic-restructure
+   1 argument-alias-experiments
+   1 analogous-code-lookup
+   1 analog-function-comparison
+   1 alias-experiments
+   1 alias-elimination
+   1 aggregate-initialization
+   1 adjacent-function-lookup
+   1 accessor-shape-experiment
+exact 3
+near_miss 16
+no_progress 20
+progressed 40
+b9db3bdd-3451-46b9-9806-8aa6fe1c22a5	inline-helper locals and padding placed GXColor temporaries at target stack offsets		asm-diff-instruction-level,stack-layout-reasoning,inline-hypothesis,lifetime-scoping,padding-local-placement,typed-pointer-arithmetic,permuter	Two explicitly used padding locals were required to move three by-value GXColor temporaries from low outgoing slots to 0x118, 0x11C, and 0x120.
+58db912a-2eab-4092-b18b-265938ac6a7b	scoped MUST_MATCH u16 copy moved the condition-record update		asm-diff-instruction-level,condition-record-reasoning,type-shape-experiments,declaration-order-experiments,variable-reuse,control-flow-restructure,inline-hypothesis,permuter,compiler-ir-analysis,must-match-conditional	The worker traced a two-instruction mismatch to CR placement and used PCode counts to explain why an intuitive assignment-in-condition probe regressed.
+a9872728-d65f-4b92-8804-86dabc0f33bd	state-base byte cursor with typed union view		type-shape-experiments,byte-cursor-pointer,pointer-union-view,loop-restructure	A local pointer-view union preserved typed access while producing the exact +0x74 and +0x75 address operands.
+
+exec
+/bin/zsh -lc "mkdir -p phase2_notes
+jq '
+def canon:
+  if test(\""'^asm-diff") then "asm-diff-instruction-level"
+  elif test("permuter") then "permuter"
+  elif test("regflow|allocator|register-allocation") then "register-allocation-reasoning"
+  elif test("stack|padding-local") then "stack-layout-reasoning"
+  elif test("checkpoint|prior-attempt|past-(run|attempt)|ledger") then "checkpoint-restore"
+  elif test("past-pr|git-history|historical-(source|commit)|past-source|authored-analog|solved-sibling|analog|adjacent-function|nearby-function|same-file-pattern|graph-analog|exact-source|past-function") then "past-pr-lookup"
+  elif test("declaration-order|declaration-definition|initialization-order") then "declaration-order-experiments"
+  elif test("scope|lifetime|local-scope|pointer-lifetime") then "variable-lifetime-shaping"
+  elif test("type-shape|typed-|cast-shape|prototype-return|signedness|double-precision|function-pointer-cast") then "type-shape-experiments"
+  elif test("loop|pointer-walk|pointer-induction|pointer-stride|pointer-post-increment|pointer-advancement|reverse-array-indexing|indexed-access|direct-indexing|byte-cursor") then "loop-restructure"
+  elif test("inline-hypothesis|inline-helper|helper-extraction|helper-expansion|inline-accessor|inline-expression") then "inline-hypothesis"
+  elif test("expression|operand-order|comparison-order|comparison-operand|arithmetic-restructure") then "expression-shape-experiments"
+  elif test("data-|bss-|array-layout|aggregate-initialization|matrix-initialization") then "data-layout-reasoning"
+  elif test("float") then "float-literal-tricks"
+  elif test("instruction-schedul|instruction-reorder") then "instruction-scheduling-reasoning"
+  elif test("control-flow|ternary|must-match-conditional") then "control-flow-restructure"
+  elif test("linkage|section|include-visibility|translation-unit|cross-file") then "linkage-layout-experiments"
+  elif test("argument|parameter-order|helper-parameter") then "argument-order-experiments"
+  elif test("pointer-|alias") then "pointer-shape-experiments"
+  elif test("temporary|variable-order|variable-reuse|offset-reuse|local-lifetime|redundant-temporary|dead-store|caller-owned") then "variable-shape-experiments"
+  elif test("compiler-|shadow-compile") then "compiler-diagnostics"
+  elif test("neighbor") then "neighbor-regression-check"
+  elif test("literal|string-pooling") then "literal-shape-experiments"
+  else . end;
+map(.techniques |= ([.[] | canon] | unique))'"' /tmp/batch09_all.json > phase2_notes/batch_09.json
+jq -r '.[].techniques[]' phase2_notes/batch_09.json | sort -u | nl -ba
+python3 - <<'PY'
+import csv,json
+rows=list(csv.reader(open(\"scripts/p2_batches/batch_09.tsv\"),delimiter=\"\\t\"))
+data=json.load(open(\"phase2_notes/batch_09.json\"))
+assert len(rows)==len(data)==79
+assert [r[0] for r in rows]==[x[\"ws_id\"] for x in data]
+keys={\"ws_id\",\"cohort\",\"epoch\",\"target_key\",\"techniques\",\"stall_reason\",\"success_factor\",\"loop_quality\",\"notable\"}
+assert all(set(x)==keys for x in data)
+assert all(x[\"loop_quality\"] in {\"systematic\",\"mixed\",\"shotgun\",\"unknown\"} for x in data)
+print(\"validated\",len(data))
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ exited 1 in 0ms:
+     1	accessor-shape-experiment
+     2	argument-order-experiments
+     3	asm-diff-instruction-level
+     4	assignment-order-experiments
+     5	checkpoint-restore
+     6	compiler-diagnostics
+     7	condition-record-reasoning
+     8	control-flow-restructure
+     9	data-layout-reasoning
+    10	declaration-cleanup
+    11	declaration-order-experiments
+    12	dependency-injection
+    13	direct-global-access
+    14	explicit-void-use
+    15	expression-shape-experiments
+    16	float-literal-tricks
+    17	global-reload-experiments
+    18	helper-boundary-experiments
+    19	helper-shape-experiments
+    20	inline-hypothesis
+    21	instruction-scheduling-reasoning
+    22	linkage-layout-experiments
+    23	literal-shape-experiments
+    24	loop-restructure
+    25	neighbor-regression-check
+    26	past-pr-lookup
+    27	permuter
+    28	pointer-shape-experiments
+    29	qa-gate-repair
+    30	register-allocation-reasoning
+    31	register-flow-diagnostics
+    32	relocation-analysis
+    33	relocation-base-reasoning
+    34	split-config-analysis
+    35	stack-layout-reasoning
+    36	storage-class-experiments
+    37	type-shape-experiments
+    38	type-signature-reasoning
+    39	variable-lifetime-shaping
+    40	variable-shape-experiments
+    41	volatile-qualifier-experiments
+    42	volatile-shaping
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError
+
+codex
+Validation found an assignment boundary error: the TSV has 80 workers, not 79. One final row was never assigned. I’m auditing that row now, then I’ll rerun the full row-order check before producing the report.
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/batch09_chunk_{1..8}.json > /tmp/batch09_all.json
+jq '
+def canon:
+  if test(\""'^asm-diff") then "asm-diff-instruction-level" elif test("permuter") then "permuter" elif test("regflow|register-flow|allocator|register-allocation") then "register-allocation-reasoning" elif test("stack|padding-local") then "stack-layout-reasoning" elif test("checkpoint|prior-attempt|past-(run|attempt)|ledger") then "checkpoint-restore" elif test("past-pr|git-history|historical-(source|commit)|past-source|authored-analog|solved-sibling|analog|adjacent-function|nearby-function|same-file-pattern|graph-analog|exact-source|past-function") then "past-pr-lookup" elif test("declaration-order|declaration-definition|initialization-order") then "declaration-order-experiments" elif test("scope|lifetime|local-scope|pointer-lifetime") then "variable-lifetime-shaping" elif test("type-shape|typed-|cast-shape|prototype-return|signedness|double-precision|function-pointer-cast|type-signature") then "type-shape-experiments" elif test("loop|pointer-walk|pointer-induction|pointer-stride|pointer-post-increment|pointer-advancement|reverse-array-indexing|indexed-access|direct-indexing|byte-cursor") then "loop-restructure" elif test("inline-hypothesis|inline-helper|helper-extraction|helper-expansion|inline-accessor|inline-expression") then "inline-hypothesis" elif test("expression|operand-order|comparison-order|comparison-operand|arithmetic-restructure|assignment-order") then "expression-shape-experiments" elif test("data-|bss-|array-layout|aggregate-initialization|matrix-initialization") then "data-layout-reasoning" elif test("float") then "float-literal-tricks" elif test("instruction-schedul|instruction-reorder") then "instruction-scheduling-reasoning" elif test("control-flow|ternary|must-match-conditional") then "control-flow-restructure" elif test("linkage|section|include-visibility|translation-unit|cross-file|storage-class") then "linkage-layout-experiments" elif test("argument|parameter-order|helper-parameter") then "argument-order-experiments" elif test("pointer-|alias") then "pointer-shape-experiments" elif test("temporary|variable-order|variable-reuse|offset-reuse|local-lifetime|redundant-temporary|dead-store|caller-owned") then "variable-shape-experiments" elif test("compiler-|shadow-compile") then "compiler-diagnostics" elif test("neighbor") then "neighbor-regression-check" elif test("literal|string-pooling") then "literal-shape-experiments" elif test("volatile") then "volatile-shaping" elif test("relocation") then "relocation-analysis" else . end;
+map(.techniques |= ([.[] | canon] | unique))'"' /tmp/batch09_all.json > phase2_notes/batch_09.json
+python3 - <<'PY'
+import csv,json
+rows=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t'))
+data=json.load(open('phase2_notes/batch_09.json'))
+assert len(rows)==len(data)==80,(len(rows),len(data))
+assert [r[0] for r in rows]==[x['ws_id'] for x in data]
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+assert all(set(x)==keys for x in data)
+assert all(x['loop_quality'] in {'systematic','mixed','shotgun','unknown'} for x in data)
+print('validated',len(data))
+PY
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | [$c,(group_by(.stall_reason)|map(select(.[0].stall_reason != null)|{r:.[0].stall_reason,n:length})|sort_by(-.n,.r)|.[0] // {r:"none",n:0}|.r), (group_by(.stall_reason)|map(select(.[0].stall_reason != null)|{r:.[0].stall_reason,n:length})|sort_by(-.n,.r)|.[0] // {r:"none",n:0}|.n)] | @tsv'"' phase2_notes/batch_09.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | group_by(.loop_quality)[] | [$c,.[0].loop_quality,length] | @tsv'"' phase2_notes/batch_09.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError
+exact	none	0
+near_miss	8-byte frame and Vec3 slot shift	1
+no_progress	24 register-coloring mismatches	1
+progressed	saved-register coloring	2
+exact	systematic	3
+near_miss	mixed	1
+near_miss	systematic	16
+no_progress	mixed	5
+no_progress	systematic	15
+progressed	mixed	3
+progressed	systematic	37
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json
+r=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t')); d=json.load(open('phase2_notes/batch_09.json'))
+print(len(r),len(d))
+for i,(a,b) in enumerate(zip(r,d),1):
+ if a[0]"'!=b['"'ws_id']: print(i,a[0],b['ws_id'])
+PY
+sed -n '68,80p' scripts/p2_batches/batch_09.tsv | cut -f1" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+80 80
+21 a1c1fa65-0b8d-4f8b-abfb-3149044c46a7 23831571-91c3-4ce8-ba20-f4d451d55648
+22 23831571-91c3-4ce8-ba20-f4d451d55648 2010c950-d69d-4724-afed-d18cad37ba6c
+23 2010c950-d69d-4724-afed-d18cad37ba6c a31f913a-f2d2-4ff7-8eb9-e6cde686e3d4
+24 a31f913a-f2d2-4ff7-8eb9-e6cde686e3d4 4429578a-87e1-4f4d-b35f-5c50023fd1dc
+25 4429578a-87e1-4f4d-b35f-5c50023fd1dc a79bdc0f-2e6c-441e-9d4e-87cd05111fcb
+26 a79bdc0f-2e6c-441e-9d4e-87cd05111fcb 0e3680ab-1235-4228-b442-fc9d2342dd1c
+27 0e3680ab-1235-4228-b442-fc9d2342dd1c 311159c7-bb6c-4525-a606-ce06cebac9b5
+28 311159c7-bb6c-4525-a606-ce06cebac9b5 0f5cdb77-069f-451a-a214-75917e10dce0
+29 0f5cdb77-069f-451a-a214-75917e10dce0 5cffcd6c-d9b7-40d5-809d-f14c753fbe35
+30 5cffcd6c-d9b7-40d5-809d-f14c753fbe35 175788ae-b247-47ba-8bf6-d03c9eec146f
+41 d08dc042-eef9-41be-a208-d99718dd1548 04b2afd5-b787-45b0-92f3-7083c9b01c63
+42 04b2afd5-b787-45b0-92f3-7083c9b01c63 bdcec5b3-473e-4bf4-8eef-aa31744ef5f4
+43 bdcec5b3-473e-4bf4-8eef-aa31744ef5f4 9f93f6de-3a2a-4496-a695-aad99692d738
+44 9f93f6de-3a2a-4496-a695-aad99692d738 01311b7a-9ed9-43bd-967f-b60145d349a7
+45 01311b7a-9ed9-43bd-967f-b60145d349a7 383c31be-8685-4a4f-98b1-3f0b61a79ee2
+46 383c31be-8685-4a4f-98b1-3f0b61a79ee2 0424c6f2-243c-4624-9be7-9c1051c6bb62
+47 0424c6f2-243c-4624-9be7-9c1051c6bb62 d30da8a0-9127-493c-a8ac-cae6dae9f5ca
+48 d30da8a0-9127-493c-a8ac-cae6dae9f5ca f1e15d05-0b3f-4ece-ae12-590dde9bd557
+49 f1e15d05-0b3f-4ece-ae12-590dde9bd557 04559a1c-0204-48d3-b023-9c5907f6bee1
+50 04559a1c-0204-48d3-b023-9c5907f6bee1 6eea84a2-c8d1-4cb2-ac8a-03f42005e095
+93cfe6e0-9802-4c8a-9b52-85e8cc9144df
+910c4c73-5811-4e05-913a-2f57728b45ca
+34859e6c-bb64-4fd8-809c-42ff9484af9c
+9720f112-b093-433b-926e-29c598091be3
+a9872728-d65f-4b92-8804-86dabc0f33bd
+c5788b28-8da8-47ed-a244-cf754e380819
+bc198866-34a0-429d-b306-4c1a94e04352
+7cca769a-670b-4e12-bb9f-f5c1f012ea5f
+b551a8c6-cbfe-4779-b77b-39be9a614f2a
+64b76d5b-6f57-4d73-8f38-a53b26d385d1
+a2cec204-2ba9-4d75-bde8-4c297a29c849
+9b9c8a31-fec3-4509-b65b-40052e65ba0e
+0e647032-b303-41ae-bf2a-34698774668c
+
+codex
+The second validation caught two chunk off-by-one errors: rows 21 and 41 were skipped, while rows 31 and 51 were duplicated. I’ve sent the exact missing IDs back for audit; the final merge will sort by the TSV and reject duplicates.
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc "jq -s 'add' /tmp/batch09_chunk_{1..8}.json > /tmp/batch09_all.json
+python3 - <<'PY'
+import csv,json
+rows=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t'))
+d=json.load(open('/tmp/batch09_all.json'))
+by={x['ws_id']:x for x in d}
+assert len(d)==len(by)==len(rows)==80
+ordered=[by[r[0]] for r in rows]
+json.dump(ordered,open('/tmp/batch09_ordered.json','w'),indent=2);open('/tmp/batch09_ordered.json','a').write('\\n')
+print('ordered',len(ordered))
+PY
+jq -r '.[]|select(.cohort==\"exact\")|[.ws_id,.success_factor,.notable,(.techniques|join(\",\"))]|@tsv' /tmp/batch09_ordered.json
+jq -r '.[]|[.cohort,.stall_reason]|@tsv' /tmp/batch09_ordered.json | sort" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ordered 80
+d08dc042-eef9-41be-a208-d99718dd1548	typed pointer locals and a GObj alias produced exact register allocation	After many neutral or regressing allocation probes, typed MenuFlow and hovered-selection locals plus a GObj alias resolved the persistent r29/r31 swap.	asm-diff-instruction-level,register-allocation-reasoning,type-shape-experiments,variable-lifetime-shaping,variable-aliasing,variable-reuse,expression-shape-experiments,permuter,register-flow-diagnostics,checkpoint-restore
+b9db3bdd-3451-46b9-9806-8aa6fe1c22a5	inline-helper locals and padding placed GXColor temporaries at target stack offsets	Two explicitly used padding locals were required to move three by-value GXColor temporaries from low outgoing slots to 0x118, 0x11C, and 0x120.	asm-diff-instruction-level,stack-layout-reasoning,inline-hypothesis,lifetime-scoping,padding-local-placement,typed-pointer-arithmetic,permuter
+58db912a-2eab-4092-b18b-265938ac6a7b	scoped MUST_MATCH u16 copy moved the condition-record update	The worker traced a two-instruction mismatch to CR placement and used PCode counts to explain why an intuitive assignment-in-condition probe regressed.	asm-diff-instruction-level,condition-record-reasoning,type-shape-experiments,declaration-order-experiments,variable-reuse,control-flow-restructure,inline-hypothesis,permuter,compiler-ir-analysis,must-match-conditional
+a9872728-d65f-4b92-8804-86dabc0f33bd	state-base byte cursor with typed union view	A local pointer-view union preserved typed access while producing the exact +0x74 and +0x75 address operands.	type-shape-experiments,byte-cursor-pointer,pointer-union-view,loop-restructure
+exact	
+exact	
+exact	
+exact	
+near_miss	8-byte frame and Vec3 slot shift
+near_miss	coupled local lifetime and register allocation
+near_miss	coupled register and stack allocation
+near_miss	cyclic induction-pointer register allocation
+near_miss	four data-address addend mismatches
+near_miss	merged translation-unit relocation ownership
+near_miss	owning u8 return prototype forces zero extension
+near_miss	relocation target and translation-unit constant-pool offsets
+near_miss	row ID r26/r30 register swap
+near_miss	saved-register coloring rotation
+near_miss	seven cleanup-loop register mismatches
+near_miss	seven volatile-register operand mismatches
+near_miss	single address-materialization register move
+near_miss	sort partition r3/r4 register swap
+near_miss	stack-slot layout, text-loop regalloc, and pooled constants
+near_miss	transition-block regalloc and float-temporary stack slots
+near_miss	two independent integer adds scheduled in reverse order
+near_miss	wrong cross-file return prototype and nullable-child branch shape
+no_progress	24 register-coloring mismatches
+no_progress	BSS addressing fix regressed exact neighbor
+no_progress	BSS relocation-base selection
+no_progress	Vec3 stack-slot placement
+no_progress	coupled GPR/FPR register coloring
+no_progress	coupled nonvolatile-register allocation
+no_progress	file-size arithmetic register allocation
+no_progress	final-loop register allocation and scheduling
+no_progress	floating-point register allocation local maximum
+no_progress	floating-point register and spill-slot allocation
+no_progress	function-wide callee-saved register coloring
+no_progress	global address materialized through wrong register
+no_progress	nonvolatile register coloring across two loops
+no_progress	parameter reorder regressed caller
+no_progress	persistent base spills instead of r30 allocation
+no_progress	radial-loop register allocation
+no_progress	rare-loop register coloring
+no_progress	source structure and lifetime mismatch
+no_progress	stack frame and CTR-loop lowering
+progressed	BSS base and object layout
+progressed	BSS base and saved-register allocation
+progressed	BSS-base folding adds a register and cascades regalloc
+progressed	CSE and regalloc around paired source-offset calculations
+progressed	allocator-wide saved-register assignment
+progressed	broad register and lifetime differences
+progressed	conversion relocations and argument-copy instruction selection
+progressed	coupled global-base and loop register allocation
+progressed	cyclic pointer and terminator register allocation
+progressed	early register allocation and pointer setup ordering
+progressed	early-loop source shape and register allocation
+progressed	float relocation and digit-access register lifetimes
+progressed	floating-register ownership cascade
+progressed	four-way register-allocation cycle
+progressed	function-wide register allocation and frame layout
+progressed	initial address construction and saved-register allocation
+progressed	long-lived register allocation across ranking loops
+progressed	long-lived workspace and table-pointer regalloc
+progressed	loop register allocation and float relocation
+progressed	nonvolatile register allocation across long live ranges
+progressed	opening-loop register and lifetime allocation
+progressed	option-root loop register allocation
+progressed	panel-block instruction scheduling and register allocation
+progressed	prologue address coalescing and quantization-loop registers
+progressed	r26/r27 swap and equivalent array addressing
+progressed	register allocation and instruction shape
+progressed	register allocation and one missing instruction
+progressed	register allocation and partition swap stack slots
+progressed	register allocation in count and inlined scan live ranges
+progressed	remaining codegen mismatch
+progressed	remaining stack and register allocation mismatch
+progressed	saved-f14 lifetime and floating-point stack slots
+progressed	saved-register coloring
+progressed	second byte-search register allocation
+progressed	sqrt and JObj temporary stack slots
+progressed	stack frame and nonvolatile-register allocation
+progressed	stack offsets and parameter register allocation
+progressed	unstated residual mismatch
+progressed	whole-function register allocation
+
+exec
+/bin/zsh -lc "jq '
+def canon:
+  if test(\""'^asm-diff") then "asm-diff-instruction-level" elif test("permuter") then "permuter" elif test("regflow|register-flow|allocator|register-allocation") then "register-allocation-reasoning" elif test("stack|padding-local") then "stack-layout-reasoning" elif test("checkpoint|prior-attempt|past-(run|attempt)|ledger") then "checkpoint-restore" elif test("past-pr|git-history|historical-(source|commit)|past-source|authored-analog|solved-sibling|analog|adjacent-function|nearby-function|same-file-pattern|graph-analog|exact-source|past-function") then "past-pr-lookup" elif test("declaration-order|declaration-definition|initialization-order") then "declaration-order-experiments" elif test("scope|lifetime|local-scope|pointer-lifetime") then "variable-lifetime-shaping" elif test("type-shape|typed-|cast-shape|prototype-return|signedness|double-precision|function-pointer-cast|type-signature") then "type-shape-experiments" elif test("loop|pointer-walk|pointer-induction|pointer-stride|pointer-post-increment|pointer-advancement|reverse-array-indexing|indexed-access|direct-indexing|byte-cursor") then "loop-restructure" elif test("inline-hypothesis|inline-helper|helper-extraction|helper-expansion|inline-accessor|inline-expression") then "inline-hypothesis" elif test("expression|operand-order|comparison-order|comparison-operand|arithmetic-restructure|assignment-order") then "expression-shape-experiments" elif test("data-|bss-|array-layout|aggregate-initialization|matrix-initialization") then "data-layout-reasoning" elif test("float") then "float-literal-tricks" elif test("instruction-schedul|instruction-reorder") then "instruction-scheduling-reasoning" elif test("control-flow|ternary|must-match-conditional") then "control-flow-restructure" elif test("linkage|section|include-visibility|translation-unit|cross-file|storage-class") then "linkage-layout-experiments" elif test("argument|parameter-order|helper-parameter") then "argument-order-experiments" elif test("pointer-|alias") then "pointer-shape-experiments" elif test("temporary|variable-order|variable-reuse|offset-reuse|local-lifetime|redundant-temporary|dead-store|caller-owned") then "variable-shape-experiments" elif test("compiler-|shadow-compile") then "compiler-diagnostics" elif test("neighbor") then "neighbor-regression-check" elif test("literal|string-pooling") then "literal-shape-experiments" elif test("volatile") then "volatile-shaping" elif test("relocation") then "relocation-analysis" else . end;
+map(.techniques |= ([.[] | canon] | unique))'"' /tmp/batch09_ordered.json > phase2_notes/batch_09.json
+python3 - <<'PY'
+import csv,json,collections
+p='phase2_notes/batch_09.json'; d=json.load(open(p)); rows=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t'))
+assert len(d)==len(rows)==80 and len({x['ws_id'] for x in d})==80
+assert [x['ws_id'] for x in d]==[r[0] for r in rows]
+coh=['exact','near_miss','progressed','no_progress']; counts={c:collections.Counter(t for x in d if x['cohort']==c for t in x['techniques']) for c in coh}
+tech=sorted(set().union(*counts.values()),key=lambda t:(-sum(counts[c][t] for c in coh),t))
+lines=['# Batch 09 Self-Summary Sweep','','## Technique Counts by Cohort','',f'Workers: exact 4, near_miss 17, progressed 40, no_progress 19.','', '| Technique | Exact | Near miss | Progressed | No progress |','|---|---:|---:|---:|---:|']
+for t in tech: lines.append('| '+t+' | '+' | '.join(str(counts[c][t]) for c in coh)+' |')
+lines += ['','## Three Exact Accounts','','- "'`b9db3bdd-3451-46b9-9806-8aa6fe1c22a5`: The worker traced the gap to three by-value `GXColor` temporaries occupying the wrong stack slots. Two deliberately used padding locals moved them to `0x118`, `0x11C`, and `0x120` and closed the match.'"','- "'`58db912a-2eab-4092-b18b-265938ac6a7b`: A two-instruction mismatch came from condition-register placement, confirmed with PCode counts. A scoped `MUST_MATCH` `u16` copy moved the condition-record update into place.'"','- "'`a9872728-d65f-4b92-8804-86dabc0f33bd`: Ordinary typed pointer forms emitted the wrong address operands. A local pointer-view union plus a byte cursor preserved typed access and produced exact `+0x74` and `+0x75` addressing.'"','','## Common Stall Reasons','','- Exact: none. All four accounts name a closing change.','- Near miss: register allocation or register coloring, 10 of 17 accounts.','- Progressed: register allocation or register coloring, 35 of 40 accounts.','- No progress: register allocation or register coloring, 13 of 19 accounts.','','## Surprise','','All 80 workers left summaries. The exact fixes were unusually structural: explicit stack padding, condition-register steering, a typed pointer union, and typed aliases that resolved a persistent saved-register swap.']
+assert len(lines)<=60,len(lines)
+open('/tmp/batch09.md','w').write('\\n'.join(lines)+'\\n')
+print('json records',len(d),'markdown lines',len(lines),'techniques',len(tech))
+PY
+python3 - <<'PY' | apply_patch
+from pathlib import Path
+s=Path('/tmp/batch09.md').read_text().splitlines()
+print('*** Begin Patch')
+print('*** Add File: phase2_notes/batch_09.md')
+for x in s: print('+'+x)
+print('*** End Patch')
+PY
+wc -l phase2_notes/batch_09.md
+jq length phase2_notes/batch_09.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+Traceback (most recent call last):
+  File "<stdin>", line 10, in <module>
+AssertionError: 63
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/Users/Ford/anaconda3/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Ford/anaconda3/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/batch09.md'
+Usage: apply_patch 'PATCH'
+       echo 'PATCH' | apply_patch
+wc: phase2_notes/batch_09.md: open: No such file or directory
+80
+
+exec
+/bin/zsh -lc "jq -r '.[].techniques[]' phase2_notes/batch_09.json | sort -u | nl" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+     1	accessor-shape-experiment
+     2	argument-order-experiments
+     3	asm-diff-instruction-level
+     4	checkpoint-restore
+     5	compiler-diagnostics
+     6	condition-record-reasoning
+     7	control-flow-restructure
+     8	data-layout-reasoning
+     9	declaration-cleanup
+    10	declaration-order-experiments
+    11	dependency-injection
+    12	direct-global-access
+    13	explicit-void-use
+    14	expression-shape-experiments
+    15	float-literal-tricks
+    16	global-reload-experiments
+    17	helper-boundary-experiments
+    18	helper-shape-experiments
+    19	inline-hypothesis
+    20	instruction-scheduling-reasoning
+    21	linkage-layout-experiments
+    22	literal-shape-experiments
+    23	loop-restructure
+    24	neighbor-regression-check
+    25	past-pr-lookup
+    26	permuter
+    27	pointer-shape-experiments
+    28	qa-gate-repair
+    29	register-allocation-reasoning
+    30	relocation-analysis
+    31	sibling-function-comparison
+    32	split-config-analysis
+    33	stack-layout-reasoning
+    34	type-shape-experiments
+    35	variable-lifetime-shaping
+    36	variable-shape-experiments
+    37	volatile-shaping
+    38	zero-initialization-experiments
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json,collections
+p='phase2_notes/batch_09.json'; d=json.load(open(p)); rows=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t'))
+assert len(d)==len(rows)==80 and len({x['ws_id'] for x in d})==80
+assert [x['ws_id'] for x in d]==[r[0] for r in rows]
+coh=['exact','near_miss','progressed','no_progress']; counts={c:collections.Counter(t for x in d if x['cohort']==c for t in x['techniques']) for c in coh}
+tech=sorted(set().union(*counts.values()),key=lambda t:(-sum(counts[c][t] for c in coh),t))
+lines=['# Batch 09 Self-Summary Sweep','','## Technique Counts by Cohort','',f'Workers: exact 4, near_miss 17, progressed 40, no_progress 19.','', '| Technique | Exact | Near miss | Progressed | No progress |','|---|---:|---:|---:|---:|']
+for t in tech: lines.append('| '+t+' | '+' | '.join(str(counts[c][t]) for c in coh)+' |')
+lines += ['','## Three Exact Accounts','','- "'`b9db3bdd-3451-46b9-9806-8aa6fe1c22a5`: Three by-value `GXColor` temporaries occupied the wrong stack slots. Two used padding locals moved them to `0x118`, `0x11C`, and `0x120` and closed the match.'"','- "'`58db912a-2eab-4092-b18b-265938ac6a7b`: PCode counts tied a two-instruction mismatch to condition-register placement. A scoped `MUST_MATCH` `u16` copy moved the condition-record update into place.'"','- "'`a9872728-d65f-4b92-8804-86dabc0f33bd`: Typed pointer forms emitted the wrong address operands. A pointer-view union plus byte cursor produced exact `+0x74` and `+0x75` addressing.'"','','## Common Stall Reasons','','Exact: none. Near miss: register allocation or coloring, 10/17. Progressed: 35/40. No progress: 13/19.','','## Surprise','','All 80 workers left summaries. Exact fixes included explicit stack padding, condition-register steering, a typed pointer union, and typed aliases that resolved a saved-register swap.']
+assert len(lines)<=60,len(lines)
+open('/tmp/batch09.md','w').write('\\n'.join(lines)+'\\n')
+print('validated',len(d),'records;',len(lines),'markdown lines;',len(tech),'techniques')
+PY
+python3 - <<'PY' | apply_patch
+from pathlib import Path
+s=Path('/tmp/batch09.md').read_text().splitlines()
+print('*** Begin Patch')
+print('*** Add File: phase2_notes/batch_09.md')
+for x in s: print('+'+x)
+print('*** End Patch')
+PY
+python3 - <<'PY'
+import json,csv
+j=json.load(open('phase2_notes/batch_09.json')); r=list(csv.reader(open('scripts/p2_batches/batch_09.tsv'),delimiter='\\t'))
+assert len(j)==80 and [x['ws_id'] for x in j]==[x[0] for x in r]
+assert sum(1 for x in j if x['cohort']=='exact' and x['success_factor'])==4
+assert all((x['success_factor'] is None) for x in j if x['cohort']"'!='"'exact')
+assert len(open('phase2_notes/batch_09.md').read().splitlines())<=60
+print('FINAL VALIDATION OK',len(j))
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+validated 80 records; 60 markdown lines; 38 techniques
+Success. Updated the following files:
+A phase2_notes/batch_09.md
+FINAL VALIDATION OK 80
+
+codex
+Step 3 of 3 done: the corrected merge now contains all 80 TSV IDs exactly once and in source order. The JSON schema, cohort rules, exact-worker success factors, and 60-line Markdown cap all pass validation.
+exec
+/bin/zsh -lc "find phase2_notes -maxdepth 1 -type f -name 'batch_09.*' -print | sort
+jq -r 'length' phase2_notes/batch_09.json
+wc -l phase2_notes/batch_09.md
+git status --short -- phase2_notes/batch_09.json phase2_notes/batch_09.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+phase2_notes/batch_09.json
+phase2_notes/batch_09.md
+80
+      60 phase2_notes/batch_09.md
+?? phase2_notes/batch_09.json
+?? phase2_notes/batch_09.md
+
+codex
+DONE — 80 records.
+
+- [batch_09.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.json)
+- [batch_09.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.md)
+tokens used
+118,505
+DONE — 80 records.
+
+- [batch_09.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.json)
+- [batch_09.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_09.md)

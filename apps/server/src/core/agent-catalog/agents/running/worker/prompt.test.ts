@@ -2,6 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import {
+  insertWorkerRun,
+  openKnowledgeStore,
+  writeFactWithEvidence,
+} from "../../../../knowledge-v2/index.js";
 import { workerPrompt } from "./prompt.js";
 import { targetPacketTarget } from "./packet.js";
 import {
@@ -62,6 +67,71 @@ function sampleWorkerPrompt() {
 }
 
 describe("workerPrompt", () => {
+  test("omits v2 context deterministically when the knowledge database is absent", async () => {
+    const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    const knowledgeRoot = await mkdtemp(resolve(tmpdir(), "worker-prompt-v2-empty-"));
+    try {
+      process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+      const first = sampleWorkerPrompt();
+      const second = sampleWorkerPrompt();
+      const renderedContext = first.kernelContext?.renderedContext ?? "";
+
+      expect(renderedContext).not.toContain("target_knowledge_card_v2");
+      expect(first.kernelContext?.inputs.map((input) => input.loaderKind)).toEqual([
+        "worker-packet",
+        "knowledge-graph-file-card",
+      ]);
+      expect(second.kernelContext?.renderedContext).toBe(renderedContext);
+    } finally {
+      if (previous === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previous;
+      await rm(knowledgeRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("appends v2 context after the graph card when facts and ledger rows exist", async () => {
+    const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    const knowledgeRoot = await mkdtemp(resolve(tmpdir(), "worker-prompt-v2-card-"));
+    const store = openKnowledgeStore({ knowledgeRoot });
+    try {
+      store.db.query(`INSERT INTO entity
+        (id, kind, locator, identity_status)
+        VALUES ('unit-entity', 'translation_unit', 'src/test.c', 'active')`).run();
+      store.db.query(`INSERT INTO target
+        (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+        VALUES ('target', 'function', 'GALE01:test', 'unit-entity', 'test_symbol',
+          'GALE01:test:test_symbol', '0x80000000', 'current', 'rev')`).run();
+      writeFactWithEvidence(store, {
+        id: "fact", targetId: "target", type: "purpose", value: "Fixture purpose",
+        rationale: "Fixture rationale", confidence: 0.9,
+      }, []);
+      insertWorkerRun(store, {
+        id: "run", targetId: "target", goal: "Improve", baseline: "{}",
+        finalOutcome: "improvement", integration: "integrated",
+        startedAt: "2026-01-01T00:00:00.000Z", closedAt: "2026-01-01T00:01:00.000Z",
+      }, [{
+        id: "submission", seq: 1, description: "Changed branch", score: 95,
+        submittedAt: "2026-01-01T00:00:30.000Z",
+      }]);
+      process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+
+      const bundle = sampleWorkerPrompt();
+      const renderedContext = bundle.kernelContext?.renderedContext ?? "";
+      expect(renderedContext).toContain("<target_graph_file_card");
+      expect(renderedContext).toContain("<target_knowledge_card_v2");
+      expect(bundle.kernelContext?.inputs.map((input) => input.loaderKind)).toEqual([
+        "worker-packet",
+        "knowledge-graph-file-card",
+        "target-knowledge-card-v2",
+      ]);
+    } finally {
+      store.close();
+      if (previous === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previous;
+      await rm(knowledgeRoot, { recursive: true, force: true });
+    }
+  });
+
   test("renders data-matching guidance for a section target packet", () => {
     const target = targetPacketTarget({
       target_id: "section-target",

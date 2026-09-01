@@ -1,0 +1,1830 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d85-fd5b-7a43-bd76-7dc692b2b04c
+--------
+user
+# Task: Worker-audit Phase 3 — deep transcript read, pair epoch-12-pair-01
+
+Two AI decomp workers worked on similar-difficulty targets in epoch 12 (goal: make C source byte-match GameCube PowerPC asm; score = match %). One reached an EXACT 100% match; the other stalled as a NEAR-MISS (>=99.5%). Your job: figure out what the exact worker did differently, at the level of process and technique — not luck of the target.
+
+EXACT worker  — target main/melee/gm/gm_1832::.sdata2, baseline 68.2353%, final 100%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md
+NEAR-MISS worker — target main/melee/gr/granime::grAnime_801C7C1C, baseline 99.21862%, final 99.57085%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md
+
+Condensed transcripts contain the worker's reasoning/messages verbatim, `TOOL <name> <params>` lines for each tool call, and truncated tool results. Read BOTH fully.
+
+Write exactly one file, `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md`, markdown, <=90 lines, with these sections:
+
+## Verdict
+One paragraph: the single most important process difference between the two (or "no meaningful process difference — outcome driven by target difficulty/luck" if that is the honest read).
+
+## Exact worker: how the gap was closed
+- Diff-reading style: did it reason about specific instructions/registers from the diff output, or guess-and-check source variants? Quote 1-2 short verbatim lines that show this.
+- The decisive move: what actually flipped it to 100%, and what chain of observations led there.
+- Tool rhythm: rough loop shape (e.g. edit -> build -> checkdiff, N iterations), plus any tools used at pivotal moments (permuter, past PR search, graph lookups, knowledge search).
+
+## Near-miss worker: why it stalled
+- Where it got stuck (instruction/issue), what it tried, and what it NEVER tried that the exact worker's playbook suggests.
+- Was the stall diagnosable from its own diff output? Did it misread or ignore evidence? Quote 1 short line if telling.
+- Loop quality: systematic / mixed / shotgun.
+
+## Transferable technique
+2-4 bullet points, each a concrete, generalizable tactic phrased as an instruction one could put in a worker prompt (e.g. "When one instruction differs only in source register, enumerate equivalent source expressions that permute register allocation: temp vs inline, signedness, float literal form"). Only tactics actually evidenced in these transcripts.
+
+## Flags
+- exact_loop: systematic|mixed|shotgun
+- control_loop: systematic|mixed|shotgun
+- outcome_explained_by_process: yes|partial|no
+- techniques: comma-separated slugs (reuse: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, float-literal-tricks, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning; invent sparingly)
+
+Base every claim on the transcripts. Do not modify any other file. Print DONE when finished.
+codex
+I’m using the `unslop` skill because this is an evidence-heavy writing task and the final note must stay compact and free of filler. Next: I’ll read its instructions, then both transcripts in full.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+     830 condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md
+    4458 condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md
+    5288 total
+
+codex
+Step 1 of 3: the writing rules are loaded. I’m splitting the two full transcript reads in parallel, then I’ll cross-check the quoted evidence and write only the requested file.
+exec
+/bin/zsh -lc 'rg -n "''^(#|##|###|TOOL |.*100%|.*99'"\\.570|.*[Ee]xact|.*[Dd]iff|.*[Pp]ermuter|.*register|.*instruction|.*stuck|.*try|.*hypoth|.*score)\" condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+4:TOOL bash {"command":"git status --short && pwd && ls","timeout":30}
+6:TOOL code_graph_search {"limit":10,"query":"src/melee/gm/gm_1832.c .sdata2"}
+8:TOOL past_prs_search {"limit":10,"query":"src/melee/gm/gm_1832.c .sdata2"}
+10:TOOL ledger_search {"limit":10,"query":".sdata2 main/melee/gm/gm_1832","scope":"file"}
+12:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/gm/gm_1832.c","pattern":"sdata2|static const f32|static const f64"}
+14:TOOL glob {"limit":20,"path":"build","pattern":"**/gm_1832.o"}
+16:TOOL glob {"limit":20,"path":"build","pattern":"**/gm_1832.s"}
+18:RESULT bash ?? tools/asm-differ/ | objdiff.json
+22:RESULT past_prs_search status=ok | Melee decomp: GM Exact-match decompilation work for GM/game-mode files, with small ground header/source edits. The PR body claims 7 decompiled files and 9 newly matched functions; changed-file metadata lists 9 touched files including ground.c and ground.h. Review focuse... | PR 2686: Melee decomp: GM menu and result matches | Melee decomp: GM menu and result matches Exact-match decomp…
+33:**Inspecting object file differences and symbols**
+35:TOOL bash {"command":"git diff -- src/melee/gm/gm_1832.c","timeout":30}
+37:TOOL bash {"command":"printf '%s\\n' '=== ORIGINAL SECTION TABLE/SDATA2 ==='; powerpc-eabi-objdump -h build/GALE01/obj/melee/gm/gm_1832.o; powerpc-eabi-objdump -s -j .sdata2 build/GALE01/obj/melee/gm/gm_1832.o…
+39:TOOL bash {"command":"printf '%s\\n' '=== ORIGINAL SYMBOLS ==='; powerpc-eabi-nm -an -S build/GALE01/obj/melee/gm/gm_1832.o | grep -E ' [rR] |sdata2|80187910|80187AB4|80187CF4|801883C0'; printf '%s\\n' '=== CA…
+41:TOOL bash {"command":"grep -n -E '804DA|gm_1832|lbl_804D' config/GALE01/symbols.txt | grep -E '804DA|gm_1832' | head -200; grep -n 'gm_1832' config/GALE01/splits.txt","timeout":30}
+43:TOOL read {"limit":125,"offset":560,"path":"src/melee/gm/gm_1832.c"}
+45:TOOL read {"limit":230,"offset":1220,"path":"src/melee/gm/gm_1832.c"}
+47:TOOL read {"limit":80,"offset":1,"path":"build/GALE01/asm/melee/gm/gm_1832.s"}
+49:RESULT bash diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c | +#ifdef MUST_MATCH | #ifdef MUST_MATCH
+66:TOOL bash {"command":"ls -l build/binutils | head && ls -l build/tools/objdiff-cli && file build/GALE01/obj/melee/gm/gm_1832.o build/GALE01/src/melee/gm/gm_1832.o","timeout":30}
+68:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -h build/GALE01/obj/melee/gm/gm_1832.o; echo '=== REF'; build/binutils/powerpc-eabi-objdump -s -j .sdata2 build/GALE01/obj/melee/gm/gm_1832.o; echo '==…
+70:TOOL bash {"command":"echo '=== REF'; build/binutils/powerpc-eabi-nm -an -S build/GALE01/obj/melee/gm/gm_1832.o | grep -E ' [rR] |sdata2|80187910|80187AB4|80187CF4|801883C0'; echo '=== CURRENT'; build/binutils…
+72:TOOL bash {"command":"grep -n -A260 '^\\.section \\.sdata2' build/GALE01/asm/melee/gm/gm_1832.s | head -280","timeout":30}
+74:TOOL bash {"command":"git log --oneline --all -- src/melee/gm/gm_1832.c | head -20","timeout":30}
+76:TOOL past_prs_search {"limit":10,"query":"PR 2704 gm_1832 sdata2"}
+78:RESULT bash -rwxr-xr-x 1 root root 10556552 Aug 26 01:14 build/tools/objdiff-cli
+102:TOOL bash {"command":"grep -n '804DA5' config/GALE01/symbols.txt | head -100; sed -n '2335,2355p' config/GALE01/splits.txt","timeout":30}
+104:TOOL bash {"command":"git show HEAD:src/melee/gm/gm_1832.c | sed -n '590,680p;1235,1445p;1480,1975p' > /tmp/gm_head_excerpt.txt; sed -n '1,120p' /tmp/gm_head_excerpt.txt","timeout":30}
+106:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -t build/GALE01/src/melee/gm/gm_1832.o | grep -E 'sdata2|gm_1832_sdata2|lbl_804DA5' | head -100; echo REL; build/binutils/powerpc-eabi-objdump -r -j .t…
+108:TOOL bash {"command":"build/tools/objdiff-cli diff -h 2>&1 | head -100; build/tools/objdiff-cli report --help 2>&1 | head -100","timeout":30}
+110:TOOL direct_compile_tu {"function":"fn_80185408","keep_object":true,"unit":"melee/gm/gm_1832"}
+118:RESULT bash Usage: objdiff-cli diff [-1 <target>] [-2 <base>] [-p <project>] [-u <unit>] | Diff two object files. (Interactive or one-shot mode) | symbol Function symbol to diff | Usage: objdiff-cli report <command> [<args>]
+120:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+125:TOOL direct_compile_tu {"function":"fn_80185408","keep_object":true,"unit":""}
+127:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+132:TOOL bash {"command":"OBJ=build/orchestrator-direct-compile/melee_gm_gm_1832-e3e5f4a1.o; build/binutils/powerpc-eabi-objdump -h \"$OBJ\" | grep -A1 sdata2; build/binutils/powerpc-eabi-objdump -s -j .sdata2 \"$…
+134:TOOL bash {"command":"build/tools/objdiff-cli diff -1 build/GALE01/obj/melee/gm/gm_1832.o -2 build/orchestrator-direct-compile/melee_gm_gm_1832-e3e5f4a1.o -o /tmp/gm_diff.json --format json-pretty && python3 -…
+136:TOOL bash {"command":"git show 4c46d735^:src/melee/gm/gm_1832.c >/tmp/gm_before_data.c; git show 4c46d735:src/melee/gm/gm_1832.c >/tmp/gm_after_data.c; diff -u /tmp/gm_before_data.c /tmp/gm_after_data.c | head…
+138:TOOL bash {"command":"git branch -a --contains 218c9a84 | head; git show --stat --oneline 218c9a84; git show --format=fuller --no-ext-diff 218c9a84 -- src/melee/gm/gm_1832.c | head -300","timeout":30}
+142:RESULT bash "match_percent": 99.71007 | "match_percent": 100.0, | "data_diff": [ | "reloc_diff": [ | "match_percent": 100.0 | INFO Writing to /tmp/gm_diff.json
+146:RESULT bash diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c
+165:**Analyzing section and function matches with objdiff**
+167:TOOL bash {"command":"python3 - <<'PY'\nimport json\nx=json.load(open('/tmp/gm_diff.json'))\nfor side in ('left','right'):\n print('\\n',side)\n y=x[side]\n for s in y.get('sections',[]):\n  if s.get('kind') o…
+169:RESULT bash left {'name': '.sdata2', 'kind': 'SECTION_DATA', 'size': '200', 'match_percent': 100.0, 'data_diff': [{'data': 'wSAAAL+AAAAAAAAAQKAAAEAzMzPB8AAAvwAAAEBAAABADMzNP4AAAEMwAACAAAAAQSAAAD9MzM1D8AAARCAAAEWcQADFmiAAQ4wAAEORAABCIAAAwnAAAEMgAAAAAAAAQzAAAAAAAAAAAAAAAAAAAD/gAAAAAAAAQAgAAAAAAABDSAAAQ6oAAEYcQAAAAAAAAAAAAEDgAABAQAAAQKAAAECAAAA/gAAARhxAAAAAAAAAAAAAAAAAAEMwAACAAAAAPIiIiQ==', 'size': '196'}]} | r…
+174:TOOL edit {"edits":[{"newText":"static inline void gm_1832_sdata2_order_tail9(void)\n{\n    (void) 0.0166666675f;\n}\n\n#ifdef MUST_MATCH\nstatic const f32 gm_1832_sdata2_tail10[1] = { 0.0f };\n#endif\n\nvoid …
+181:TOOL direct_compile_tu {"function":"fn_80185408","keep_object":true,"unit":""}
+183:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+188:TOOL bash {"command":"OBJ=build/orchestrator-direct-compile/melee_gm_gm_1832-9080d25c.o; build/binutils/powerpc-eabi-objdump -h \"$OBJ\" | grep -A1 sdata2; build/binutils/powerpc-eabi-objdump -s -j .sdata2 \"$…
+190:TOOL bash {"command":"build/tools/objdiff-cli diff -1 build/GALE01/obj/melee/gm/gm_1832.o -2 build/orchestrator-direct-compile/melee_gm_gm_1832-9080d25c.o -o /tmp/gm_diff2.json --format json-pretty >/dev/null …
+192:TOOL checkdiff_summary {"functions":["fn_8018325C","fn_80184138","fn_801849E0","fn_80184A04","fn_80184A28","fn_80184A4C","fn_80184A70","fn_80184A94","fn_80184AB8","fn_8018504C","fn_801851C0","fn_801852FC","fn_80185408","fn…
+194:RESULT bash /dev/fd/63 /dev/fd/62 differ: char 193, line 1
+196:RESULT bash left .text 20984 99.71007 .rodata 64 100.0 .data 1504 100.0 .bss 344 100.0 .sdata 176 100.0 .sbss 56 100.0 .sdata2 200 98.9899 right .text 21000 None .rodata 64 None .data 1504 None .bss 344 None .sdata 174 None .sbss 48 None .sdata2 200 None INFO Writing to /tmp/gm_diff2.json
+198:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | error: could not find function 'fn_801856C8' in report.json | error: could not find function 'fn_80185738' in report.json | error: could not find function 'fn_80185820' in report.json | error: could not find function 'fn_80185C44' in report.json | err…
+203:TOOL edit {"edits":[{"newText":"static inline void gm_1832_sdata2_order_tail9(void)\n{\n    (void) 0.0166666675f;\n}\n\nvoid fn_80187910(HSD_GObj* arg0)","oldText":"static inline void gm_1832_sdata2_order_tail…
+210:TOOL direct_compile_tu {"function":"fn_80185408","keep_object":true,"unit":""}
+212:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+217:TOOL bash {"command":"OBJ=build/orchestrator-direct-compile/melee_gm_gm_1832-6cb7307b.o; build/binutils/powerpc-eabi-objdump -h \"$OBJ\" | grep -A1 sdata2; build/binutils/powerpc-eabi-objdump -s -j .sdata2 \"$…
+219:TOOL bash {"command":"build/tools/objdiff-cli diff -1 build/GALE01/obj/melee/gm/gm_1832.o -2 build/orchestrator-direct-compile/melee_gm_gm_1832-6cb7307b.o -o /tmp/gm_diff3.json --format json-pretty >/dev/null …
+221:TOOL review_lint_scan {"file":"src/melee/gm/gm_1832.c","rule":"all","text":""}
+225:RESULT bash left .text 20984 99.71007 .rodata 64 100.0 .data 1504 100.0 .bss 344 100.0 .sdata 176 100.0 .sbss 56 100.0 .sdata2 200 98.9899 right .text 21000 None .rodata 64 None .data 1504 None .bss 344 None .sdata 174 None .sbss 48 None .sdata2 200 None INFO Writing to /tmp/gm_diff3.json
+230:**Investigating objdiff symbol boundary mismatch**
+232:**Analyzing objdiff data_diff semantics**
+234:TOOL bash {"command":"python3 - <<'PY'\nimport json\nx=json.load(open('/tmp/gm_diff3.json'))\nfor side in ('left','right'):\n print('\\n',side)\n sec=next(s for s in x[side]['sections'] if s['name']=='.sdata2'…
+236:RESULT bash {'diff_kind': 'DIFF_ARG_MISMATCH', | 'arg_diff': [{}, {'diff_index': 4}, {}]}, | 'arg_diff': [{}, {'diff_index': 5}, {}]}, | 'arg_diff': [{}, {'diff_index': 5}]}, | 'arg_diff': [{'diff_index': 0}, {'diff_index': 1}, {}]}, | 'match_percent': 100.0, | 'data_diff': [{'data': 'AAAAAA==', 'size': '4'}]} | 'data_diff': [{'data': 'QEAAAA==', 'size': '4'}]} | 'data_diff': [{'data': 'QKAAAA==', 'size': '4…
+243:**Validating exact match scoring despite size mismatch**
+248:**Validating build and objdiff results**
+250:TOOL edit {"edits":[{"newText":"    HSD_CObjSetEyePosition(cobj, &sp10);\n    gm_1832_sdata2_order_tail9();\n}\n\ntypedef struct {\n","oldText":"    HSD_CObjSetEyePosition(cobj, &sp10);\n    gm_1832_sdata2_ord…
+257:TOOL bash {"command":"ninja -t targets | grep -E '(^|/)objdiff|report|gm_1832' | head -100","timeout":30}
+259:TOOL bash {"command":"git diff --check && git status --short src/melee/gm/gm_1832.c && git diff --stat -- src/melee/gm/gm_1832.c","timeout":30}
+261:TOOL review_lint_scan {"file":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/46e962c3-632b-43d3-aed5-83f2abcd396a/host-cwd/src/melee/gm…
+263:TOOL review_lint_sdata2_order_helper {"apply":false,"name":"gm_1832_sdata2_order","prefer_named_macros":true,"source":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8f…
+276:TOOL bash {"command":"ninja build/GALE01/src/melee/gm/gm_1832.o && build/tools/objdiff-cli diff -p . -u main/melee/gm/gm_1832 -o /tmp/gm_unit.json --format json-pretty >/dev/null && python3 - <<'PY'\nimport js…
+281:**Validating non-regression for exact functions**
+283:**Planning exact function validation and lint scanning**
+285:**Preparing to pass git diff for lint scanning**
+287:TOOL bash {"command":"git diff -- src/melee/gm/gm_1832.c","timeout":30}
+289:RESULT bash diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c | +#ifdef MUST_MATCH | #ifdef MUST_MATCH
+296:**Assessing relocation impact on exact functions**
+299:**Analyzing relocation differences in object symbols**
+303:TOOL bash {"command":"for f in build/ninja-compile-*/gm_1832.o; do sz=$(build/binutils/powerpc-eabi-objdump -h \"$f\" 2>/dev/null | awk '$2==\".sdata2\"{print $3}'); [ \"$sz\" = 00000090 ] && echo \"$f\"; done…
+310:TOOL bash {"command":"python3 - <<'PY'\nimport json\nfor x in json.load(open('compile_commands.json')):\n if x['file'].endswith('src/melee/gm/gm_1832.c'):\n  print(x)\nPY","timeout":30}
+312:TOOL bash {"command":"for f in build/ninja-compile-*/gm_1832.o; do sz=$(build/binutils/powerpc-eabi-objdump -h \"$f\" 2>/dev/null | awk '$2==\".sdata2\"{print $3}'); echo \"$sz $f\"; done | sort | uniq -c | he…
+314:TOOL bash {"command":"git show HEAD:src/melee/gm/gm_1832.c > /tmp/gm_1832_head.c; wc -c /tmp/gm_1832_head.c src/melee/gm/gm_1832.c","timeout":30}
+327:TOOL bash {"command":"set -e\nSRC=src/melee/gm/gm_1832.c\nCUR=/tmp/gm_1832_current_final.c\ncp \"$SRC\" \"$CUR\"\nrestore() { cp \"$CUR\" \"$SRC\"; }\ntrap restore EXIT\ncp /tmp/gm_1832_head.c \"$SRC\"\ntouch …
+329:RESULT bash HEAD -> CURRENT changed symbol scores: | INFO Writing to /tmp/gm_head_diff.json | INFO Writing to /tmp/gm_current_diff.json
+332:**Verifying function exactness and regressions**
+336:TOOL bash {"command":"ls -l /opt/melee/src/melee/gm/gm_1832.c; python3 /Users/Ford/Github\\ Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py --file /opt/…
+338:TOOL bash {"command":"git diff --check; git status --short src/melee/gm/gm_1832.c; build/binutils/powerpc-eabi-objdump -h build/GALE01/src/melee/gm/gm_1832.o | grep -E 'text|rodata|data|bss'; build/binutils/po…
+340:TOOL bash {"command":"python3 - <<'PY'\nimport json\nbase=json.load(open('/tmp/gm_head_diff.json'))['left']; cur=json.load(open('/tmp/gm_current_diff.json'))['left']\nb={s['name']:s.get('match_percent') for s …
+346:RESULT bash exact function/symbol regressions: [] .rodata 100.0 .data 100.0 .bss 100.0 .sdata 100.0 .sbss 100.0 .sdata2 100.0
+351:TOOL bash {"command":"python3 /opt/toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py --file /opt/melee/src/melee/gm/gm_1832.c --rule all --json 2>&1 | head -300","timeout":30}
+358:TOOL review_lint_scan {"file":"","rule":"all","text":"static inline void gm_1832_sdata2_order(void)\n{\n    (void) 280.0f;\n    (void) 290.0f;\n    (void) 40.0f;\n    (void) -60.0f;\n    (void) 160.0f;\n    (void) U32_TO_…
+365:**Confirming exact objdiff alignment and test passes**
+372:### Changes
+378:### Validation
+380:- Unit objdiff reports:
+383:- Baseline comparison found **no regressions among previously exact functions or symbols**.
+384:- `git diff --check` passed.
+392:TOOL bash {"command":"git status --short && git diff -- src/melee/gm/gm_1832.c && git diff --check","timeout":30}
+394:TOOL read {"limit":120,"offset":560,"path":"src/melee/gm/gm_1832.c"}
+396:TOOL read {"limit":560,"offset":1200,"path":"src/melee/gm/gm_1832.c"}
+398:TOOL ledger_search {"limit":10,"query":".sdata2 main/melee/gm/gm_1832 exact ordering helper regressions fn_801874FC fn_80187910","scope":"file"}
+400:TOOL past_prs_search {"limit":10,"query":"src/melee/gm/gm_1832.c .sdata2 order helper"}
+402:TOOL review_lint_sdata2_order_helper {"apply":false,"name":"gm_1832_sdata2_order","prefer_named_macros":true,"source":"src/melee/gm/gm_1832.c","symbols":[],"unit":"melee/gm/gm_1832","validate":false}
+404:RESULT bash ?? tools/asm-differ/ | diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c | +#ifdef MUST_MATCH | #ifdef MUST_MATCH
+410:RESULT ledger_search status=ok | Changes made to control .sdata2 ordering in src/melee/gm/gm_1832.c require full-translation-unit validation because an exact target candidate can regress neighboring exact functions; retain the candidate only after those regressions are restored. | status=refuted | After fn_8019C048's instruction stream matched, exact relocation and literal references required a validated translation-…
+412:RESULT past_prs_search status=ok | Melee decomp: GM Exact-match decompilation work for GM/game-mode files, with small ground header/source edits. The PR body claims 7 decompiled files and 9 newly matched functions; changed-file metadata lists 9 touched files including ground.c and ground.h. Review focuse... | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigblueroute: m…
+419:TOOL grep {"context":3,"glob":"*.c","ignoreCase":false,"limit":50,"literal":false,"path":"src","pattern":"static void .*sdata2_order\\(void\\)"}
+421:TOOL grep {"context":2,"glob":"*.c","ignoreCase":false,"limit":50,"literal":true,"path":"src","pattern":"sdata2_order();"}
+423:TOOL bash {"command":"grep -R \"kr-style-declaration\" -n .github tools 2>/dev/null | head -20","timeout":30}
+425:TOOL past_prs_search {"limit":10,"query":"PR 2704 gm_1832 sdata2 literals helpers exact functions regressions"}
+427:TOOL knowledge_graph_search {"limit":10,"query":"src/melee/gm/gm_1832.c .sdata2 lbl_804DA5C8 lbl_804DA5F8"}
+435:RESULT past_prs_search status=ok | PR 2704 gm_1832 sdata2 literals helpers exact functions regressions | ...ten src/melee/gm files, with matching and cleanup work centered on gm_18A5.c, gm_1601.c, gm_1832.c, and gmmain_lib.c. Evidence shows code-shape cleanup, typed field recovery, local inline/helper experiments, and reviewer pressure to remove broad pragmas, raw extern float literals, and pointer math. Bot evidence r…
+449:TOOL read {"limit":145,"offset":1,"path":"src/melee/gm/gm_1884.c"}
+451:TOOL read {"limit":55,"offset":130,"path":"src/melee/cm/camera.c"}
+453:TOOL read {"limit":35,"offset":35,"path":"src/melee/mp/mpcoll.c"}
+455:TOOL bash {"command":"powerpc-eabi-nm -a build/GALE01/src/melee/gm/gm_1832.o | grep -E 'sdata2|801874FC|80187910' || true; powerpc-eabi-objdump -h -s -j .sdata2 build/GALE01/src/melee/gm/gm_1832.o","timeout":3…
+457:TOOL bash {"command":"grep -n \"gm_1884_sdata2_order\\|camera_sdata2_order\" src/melee/gm/gm_1884.c src/melee/cm/camera.c | head -20","timeout":30}
+459:RESULT read #include "if/ifstatus.h" | /// Table has 65 entries: 13 stages × 5 difficulty levels
+474:TOOL edit {"edits":[{"newText":"static void gm_1832_sdata2_order(void)","oldText":"static inline void gm_1832_sdata2_order(void)"},{"newText":"static void gm_1832_sdata2_order_tail1(void)","oldText":"static in…
+478:TOOL direct_compile_tu {"function":"fn_801874FC","keep_object":false,"unit":"melee/gm/gm_1832"}
+480:TOOL review_lint_scan {"file":"src/melee/gm/gm_1832.c","rule":"all","text":""}
+482:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+489:TOOL direct_compile_tu {"function":"","keep_object":true,"unit":"melee/gm/gm_1832"}
+491:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+496:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-289d9e64.o","function":"fn_801874FC","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+498:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-289d9e64.o","function":"fn_80187910","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+500:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -h -s -j .sdata2 build/orchestrator-direct-compile/melee_gm_gm_1832-289d9e64.o; build/binutils/powerpc-eabi-nm -a build/orchestrator-direct-compile/mel…
+502:TOOL bash {"command":"build/tools/objdiff-cli diff -p . -u main/melee/gm/gm_1832 --config functionRelocDiffs=data_value --format json-pretty -o /tmp/gm1832-current.json >/dev/null && python3 - <<'PY'\nimport j…
+504:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=95.42538 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.75295},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+506:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=98.27619 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.75295},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+531:TOOL bash {"command":"echo TARGET; build/binutils/powerpc-eabi-objdump -h -s -j .sdata2 build/GALE01/obj/melee/gm/gm_1832.o; echo TARGET_SYMS; build/binutils/powerpc-eabi-nm -a -n build/GALE01/obj/melee/gm/gm_…
+533:TOOL bash {"command":"echo TARGET_RELOCS; build/binutils/powerpc-eabi-objdump -dr --disassemble=fn_801874FC build/GALE01/obj/melee/gm/gm_1832.o; build/binutils/powerpc-eabi-objdump -dr --disassemble=fn_8018791…
+535:TOOL bash {"command":"build/binutils/powerpc-eabi-readelf -s build/GALE01/obj/melee/gm/gm_1832.o | grep -E '804DA5|\\.sdata2' > /tmp/targetsyms.txt; build/binutils/powerpc-eabi-readelf -s build/GALE01/src/mele…
+537:TOOL bash {"command":"python3 - <<'PY'\nimport json\np='/tmp/gm1832-current.json'\nd=json.load(open(p))\nfor side in ('left','right'):\n print('\\n',side)\n for s in d[side]['sections']:\n  if s.get('name')=='…
+550:**Clarifying constant pool handling and function exactness**
+569:**Improving staged tests with data diff insights**
+575:TOOL edit {"edits":[{"newText":"static inline void gm_1832_sdata2_order(int unused)\n{\n    (void) unused;\n    (void) 280.0f;","oldText":"static void gm_1832_sdata2_order(void)\n{\n    (void) 280.0f;"},{"newT…
+582:TOOL edit {"edits":[{"newText":"static inline void gm_1832_sdata2_order(int unused)\n{\n    (void) unused;\n    (void) 280.0f;","oldText":"static void gm_1832_sdata2_order(void)\n{\n    (void) 280.0f;"},{"newT…
+589:TOOL grep {"context":1,"glob":"*.c","ignoreCase":false,"limit":100,"literal":false,"path":"src/melee/gm/gm_1832.c","pattern":"gm_1832_sdata2_tail|gm_1832_sdata2_order"}
+591:TOOL bash {"command":"git diff -- src/melee/gm/gm_1832.c","timeout":30}
+595:RESULT bash diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c
+600:TOOL bash {"command":"python3 - <<'PY'\nfrom pathlib import Path\np=Path('src/melee/gm/gm_1832.c')\ns=p.read_text()\nold='gm_1832_sdata2_tail7[0]'\ncount=s.count(old)\nassert count == 10, count\np.write_text(s…
+607:TOOL direct_compile_tu {"function":"","keep_object":true,"unit":"melee/gm/gm_1832"}
+609:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+612:**Inspecting section score functions**
+614:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -h -s -j .sdata2 build/orchestrator-direct-compile/melee_gm_gm_1832-bff2cb09.o; build/binutils/powerpc-eabi-nm -a build/orchestrator-direct-compile/mel…
+616:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-bff2cb09.o","function":"fn_801874FC","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+618:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-bff2cb09.o","function":"fn_80187910","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+620:TOOL review_lint_scan {"file":"","rule":"all","text":"static inline void gm_1832_sdata2_order(int unused)\n{\n    (void) unused;\n    (void) 280.0f;\n}"}
+624:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+626:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+636:**Re-adding exact tail definitions and helpers**
+638:**Confirming exact data symbol definitions and section placement**
+642:TOOL grep {"context":0,"glob":"*.{c,h}","ignoreCase":false,"limit":100,"literal":false,"path":"src","pattern":"lbl_804DA5C8|lbl_804DA5D0|lbl_804DA5D4|lbl_804DA5D8|lbl_804DA5DC|lbl_804DA5E0|lbl_804DA5E8|lbl_804…
+644:TOOL review_lint_scan {"file":"","rule":"all","text":"const f32 lbl_804DA5C8 ATTRIBUTE_ALIGN(8) = 0.0f;\nconst f32 lbl_804DA5D0 = 3.0f;\nconst f64 lbl_804DA5F0 = S32_TO_F32;"}
+646:TOOL code_graph_search {"limit":10,"query":"lbl_804DA5C8 lbl_804DA5F0"}
+659:TOOL edit {"edits":[{"newText":"#ifdef MUST_MATCH\nstatic const f32 gm_1832_sdata2_tail0[1] ATTRIBUTE_ALIGN(8) = { 0.0f };\n#endif\n\nvoid fn_80186EFC(HSD_GObj* gobj)\n{","oldText":"void fn_80186EFC(HSD_GObj* …
+666:TOOL direct_compile_tu {"function":"","keep_object":true,"unit":"melee/gm/gm_1832"}
+668:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+673:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -h -s -j .sdata2 build/orchestrator-direct-compile/melee_gm_gm_1832-7f4ea50b.o; build/binutils/powerpc-eabi-nm -a build/orchestrator-direct-compile/mel…
+675:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-7f4ea50b.o","function":"fn_801874FC","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+677:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-7f4ea50b.o","function":"fn_80187910","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+679:TOOL review_lint_scan {"file":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/46e962c3-632b-43d3-aed5-83f2abcd396a/host-cwd/src/melee/gm…
+683:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+685:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+694:TOOL edit {"edits":[{"newText":"static inline void gm_1832_sdata2_order_tail1(int unused)\n{\n    (void) unused;\n    (void) 7.0f;\n}\n\n#ifdef MUST_MATCH\nstatic const f32 gm_1832_sdata2_tail0[1] ATTRIBUTE_AL…
+701:TOOL direct_compile_tu {"function":"","keep_object":true,"unit":"melee/gm/gm_1832"}
+703:RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+708:TOOL bash {"command":"build/binutils/powerpc-eabi-objdump -h -s -j .sdata2 build/orchestrator-direct-compile/melee_gm_gm_1832-148f7b9b.o; build/binutils/powerpc-eabi-nm -a build/orchestrator-direct-compile/mel…
+710:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-148f7b9b.o","function":"fn_801874FC","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+712:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gm_gm_1832-148f7b9b.o","function":"fn_80187910","timeout_seconds":60,"unit":"melee/gm/gm_1832"}
+714:TOOL bash {"command":"git diff --check && git diff --stat -- src/melee/gm/gm_1832.c && git diff -- src/melee/gm/gm_1832.c","timeout":30}
+718:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+720:RESULT objdiff_score_candidate objdiff_score_candidate | tool:objdiff_score:score_candidate.py | exit_code=0 | objdiff_score:score_candidate | match_percent=100 | {"left":{"sections":[{"name":".text","kind":"SECTION_CODE","size":"20984","match_percent":99.904305},{"name":".rela.text","size":"14208"},{"name":".rodata","kind":"SECTION_DATA","size":"64","match_percent":100.0,"data_diff":[{"data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA…
+722:RESULT bash diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c | +#ifdef MUST_MATCH | #ifdef MUST_MATCH
+725:**Verifying build output and diff**
+727:TOOL bash {"command":"ninja build/GALE01/src/melee/gm/gm_1832.o && build/tools/objdiff-cli diff -p . -u main/melee/gm/gm_1832 --config functionRelocDiffs=data_value --format json-pretty -o /tmp/gm1832-final.js…
+729:RESULT bash symbols 171 exact 71 bad 3 | symbols 145 exact 71 bad 3
+750:TOOL bash {"command":"python3 - <<'PY'\nimport json\nx=json.load(open('/tmp/gm1832-final.json'))['left']['symbols']\nfor n in ['fn_80185408','fn_80186EFC','fn_801874FC','fn_80187910']:\n y=next(z for z in x if…
+752:TOOL review_lint_scan {"file":"","rule":"all","text":"/// @todo .sdata2 order hack\nstatic inline void gm_1832_sdata2_order(int unused)\n{\n    (void) unused;\n    (void) 280.0f;\n    (void) 290.0f;\n    (void) 40.0f;\n  …
+754:TOOL checkdiff_summary {"functions":["fn_80185408","fn_80186EFC","fn_801874FC","fn_80187910"],"timeout_seconds":120}
+760:RESULT checkdiff_summary checkdiff_summary | tool:checkdiff:summary.py | exit_code=0 | exit_code=1 | checkdiff:summary | /opt/tool-data/checkdiff | status=failed | failed | fn_80186EFC: FAIL (99.82143% official; instructions match but relocation/data references still differ, so the official score is below exact) | fn_801874FC: FAIL (99.58955% official; instructions match but relocation/data references still differ, so th…
+772:**Inspecting git diff for approved changes**
+774:TOOL bash {"command":"git diff --name-only && git diff --check && grep -nE '^static inline void gm_1832_sdata2.*\\(void\\)' src/melee/gm/gm_1832.c || true && git status --short src/melee/gm/gm_1832.c","timeout…
+776:TOOL review_lint_sdata2_order_helper {"apply":false,"name":"gm_1832_sdata2_order","prefer_named_macros":true,"source":"src/melee/gm/gm_1832.c","symbols":[],"unit":"melee/gm/gm_1832","validate":true}
+783:**Confirming exact function matches with no regressions**
+802:    "Restored all previously modified function expressions so already-exact code remains unchanged.",
+808:    "runner_objdiff_config": "functionRelocDiffs=data_value",
+818:    "preserved_exact_functions": {
+826:    "git_diff_check": "passed"
+
+exec
+/bin/zsh -lc 'rg -n "''^'"\\*\\*|"'^TOOL (edit|permuter|past_prs|knowledge|code_graph|checkdiff|objdiff|direct_compile)|99'"\\.570|100%|stuck|remaining|mismatch|register|instruction|diff|hypoth|restore|revert\" condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+2:**Inspecting target and baseline diffs**
+8:TOOL past_prs_search {"limit":20,"query":"grAnime_801C7C1C src/melee/gr/granime.c"}
+10:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+20:RESULT checkdiff_run 
+25:**Comparing disassembly for register verification**
+44:**Inspecting disassembly with objdump**
+50:TOOL mwcc_debug_lookup {"limit":20,"query":"grAnime_801C7C1C register allocation shape animation lookup r22 r26 …
+59:**Verifying objdump command path**
+73:**Analyzing register allocation conflicts**
+75:**Tracing archive variable reuse and register assignments**
+77:**Planning register coalescing to reduce saved registers**
+80:**Analyzing register coalescing possibilities**
+82:**Planning allocator history inspection**
+88:TOOL knowledge_graph_search {"limit":20,"query":"grAnime_801C7C1C forced coalescing archive child arg3 shape register…
+101:**Inspecting specific commit diffs**
+116:**Analyzing request_flags assignment effect**
+118:**Mapping virtual registers to parameters**
+125:**Inspecting request_flags mismatch**
+127:**Analyzing register mismatch patterns**
+129:**Planning targeted source edits**
+132:**Analyzing PCode block indices and aliases**
+134:**Planning shape_anim alias replacement and pointer coalescing**
+136:**Defining alias timing for archive and child pointers**
+139:**Planning shape variant aliasing and replacement**
+141:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    HSD_Sh…
+148:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+150:RESULT checkdiff_run 
+153:**Reverting targeted exact change**
+155:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    u8* ef…
+160:**Evaluating aliasing archive to child**
+162:**Refactoring archive variable lifetime and aliasing animation flags**
+164:**Testing PCode aliasing for animation variable**
+166:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    s32 animation_f…
+170:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+172:RESULT checkdiff_run 
+175:**Reverting faulty duplicate changes**
+177:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+182:**Analyzing opcode immediate mismatch**
+184:**Testing reorder to prioritize req first**
+186:TOOL edit {"edits":[{"newText":"        aj = &aj[arg2];\n        req_flags |= 0x81;\n        anim_f…
+190:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+192:RESULT checkdiff_run 
+195:**Reverting to previous version**
+197:TOOL edit {"edits":[{"newText":"        aj = &aj[arg2];\n        anim_flags |= 0x220;\n        req_…
+202:**Planning source permutation run**
+209:**Planning variable aliasing for allocator perturbation**
+211:**Testing chained variable copies to shift allocation**
+213:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    u32 request_fla…
+217:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+219:RESULT checkdiff_run 
+222:**Reverting second alias change**
+224:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+229:**Planning source variant compilation and diffing**
+231:**Testing targeted local argument aliasing**
+233:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint* sj;\n    u8* eflags;\n    s32 flag;\n    s3…
+237:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+239:RESULT checkdiff_run 
+242:**Reverting alias due to frame offset changes**
+244:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint* sj;\n    u8* eflags;\n    s32 flag;\n\n    …
+249:**Refactoring argument aliasing**
+251:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    int arg5_local = arg5;\n\n    i…
+255:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+257:RESULT checkdiff_run 
+262:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+267:**Testing request_flags assignment placement**
+269:**Inserting assignment inside branches**
+271:TOOL edit {"edits":[{"newText":"    if (arg5 != 0) {\n        request_flags = req_flags;\n        i…
+275:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+277:RESULT checkdiff_run 
+282:TOOL edit {"edits":[{"newText":"    request_flags = req_flags;\n    if (arg5 != 0) {\n        if (j…
+287:**Investigating source variant impact**
+289:**Testing request_flags declaration placement**
+291:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    HSD_AnimJoint* aj;","oldText":"    u32 …
+295:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+297:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+299:RESULT checkdiff_run 
+301:RESULT checkdiff_run 
+304:**Adding braces to enable declaration mid-block**
+306:TOOL edit {"edits":[{"newText":"    {\n        u32 request_flags = req_flags;\n        if (arg5 != …
+313:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+315:RESULT checkdiff_run 
+318:**Reverting global declaration changes**
+320:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+325:**Inspecting request flags type and declaration order**
+327:**Planning declaration reorder to match original assembly**
+329:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+333:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+335:RESULT checkdiff_run 
+338:**Reverting order adjustment**
+340:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+345:**Analyzing instruction differences and color allocation**
+347:**Mapping VR assignments and assessing aliasing**
+349:**Planning node degree inspection and copy impact**
+356:**Clarifying VR42 and VR45 adjacency and mapping**
+358:**Proposing separate archive variables for coalescing**
+360:**Confirming variable split to avoid overlap**
+362:TOOL edit {"edits":[{"newText":"    UnkArchiveStruct* archive;\n    UnkArchiveStruct* archive2;\n  …
+369:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+371:RESULT checkdiff_run 
+374:**Inspecting archive usage and animation call**
+376:TOOL edit {"edits":[{"newText":"    UnkArchiveStruct* archive;\n    HSD_AnimJoint** ajp;","oldText"…
+381:**Analyzing graph neighbor rationale**
+383:**Tracing PCode instructions and registers**
+385:**Refining final archive variable handling**
+388:**Analyzing local archive variable usage**
+390:**Mapping virtual registers to source variables**
+392:**Testing variable separation to reduce spills**
+394:TOOL edit {"edits":[{"newText":"    UnkArchiveStruct* archive;\n    UnkArchiveStruct* lookup_archiv…
+401:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+403:RESULT checkdiff_run 
+406:**Reverting formatting changes carefully**
+408:TOOL edit {"edits":[{"newText":"    UnkArchiveStruct* archive;\n    HSD_AnimJoint** ajp;","oldText"…
+413:**Analyzing register allocation discrepancy**
+415:**Planning variable reuse to reduce locals**
+417:**Verifying argument register reuse pattern**
+420:**Refactoring allocator pointer usage**
+422:**Evaluating pointer reuse simplification**
+424:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_AnimJoint* caj;\n    HSD_JObj* chil…
+431:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+433:RESULT checkdiff_run 
+436:**Testing traversal method changes**
+438:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJ…
+443:**Replacing cmj usage with mj**
+445:TOOL edit {"edits":[{"newText":"    HSD_JObj* child;\n    HSD_MatAnimJoint* mj;\n    HSD_ShapeAnimJ…
+452:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+454:RESULT checkdiff_run 
+457:**Evaluating pointer elimination and register reuse**
+460:**Reverting cmj changes**
+462:TOOL edit {"edits":[{"newText":"    HSD_JObj* child;\n    HSD_MatAnimJoint* mj;\n    HSD_MatAnimJoi…
+467:**Analyzing aliasing and variable coalescing**
+469:**Planning inline helper to optimize live ranges**
+471:**Evaluating inline helper placement impact**
+474:**Refactoring archive handling code**
+476:TOOL edit {"edits":[{"newText":"static inline u8* grAnime_GetEFlags(s32 map_id)\n{\n    UnkArchiveS…
+483:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+485:RESULT checkdiff_run 
+488:**Reverting helper changes**
+490:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg…
+495:**Planning request_flags relocation test**
+497:**Testing declaration order effects**
+499:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    HSD_AnimJoint* aj;","oldText":"    u32 …
+506:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+508:RESULT checkdiff_run 
+511:**Reverting and testing request declaration timing**
+513:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    u32 request_flags;\n    UnkArchiveStru…
+520:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+522:RESULT checkdiff_run 
+525:**Reverting request declaration to baseline**
+527:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;","oldText":…
+532:**Testing request flag alias reversal**
+534:**Evaluating variable type impact on accumulator**
+536:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    s32 request_flags;","oldText":"    u32 …
+543:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+545:RESULT checkdiff_run 
+548:**Planning anim_flags type update**
+550:**Reverting temporary s32 type**
+552:TOOL edit {"edits":[{"newText":"    u32 request_flags = 0;\n    u32 req_flags;","oldText":"    u32 …
+559:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+561:RESULT checkdiff_run 
+564:**Reverting to original semantic names**
+566:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;","oldText":"    u32 …
+571:**Testing local request_flags initialization**
+573:**Evaluating dummy initialization optimization**
+575:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags = 0;","oldText":"    …
+582:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+584:RESULT checkdiff_run 
+587:**Testing pointer aliasing effects**
+589:**Implementing distinct iteration pointer**
+591:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;","oldText":"    u32 …
+598:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+600:RESULT checkdiff_run 
+603:**Reverting child alias**
+605:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint* csj;\n    HSD_JObj* child;\n    HSD_MatAnim…
+610:**Refactoring aliasing of sj to csj**
+612:**Implementing csj branching and testing**
+614:TOOL edit {"edits":[{"newText":"    request_flags = req_flags;\n    csj = sj;\n    if (arg5 != 0) {…
+621:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+623:RESULT checkdiff_run 
+628:TOOL edit {"edits":[{"newText":"    request_flags = req_flags;\n    if (arg5 != 0) {\n        if (j…
+633:**Analyzing register aliasing impact**
+635:**Inspecting argument type influence on registers**
+637:**Planning allocator graph manipulation**
+640:**Analyzing self-assignment effects on compiler graph**
+642:**Testing self-assignment impact on live ranges**
+644:TOOL edit {"edits":[{"newText":"    request_flags = req_flags;\n    sj = sj;\n    if (arg5 != 0) {"…
+651:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+653:RESULT checkdiff_run 
+656:**Testing self-assignment optimizations**
+658:**Exploring variable aliasing and scope adjustments**
+660:**Refactoring variable scope to reduce conflicts**
+663:**Reverting and editing temporary changes**
+665:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_MatAnimJoint* mj;\n    HSD_ShapeAni…
+672:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+674:RESULT checkdiff_run 
+677:**Planning archive variable scoping**
+679:**Implementing nested block shadowing for archive**
+681:TOOL edit {"edits":[{"newText":"    grAnime_801C752C(jobj, arg5, anim_flags, HSD_AObjSetRate, 1, fa…
+688:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+690:RESULT checkdiff_run 
+693:**Reverting to baseline style**
+695:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJ…
+700:**Investigating target function context**
+707:**Reverting targeted changes**
+709:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+714:**Planning archive lookup restructuring**
+716:**Implementing nested archive variable blocks**
+718:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    HSD_AnimJoint** ajp;","oldText":"    s…
+725:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+727:RESULT checkdiff_run 
+730:**Reverting to baseline declarations**
+732:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_An…
+737:**Evaluating mutation preview for lifetime-shaping**
+739:**Testing semantic declaration reorder impact**
+741:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_MatAnimJoint* mj;\n    HSD_ShapeAni…
+748:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+750:RESULT checkdiff_run 
+753:**Verifying declaration order impact**
+755:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJ…
+760:**Planning unique filtering with req prefix**
+762:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+767:**Assessing permutation effectiveness**
+769:TOOL bash {"command":"git diff -- src/melee/gr/granime.c; git status --short -- src/melee/gr/granim…
+771:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+775:RESULT checkdiff_run 
+778:**Finalizing JSON handoff structure**
+780:**Assessing build artifacts and source status**
+784:  "summary": "Investigated grAnime_801C7C1C’s remaining register-allocation mismatch. The function remains at the original 99.21862% baseline; no source edits were retained.",
+792:    "Focused checkdiff reports 24 operand/register mismatches with otherwise matching instruction and control-flow shape.",
+793:    "The current allocation uses an additional saved register and differs principally around arg4, arg5, the two flag accumulators, the shape-animation pointer, and child traversal.",
+794:    "Tested flag-update ordering, declaration ordering, typed argument aliases, request-flag alias chains, animation and shape aliases, narrower local scopes, separate archive variables, scoped archive variables, an inline archive helper, and reuse of traversal pointers. All were neutral or regressed and were reverted.",
+799:    "checkdiff_run grAnime_801C7C1C: FAIL (99.21862%)",
+800:    "Final git diff for src/melee/gr/granime.c is empty."
+807:**Planning comprehensive source inspection**
+809:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+813:TOOL ledger_search {"limit":20,"query":"grAnime_801C7C1C main/melee/gr/granime register allocation arg5 arch…
+815:TOOL past_prs_search {"limit":20,"query":"grAnime_801C7C1C src/melee/gr/granime.c"}
+821:RESULT checkdiff_run 
+834:**Planning disassembly comparison using objdump**
+836:TOOL bash {"command":"git status --short && git diff -- src/melee/gr/granime.c && sed -n '1760,2025…
+840:TOOL knowledge_graph_search {"limit":20,"query":"PR 2530 grAnime_801C7C1C source code function archive animation join…
+842:TOOL mwcc_debug_lookup {"limit":20,"query":"grAnime_801C7C1C 24 register operand mismatches r21 r22 r25 r26 r27 …
+857:**Using local objdump for output analysis**
+867:TOOL code_graph_search {"limit":20,"query":"PR 2530 Jj/granime 2 changed source grAnime_801C7C1C"}
+880:**Comparing target and current register mappings**
+882:**Analyzing register reuse and coalescing strategies**
+884:**Identifying operand order and immediate mismatches**
+887:**Testing flag update reordering**
+889:TOOL edit {"edits":[{"newText":"        aj = &aj[arg2];\n        req_flags |= 0x81;\n        anim_f…
+893:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+895:RESULT checkdiff_run 
+898:**Inspecting mapping after reorder**
+905:**Investigating compiler instruction scheduling effects**
+907:**Planning declaration order swap**
+909:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    s32 anim_flags = 0;\n    UnkArchiveS…
+913:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+915:RESULT checkdiff_run 
+918:**Analyzing source structure and allocator snapshot**
+920:TOOL bash {"command":"ls -la build/mwcc-alloc 2>/dev/null | tail -20; git diff -- src/melee/gr/gran…
+924:TOOL past_prs_search {"limit":20,"query":"PR 2530 granime register allocation var_r30 var_r29 arg4 arg5 grAnim…
+937:**Comparing current snapshot to baseline**
+944:**Comparing current allocator JSON to baseline**
+951:**Inspecting JSON and allocator pcode**
+958:**Identifying fields for allocator pcode map**
+965:**Printing nonempty blocks around pcode fields**
+972:**Mapping virtual registers to source variables**
+974:**Refining virtual register assignments and opcode mapping**
+993:**Confirming virtual archive pointer assignments**
+995:**Analyzing register coloring conflicts**
+998:**Analyzing register allocation ordering**
+1000:**Planning git commit history inspection**
+1019:**Inspecting worker integration commit diffs**
+1034:**Testing partial restoration of old source**
+1036:**Planning function replacement with old source**
+1042:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1044:RESULT checkdiff_run 
+1047:**Investigating git commit metadata and scores**
+1066:**Tracing commit history for baseline restoration**
+1068:**Exploring reflog for abandoned commits**
+1087:**Restoring baseline from previous version**
+1089:**Testing declaration and update reorderings**
+1098:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1100:RESULT checkdiff_run 
+1103:**Inspecting register allocation mismatch**
+1110:**Analyzing register allocation conflicts**
+1112:**Tracing register assignment order and priorities**
+1115:**Simplifying node ordering algorithm**
+1117:**Analyzing graph coloring impact on ordering**
+1120:**Analyzing variable lifetimes and aliasing**
+1122:**Testing direct req usage without alias**
+1124:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    HSD_AnimJoint* aj;","oldText":"    s32…
+1128:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1130:RESULT checkdiff_run 
+1133:**Planning request_flags variable refactor**
+1135:**Investigating archive mismatch cause**
+1142:**Analyzing allocator priorities and lifetimes**
+1144:**Planning alias restructuring for priority shift**
+1146:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    s32 animation_flags;\n    HSD_AnimJoin…
+1150:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1152:RESULT checkdiff_run 
+1155:**Reverting animation alias changes**
+1157:**Exploring alias insertion for register allocation**
+1159:**Testing declaration order effects on coalescing**
+1162:**Analyzing type and signature differences**
+1164:**Planning alias usage transformations**
+1166:**Designing scripted compiler mutation tests**
+1169:**Planning code modifications with checkdiff tool**
+1175:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1177:RESULT checkdiff_run 
+1180:**Introducing alias for recursion argument**
+1186:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1188:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1190:RESULT checkdiff_run 
+1192:RESULT checkdiff_run 
+1195:**Refining alias initialization placement**
+1197:**Testing local alias insertion after null check**
+1206:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1208:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1210:RESULT checkdiff_run 
+1212:RESULT checkdiff_run 
+1215:**Assessing source shape with m2c_decompile**
+1222:**Refactoring request_flags initialization**
+1224:**Planning alias renaming and testing effects**
+1230:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1232:RESULT checkdiff_run 
+1235:**Planning local variable optimization**
+1237:**Testing direct field access optimization**
+1246:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1248:RESULT checkdiff_run 
+1251:**Assessing variable declaration reorder effects**
+1270:**Testing type signedness mutations**
+1285:**Evaluating signedness impact on flags types**
+1287:**Testing flag type combinations for allocator effects**
+1296:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1298:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1300:RESULT checkdiff_run 
+1302:RESULT checkdiff_run 
+1305:**Evaluating variable scope effects on lifetimes**
+1307:**Refactoring child declaration for testing**
+1316:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1318:RESULT checkdiff_run 
+1321:**Assessing register flow and coloring adjustments**
+1323:**Verifying pointer arithmetic substitution effects**
+1332:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1334:RESULT checkdiff_run 
+1337:**Establishing req-first structural base**
+1339:**Analyzing register lifetimes and mappings**
+1341:**Planning recompilation to verify register mapping**
+1348:**Compiling code for inspection**
+1350:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":false,"unit":"melee/gr/granime"}
+1355:**Investigating API field inconsistency**
+1357:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1359:RESULT checkdiff_run 
+1362:**Inspecting old disassembly**
+1369:**Planning flag variable swapping**
+1371:**Assessing variable role swapping impact**
+1373:**Investigating compiler alias effect on lifetimes**
+1376:**Analyzing animation alias coalescing**
+1378:**Planning animation alias assignment after branch**
+1380:**Planning baseline restore and declaration reorder**
+1387:**Compiling codebase**
+1389:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1391:RESULT checkdiff_run 
+1394:**Planning extensive permuter runs**
+1396:**Executing high-budget permuter search**
+1410:**Inspecting truncated best candidate output**
+1417:**Analyzing declaration reorder impact**
+1419:**Evaluating permutation strategies and allocator tweaks**
+1421:**Considering struct grouping for flags**
+1424:**Analyzing register allocation changes**
+1426:**Examining inline helper effects on compilation**
+1428:**Planning systematic direct call testing**
+1431:**Restoring baseline with alias testing**
+1440:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1442:RESULT checkdiff_run 
+1445:**Evaluating noinline wrapper strategies**
+1447:**Testing direct field access for GetAObj**
+1456:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1458:RESULT checkdiff_run 
+1461:**Evaluating alternative accessor shapes**
+1463:**Searching for canonical accessor macro**
+1478:**Replacing direct child access with helper function**
+1487:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1489:RESULT checkdiff_run 
+1492:**Adding static inline child accessor helper**
+1494:**Defining local helper function for child access**
+1503:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1505:RESULT checkdiff_run 
+1508:**Evaluating register usage optimization**
+1510:**Analyzing pointer coalescing strategies**
+1512:**Refactoring child pointer loop**
+1515:**Refactoring loop from while to for**
+1524:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1526:RESULT checkdiff_run 
+1529:**Analyzing loop initialization and descriptor ordering**
+1531:**Investigating redundant branches and declaration ordering**
+1543:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1545:RESULT checkdiff_run 
+1548:**Assessing declaration order permutations**
+1550:**Planning extensive declaration reorder sampling**
+1552:**Verifying existing declaration order history**
+1555:**Testing declaration order swaps**
+1557:**Analyzing variable declaration order impact**
+1566:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1568:RESULT checkdiff_run 
+1571:**Evaluating declaration order impact**
+1573:**Planning extensive declaration reorder testing**
+1587:**Checking replay file absence**
+1594:**Validating baseline integrity**
+1596:**Confirming non-destructive baseline backup**
+1598:TOOL bash {"command":"cp /tmp/granime.baseline.c src/melee/gr/granime.c && git diff -- src/melee/gr…
+1605:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1607:RESULT checkdiff_run 
+1610:**Compiling final handoff JSON summary**
+1612:**Refining JSON with exact target mapping**
+1616:  "summary": "Investigated grAnime_801C7C1C’s remaining register-allocation mismatch. No source edits were retained because all tested variants were neutral or regressed from the 99.21862% baseline.",
+1624:    "The current object has the correct opcode and control-flow sequence; the residual is 24 register/operand mismatches.",
+1626:    "Tested request/animation flag ordering and declaration placement, direct versus aliased flag lifetimes, late animation-flag aliases, typed arg4/arg5 aliases, direct animation-table expressions, pointer-style indexing, signedness changes, narrower child scope, child for-loop forms, solved-neighbor declaration ordering, direct and header child accessors, local child accessors, and direct wrapper/helper calls. These were neutral or regressed and were reverted.",
+1631:    "Final checkdiff_run grAnime_801C7C1C: FAIL (99.21862%), matching the original baseline.",
+1632:    "Final git diff for src/melee/gr/granime.c is empty."
+1639:**Planning source and diff inspection**
+1643:TOOL code_graph_search {"limit":10,"query":"src/melee/gr/granime.c grAnime_801C7C1C"}
+1649:TOOL past_prs_search {"limit":20,"query":"src/melee/gr/granime.c grAnime_801C7C1C"}
+1651:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1653:TOOL bash {"command":"git status --short -- src/melee/gr/granime.c && git diff -- src/melee/gr/gran…
+1665:RESULT checkdiff_run 
+1670:**Planning disassembly comparison with objdump**
+1678:TOOL mwcc_debug_lookup {"limit":20,"query":"grAnime_801C7C1C register allocation r22 r26 r27 r25 r29 r30"}
+1701:**Resolving command path for objdump**
+1720:**Mapping argument and shape references**
+1722:**Planning virtual register allocation adjustments**
+1741:**Planning virtual register mapping and comparison**
+1743:**Analyzing register coloring and allocation patterns**
+1746:**Analyzing allocator node order and interference**
+1748:**Resolving register coalescing and allocation order**
+1751:**Planning variable reorder for simplification**
+1753:**Analyzing variable register numbering and prioritization**
+1760:**Inspecting historical PR diffs**
+1764:TOOL past_prs_search {"limit":20,"query":"PR 2530 grAnime_801C7C1C declarations request flags archive child"}
+1766:TOOL knowledge_graph_search {"limit":20,"query":"grAnime_801C7C1C archive child arg3 shape register allocation source…
+1787:**Inspecting historical commit diffs**
+1802:**Analyzing commit variants and alias impact**
+1804:**Tracing flag ordering impact on allocation**
+1806:**Identifying original flag order in source**
+1809:**Testing allocation order swap**
+1811:TOOL edit {"edits":[{"newText":"        aj = &aj[arg2];\n        req_flags |= 0x81;\n        anim_f…
+1815:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1817:RESULT checkdiff_run 
+1820:**Investigating concurrent write conflicts**
+1827:**Investigating compiler scheduling and build order**
+1829:**Analyzing score discrepancy despite identical candidate**
+1831:TOOL edit {"edits":[{"newText":"        aj = &aj[arg2];\n        anim_flags |= 0x220;\n        req_…
+1836:**Analyzing animation function inlining**
+1838:**Verifying compile order and cache consistency**
+1840:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1842:RESULT checkdiff_run 
+1845:**Planning structural mutation tests**
+1847:**Planning declaration reorder testing**
+1849:TOOL edit {"edits":[{"newText":"{\n    UnkArchiveStruct* archive;\n    HSD_AnimJoint** ajp;\n    HS…
+1853:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+1855:RESULT checkdiff_run 
+1858:**Identifying parallel duplicate issues**
+1865:**Investigating candidate object mismatch causes**
+1867:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":"melee/gr/granime"}
+1872:**Resolving schema field constraints**
+1874:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":""}
+1879:**Confirming accessible local object path**
+1886:**Assessing initialization reorder impacts**
+1888:**Planning allocator impact analysis**
+1902:**Restoring baseline declaration**
+1904:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+1909:**Reviewing header parameter ordering**
+1916:**Planning allocator influence analysis**
+1918:**Inspecting baselib animation macros**
+1941:**Refining ledger entry retrieval scope**
+1945:TOOL knowledge_graph_search {"limit":50,"query":"learning:symbol:grAnime_801C7C1C"}
+1960:**Investigating missing assignment in diff**
+1962:**Planning commit metadata inspection**
+1977:**Inspecting source-mutator preview passes**
+1992:**Testing alias placement for animation flags**
+1994:**Analyzing request_flags assignment timing effects**
+1996:**Investigating request alias impact on scoring**
+1999:**Verifying original variable declaration order**
+2001:**Planning declaration order test for req and anim flags**
+2003:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+2007:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2009:RESULT checkdiff_run 
+2012:**Restoring baseline after duplicate parallel processing**
+2014:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+2019:**Analyzing spill candidate ordering**
+2021:**Planning alias splitting for allocation**
+2023:**Reordering allocation priorities for registers**
+2029:**Optimizing repeated pointer usage**
+2031:**Testing flag initialization order effects**
+2033:**Implementing late aliasing for map_id**
+2036:**Testing map alias coalescing hypothesis**
+2038:**Planning parameter alias replacement and usage**
+2047:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    s32 map = map_id;\n\n    if (jo…
+2051:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2053:RESULT checkdiff_run 
+2056:**Inspecting candidate allocation effects**
+2058:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":""}
+2063:**Inspecting candidate details**
+2070:**Analyzing alias allocation causing extra move**
+2072:**Planning map alias testing**
+2074:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    HSD_AnimJoint* aj;","oldText":"    u32 …
+2081:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2083:RESULT checkdiff_run 
+2086:**Assessing map alias handling strategy**
+2088:**Optimizing map alias declaration placement**
+2090:**Testing mid-function alias declaration**
+2092:TOOL edit {"edits":[{"newText":"    } else {\n        sj = NULL;\n    }\n    {\n        u32 request…
+2099:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2101:RESULT checkdiff_run 
+2104:**Planning map alias revert and block update**
+2111:**Applying exact restore**
+2113:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    u32 requ…
+2118:**Testing archive variable aliasing**
+2120:**Planning alias role swapping for registers**
+2122:**Analyzing variable usage for register allocation**
+2125:**Analyzing variable renaming effects on dataflow**
+2127:**Examining self-assignment impact on register allocation**
+2134:**Planning allocator snapshot comparison**
+2136:**Testing self-assignment to emulate alias effects**
+2138:**Verifying baseline unchanged by self-assignment**
+2140:TOOL bash {"command":"git diff -- src/melee/gr/granime.c","timeout":30}
+2145:**Applying map alias with self**
+2147:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    HSD_Anim…
+2154:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2156:RESULT checkdiff_run 
+2159:**Restoring baseline after optimization**
+2161:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    u32 requ…
+2166:**Testing late map aliasing effects**
+2168:**Adding scoped map block around flag call**
+2170:TOOL edit {"edits":[{"newText":"    grAnime_801C752C(jobj, arg5, anim_flags, HSD_AObjSetRate, 1, fa…
+2177:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2179:RESULT checkdiff_run 
+2184:TOOL edit {"edits":[{"newText":"    grAnime_801C752C(jobj, arg5, anim_flags, HSD_AObjSetRate, 1, fa…
+2189:**Analyzing conditional branching differences**
+2191:**Evaluating register coalescing strategies**
+2193:**Testing local flag variable for coalescing**
+2196:**Adding and testing flags parameter**
+2198:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    s32 flags = arg3;\n\n    if (jo…
+2205:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2207:RESULT checkdiff_run 
+2210:**Investigating alias stack mismatch**
+2212:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+2217:**Assessing source mutation impacts**
+2219:**Inspecting current type source**
+2226:**Searching for source type struct definition**
+2233:**Investigating UnkStageDat definitions**
+2240:**Confirming archive structure accuracy**
+2242:**Planning systematic source permutation script**
+2244:**Restoring baseline code state**
+2246:TOOL bash {"command":"git diff -- src/melee/gr/granime.c","timeout":30}
+2251:**Planning mutator passes inspection**
+2258:**Checking replay file availability**
+2262:TOOL bash {"command":"git diff -- src/melee/gr/granime.c && git status --short -- src/melee/gr/gran…
+2273:**Testing alias chain length impact**
+2275:**Exploring wrapper impact on callsite code**
+2277:**Assessing parameter type effects**
+2280:**Optimizing register allocation for shape handling**
+2282:**Evaluating union use for arg3 flag-pointer reuse**
+2284:**Testing baseline allocation without aliasing**
+2287:**Analyzing register allocation inconsistencies**
+2289:**Planning no-alias baseline capture**
+2291:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    HSD_Anim…
+2300:**Adjusting register priority for request and archive**
+2302:**Planning function replacement to restore register allocation**
+2304:**Verifying historical function for targeted patch**
+2307:**Planning manual function restoration from git**
+2309:**Restoring baseline alias now**
+2311:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    u32 requ…
+2316:**Analyzing variable origin via register naming**
+2318:**Identifying cleanup impacts on allocator rotation**
+2320:**Testing combined old layout without alias**
+2322:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+2329:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2331:RESULT checkdiff_run 
+2334:**Assessing register allocation changes**
+2336:**Testing impact of extra temporaries on allocation**
+2338:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    HSD_Ma…
+2345:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2347:RESULT checkdiff_run 
+2350:**Restoring baseline with reverse flags**
+2352:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+2357:**Testing alias chain optimization**
+2359:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    u32 final_reque…
+2366:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2368:RESULT checkdiff_run 
+2371:**Reverting alias chain spill fix**
+2373:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+2378:**Testing animation flags initialization**
+2380:**Analyzing request flag optimization effects**
+2382:**Testing aliasing of jobj parameter**
+2385:**Analyzing parameter aliasing and initialization order**
+2387:**Refactoring function parameter usage**
+2389:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C(HSD_JObj* arg0, s32 map_id, s32 arg2, s32 arg…
+2396:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2398:RESULT checkdiff_run 
+2401:**Reverting large alias change**
+2403:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg…
+2408:**Assessing parameter aliasing effects**
+2410:**Planning restructuring with guarded body**
+2412:**Noting compiler redundant guard behavior**
+2414:TOOL edit {"edits":[{"newText":"    if (jobj != NULL) {\n    archive = grDatFiles_801C6330(map_id);…
+2421:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2423:RESULT checkdiff_run 
+2426:**Reverting no-op code changes**
+2428:TOOL edit {"edits":[{"newText":"    if (jobj == NULL) {\n        return;\n    }\n    archive = grDa…
+2433:**Evaluating control flow inversion effects**
+2435:**Planning allocator test with animation alias split**
+2437:**Preparing animation_flags declaration and assignment test**
+2439:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    u32 req_flags = 0;\n    s32 anim…
+2446:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2448:RESULT checkdiff_run 
+2451:**Analyzing alias impact on shape and moves**
+2453:**Planning combined request and animation aliasing**
+2455:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    s32 animation_f…
+2462:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2464:RESULT checkdiff_run 
+2467:**Restoring baseline configuration**
+2469:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+2474:**Evaluating variable assignment relocation**
+2476:**Analyzing request_flags assignment optimization**
+2478:**Refining request_flags assignment semantics**
+2481:**Assessing request_flags coalescing potential**
+2483:TOOL edit {"edits":[{"newText":"    } else {\n        mj = NULL;\n    }\n    request_flags = req_fl…
+2490:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2492:RESULT checkdiff_run 
+2495:**Reverting no-op code move**
+2497:TOOL edit {"edits":[{"newText":"    } else {\n        mj = NULL;\n    }\n    if ((arg3 & 4) && (sjp…
+2502:**Testing condition structure impact**
+2504:**Assessing alias and declaration reorder effects**
+2506:**Investigating argument type and register effects**
+2509:**Assessing declaration and initialization order**
+2511:**Evaluating aliasing effects on allocation**
+2513:**Planning map alias with permuter search**
+2516:**Planning final verification and cleanup**
+2518:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2520:TOOL bash {"command":"git diff --check -- src/melee/gr/granime.c && git diff -- src/melee/gr/granim…
+2524:RESULT checkdiff_run 
+2531:**Compiling final JSON status report**
+2533:**Confirming stalled no-regression status**
+2537:  "summary": "Investigated additional register-allocation hypotheses for grAnime_801C7C1C. No source edits were retained because every tested variant was neutral or regressed from the 99.21862% baseline.",
+2546:    "A map_id alias and a late anim_flags alias can independently induce the desired shape-animation r22 coloring and eliminate the r20 save, but each introduces another move and rotates the archive, request, animation-joint, and traversal registers incorrectly, regressing below 99%.",
+2547:    "Tested combined historical flag declaration/update order, whole-body guarded control flow, map/flags/JObj parameter aliases, request alias chains, request lifetime splitting before the shape lookup, direct request flags, late animation aliases, and historical material/shape temporaries. These were neutral or regressed and were reverted.",
+2551:    "Final checkdiff_run grAnime_801C7C1C: FAIL (99.21862%), restoring the official baseline.",
+2552:    "Final git diff and git diff --check for src/melee/gr/granime.c are empty."
+2559:**Planning full file inspection**
+2561:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2567:TOOL past_prs_search {"limit":20,"query":"grAnime_801C7C1C src/melee/gr/granime.c"}
+2569:TOOL bash {"command":"git status --short && git diff -- src/melee/gr/granime.c && sed -n '700,1000p…
+2571:RESULT checkdiff_run 
+2582:**Comparing register mappings with disassembly**
+2601:**Inspecting assembly label syntax**
+2609:TOOL knowledge_graph_search {"limit":20,"query":"PR 2530 grAnime_801C7C1C source request_flags"}
+2620:**Extracting target reference lines**
+2627:**Planning register reassignments for opcode handling**
+2629:**Investigating historical register assignments and commits**
+2636:**Reviewing commit diff attempts**
+2643:**Comparing baseline score changes in commits**
+2652:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+2656:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2658:RESULT checkdiff_run 
+2661:**Tracing register mapping mismatch**
+2668:**Analyzing baseline mismatch causes**
+2670:**Investigating stale object and recompilation effects**
+2672:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":"melee/gr/granime"}
+2677:**Planning empty unit function**
+2679:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":""}
+2684:**Inspecting object path**
+2691:**Analyzing register argument mismatches**
+2693:**Examining coalescing strategies for registers**
+2695:**Running updated source code**
+2702:**Capturing allocator variants**
+2709:**Inspecting allocator JSON and PCode**
+2715:TOOL mwcc_debug_lookup {"limit":20,"query":"grAnime_801C7C1C allocator virtual register source parameter coalesc…
+2724:**Planning PCode register mapping**
+2726:**Mapping virtual registers to physical registers**
+2733:**Comparing raw PCode and final disassembly**
+2740:**Planning baseline restoration via inverse edit**
+2742:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+2747:**Capturing baseline metrics**
+2754:**Considering snapshot comparison tool**
+2761:**Planning exhaustive git history search**
+2768:**Retrieving initial commit source**
+2775:**Planning register allocator mutation using copy coalescing**
+2777:**Mapping baseline virtual registers to physical**
+2780:**Refining register allocation order**
+2782:**Analyzing variable priority adjustments**
+2784:**Identifying source splitting impact on priority**
+2787:**Analyzing animation flags alias impact**
+2789:**Evaluating register priority adjustments**
+2791:**Reordering register priorities for req insertion**
+2794:**Planning register priority reordering**
+2796:**Analyzing inline helper function structure**
+2799:**Investigating inlining behavior in compiler**
+2801:TOOL knowledge_graph_search {"limit":50,"query":"PR 2530 \"grAnime_801C7C1C\" diff source code var_r30 manim sdobj"}
+2806:**Analyzing PCode graph coloring order**
+2808:**Planning targeted flag initialization tests**
+2810:**Verifying flag initialization dependency effects**
+2813:**Confirming request declaration order**
+2815:**Planning targeted function replacement**
+2817:**Analyzing declaration types and variable ordering**
+2820:**Evaluating variable reuse to optimize shape references**
+2822:**Planning targeted baseline function replacement for testing**
+2829:**Compiling and scoring results**
+2831:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":""}
+2835:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gr_granime-275efc…
+2837:RESULT objdiff_score_candidate 
+2840:**Evaluating object path formatting**
+2842:TOOL objdiff_score_candidate {"candidate_object":"/opt/melee/build/orchestrator-direct-compile/melee_gr_granime-275efc…
+2844:RESULT objdiff_score_candidate 
+2847:**Restoring baseline with targeted function replace**
+2854:**Designing animation flag aliasing variants**
+2856:**Ensuring initialization order from baseline**
+2858:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+2863:**Compiling checkdiff utility**
+2865:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2867:RESULT checkdiff_run 
+2870:**Reverting baseline changes**
+2877:**Evaluating animation_flags copy placement**
+2879:**Analyzing PCode copy coalescing effects**
+2881:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    s32 animation_f…
+2885:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2887:RESULT checkdiff_run 
+2890:**Testing late alias after rate calculation**
+2892:**Planning baseline revert before alias test**
+2898:TOOL edit {"edits":[{"newText":"    u32 request_flags;\n    s32 final_anim_flags;\n    HSD_AnimJoin…
+2903:**Verifying parallel edit success**
+2905:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2907:RESULT checkdiff_run 
+2910:**Designing compiler-driven mutation testing**
+2912:**Planning targeted function mutation strategy**
+2919:**Analyzing graph node selection criteria**
+2921:**Investigating variable lifetime effects on node degree**
+2923:**Preparing to objdump candidate binary for inspection**
+2930:**Analyzing variable reuse in source**
+2932:**Evaluating flag variable reuse and lifetime extension**
+2934:**Refactoring flag removal and promoting req variable**
+2940:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+2947:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+2949:RESULT checkdiff_run 
+2952:**Evaluating variable reuse limitations before SSA**
+2954:**Inspecting grAnime_801C6C0C inline helper use**
+2956:**Considering duplicating grAnime_801C6C0C_inner body**
+2959:**Evaluating inlining strategies for helper functions**
+2961:**Investigating static vs external function linkage**
+2980:**Comparing function with baselib pattern**
+2987:**Analyzing traversal redundancy origins**
+2989:**Planning local declaration reorder tests**
+2998:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_…
+3002:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3004:RESULT checkdiff_run 
+3007:**Inspecting natural order regression and child mapping**
+3009:**Planning permutation tests for declaration order**
+3011:**Evaluating baseline preservation without r20**
+3013:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint** sjp;\n    s32 anim_flags = 0;\n    u32 req…
+3020:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3022:RESULT checkdiff_run 
+3025:**Planning build scoring script with candidate compilation**
+3027:**Designing randomized declaration permutation scoring script**
+3029:**Parsing objdiff JSON for scoring**
+3032:**Designing trigger variant flags**
+3034:**Planning baseline variant permutations**
+3041:**Planning source editing script and benchmarking**
+3043:**Defining declaration replacement strategies**
+3050:**Inspecting top search results for baseline shapes**
+3052:TOOL bash {"command":"head -40 /tmp/grAnime_decl_results.txt && git diff -- src/melee/gr/granime.c …
+3057:**Planning source object declaration permutations**
+3059:**Analyzing declaration order impacts on vreg assignments**
+3061:**Separating declaration order from initialization scheduling**
+3064:**Testing initialization splitting effects**
+3066:**Evaluating compile score impact**
+3068:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags;\n    UnkArchiveStruct* archive;\n    HSD_Anim…
+3075:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3077:RESULT checkdiff_run 
+3080:**Planning variable declaration reordering**
+3082:**Evaluating variable copy impacts on register allocation**
+3084:**Designing arg4 alias for live range splitting**
+3087:**Testing baseline with late arg4 alias**
+3093:TOOL edit {"edits":[{"newText":"    u32 request_flags;\n    s32 flag_index;\n    HSD_AnimJoint* aj;…
+3100:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3102:RESULT checkdiff_run 
+3105:**Investigating stack frame growth due to aliasing**
+3107:**Planning targeted arg5 alias insertion**
+3114:**Editing arg5 alias**
+3116:TOOL edit {"edits":[{"newText":"    u32 request_flags;\n    s32 apply_all;\n    HSD_AnimJoint* aj;\…
+3123:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3125:RESULT checkdiff_run 
+3128:**Analyzing parameter type mismatches**
+3135:**Analyzing parameter type variations**
+3137:**Planning block-scoped archive variable**
+3139:**Splitting archive into two variables**
+3142:**Analyzing alias optimization for animation nodes**
+3144:**Exploring variable aliasing via inline helpers and shadowing**
+3146:**Testing dual-variable update sequencing**
+3149:**Testing flag initialization optimizations**
+3151:**Exploring pointer optimization and control flow restructuring**
+3153:**Planning exhaustive source mutation searches**
+3168:**Restoring source after failed alias check**
+3175:**Planning flag struct refactoring**
+3177:**Analyzing register assignment swaps**
+3179:**Confirming register assignment tied to lifetimes**
+3182:**Evaluating combined request and animation flag handling**
+3184:**Testing declaration order permutations for flag initialization**
+3186:**Planning extended random declaration order permutations**
+3189:**Verifying opcode order with request flags**
+3191:**Analyzing opcode argument mismatches**
+3193:**Listing baseline declarations and constraints**
+3196:**Planning timed update tests with scoring**
+3203:**Restoring baseline automatically**
+3205:TOOL bash {"command":"head -30 /tmp/grAnime_all_decl_results.txt && git diff --check -- src/melee/g…
+3210:**Verifying clean baseline with git diff**
+3212:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3214:TOOL bash {"command":"git diff --check -- src/melee/gr/granime.c && git diff -- src/melee/gr/granim…
+3218:RESULT checkdiff_run 
+3225:**Preparing final compact JSON handoff**
+3227:**Validating and preparing handoff JSON**
+3231:  "summary": "Investigated additional source-shape and allocator hypotheses for grAnime_801C7C1C. No edits were retained because all tested variants were neutral or regressed from the 99.21862% baseline.",
+3245:    "Final checkdiff_run grAnime_801C7C1C: FAIL (99.21862%), confirming restoration of the official baseline.",
+3246:    "Final git diff, git diff --check, and target-file git status are clean."
+3253:**Inspecting full file and history**
+3255:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3261:TOOL past_prs_search {"limit":20,"query":"grAnime_801C7C1C src/melee/gr/granime.c"}
+3263:TOOL mwcc_debug_lookup {"limit":20,"query":"grAnime_801C7C1C register allocation r22 r23 r24 r25 r26 r27 r28 r29…
+3267:TOOL bash {"command":"git status --short -- src/melee/gr/granime.c && git diff -- src/melee/gr/gran…
+3269:RESULT checkdiff_run 
+3284:**Planning disassembly for mismatch analysis**
+3292:TOOL knowledge_graph_search {"limit":20,"query":"grAnime_801C7C1C direct pointer animation joint request_flags archiv…
+3294:TOOL past_prs_search {"limit":20,"query":"PR 2530 granime 801C7C1C declaration source diff"}
+3315:**Inspecting git commit diffs**
+3338:**Comparing register usage in disassembly**
+3353:**Analyzing register allocation discrepancies**
+3355:**Mapping register coalescing for matching**
+3357:**Adjusting coalescing to reduce registers**
+3360:**Inspecting allocator color JSON and vreg mapping**
+3379:**Verifying request_flags assignment consistency**
+3381:**Analyzing historical variable ordering impact**
+3383:**Identifying argument order mismatch in source**
+3386:**Assessing request-first flag permutations**
+3388:**Investigating uninitialized flag assignment impact**
+3390:**Planning allocator snapshot analysis**
+3393:**Planning opcode decoding and source restructuring**
+3395:**Planning targeted source mutations and diffing**
+3397:**Confirming manual exact checks**
+3399:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n","oldText":"    u32 req_flags = 0;\n    u3…
+3403:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3405:RESULT checkdiff_run 
+3408:**Inspecting candidate assembly mapping**
+3415:**Investigating assembly reordering causing disparity**
+3417:**Analyzing register coalescing conflicts and interference**
+3419:**Assessing temporary insertion effects on coalescing**
+3422:**Testing shape-specific temporary coalescing**
+3424:**Analyzing commit history for pointer changes**
+3439:**Restoring baseline from git**
+3441:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+3446:**Refactoring shape pointer assignment**
+3448:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint* sj;\n    HSD_ShapeAnimJoint* shape;\n    u8…
+3452:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3454:RESULT checkdiff_run 
+3457:**Assessing child temp coalescing**
+3459:**Designing inline accessor helper**
+3461:**Verifying typedef compatibility for parameters**
+3464:**Assessing struct type aliases and register usage**
+3466:**Investigating register rotation and long-lived allocation mapping**
+3468:**Verifying no-change effects on coloring data**
+3475:**Analyzing virtual register mappings and color assignments**
+3477:**Evaluating register interference and allocation strategies**
+3479:**Planning archive usage to extend lifetime**
+3482:**Exploring child derivation from archive value**
+3484:**Testing union usage for archive-child variables**
+3486:**Prototyping union reuse for parameter storage**
+3489:**Planning union-based parameter testing**
+3491:**Analyzing register allocation order impact**
+3493:**Identifying unexpected register assignment**
+3496:**Investigating variable reuse causing graph interference**
+3503:**Analyzing interference between arg3 and sj**
+3505:**Planning if-condition restructuring to adjust liveness**
+3508:**Testing nested failure with reverted changes**
+3510:TOOL edit {"edits":[{"newText":"    HSD_ShapeAnimJoint* sj;\n    u8* eflags;","oldText":"    HSD_Sh…
+3514:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3516:RESULT checkdiff_run 
+3519:**Optimizing branch instruction usage**
+3521:**Refining arg3 condition with local flag**
+3523:**Testing bool versus int flag for shape condition**
+3526:**Refactoring condition with assignment variable**
+3528:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    s32 shape_flags;","oldText":"  …
+3532:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3534:RESULT checkdiff_run 
+3537:**Testing arg3 bitwise optimization**
+3539:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;","oldText":"    u8* eflags;\n    s32…
+3543:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3545:RESULT checkdiff_run 
+3548:**Inspecting assembly near third traversal**
+3555:**Analyzing register interference issue**
+3557:**Investigating branch-specific register copies**
+3559:**Tracing sj initialization and interference**
+3562:**Adjusting liveness during assignment sinking**
+3564:TOOL edit {"edits":[{"newText":"    sj = NULL;\n    if ((arg3 & 4) &&\n        (sjp = archive->unk4…
+3568:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3570:RESULT checkdiff_run 
+3573:**Inspecting ASM and register mapping**
+3580:**Investigating checkdiff race condition**
+3582:**Refining ternary condition assignment**
+3584:**Testing preinit branch restoration**
+3587:**Planning optimization fix for duplicate failure assignments**
+3589:TOOL edit {"edits":[{"newText":"    if ((arg3 & 4) && (sjp = archive->unk4->unk8[map_id].unkC, sjp …
+3594:**Planning ternary split implementation**
+3596:TOOL edit {"edits":[{"newText":"    if ((arg3 & 4) && (sjp = archive->unk4->unk8[map_id].unkC, sjp …
+3603:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3605:RESULT checkdiff_run 
+3608:**Restoring baseline due to liveness edge issues**
+3610:**Analyzing liveness propagation in non-SSA model**
+3612:**Planning block-scoped declaration to shorten sj live range**
+3615:**Assessing declaration scope impact**
+3617:**Refactoring variable declarations into branches**
+3619:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_MatAnimJoint* mj;\n","oldText":"   …
+3624:**Verifying braces correctness**
+3631:**Checking single compilation status**
+3633:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3635:RESULT checkdiff_run 
+3638:**Testing pointer increment code patterns**
+3640:**Refining pointer arithmetic with optimizer effects**
+3642:TOOL edit {"edits":[{"newText":"            ((sjp += arg4, sj = *sjp) != NULL))","oldText":"       …
+3647:**Verifying single check completion**
+3649:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3651:RESULT checkdiff_run 
+3654:**Planning expression restoration**
+3656:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* aj;\n    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJ…
+3661:**Designing inline shape lookup helper**
+3663:**Refactoring shape lookup with inline helper and flags**
+3665:**Planning precise inline helper with output pointers**
+3668:**Designing inline shape animation helper**
+3670:**Refactoring helper inline usage and caller replacement**
+3672:TOOL edit {"edits":[{"newText":"static inline void grAnime_GetShapeAnim(UnkArchiveStruct* archive, …
+3679:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3681:RESULT checkdiff_run 
+3684:**Analyzing helper parameter permutation impact**
+3687:**Planning m2c scaffold testing**
+3689:**Planning parallel knowledge searches**
+3698:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C","oldText":"static inline void grAnime_GetSha…
+3703:**Inspecting remote branches and source patterns**
+3711:TOOL code_graph_search {"limit":20,"query":"HSD_JObjAddAnimAll source_path exact match animation joint traversal…
+3713:TOOL knowledge_graph_search {"limit":20,"query":"register allocation same register parameter then pointer local block…
+3726:**Evaluating source-permuter mutation strategies**
+3728:**Verifying clean baseline state**
+3730:TOOL bash {"command":"git diff -- src/melee/gr/granime.c; git diff --check; git status --short -- s…
+3732:TOOL checkdiff_run {"full_diff":false,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3736:RESULT checkdiff_run 
+3739:**Running permuter task**
+3746:**Verifying replay JSON for tail extraction**
+3757:**Planning manual forced variable reproduction**
+3759:**Testing union for parameter casting**
+3761:**Verifying parameter coalescing with union**
+3763:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    union {\n        s32 flags;\n      …
+3770:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3772:RESULT checkdiff_run 
+3775:**Reverting union-based type pun assignment**
+3777:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    u8* ef…
+3782:**Planning register allocation manipulation**
+3784:**Testing alias copies to influence allocation**
+3786:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    HSD_Sh…
+3793:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3795:RESULT checkdiff_run 
+3798:**Reevaluating aliasing strategies for arguments**
+3800:**Analyzing register allocation rotation effects**
+3802:**Testing declaration order impact on mapping**
+3805:**Assessing JSON declaration order effects**
+3807:**Planning request declaration reorder test**
+3809:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* cmj;\n    HSD_ShapeAnimJoint* sj;\n    u8* ef…
+3814:**Editing declaration statement**
+3816:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    s32 anim_flags = 0;\n    UnkArchiveS…
+3823:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3825:RESULT checkdiff_run 
+3828:**Inspecting assembly prologue for scheduling**
+3835:**Analyzing archive local reuse and lifetimes**
+3837:**Proposing separate archive pointer variable**
+3839:**Restoring animation before adding archive2**
+3841:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    Unk…
+3848:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3850:RESULT checkdiff_run 
+3853:**Investigating HSD_ASSERT string relocation impact**
+3855:**Planning nested archive variable scopes**
+3857:**Reverting archive2 to shadow variable scopes**
+3860:**Refactoring archive variable scope**
+3862:TOOL edit {"edits":[{"newText":"    UnkArchiveStruct* archive;\n","oldText":"    UnkArchiveStruct* …
+3867:**Refactoring local block declarations**
+3869:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    HSD_AnimJoint** ajp;","oldText":"    s…
+3874:**Performing compile check**
+3876:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3878:RESULT checkdiff_run 
+3881:**Analyzing variable coalescence impact**
+3883:**Tracing inline expansion of animation functions**
+3890:**Analyzing inlined animation function wrappers**
+3892:**Planning static inline helper refactor**
+3895:**Designing inline helper extraction**
+3897:**Planning helper extraction with inline testing**
+3900:**Testing macro-based helper structure**
+3902:TOOL bash {"command":"git diff -- src/melee/gr/granime.c | sed -n '1,260p'; sed -n '925,1100p' src/…
+3907:**Restoring baseline before helper**
+3909:TOOL edit {"edits":[{"newText":"    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD_An…
+3914:**Designing helper function for branch replacement**
+3916:**Planning Python script for precise code edits**
+3918:TOOL edit {"edits":[{"newText":"static inline void grAnime_AddAnimAll(HSD_JObj* jobj, HSD_AnimJoint…
+3923:**Compiling codebase**
+3925:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3927:RESULT checkdiff_run 
+3930:**Reverting helper due to allocation mismatch**
+3932:**Planning targeted reverse edits for helper**
+3934:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C","oldText":"static inline void grAnime_AddAni…
+3939:**Refining declarations targeting based on request flags**
+3941:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C","oldText":"static inline void grAnime_AddAni…
+3944:**Refactoring helper removal and call structure**
+3946:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C","oldText":"static inline void grAnime_AddAni…
+3951:**Planning register allocation improvement**
+3953:**Evaluating pointer declaration impact on branching**
+3955:**Testing inner-block pointer declarations**
+3958:**Refactoring variable declaration placement**
+3960:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJoint* csj;\n    HSD_MatA…
+3967:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+3969:RESULT checkdiff_run 
+3972:**Refactoring joint initialization logic**
+3974:**Exploring pointer reuse via intptr_t casting**
+3976:**Considering custom union for pointer reuse**
+3979:**Refactoring union usage to intptr_t casting**
+3981:**Testing pointer cast with s32 parameter**
+3984:**Reverting child scope to baseline for testing**
+3986:TOOL edit {"edits":[{"newText":"    HSD_AnimJoint* caj;\n    HSD_ShapeAnimJoint* csj;\n    HSD_JObj…
+3991:**Editing argument reuse for sj occurrences**
+3993:TOOL edit {"edits":[{"newText":"    HSD_MatAnimJoint* mj;\n    HSD_MatAnimJoint* cmj;\n    u8* efla…
+4000:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4002:RESULT checkdiff_run 
+4005:**Resolving function parameter type conflicts**
+4007:**Refining pointer comparisons with casts**
+4009:TOOL edit {"edits":[{"newText":"        ((arg3 = (s32) sjp[arg4]),\n         (HSD_ShapeAnimJoint*) …
+4016:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4018:RESULT checkdiff_run 
+4021:**Exploring cleaner typed union alternative**
+4028:**Resolving race conditions in checkdiff calls**
+4030:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4032:RESULT checkdiff_run 
+4035:**Inspecting candidate object directly**
+4042:**Analyzing checkdiff compilation behavior**
+4044:**Tracing candidate register mapping discrepancies**
+4046:**Planning candidate object comparison**
+4048:TOOL direct_compile_tu {"function":"grAnime_801C7C1C","keep_object":true,"unit":""}
+4053:**Locating objdump executable**
+4060:**Analyzing register load mismatches**
+4062:**Refining direct assignment for pointer comparison**
+4064:TOOL edit {"edits":[{"newText":"        ((HSD_ShapeAnimJoint*) (arg3 = (s32) sjp[arg4]) != NULL))",…
+4071:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4073:RESULT checkdiff_run 
+4076:**Planning register rotation via declaration reorder**
+4078:**Testing declaration reorder and flag arrangement**
+4085:**Applying request declaration update**
+4087:TOOL edit {"edits":[{"newText":"{\n    u32 req_flags = 0;\n    s32 anim_flags = 0;\n    UnkArchiveS…
+4094:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4096:RESULT checkdiff_run 
+4099:**Isolating regression by restoring declaration order**
+4101:TOOL edit {"edits":[{"newText":"{\n    s32 anim_flags = 0;\n    UnkArchiveStruct* archive;\n    HSD…
+4108:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4110:RESULT checkdiff_run 
+4113:**Planning targeted code restore from temp**
+4115:TOOL edit {"edits":[{"newText":"        anim_flags |= 0x220;\n        req_flags |= 0x81;","oldText"…
+4120:**Refining request handling by removing copy**
+4122:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;","oldText":"    u32 req_flags = 0;\n    u32 …
+4129:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4131:RESULT checkdiff_run 
+4134:**Planning variable lifetime reuse**
+4136:**Evaluating parameter register remapping strategies**
+4138:**Planning source declaration permutation run**
+4141:**Restoring original source copy**
+4143:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+4148:**Running permutation testing**
+4155:**Planning manual aliasing and register rotation tests**
+4157:**Testing early alias insertion for arg4**
+4164:**Applying alias**
+4166:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    s32 animation_id = arg4;\n\n   …
+4171:**Running single check to avoid duplicates**
+4173:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4175:RESULT checkdiff_run 
+4178:**Reverting alias stack frame changes**
+4180:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+4185:**Testing argument alias adjustment**
+4187:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    int recurse = arg5;\n\n    if (…
+4194:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4196:RESULT checkdiff_run 
+4199:**Evaluating declaration order permutations for optimization**
+4201:**Testing animation flags aliasing for allocation shifts**
+4203:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+4208:**Adding and using final_anim_flags alias**
+4210:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    s32 final_anim_…
+4217:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4219:RESULT checkdiff_run 
+4222:**Analyzing function signature impact on allocation**
+4224:**Testing argument type variations and flag assignments**
+4226:**Verifying register allocation with flag assignment**
+4228:TOOL edit {"edits":[{"newText":"    u32 request_flags;\n    HSD_AnimJoint* aj;","oldText":"    u32 …
+4233:**Refactoring request assignment to local copies**
+4235:TOOL edit {"edits":[{"newText":"    if (arg5 != 0) {","oldText":"    request_flags = req_flags;\n  …
+4242:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4244:RESULT checkdiff_run 
+4247:**Reviewing cast improvements and lint warnings**
+4249:TOOL edit {"edits":[{"newText":"    request_flags = req_flags;\n    if (arg5 != 0) {","oldText":"  …
+4254:**Exploring parameter renaming for register control**
+4256:**Testing aliasing to optimize register usage**
+4258:**Refining alias timing to improve coalescing**
+4261:**Testing animation_id assignment placement**
+4263:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n    s32 animation_id;\n\n    animat…
+4270:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4272:RESULT checkdiff_run 
+4275:**Assessing self-assignment effects on register matching**
+4277:**Planning self-assignment tests after alias restoration**
+4279:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+4284:**Experimenting with MUST_MATCH definition**
+4286:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    arg4 = arg4;\n    if (jobj ==…
+4293:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4295:RESULT checkdiff_run 
+4298:**Evaluating self-assignment effects and casting warnings**
+4302:TOOL checkdiff_summary {"functions":["grAnime_801C7C1C","grAnime_801C7FF8","grAnime_801C8098"],"timeout_seconds"…
+4304:TOOL bash {"command":"git diff --check; git status --short -- src/melee/gr/granime.c; git diff -- s…
+4308:RESULT checkdiff_summary 
+4313:**Reviewing lint file path and casting issues**
+4315:**Refactoring arg3 to intptr_t for cleaner casting**
+4317:**Verifying intptr_t compatibility with function signature**
+4324:**Planning pointer to intptr_t cast adjustment**
+4326:**Analyzing register allocation and assignment strategies**
+4328:**Testing copy placement to preserve register mapping**
+4331:**Exploring request_flags declaration positioning**
+4333:**Testing scoped request_flags declaration**
+4335:TOOL edit {"edits":[{"newText":"    u8* eflags;\n    s32 flag;\n\n    if (jobj == NULL) {","oldText…
+4340:**Planning initial run check**
+4342:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4344:RESULT checkdiff_run 
+4347:**Restoring top request assignment structure**
+4349:TOOL edit {"edits":[{"newText":"    u32 req_flags = 0;\n    u32 request_flags;\n    HSD_AnimJoint* …
+4354:**Updating arg3 to intptr_t and casting**
+4356:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, intptr_…
+4361:**Verifying compilation success**
+4363:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4365:RESULT checkdiff_run 
+4368:**Clarifying intptr_t and s32 compatibility**
+4370:TOOL edit {"edits":[{"newText":"void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg…
+4375:**Planning lint scanning**
+4382:**Assessing code style and pointer arithmetic**
+4384:**Exploring inline helper casts for clarity**
+4391:**Planning final cleanup and lint check**
+4393:**Ensuring final compile and lint consistency**
+4395:TOOL checkdiff_run {"full_diff":true,"function":"grAnime_801C7C1C","timeout_seconds":120}
+4397:RESULT checkdiff_run 
+4400:**Planning single-call neighbor summary**
+4402:TOOL checkdiff_summary {"functions":["grAnime_801C7C1C","grAnime_801C7FF8","grAnime_801C8098","grAnime_801C8138"…
+4404:RESULT checkdiff_summary 
+4407:**Reviewing type-erasing cast usage**
+4409:**Comparing source with backup diff**
+4411:TOOL bash {"command":"git diff --check && git status --short -- src/melee/gr/granime.c && git diff …
+4420:**Assessing style reuse impact**
+4422:**Planning explicit pointer-to-int cast**
+4433:  "summary": "Improved grAnime_801C7C1C from 99.21862% to 99.57085% by reusing arg3 for the shape-animation pointer after its final flag-mask use. This reproduces the reference's arg3/shape r22 coalescing and allows archive/child traversal to coalesce in r26.",
+4440:    "after_percent": 99.57085
+4447:    "The retained form fixes the prior saved-register mismatch and the shape/child traversal register mismatches.",
+4448:    "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags.",
+4449:    "The pointer/integer casts are intentional and evidence-bound: both storage forms are 32-bit on the target, and retaining them improves objdiff by 0.35223 percentage points. Typed separate-local and union forms failed to induce the required coalescing."
+4452:    "checkdiff_run grAnime_801C7C1C: FAIL (99.57085%).",
+4453:    "checkdiff_summary: grAnime_801C7FF8 PASS, grAnime_801C8098 PASS, grAnime_801C8138 PASS.",
+4455:    "git diff --check: clean."
+
+codex
+Step 2 of 3: both workers used deep tooling, so this is not a simple “exact was systematic, near-miss was careless” result. The emerging distinction is whether the worker converted the diff into a directly controllable source mechanism.
+collab: Wait
+collab: Wait
+codex
+Step 3 of 3: evidence is cross-checked. I’m writing the note now, with the verdict marked “partial” because the exact worker found a controllable data-layout mechanism, while the near-miss accurately diagnosed a harder allocator cycle but drifted into broad perturbation searches.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..78c589eba2df3b91f8b45cc3184a3cce93311c8f
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker turned its diff into a controllable source mechanism: it reconstructed `.sdata2` byte order, duplicate storage, alignment, symbols, and relocations, then changed only literal-pool ordering and explicit tail constants. The near-miss worker also diagnosed its diff correctly, including the remaining four-register allocation cycle, but could not map that cycle to one discriminating source rewrite; after the useful `arg3`/shape-pointer coalescing, its loop became broad allocator perturbation and permutation search. Process therefore explains part of the outcome, though the control target was intrinsically less direct than the exact worker's data-layout target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: systematic object-section forensics, not guess-and-check source variants. It compared target and candidate section bytes, symbol boundaries, and relocations. Its reasoning explicitly called out "**Investigating alignment-induced padding gaps**" and concluded, "**The retained named constants correspond to duplicate values and alignment boundaries observed directly in this translation unit's reference .sdata2 section.**"
++- The decisive move: dumps showed the exact 200-byte value sequence plus duplicates and alignment boundaries that ordinary literal pooling removed. Typed `static inline` ordering helpers forced the pool sequence; explicitly aligned TU-local tail constants supplied the separately stored duplicates. When plain `static` helpers regressed consumer code, it restored inline helpers with an `int unused` parameter, removed redundant tails, and re-added only the declarations and calls proven by the section layout. That combination produced 100% `.sdata2` and kept the touched consumers exact.
++- Tool rhythm: inspect/search -> edit -> `direct_compile_tu` -> `objdump`/`nm`/`readelf` -> candidate or full-unit objdiff, for roughly 7-9 substantive compile/score cycles. Full builds, lint, and a HEAD-versus-current JSON comparison guarded exact neighbors. Past-PR, ledger, code-graph, and knowledge searches supplied precedent and ownership context; no permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It first faced 24 operand/register mismatches with matching control-flow shape. Reusing `arg3` as the 32-bit shape-animation pointer after its final mask use correctly coalesced arg3/shape in `r22` and archive/child traversal in `r26`, raising 99.21862% to 99.57085%. It then stalled on arg4, arg5, request-flags, and animation-flags register rotation.
++- It tried declaration and update order, signedness and types, aliases, scopes, pointer reuse/splitting, unions and pointer/integer casts, helper extraction, loop/control-flow shapes, self-assignments, allocator snapshots, old source, and large permuter searches. What it never found was a small source-form enumeration tied separately to each remaining wrong source register; the experiments kept perturbing several live ranges at once.
++- The stall was diagnosable and was not ignored. The worker wrote, "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags." Diagnosis was strong, but it did not yield a source mechanism as direct as literal-pool ordering.
++- Loop quality: mixed. The edit -> full checkdiff -> objdump/allocator inspection -> revert discipline was systematic, but later 720/1800 declaration searches and multi-thousand-candidate permuter runs were shotgun once their hypotheses stopped separating variables.
++
++## Transferable technique
++
++- For a data-section target, dump target and candidate bytes plus symbol offsets and sizes before editing; reconstruct value order, duplicate storage, and alignment boundaries.
++- After section bytes match, inspect relocations and score every consumer; equal bytes can still hide symbol-boundary or reference regressions.
++- When a diff is register-only, map every wrong operand to its source live range, then test source forms that change one interference or coalescing edge at a time; stop broad permutations when they no longer test a distinct hypothesis.
++- Keep a known-best checkpoint and restore every neutral or regressing candidate immediately; validate layout-sensitive edits with a full-TU diff against previously exact symbols.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning, section-byte-forensics, literal-pool-ordering
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..78c589eba2df3b91f8b45cc3184a3cce93311c8f
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker turned its diff into a controllable source mechanism: it reconstructed `.sdata2` byte order, duplicate storage, alignment, symbols, and relocations, then changed only literal-pool ordering and explicit tail constants. The near-miss worker also diagnosed its diff correctly, including the remaining four-register allocation cycle, but could not map that cycle to one discriminating source rewrite; after the useful `arg3`/shape-pointer coalescing, its loop became broad allocator perturbation and permutation search. Process therefore explains part of the outcome, though the control target was intrinsically less direct than the exact worker's data-layout target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: systematic object-section forensics, not guess-and-check source variants. It compared target and candidate section bytes, symbol boundaries, and relocations. Its reasoning explicitly called out "**Investigating alignment-induced padding gaps**" and concluded, "**The retained named constants correspond to duplicate values and alignment boundaries observed directly in this translation unit's reference .sdata2 section.**"
++- The decisive move: dumps showed the exact 200-byte value sequence plus duplicates and alignment boundaries that ordinary literal pooling removed. Typed `static inline` ordering helpers forced the pool sequence; explicitly aligned TU-local tail constants supplied the separately stored duplicates. When plain `static` helpers regressed consumer code, it restored inline helpers with an `int unused` parameter, removed redundant tails, and re-added only the declarations and calls proven by the section layout. That combination produced 100% `.sdata2` and kept the touched consumers exact.
++- Tool rhythm: inspect/search -> edit -> `direct_compile_tu` -> `objdump`/`nm`/`readelf` -> candidate or full-unit objdiff, for roughly 7-9 substantive compile/score cycles. Full builds, lint, and a HEAD-versus-current JSON comparison guarded exact neighbors. Past-PR, ledger, code-graph, and knowledge searches supplied precedent and ownership context; no permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It first faced 24 operand/register mismatches with matching control-flow shape. Reusing `arg3` as the 32-bit shape-animation pointer after its final mask use correctly coalesced arg3/shape in `r22` and archive/child traversal in `r26`, raising 99.21862% to 99.57085%. It then stalled on arg4, arg5, request-flags, and animation-flags register rotation.
++- It tried declaration and update order, signedness and types, aliases, scopes, pointer reuse/splitting, unions and pointer/integer casts, helper extraction, loop/control-flow shapes, self-assignments, allocator snapshots, old source, and large permuter searches. What it never found was a small source-form enumeration tied separately to each remaining wrong source register; the experiments kept perturbing several live ranges at once.
++- The stall was diagnosable and was not ignored. The worker wrote, "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags." Diagnosis was strong, but it did not yield a source mechanism as direct as literal-pool ordering.
++- Loop quality: mixed. The edit -> full checkdiff -> objdump/allocator inspection -> revert discipline was systematic, but later 720/1800 declaration searches and multi-thousand-candidate permuter runs were shotgun once their hypotheses stopped separating variables.
++
++## Transferable technique
++
++- For a data-section target, dump target and candidate bytes plus symbol offsets and sizes before editing; reconstruct value order, duplicate storage, and alignment boundaries.
++- After section bytes match, inspect relocations and score every consumer; equal bytes can still hide symbol-boundary or reference regressions.
++- When a diff is register-only, map every wrong operand to its source live range, then test source forms that change one interference or coalescing edge at a time; stop broad permutations when they no longer test a distinct hypothesis.
++- Keep a known-best checkpoint and restore every neutral or regressing candidate immediately; validate layout-sensitive edits with a full-TU diff against previously exact symbols.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning, section-byte-forensics, literal-pool-ordering
+
+exec
+/bin/zsh -lc "wc -l phase3_notes/pair_epoch-12-pair-01.md && git status --short && sed -n '1,120p' phase3_notes/pair_epoch-12-pair-01.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 242ms:
+ M ../../apps/server/src/application/jobs/job-runner.ts
+ M ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian/agent.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+ M ../../apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.test.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-catalog.ts
+ M ../../apps/server/src/core/agent-catalog/kernel-preview.ts
+ M ../../apps/server/src/core/agent-catalog/registry.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts
+ M ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.test.ts
+ M ../../apps/server/src/core/game-registry/runtime-options.ts
+ M ../../apps/server/src/core/job-queue/types.ts
+ M ../../apps/server/src/core/knowledge/jobs/librarian.ts
+ M ../../apps/server/src/core/shared/types/state.ts
+ M ../../apps/server/src/core/tools/profiles/defaults.ts
+ M ../../apps/server/src/core/tools/profiles/index.ts
+ M ../../apps/server/src/core/tools/runtime/registry.ts
+ M ../../apps/server/src/core/tools/wrappers/knowledge.ts
+ M ../../apps/server/src/core/tools/wrappers/source-permuter-args.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.test.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/kernel-pi-runner.ts
+ M ../../apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/loaders.ts
+ M ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.ts
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/10-targets/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/30-links/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/20-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/30-record-contracts/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/10-pull-requests/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/20-discord/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/30-wiki/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/20-drift-recheck/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild/doc.json
+ M ../../docs/40-new-features/40-knowledge-system-v2/90-worklist/doc.json
+ M ../../games/melee/knowledge/ledger/learnings.jsonl
+?? ./
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/
+?? ../../apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/
+?? ../../apps/server/src/core/cycle-runtime/phases/running/workers/worker-knowledge-context.test.ts
+?? ../../apps/server/src/core/knowledge-v2/
+?? ../../apps/server/src/core/tools/metadata/knowledge-v2.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts
+?? ../../apps/server/src/core/tools/wrappers/knowledge-v2.ts
+?? ../../apps/server/src/infrastructure/kernel/bridge/spawn-agent.test.ts
+?? ../../docs/40-new-features/40-knowledge-system-v2/50-librarian-pathways/40-backfill/
+?? ../../games/melee/knowledge/knowledge-index.sqlite
+?? ../../games/melee/knowledge/knowledge-index.sqlite-shm
+?? ../../games/melee/knowledge/knowledge-index.sqlite-wal
+?? ../../games/melee/knowledge/knowledge.sqlite
+?? ../../games/melee/knowledge/knowledge.sqlite-shm
+?? ../../games/melee/knowledge/knowledge.sqlite-wal
+## Verdict
+
+The exact worker turned its diff into a controllable source mechanism: it reconstructed `.sdata2` byte order, duplicate storage, alignment, symbols, and relocations, then changed only literal-pool ordering and explicit tail constants. The near-miss worker also diagnosed its diff correctly, including the remaining four-register allocation cycle, but could not map that cycle to one discriminating source rewrite; after the useful `arg3`/shape-pointer coalescing, its loop became broad allocator perturbation and permutation search. Process therefore explains part of the outcome, though the control target was intrinsically less direct than the exact worker's data-layout target.
+
+## Exact worker: how the gap was closed
+
+- Diff-reading style: systematic object-section forensics, not guess-and-check source variants. It compared target and candidate section bytes, symbol boundaries, and relocations. Its reasoning explicitly called out "**Investigating alignment-induced padding gaps**" and concluded, "**The retained named constants correspond to duplicate values and alignment boundaries observed directly in this translation unit's reference .sdata2 section.**"
+- The decisive move: dumps showed the exact 200-byte value sequence plus duplicates and alignment boundaries that ordinary literal pooling removed. Typed `static inline` ordering helpers forced the pool sequence; explicitly aligned TU-local tail constants supplied the separately stored duplicates. When plain `static` helpers regressed consumer code, it restored inline helpers with an `int unused` parameter, removed redundant tails, and re-added only the declarations and calls proven by the section layout. That combination produced 100% `.sdata2` and kept the touched consumers exact.
+- Tool rhythm: inspect/search -> edit -> `direct_compile_tu` -> `objdump`/`nm`/`readelf` -> candidate or full-unit objdiff, for roughly 7-9 substantive compile/score cycles. Full builds, lint, and a HEAD-versus-current JSON comparison guarded exact neighbors. Past-PR, ledger, code-graph, and knowledge searches supplied precedent and ownership context; no permuter was used.
+
+## Near-miss worker: why it stalled
+
+- It first faced 24 operand/register mismatches with matching control-flow shape. Reusing `arg3` as the 32-bit shape-animation pointer after its final mask use correctly coalesced arg3/shape in `r22` and archive/child traversal in `r26`, raising 99.21862% to 99.57085%. It then stalled on arg4, arg5, request-flags, and animation-flags register rotation.
+- It tried declaration and update order, signedness and types, aliases, scopes, pointer reuse/splitting, unions and pointer/integer casts, helper extraction, loop/control-flow shapes, self-assignments, allocator snapshots, old source, and large permuter searches. What it never found was a small source-form enumeration tied separately to each remaining wrong source register; the experiments kept perturbing several live ranges at once.
+- The stall was diagnosable and was not ignored. The worker wrote, "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags." Diagnosis was strong, but it did not yield a source mechanism as direct as literal-pool ordering.
+- Loop quality: mixed. The edit -> full checkdiff -> objdump/allocator inspection -> revert discipline was systematic, but later 720/1800 declaration searches and multi-thousand-candidate permuter runs were shotgun once their hypotheses stopped separating variables.
+
+## Transferable technique
+
+- For a data-section target, dump target and candidate bytes plus symbol offsets and sizes before editing; reconstruct value order, duplicate storage, and alignment boundaries.
+- After section bytes match, inspect relocations and score every consumer; equal bytes can still hide symbol-boundary or reference regressions.
+- When a diff is register-only, map every wrong operand to its source live range, then test source forms that change one interference or coalescing edge at a time; stop broad permutations when they no longer test a distinct hypothesis.
+- Keep a known-best checkpoint and restore every neutral or regressing candidate immediately; validate layout-sensitive edits with a full-TU diff against previously exact symbols.
+
+## Flags
+
+- exact_loop: systematic
+- control_loop: mixed
+- outcome_explained_by_process: partial
+- techniques: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning, section-byte-forensics, literal-pool-ordering
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..78c589eba2df3b91f8b45cc3184a3cce93311c8f
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker turned its diff into a controllable source mechanism: it reconstructed `.sdata2` byte order, duplicate storage, alignment, symbols, and relocations, then changed only literal-pool ordering and explicit tail constants. The near-miss worker also diagnosed its diff correctly, including the remaining four-register allocation cycle, but could not map that cycle to one discriminating source rewrite; after the useful `arg3`/shape-pointer coalescing, its loop became broad allocator perturbation and permutation search. Process therefore explains part of the outcome, though the control target was intrinsically less direct than the exact worker's data-layout target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: systematic object-section forensics, not guess-and-check source variants. It compared target and candidate section bytes, symbol boundaries, and relocations. Its reasoning explicitly called out "**Investigating alignment-induced padding gaps**" and concluded, "**The retained named constants correspond to duplicate values and alignment boundaries observed directly in this translation unit's reference .sdata2 section.**"
++- The decisive move: dumps showed the exact 200-byte value sequence plus duplicates and alignment boundaries that ordinary literal pooling removed. Typed `static inline` ordering helpers forced the pool sequence; explicitly aligned TU-local tail constants supplied the separately stored duplicates. When plain `static` helpers regressed consumer code, it restored inline helpers with an `int unused` parameter, removed redundant tails, and re-added only the declarations and calls proven by the section layout. That combination produced 100% `.sdata2` and kept the touched consumers exact.
++- Tool rhythm: inspect/search -> edit -> `direct_compile_tu` -> `objdump`/`nm`/`readelf` -> candidate or full-unit objdiff, for roughly 7-9 substantive compile/score cycles. Full builds, lint, and a HEAD-versus-current JSON comparison guarded exact neighbors. Past-PR, ledger, code-graph, and knowledge searches supplied precedent and ownership context; no permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It first faced 24 operand/register mismatches with matching control-flow shape. Reusing `arg3` as the 32-bit shape-animation pointer after its final mask use correctly coalesced arg3/shape in `r22` and archive/child traversal in `r26`, raising 99.21862% to 99.57085%. It then stalled on arg4, arg5, request-flags, and animation-flags register rotation.
++- It tried declaration and update order, signedness and types, aliases, scopes, pointer reuse/splitting, unions and pointer/integer casts, helper extraction, loop/control-flow shapes, self-assignments, allocator snapshots, old source, and large permuter searches. What it never found was a small source-form enumeration tied separately to each remaining wrong source register; the experiments kept perturbing several live ranges at once.
++- The stall was diagnosable and was not ignored. The worker wrote, "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags." Diagnosis was strong, but it did not yield a source mechanism as direct as literal-pool ordering.
++- Loop quality: mixed. The edit -> full checkdiff -> objdump/allocator inspection -> revert discipline was systematic, but later 720/1800 declaration searches and multi-thousand-candidate permuter runs were shotgun once their hypotheses stopped separating variables.
++
++## Transferable technique
++
++- For a data-section target, dump target and candidate bytes plus symbol offsets and sizes before editing; reconstruct value order, duplicate storage, and alignment boundaries.
++- After section bytes match, inspect relocations and score every consumer; equal bytes can still hide symbol-boundary or reference regressions.
++- When a diff is register-only, map every wrong operand to its source live range, then test source forms that change one interference or coalescing edge at a time; stop broad permutations when they no longer test a distinct hypothesis.
++- Keep a known-best checkpoint and restore every neutral or regressing candidate immediately; validate layout-sensitive edits with a full-TU diff against previously exact symbols.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning, section-byte-forensics, literal-pool-ordering
+
+codex
+DONE
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..78c589eba2df3b91f8b45cc3184a3cce93311c8f
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-01.md
+@@ -0,0 +1,30 @@
++## Verdict
++
++The exact worker turned its diff into a controllable source mechanism: it reconstructed `.sdata2` byte order, duplicate storage, alignment, symbols, and relocations, then changed only literal-pool ordering and explicit tail constants. The near-miss worker also diagnosed its diff correctly, including the remaining four-register allocation cycle, but could not map that cycle to one discriminating source rewrite; after the useful `arg3`/shape-pointer coalescing, its loop became broad allocator perturbation and permutation search. Process therefore explains part of the outcome, though the control target was intrinsically less direct than the exact worker's data-layout target.
++
++## Exact worker: how the gap was closed
++
++- Diff-reading style: systematic object-section forensics, not guess-and-check source variants. It compared target and candidate section bytes, symbol boundaries, and relocations. Its reasoning explicitly called out "**Investigating alignment-induced padding gaps**" and concluded, "**The retained named constants correspond to duplicate values and alignment boundaries observed directly in this translation unit's reference .sdata2 section.**"
++- The decisive move: dumps showed the exact 200-byte value sequence plus duplicates and alignment boundaries that ordinary literal pooling removed. Typed `static inline` ordering helpers forced the pool sequence; explicitly aligned TU-local tail constants supplied the separately stored duplicates. When plain `static` helpers regressed consumer code, it restored inline helpers with an `int unused` parameter, removed redundant tails, and re-added only the declarations and calls proven by the section layout. That combination produced 100% `.sdata2` and kept the touched consumers exact.
++- Tool rhythm: inspect/search -> edit -> `direct_compile_tu` -> `objdump`/`nm`/`readelf` -> candidate or full-unit objdiff, for roughly 7-9 substantive compile/score cycles. Full builds, lint, and a HEAD-versus-current JSON comparison guarded exact neighbors. Past-PR, ledger, code-graph, and knowledge searches supplied precedent and ownership context; no permuter was used.
++
++## Near-miss worker: why it stalled
++
++- It first faced 24 operand/register mismatches with matching control-flow shape. Reusing `arg3` as the 32-bit shape-animation pointer after its final mask use correctly coalesced arg3/shape in `r22` and archive/child traversal in `r26`, raising 99.21862% to 99.57085%. It then stalled on arg4, arg5, request-flags, and animation-flags register rotation.
++- It tried declaration and update order, signedness and types, aliases, scopes, pointer reuse/splitting, unions and pointer/integer casts, helper extraction, loop/control-flow shapes, self-assignments, allocator snapshots, old source, and large permuter searches. What it never found was a small source-form enumeration tied separately to each remaining wrong source register; the experiments kept perturbing several live ranges at once.
++- The stall was diagnosable and was not ignored. The worker wrote, "The remaining diff is a long-lived four-register allocation cycle involving arg4, arg5, request flags, and animation flags." Diagnosis was strong, but it did not yield a source mechanism as direct as literal-pool ordering.
++- Loop quality: mixed. The edit -> full checkdiff -> objdump/allocator inspection -> revert discipline was systematic, but later 720/1800 declaration searches and multi-thousand-candidate permuter runs were shotgun once their hypotheses stopped separating variables.
++
++## Transferable technique
++
++- For a data-section target, dump target and candidate bytes plus symbol offsets and sizes before editing; reconstruct value order, duplicate storage, and alignment boundaries.
++- After section bytes match, inspect relocations and score every consumer; equal bytes can still hide symbol-boundary or reference regressions.
++- When a diff is register-only, map every wrong operand to its source live range, then test source forms that change one interference or coalescing edge at a time; stop broad permutations when they no longer test a distinct hypothesis.
++- Keep a known-best checkpoint and restore every neutral or regressing candidate immediately; validate layout-sensitive edits with a full-TU diff against previously exact symbols.
++
++## Flags
++
++- exact_loop: systematic
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning, section-byte-forensics, literal-pool-ordering
+
+tokens used
+78,124
+DONE

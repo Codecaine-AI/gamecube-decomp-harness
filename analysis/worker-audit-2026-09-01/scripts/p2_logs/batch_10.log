@@ -1,0 +1,634 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d80-1fff-7e30-98e1-c5211c2627a1
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 10
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_10.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the worker-audit reporting skill because this task is a batch audit, and I’ll split the rows across parallel sub-agents as requested.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/.codex/skills/pi-agent-tool-analysis-report/SKILL.md' && wc -l scripts/p2_batches/batch_10.tsv && sed -n '1,8p' scripts/p2_batches/batch_10.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: pi-agent-tool-analysis-report
+description: "Build, rerun, update, and interpret the repo's Pi agent tool-analysis reports. Use when a user asks to regenerate reports/pi-agent-tool-analysis-*.html or *.stats.json, compare Pi worker sweeps, analyze worker tool usage/lift, review kill thresholds, update report HTML formatting, or preserve the repeatable report workflow from reports/."
+---
+
+# Pi Agent Tool Analysis Report
+
+Use this skill to refresh the Pi worker tool-analysis report from repo-local
+SQLite events and worker JSONL transcripts. Keep the existing analyzer and
+renderer scripts as the source of truth unless the user explicitly asks to
+change the report shape.
+
+For report semantics, HTML section expectations, and formatting notes, read
+`references/report-contract.md` before changing `scripts/analyze-pi-agent-tools.py`
+or `scripts/render-pi-agent-tool-report.py`.
+
+## Standard Workflow
+
+1. Work from the repository root. Inspect recent artifacts and current run
+   mapping:
+
+   ```bash
+   ls -t reports/pi-agent-tool-analysis-* 2>/dev/null | head -20
+   sed -n '/^RUNS = {/,/^}/p' scripts/analyze-pi-agent-tools.py
+   ```
+
+2. Discover candidate run IDs from the state database. Do not infer run IDs from
+   report filenames.
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   db = sqlite3.connect("projects/melee/state/orchestrator.sqlite")
+   rows = db.execute("""
+     SELECT run_id, COUNT(*) AS sessions, MIN(created_at), MAX(created_at)
+     FROM pi_sessions
+     WHERE role='worker'
+     GROUP BY run_id
+     ORDER BY MAX(created_at) DESC
+     LIMIT 12
+   """)
+   for run_id, sessions, first, last in rows:
+       print(f"{run_id}\t{sessions}\t{first}\t{last}")
+   PY
+   ```
+
+3. Map the baseline/control sweep to `run1` and the new/experiment/latest sweep
+   to `run2`. If the mapping needs to change, prefer the helper:
+
+   ```bash
+   python3 .codex/skills/pi-agent-tool-analysis-report/scripts/set-pi-tool-runs.py \
+     --run1 <baseline-or-control-run-id> \
+     --run2 <experiment-or-latest-run-id>
+   ```
+
+4. Build durable artifacts beside the report:
+
+   ```bash
+   export OUT="reports/pi-agent-tool-analysis-$(date +%F)"
+   python3 scripts/analyze-pi-agent-tools.py "${OUT}.stats.json"
+   python3 scripts/render-pi-agent-tool-report.py "${OUT}.stats.json" "${OUT}.html"
+   ```
+
+   Use a `/tmp/*.json` stats path only for scratch exploration. For a handoff or
+   rerunnable result, keep `reports/*.stats.json` next to `reports/*.html`.
+
+5. Validate the output before reporting success:
+
+   ```bash
+   python3 -m json.tool "${OUT}.stats.json" >/dev/null
+   python3 - <<'PY'
+   import json, os
+   out = os.environ.get("OUT", "reports/pi-agent-tool-analysis")
+   with open(out + ".stats.json") as f:
+       stats = json.load(f)
+   assert stats["leases"], "stats JSON has no leases"
+   assert {"run1", "run2"} <= set(stats["funnel"]), "missing run1/run2 funnel"
+   print(len(stats["leases"]), "leases")
+   PY
+   rg -n "\\{\\{|TODO|Traceback|nan" "${OUT}.html"
+   ```
+
+   `rg` returning no matches for the HTML check is expected.
+
+## Interpretation Rules
+
+- Treat `runner_validation` as canonical. "Confirmed" means result
+  `exact`/`improved` with validation status `passed`, not the worker's local
+  claim.
+- Compare runs by rate and worker-hours, not raw success count alone.
+- Keep `run1`/`run2` labels stable for the renderer: `run1` is the comparison
+  baseline, `run2` is the new run.
+- Remember that medium-thinking leases are filtered out by the analyzer; the
+  report is xhigh-only unless the script is intentionally changed.
+- Treat lift as correlational. Use it to choose exposure experiments, not to
+  declare a tool causally good or bad.
+- In-flight leases are excluded from terminal stats. Mid-run refreshes are fine,
+  but call out that the report is a snapshot.
+
+## HTML And Format Changes
+
+- Prefer changing `scripts/render-pi-agent-tool-report.py` and rerendering over
+  hand-editing generated HTML. If a one-off HTML edit is unavoidable, document
+  that in the report's method note.
+- Keep the report self-contained: inline CSS, no external JS, no remote assets.
+- Preserve the method/caveats block near the end and mention data sources,
+  included run IDs, in-flight exclusions, and runner validation.
+- When the user asks for branch-delta or "big sweep" formatting, use
+  `reports/pi-agent-tool-analysis-2026-06-16.html` as the current rich-layout
+  reference and include branch-delta data only when
+  `projects/melee/checkout/build/GALE01/report_changes_production.json` is
+  present and relevant.
+- After any tool surface change, update renderer tier lists before rerendering:
+  `PRIMARY_SURFACE_TOOLS`, `INJECTED_CONTEXT_TOOLS`, `AUTO_CLOSE_TOOLS`,
+  `SPECIALIST_TOOLS`, and the optional-action rules.
+      80 scripts/p2_batches/batch_10.tsv
+6af786c3-1ade-4f1e-8dd7-eaca75aef1d2	progressed	6	main/melee/mn/mnstagesw::mnStageSw_80235C58	98.521736	98.79348	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6af786c3-1ade-4f1e-8dd7-eaca75aef1d2
+9b154fec-97ed-4597-8915-f2a27126a463	progressed	6	main/melee/gm/gm_16A2::fn_80169C54	99.10995	99.42409	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/9b154fec-97ed-4597-8915-f2a27126a463
+6344c116-c832-4c25-a9fd-644cf79c30bf	progressed	6	main/melee/if/ifstock::ifStock_802F89F8	98.63025	98.84034	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/6344c116-c832-4c25-a9fd-644cf79c30bf
+59145471-0fb0-4bae-be9b-34202ea17f1b	progressed	6	main/melee/ft/ftcpuattack::ftCo_800B5AB0	98.223404	98.27021	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/59145471-0fb0-4bae-be9b-34202ea17f1b
+c31fb2b0-b69b-49fd-b55b-bd18bfde8b27	progressed	6	main/melee/ty/tydisplay::_tyDisplay_8031830C	98.189926	99.06200999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/c31fb2b0-b69b-49fd-b55b-bd18bfde8b27
+489be101-3fb4-401d-8723-10b9cad6698a	progressed	6	main/melee/gr/grgreens::grGreens_80215ED8	99.28796999999999	99.357	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/489be101-3fb4-401d-8723-10b9cad6698a
+d0c7a4ab-0c74-4f50-8d44-b4353d4a3945	exact	6	main/sysdolphin/baselib/debugconsole_main::hsd_80394544	98.287674	100.0	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/d0c7a4ab-0c74-4f50-8d44-b4353d4a3945
+4918c213-f0d7-4e32-89c1-1b8183344c78	progressed	6	main/sysdolphin/baselib/hsd_3B34::hsd_803B3408	85.23502	85.41936	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4918c213-f0d7-4e32-89c1-1b8183344c78
+
+codex
+Step 1 of 3 in progress: 80 workers are split into four 20-row audits. Next I’ll merge, normalize slugs, and validate one record per TSV row.
+exec
+/bin/zsh -lc "cut -f2 scripts/p2_batches/batch_10.tsv | sort | uniq -c; find phase2_notes -maxdepth 1 -type f -name 'batch_10.*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+  12 exact
+  19 near_miss
+   6 no_progress
+  43 progressed
+
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 1 of 3 still running: all four audit partitions are active; one partition has further split itself for speed. Cohort totals are 12 exact, 19 near-miss, 43 progressed, and 6 no-progress.
+collab: Wait
+2026-09-01T15:07:00.335629Z ERROR codex_core::tools::router: error=approval policy is Never; reject command — you cannot ask for escalated permissions if the approval policy is Never
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'ls -l /tmp/batch10_rows_*.json 2>/dev/null; for f in /tmp/batch10_rows_*.json; do jq length "$f"; done' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  wheel  12645 Sep  1 10:07 /tmp/batch10_rows_1_20.json
+-rw-r--r--@ 1 Ford  wheel  11007 Sep  1 10:07 /tmp/batch10_rows_41_60.json
+-rw-r--r--@ 1 Ford  wheel  11569 Sep  1 10:07 /tmp/batch10_rows_61_80.json
+20
+20
+19
+
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 2 of 3 done: all 79 TSV rows have audited records (the batch has 79 data rows, not 80). I’m applying the mandatory writing-cleanup skill to the short Markdown synthesis, then validating IDs, schema, cohorts, and line count.
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+
+exec
+/bin/zsh -lc "mkdir -p phase2_notes
+jq -s 'add' /tmp/batch10_rows_1_20.json /tmp/batch10_rows_21_40.json /tmp/batch10_rows_41_60.json /tmp/batch10_rows_61_80.json > phase2_notes/batch_10.json
+jq '[.[] | select(.cohort==\"exact\") | {ws_id,success_factor,notable,techniques}]' phase2_notes/batch_10.json
+jq -r 'group_by(.cohort)[] | .[0].cohort as "'$c | [$c, ([.[].techniques[]] | group_by(.) | map({k:.[0],n:length}) | sort_by(-.n,.k) | .[:12])] | @json'"' phase2_notes/batch_10.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+[
+  {
+    "ws_id": "d0c7a4ab-0c74-4f50-8d44-b4353d4a3945",
+    "success_factor": "index-derived coordinates restored target induction-register flow",
+    "notable": "Typed DebugFontGlyph indexing also replaced type-erasing font-address casts.",
+    "techniques": [
+      "asm-diff-instruction-level",
+      "expression-shape-experiments",
+      "loop-induction-recovery",
+      "type-shape-experiments"
+    ]
+  },
+  {
+    "ws_id": "58f2e39c-2f6e-4596-94d3-65910412e28a",
+    "success_factor": "existing helper reuse plus eight-byte stack padding",
+    "notable": "The helper-based form reached 99.91582% with only stack offsets wrong, and PAD_STACK(8) closed the final gap.",
+    "techniques": [
+      "asm-diff-instruction-level",
+      "register-allocation-reasoning",
+      "allocator-snapshot-analysis",
+      "permuter",
+      "helper-boundary-recovery",
+      "existing-helper-reuse",
+      "stack-padding",
+      "local-lifetime-reuse",
+      "type-erasing-cast",
+      "declaration-scope-experiments",
+      "control-flow-shape-experiments",
+      "checkpoint-restore"
+    ]
+  },
+  {
+    "ws_id": "6b0d2f77-fa33-47a5-9f63-c919394a3b25",
+    "success_factor": "natural inline-helper boundaries recovered exact instruction generation",
+    "notable": "Strict comparison still saw string-pool relocation identity differences, while the runner's data-value comparison accepted the function as exact.",
+    "techniques": [
+      "inline-hypothesis",
+      "loop-restructure",
+      "call-boundary-recovery",
+      "string-literal-layout-reasoning",
+      "type-shape-experiments",
+      "qa-gate-repair"
+    ]
+  },
+  {
+    "ws_id": "5d1c88e5-1b58-4497-bac9-14c1683c71ce",
+    "success_factor": "hoisted counters, direct initialization, and indexed pad-status access matched the instruction body",
+    "notable": "One account used section-order helpers for byte-exact .sdata2, while the later gate-clean account removed them and retained runner-level exactness.",
+    "techniques": [
+      "counter-hoisting",
+      "direct-initialization",
+      "indexed-array-access",
+      "sdata2-layout-reasoning",
+      "byte-overlay-layout-control",
+      "qa-gate-repair",
+      "asm-diff-instruction-level"
+    ]
+  },
+  {
+    "ws_id": "f660390c-e7be-4471-b33e-e284c2097d78",
+    "success_factor": "argument reuse, counter ordering, and stack padding produced instruction-identical code",
+    "notable": "The runner classified it exact even though the final gate-clean summary reported 99.93262% under stricter relocation comparison.",
+    "techniques": [
+      "qa-gate-repair",
+      "inline-hypothesis",
+      "argument-reuse",
+      "declaration-order-experiments",
+      "stack-padding-adjustment",
+      "sdata2-layout-reasoning",
+      "pointer-lifetime-experiments",
+      "permuter",
+      "asm-diff-instruction-level"
+    ]
+  },
+  {
+    "ws_id": "51688f89-2ab4-4b4a-b216-805a28efc6f1",
+    "success_factor": "iterator lifetime and PAD_STACK recovered the exact frame and instruction stream",
+    "notable": "The final account removed the banned section-order helper while preserving runner-level 100%.",
+    "techniques": [
+      "pointer-lifetime-experiments",
+      "stack-padding-adjustment",
+      "stack-frame-layout-reasoning",
+      "type-shape-experiments",
+      "sdata2-layout-reasoning",
+      "qa-gate-repair",
+      "asm-diff-instruction-level"
+    ]
+  },
+  {
+    "ws_id": "c155f4f0-d092-43ce-84a3-469da3e4c64a",
+    "success_factor": "neighbor bracket-renderer shape with scoped typed color copies",
+    "notable": "The exact source kept integer-to-float conversions inline while sharing the one-third calculation.",
+    "techniques": [
+      "neighbor-function-pattern",
+      "common-subexpression-reuse",
+      "typed-local-shaping",
+      "local-scope-lifetime",
+      "inline-conversion-shaping"
+    ]
+  },
+  {
+    "ws_id": "8fc06ef7-2ab4-46e1-adf4-d2a52e73da37",
+    "success_factor": "inline helper loops plus corrected stack padding",
+    "notable": "Reducing PAD_STACK from 16 to 8 preserved the retail 0x80-byte frame after helper inlining.",
+    "techniques": [
+      "inline-hypothesis",
+      "loop-restructure",
+      "stack-padding-tuning",
+      "neighbor-function-pattern"
+    ]
+  },
+  {
+    "ws_id": "c7af4f27-8f28-46fb-94fb-2b82a012da52",
+    "success_factor": "s32 target type with indexed nested-loop control flow",
+    "notable": "The worker later removed newly added goto and label lines while keeping the exact code through the pre-existing control flow.",
+    "techniques": [
+      "loop-restructure",
+      "integer-width-tuning",
+      "control-flow-shaping",
+      "array-indexing-shape",
+      "register-allocation-reasoning"
+    ]
+  },
+  {
+    "ws_id": "9bf6e1ba-21f5-4415-83bc-7922bf53fdb3",
+    "success_factor": "inline accessor, double assignment, and sdata2 ordering",
+    "notable": "The exact attempt required a generated section-order helper later removed by the hard gate, leaving one relocation mismatch in the retained version.",
+    "techniques": [
+      "inline-hypothesis",
+      "declaration-order-experiments",
+      "stack-padding-tuning",
+      "assignment-shape",
+      "data-ordering",
+      "loop-restructure"
+    ]
+  },
+  {
+    "ws_id": "42a4250c-0e8b-4ef4-b39d-cfad9a039c70",
+    "success_factor": "nth-nonzero helper, corrected frame, and format-literal ordering",
+    "notable": "The exact candidate used a banned section-order helper; removing it kept every instruction exact but left three format-string relocations different.",
+    "techniques": [
+      "inline-hypothesis",
+      "loop-restructure",
+      "stack-padding-tuning",
+      "data-ordering",
+      "relocation-analysis",
+      "revert-regressions"
+    ]
+  },
+  {
+    "ws_id": "f3e0a532-6afd-4d7d-850b-f0d5ddab4490",
+    "success_factor": "canonical BSS order retained by an address-use anchor",
+    "notable": "A plain typed local replaced a gate-rejected no-argument inline accessor while keeping both the target and an affected neighbor exact.",
+    "techniques": [
+      "bss-ordering",
+      "address-use-anchor",
+      "object-symbol-inspection",
+      "typed-local-shaping",
+      "neighbor-regression-repair"
+    ]
+  }
+]
+["exact",[{"k":"asm-diff-instruction-level","n":5},{"k":"inline-hypothesis","n":5},{"k":"loop-restructure","n":5},{"k":"qa-gate-repair","n":4},{"k":"sdata2-layout-reasoning","n":3},{"k":"stack-padding-tuning","n":3},{"k":"type-shape-experiments","n":3},{"k":"data-ordering","n":2},{"k":"declaration-order-experiments","n":2},{"k":"neighbor-function-pattern","n":2},{"k":"permuter","n":2},{"k":"pointer-lifetime-experiments","n":2}]]
+["near_miss",[{"k":"asm-diff-instruction-level","n":16},{"k":"permuter","n":16},{"k":"register-allocation-reasoning","n":13},{"k":"inline-hypothesis","n":12},{"k":"type-shape-experiments","n":12},{"k":"declaration-order-experiments","n":11},{"k":"checkpoint-restore","n":10},{"k":"control-flow-restructure","n":6},{"k":"loop-restructure","n":5},{"k":"allocator-snapshot-analysis","n":4},{"k":"scope-lifetime-experiments","n":4},{"k":"past-source-lookup","n":3}]]
+["no_progress",[{"k":"asm-diff-instruction-level","n":6},{"k":"declaration-order-experiments","n":5},{"k":"inline-hypothesis","n":5},{"k":"permuter","n":5},{"k":"type-shape-experiments","n":5},{"k":"loop-restructure","n":4},{"k":"register-allocation-reasoning","n":4},{"k":"checkpoint-restore","n":3},{"k":"scope-lifetime-experiments","n":3},{"k":"pointer-lifetime-experiments","n":2},{"k":"build-state-repair","n":1},{"k":"data-object-splitting","n":1}]]
+["progressed",[{"k":"asm-diff-instruction-level","n":32},{"k":"permuter","n":29},{"k":"declaration-order-experiments","n":26},{"k":"register-allocation-reasoning","n":26},{"k":"loop-restructure","n":16},{"k":"type-shape-experiments","n":13},{"k":"inline-helper-extraction","n":12},{"k":"inline-hypothesis","n":12},{"k":"scope-lifetime-tuning","n":12},{"k":"local-scope-lifetime","n":7},{"k":"checkpoint-restore","n":6},{"k":"pointer-shape-experiments","n":6}]]
+
+exec
+/bin/zsh -lc "ruby -rjson -e '
+p=\"phase2_notes/batch_10.json\"; a=JSON.parse(File.read(p)); cohorts=%w[exact near_miss progressed no_progress]; lines=[\"# Worker Audit Phase 2, Batch 10\",\"\",\"79 worker records: exact 12, near_miss 19, progressed 42, no_progress 6.\",\"\",\"## Technique Counts by Cohort\",\"\"]; cohorts.each do |c|; counts=Hash.new(0); a.select{|r|r[\"cohort\"]==c}.each{|r|r[\"techniques\"].each{|t|counts[t]+=1}}; body=counts.sort_by{|k,v|[-v,k]}.map{|k,v|\""'`#{k}` #{v}"}.join(", "); lines << "- #{c} (#{a.count{|r|r["cohort"]==c}}): #{body}"; end; lines += ["","## Three Exact-Worker Accounts","","### d0c7a4ab-0c74-4f1e-8dd7-eaca75aef1d2","","The worker restored index-derived row and glyph coordinates, which recovered the target induction-register flow. Typed `DebugFontGlyph` indexing also removed type-erasing font-address casts.","","### 58f2e39c-2f6e-4596-94d3-65910412e28a","","Reusing the existing helper brought the function to 99.91582%, with only stack offsets wrong. `PAD_STACK(8)` fixed the frame layout and closed the final gap.","","### f3e0a532-6afd-4d7d-850b-f0d5ddab4490","","An address-use anchor preserved canonical BSS order. A plain typed local then replaced a gate-rejected inline accessor while keeping both the target and an affected neighbor exact.","","## Most Common Stall Reason by Cohort","","- exact: none; these workers reported closing the gap.","- near_miss: register-allocation mismatch or churn.","- progressed: register-allocation mismatch or churn.","- no_progress: register-allocation mismatch or churn.","","## Surprises","","Several cohort labels diverged from the workers own final checks. One no_progress summary reported eventual exactness, and several exact workers were accepted by runner-level data-value comparison despite stricter relocation comparisons below 100%."]; File.write("phase2_notes/batch_10.md",lines.join("'"\\n\")+\"\\n\")
+'
+python3 -m json.tool phase2_notes/batch_10.json >/dev/null
+ruby -rjson -rcsv -e 'a=JSON.parse(File.read(\"phase2_notes/batch_10.json\")); t=CSV.read(\"scripts/p2_batches/batch_10.tsv\",col_sep:\"\\t\"); abort \"count\" unless a.length==t.length; abort \"ids\" unless a.map{|x|x[\"ws_id\"]}==t.map(&:first); keys=%w[ws_id cohort epoch target_key techniques stall_reason success_factor loop_quality notable]; abort \"schema\" unless a.all?{|x|x.keys==keys && %w[systematic mixed shotgun unknown].include?(x[\"loop_quality\"])}; puts \"validated #{a.length} records\"'
+wc -l phase2_notes/batch_10.md
+find phase2_notes -maxdepth 1 -type f -name 'batch_10.*' -print" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 49ms:
+count
+      35 phase2_notes/batch_10.md
+phase2_notes/batch_10.md
+phase2_notes/batch_10.json
+
+exec
+/bin/zsh -lc "jq length phase2_notes/batch_10.json; awk 'END{print NR}' scripts/p2_batches/batch_10.tsv; tail -3 scripts/p2_batches/batch_10.tsv | cut -f1-2; ruby -rcsv -e 'p CSV.read(\"scripts/p2_batches/batch_10.tsv\",col_sep:\"\\t\").length'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+79
+80
+4e9ed46a-54e6-4803-8fff-9733f8fa8208	progressed
+696a667d-8318-4056-ba0a-ae6c218822c1	progressed
+f3e0a532-6afd-4d7d-850b-f0d5ddab4490	exact
+80
+
+exec
+/bin/zsh -lc "ruby -rjson -rcsv -e 'a=JSON.parse(File.read(\"phase2_notes/batch_10.json\")).map{|x|x[\"ws_id\"]}; t=CSV.read(\"scripts/p2_batches/batch_10.tsv\",col_sep:\"\\t\"); t.each_with_index{|r,i|puts \"#{i+1}\\t#{r[0]}\\t#{r[1]}\" unless a.include?(r[0])}'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+61	abb5693e-8b3f-4371-92b9-d80ed8e0282e	progressed
+
+codex
+Validation found one omitted boundary row, `abb5693e…`, caused by a slice-index mismatch. I’m reading that worker’s summaries now, then I’ll rerun the full 80-ID validation and update the cohort counts.
+exec
+/bin/zsh -lc "awk -F '\\t' 'NR==61{print "'$0}'"' scripts/p2_batches/batch_10.tsv; d="'$(awk -F '"'\\t' 'NR==61{print "'$7}'"' scripts/p2_batches/batch_10.tsv); find \""'$d" -maxdepth 1 -type f -name '"'worker_*.txt' -print -exec sed -n '1,240p' {} \\;" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+abb5693e-8b3f-4371-92b9-d80ed8e0282e	progressed	7	main/sysdolphin/baselib/hsd_3A94::fn_803B0120	96.57242	96.877174	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/abb5693e-8b3f-4371-92b9-d80ed8e0282e
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/abb5693e-8b3f-4371-92b9-d80ed8e0282e/worker_01a04781-fa08-7967-9fed-28e495754928.txt
+{
+  "summary": "Improved fn_803B0120 from 96.57242% to 96.87717%. Restored a queue-command inline boundary matching the adjacent fn_803AF3F0 pattern, reordered the CARDFastOpen retry locals, and added narrowly scoped block temporaries at three queue-helper call sites. The function remains non-exact; remaining differences are primarily register allocation around file-size arithmetic, CARDFastOpen setup, and block-map scanning.",
+  "target": {
+    "symbol": "fn_803B0120",
+    "unit": "main/sysdolphin/baselib/hsd_3A94",
+    "source_path": "src/sysdolphin/baselib/hsd_3A94.c"
+  },
+  "result": {
+    "status": "improved",
+    "baseline_match_percent": 96.57242,
+    "retained_match_percent": 96.87717
+  },
+  "validation": [
+    "checkdiff_run --full-diff fn_803B0120: FAIL (96.87717%), improved from baseline",
+    "checkdiff_summary fn_803B0120 fn_803AF3F0 fn_803B0E9C: target 96.87717%; neighbors remain at 97.84715% and 98.77966%",
+    "direct_compile_tu fn_803B0120: translation unit compiled successfully",
+    "review_lint_scan on retained change shapes: passed with no findings",
+    "git diff --check src/sysdolphin/baselib/hsd_3A94.c: passed"
+  ],
+  "regressions": "No unresolved local regression caused by the retained edits."
+}
+exec
+/bin/zsh -lc "jq '.[0:60] + [{\"ws_id\":\"abb5693e-8b3f-4371-92b9-d80ed8e0282e\",\"cohort\":\"progressed\",\"epoch\":7,\"target_key\":\"main/sysdolphin/baselib/hsd_3A94::fn_803B0120\",\"techniques\":[\"asm-diff-instruction-level\",\"neighbor-function-pattern\",\"inline-helper-extraction\",\"declaration-order-experiments\",\"scope-lifetime-tuning\"],\"stall_reason\":\"register allocation around file-size arithmetic and block-map scanning\",\"success_factor\":null,\"loop_quality\":\"systematic\",\"notable\":null}] + .[60:]' phase2_notes/batch_10.json > /tmp/batch_10_complete.json
+mv /tmp/batch_10_complete.json phase2_notes/batch_10.json
+ruby -rjson -e '
+p=\"phase2_notes/batch_10.json\"; a=JSON.parse(File.read(p)); cohorts=%w[exact near_miss progressed no_progress]; lines=[\"# Worker Audit Phase 2, Batch 10\",\"\",\"80 worker records: exact 12, near_miss 19, progressed 43, no_progress 6.\",\"\",\"## Technique Counts by Cohort\",\"\"]; cohorts.each do |c|; counts=Hash.new(0); a.select{|r|r[\"cohort\"]==c}.each{|r|r[\"techniques\"].each{|t|counts[t]+=1}}; body=counts.sort_by{|k,v|[-v,k]}.map{|k,v|\""'`#{k}` #{v}"}.join(", "); lines << "- #{c} (#{a.count{|r|r["cohort"]==c}}): #{body}"; end; lines += ["","## Three Exact-Worker Accounts","","### d0c7a4ab-0c74-4f1e-8dd7-eaca75aef1d2","","The worker restored index-derived row and glyph coordinates, which recovered the target induction-register flow. Typed `DebugFontGlyph` indexing also removed type-erasing font-address casts.","","### 58f2e39c-2f6e-4596-94d3-65910412e28a","","Reusing the existing helper brought the function to 99.91582%, with only stack offsets wrong. `PAD_STACK(8)` fixed the frame layout and closed the final gap.","","### f3e0a532-6afd-4d7d-850b-f0d5ddab4490","","An address-use anchor preserved canonical BSS order. A plain typed local then replaced a gate-rejected inline accessor while keeping both the target and an affected neighbor exact.","","## Most Common Stall Reason by Cohort","","- exact: none; these workers reported closing the gap.","- near_miss: register-allocation mismatch or churn.","- progressed: register-allocation mismatch or churn.","- no_progress: register-allocation mismatch or churn.","","## Surprises","","Several cohort labels diverged from the workers final checks. One no_progress summary reported eventual exactness, and several exact workers were accepted by runner-level data-value comparison despite stricter relocation comparisons below 100%."]; File.write("phase2_notes/batch_10.md",lines.join("'"\\n\")+\"\\n\")
+'
+python3 -m json.tool phase2_notes/batch_10.json >/dev/null
+ruby -rjson -rcsv -e 'a=JSON.parse(File.read(\"phase2_notes/batch_10.json\")); t=CSV.read(\"scripts/p2_batches/batch_10.tsv\",col_sep:\"\\t\"); abort \"count\" unless a.length==t.length; abort \"ids\" unless a.map{|x|x[\"ws_id\"]}==t.map(&:first); keys=%w[ws_id cohort epoch target_key techniques stall_reason success_factor loop_quality notable]; abort \"schema\" unless a.all?{|x|x.keys==keys && %w[systematic mixed shotgun unknown].include?(x[\"loop_quality\"])}; abort \"cohorts\" unless a.tally{|x|x[\"cohort\"]}=={\"progressed\"=>43,\"exact\"=>12,\"near_miss\"=>19,\"no_progress\"=>6}; puts \"validated #{a.length} records\"'
+wc -l phase2_notes/batch_10.md
+git status --short -- phase2_notes/batch_10.json phase2_notes/batch_10.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 86ms:
+-e:1:in `<main>': undefined method `tally' for #<Array:0x0000000cbedaa438> (NoMethodError)
+      35 phase2_notes/batch_10.md
+?? phase2_notes/batch_10.json
+?? phase2_notes/batch_10.md
+
+exec
+/bin/zsh -lc "ruby -rjson -rcsv -e 'a=JSON.parse(File.read(\"phase2_notes/batch_10.json\")); t=CSV.read(\"scripts/p2_batches/batch_10.tsv\",col_sep:\"\\t\"); abort \"count\" unless a.length==t.length; abort \"ids\" unless a.map{|x|x[\"ws_id\"]}==t.map(&:first); keys=%w[ws_id cohort epoch target_key techniques stall_reason success_factor loop_quality notable]; abort \"schema\" unless a.all?{|x|x.keys==keys && %w[systematic mixed shotgun unknown].include?(x[\"loop_quality\"])}; counts=a.group_by{|x|x[\"cohort\"]}.transform_values(&:length); abort \"cohorts #{counts}\" unless counts=={\"progressed\"=>43,\"exact\"=>12,\"near_miss\"=>19,\"no_progress\"=>6}; puts \"validated #{a.length} records\"'
+test \""'$(wc -l < phase2_notes/batch_10.md)" -le 60
+find phase2_notes -maxdepth 1 -type f -name '"'batch_10.*' -print | sort" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+validated 80 records
+phase2_notes/batch_10.json
+phase2_notes/batch_10.md
+
+codex
+DONE 80 records
+
+- [batch_10.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.json)
+- [batch_10.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.md)
+
+Validated record order, schema, cohort counts, and the 35-line Markdown limit.
+tokens used
+110,033
+DONE 80 records
+
+- [batch_10.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.json)
+- [batch_10.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_10.md)
+
+Validated record order, schema, cohort counts, and the 35-line Markdown limit.

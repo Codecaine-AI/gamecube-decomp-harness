@@ -1,0 +1,1444 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d87-de88-78a0-ad80-3049fb7edff7
+--------
+user
+# Task: Worker-audit Phase 3 — deep transcript read, pair epoch-12-pair-04
+
+Two AI decomp workers worked on similar-difficulty targets in epoch 12 (goal: make C source byte-match GameCube PowerPC asm; score = match %). One reached an EXACT 100% match; the other stalled as a NEAR-MISS (>=99.5%). Your job: figure out what the exact worker did differently, at the level of process and technique — not luck of the target.
+
+EXACT worker  — target main/melee/gr/grbigblueroute::grBigBlueRoute_8020C85C, baseline 99.85246%, final 100%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md
+NEAR-MISS worker — target main/melee/ft/chara/ftCommon/ftCo_ItemThrow::ftCo_80095EFC, baseline 99.85401%, final 99.85401%.
+Condensed transcript: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md
+
+Condensed transcripts contain the worker's reasoning/messages verbatim, `TOOL <name> <params>` lines for each tool call, and truncated tool results. Read BOTH fully.
+
+Write exactly one file, `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md`, markdown, <=90 lines, with these sections:
+
+## Verdict
+One paragraph: the single most important process difference between the two (or "no meaningful process difference — outcome driven by target difficulty/luck" if that is the honest read).
+
+## Exact worker: how the gap was closed
+- Diff-reading style: did it reason about specific instructions/registers from the diff output, or guess-and-check source variants? Quote 1-2 short verbatim lines that show this.
+- The decisive move: what actually flipped it to 100%, and what chain of observations led there.
+- Tool rhythm: rough loop shape (e.g. edit -> build -> checkdiff, N iterations), plus any tools used at pivotal moments (permuter, past PR search, graph lookups, knowledge search).
+
+## Near-miss worker: why it stalled
+- Where it got stuck (instruction/issue), what it tried, and what it NEVER tried that the exact worker's playbook suggests.
+- Was the stall diagnosable from its own diff output? Did it misread or ignore evidence? Quote 1 short line if telling.
+- Loop quality: systematic / mixed / shotgun.
+
+## Transferable technique
+2-4 bullet points, each a concrete, generalizable tactic phrased as an instruction one could put in a worker prompt (e.g. "When one instruction differs only in source register, enumerate equivalent source expressions that permute register allocation: temp vs inline, signedness, float literal form"). Only tactics actually evidenced in these transcripts.
+
+## Flags
+- exact_loop: systematic|mixed|shotgun
+- control_loop: systematic|mixed|shotgun
+- outcome_explained_by_process: yes|partial|no
+- techniques: comma-separated slugs (reuse: asm-diff-instruction-level, register-allocation-reasoning, permuter, past-pr-lookup, type-shape-experiments, float-literal-tricks, loop-restructure, checkpoint-restore, inline-hypothesis, stack-frame-reasoning, scheduling-reasoning; invent sparingly)
+
+Base every claim on the transcripts. Do not modify any other file. Print DONE when finished.
+codex
+I’m using the `unslop` skill because this is a tightly constrained analytical write-up; it will keep the notes direct and evidence-based. I’ll read both transcripts fully, then write only the requested file.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && wc -l condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md && sed -n '1,260p' condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+     748 condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md
+    5550 condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md
+    6298 total
+ASSISTANT REASONING
+**Inspecting full target function context**
+
+TOOL bash {"command":"git status --short && git diff -- src/melee/gr/grbigblueroute.c && grep -n \"grBigBlueRoute_8020C85C\" -A220 -B80 src/melee/gr/grbigblueroute.c","timeout":20}
+
+TOOL graph_related_functions {"entity_id":"","limit":20,"source_path":"src/melee/gr/grbigblueroute.c","symbol":"grBigBlueRoute_8020C85C","unit":"main/melee/gr/grbigblueroute"}
+
+TOOL ledger_search {"limit":10,"query":"grBigBlueRoute_8020C85C main/melee/gr/grbigblueroute","scope":"symbol"}
+
+TOOL past_prs_search {"limit":10,"query":"grBigBlueRoute_8020C85C src/melee/gr/grbigblueroute.c"}
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT bash ?? tools/asm-differ/ | 381-/// @todo Currently 98.29% match - register allocation only (extra mr through | 814- lbVector_Diff(&c0_p1, &c0_p0, &pos); | 894- lbVector_Diff(&c2_p1, &c2_p0, &c2_road);
+
+RESULT graph_related_functions status=ok | fuzzy=99.85246 | status=null | "status": "ok", | "fuzzy": 99.85246, | "status": null
+
+RESULT ledger_search status=ok | In grBigBlueRoute_8020C85C, initializing RouteEntry fields x4 to 1.0F and xC to 0.5F improved the validated match from 93.05574 to 93.44918. | status=corroborated | In grBigBlueRoute_8020C85C, initializing the RouteEntry values at offsets x4 and xC to 1.0F and 0.5F, respectively, produced a validated partial score improvement over the baseline. | status=proposed | Passing the value st…
+
+RESULT past_prs_search status=ok | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering Closed, unmerged PR touching only src/melee/gr/grbigblueroute.c. It attempted stage decomp matching improvements for grBigBlueRoute functions C85C, CD20, DED4, and DF80, plus .sdata2 cons... | PR 2697: grbigblu…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+
+ASSISTANT REASONING
+**Analyzing r28/r29 register swap in assembly**
+
+**Comparing register coloring and allocator snapshots**
+
+TOOL mwcc_debug_diagnose_regflow {"function":"grBigBlueRoute_8020C85C","runner":"wibo","show_lines":true,"show_mwcc":true,"timeout_seconds":120}
+
+TOOL mwcc_debug_dump_function {"function":"grBigBlueRoute_8020C85C","runner":"wibo","timeout_seconds":120}
+
+TOOL mwcc_debug_lookup {"limit":20,"query":"persistent register swap r28 r29 gobj sdata pointer inline helper declaration order grBigBlueRoute_8020C85C"}
+
+TOOL past_prs_search {"limit":10,"query":"PR 2695 grBigBlueRoute_8020C85C r28 r29 register swap 99.85246"}
+
+TOOL knowledge_graph_search {"limit":20,"query":"grBigBlueRoute_8020C85C 99.85246 r28 r29"}
+
+TOOL bash {"command":"sed -n '560,720p' src/melee/gr/grbigblueroute.c; grep -R \"SpawnRoute\\|RouteStorage\\|GRBB_ROUTE_ENTRY_AT\" -n src/melee/gr src | head -80","timeout":20}
+
+RESULT mwcc_debug_diagnose_regflow exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT mwcc_debug_dump_function exit_code=0 | exit_code=1 | status=failed | failed | parse_error=null | "exit_code": 0, | "exit_code": 1, | "status": "failed", | "parse_error": null,
+
+RESULT mwcc_debug_lookup exit_code=0 | score=1 | parse_error=null | "exit_code": 0, | "Generated lookup indexes remain supplemental and should be verified against local build, pcdump, diagnose, or objdiff output for a specific target.", | "score": 1, | "build pre-compile: phony\n# Source files\n# melee/lb/lbcommand.c: lb (Library) (linked True)\nbuild build/GALE01/src/melee/lb/lbcommand.o: mwcc_sjis $\n src/melee/lb/lbco…
+
+RESULT past_prs_search status=ok | PR 2753: Match ft_0899 | Match ft_0899 Matched fighter translation unit ft_0899 by moving src/melee/ft/ft_0899.c from NonMatching to Matching, adjusting ft_80089B08 local lifetimes and line_len expression shape for MWCC register allocation, relocating ftData_x58_t into shared fighter types, and splitting... | PR 2808: Match fn_80199AF0 | Match fn_80199AF0 No PR evidence packet was ava…
+
+RESULT knowledge_graph_search status=ok | ...ion-matching;prototype-cleanup stage;item;ground;kirby-item;samus-grapple;whispy-apple PR1995;Several easy_funcs;Gelatart;grBigBlueRoute_8020C1DC;grBigBlueRoute_8020CD20;grBigBlueRoute_8020C85C;grbigblueroute.h;grCorneria_801DD620;grCorneria_801DFBF0;grAnime_801C8138;GET_GROUND;map_id;it_802F23AC;itkirby_2F23;distance squared;it_2725_Logic53_PickedUp;itsamus... | ...After | | - | -…
+
+RESULT bash [long result omitted: 9144 chars] return i;
+
+ASSISTANT REASONING
+**Preparing to inspect register usage**
+
+TOOL direct_compile_tu {"function":"grBigBlueRoute_8020C85C","keep_object":true,"unit":"main/melee/gr/grbigblueroute"}
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=2 | tool_error=True | error_kind=command_failed | command_failed | error_summary=usage: direct_compile.py [-h] [--repo-root REPO_ROOT] (--function FUNCTION | --unit UNIT) [--keep-object] [--json] direct_compile.py: error: argument --unit: not allowed with argument --function | direct_compile.py: error: argument --unit: not allowed with argument --funct…
+
+ASSISTANT REASONING
+
+
+TOOL direct_compile_tu {"function":"grBigBlueRoute_8020C85C","keep_object":true,"unit":""}
+
+RESULT direct_compile_tu tool:checkdiff:direct_compile.py | exit_code=0 | checkdiff:direct_compile | status=ok | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff/api | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/g…
+
+ASSISTANT REASONING
+**Inspecting mirrored /opt path and object access**
+
+TOOL bash {"command":"ls -l build/orchestrator-direct-compile/melee_gr_grbigblueroute-1b4537cd.o build/GALE01/src/melee/gr/grbigblueroute.o build/GALE01/asm/melee/gr/grbigblueroute.o 2>/dev/null || true; grep …
+
+RESULT bash -rw-r--r-- 1 root root 152504 Aug 31 04:01 build/GALE01/src/melee/gr/grbigblueroute.o -rw-r--r-- 1 root root 152504 Aug 31 04:02 build/orchestrator-direct-compile/melee_gr_grbigblueroute-1b4537cd.o build.ninja:14554:# melee/gr/grbigblueroute.c: gr (Ground, stages) (linked False) build.ninja:14555:build build/GALE01/src/melee/gr/grbigblueroute.o: mwcc_sjis $ build.ninja:14556: src/melee/gr/grbigbl…
+
+ASSISTANT REASONING
+**Checking symbol stripping with nm**
+
+TOOL bash {"command":"powerpc-eabi-nm -n build/orchestrator-direct-compile/melee_gr_grbigblueroute-1b4537cd.o | grep -E '8020C85C|8020CD20|C85C' ; powerpc-eabi-objdump -h build/orchestrator-direct-compile/mele…
+
+RESULT bash -DVERSION_GALE01 -DMUST_MATCH -maxerrors 1 -msgstyle std -warn off -i $
+
+ASSISTANT REASONING
+**Checking binutils in PATH**
+
+TOOL bash {"command":"ls -l build/binutils/powerpc-eabi-* | head; build/binutils/powerpc-eabi-nm -n build/orchestrator-direct-compile/melee_gr_grbigblueroute-1b4537cd.o | grep -E '8020C85C|8020CD20|C85C' ; bui…
+
+RESULT bash -rwxr-xr-x 1 root root 1243136 Aug 26 01:16 build/binutils/powerpc-eabi-addr2line -rwxr-xr-x 1 root root 1273880 Aug 26 01:16 build/binutils/powerpc-eabi-ar -rwxr-xr-x 1 root root 1966192 Aug 26 01:16 build/binutils/powerpc-eabi-as -rwxr-xr-x 1 root root 1239120 Aug 26 01:16 build/binutils/powerpc-eabi-c++filt -rwxr-xr-x 1 root root 63400 Aug 26 01:16 build/binutils/powerpc-eabi-elfedit -rwxr-xr-…
+
+ASSISTANT REASONING
+**Locating target assembly file**
+
+TOOL bash {"command":"ls -l build/GALE01/obj/melee/gr/grbigblueroute.o; build/binutils/powerpc-eabi-nm -n build/GALE01/obj/melee/gr/grbigblueroute.o | grep -E '8020C85C|8020CD20|C85C'; build/binutils/powerpc-e…
+
+RESULT bash -rw-r--r-- 1 root root 25156 Aug 31 04:01 build/GALE01/obj/melee/gr/grbigblueroute.o 00000ff8 T grBigBlueRoute_8020C85C 000014bc T grBigBlueRoute_8020CD20 00001000 <grBigBlueRoute_8020C85C>: 1000: 7c 08 02 a6 mflr r0 1004: 3c a0 00 00 lis r5,0 1006: R_PPC_ADDR16_HA ...data.0 1008: 90 01 00 04 stw r0,4(r1) 100c: 3c 00 43 30 lis r0,17200 1010: 94 21 ff b0 stwu r1,-80(r1) 1014: bf 41 00 38 stmw r26,…
+
+ASSISTANT REASONING
+**Analyzing data relocation candidates**
+
+TOOL mwcc_alloc_snapshot {"capture":"pair","function":"grBigBlueRoute_8020C85C","timeout_seconds":180,"unit":"src/melee/gr/grbigblueroute.c"}
+
+RESULT mwcc_alloc_snapshot "exit_code": 0, | "pair_diffs": [ | "status": "changed",
+
+ASSISTANT REASONING
+**Analyzing node interference for ordering swap**
+
+TOOL read {"limit":120,"offset":1,"path":"build/mwcc-alloc/grBigBlueRoute_8020C85C-20260831T040300Z/coloring-0032-gpr-01-before.json"}
+
+TOOL read {"limit":180,"offset":1,"path":"build/mwcc-alloc/grBigBlueRoute_8020C85C-20260831T040300Z/allocator-0032.json"}
+
+TOOL bash {"command":"python3 - <<'PY'\nimport json\np='build/mwcc-alloc/grBigBlueRoute_8020C85C-20260831T040300Z/coloring-0032-gpr-01-before.json'\nx=json.load(open(p))\nprint(x.keys())\nfor k,v in x.items():…
+
+TOOL ledger_search {"limit":20,"query":"register swap simplify order declaration order persistent registers r28 r29","scope":"general"}
+
+TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limit":20,"min_match":98,"symbol":"grBigBlueRoute_8020C85C","unit":"main/melee/gr/grbigblueroute"}
+
+RESULT read [long result omitted: 1411 chars] {
+
+RESULT read "successors": [
+
+RESULT bash dict_keys(['format', 'compiler', 'target_sha256', 'program_counter', 'register_class', 'register_count', 'simplify_order', 'nodes', 'capture_index', 'attempt', 'phase']) format <class 'str'> 25 compiler <class 'str'> 9 target_sha256 <class 'str'> 64 program_counter <class 'str'> 10 register_class <class 'int'> register_count <class 'int'> simplify_order <class 'list'> 98 nodes <class 'list'> 147 …
+
+RESULT ledger_search { "tool": "ledger_search", "status": "ok", "results": [] }
+
+RESULT asm_window_search exit_code=0 | min_match=null | fuzzy_match_percent=100 | similarity=1 | similarity=0.990256 | similarity=0.988814 | similarity=0.987433 | similarity=0.985025 | similarity=0.984525 | similarity=0.983531 | similarity=0.982795 | similarity=0.978086 | similarity=0.976975 | similarity=0.975705 | status=ok | parse_error=null | "--min-match", | "exit_code": 0, | "min_match": null, | "fuzzy_match_percent…
+
+ASSISTANT REASONING
+**Analyzing node spill costs and order**
+
+TOOL bash {"command":"python3 - <<'PY'\nimport json,collections\np='build/mwcc-alloc/grBigBlueRoute_8020C85C-20260831T040300Z/coloring-0032-gpr-01-before.json'; x=json.load(open(p)); order=x['simplify_order']\…
+
+RESULT bash [long result omitted: 7861 chars] 32 order 3 spill 7 deg 28 obj 0x6c1700b0 flags 2 neighbors 86
+
+ASSISTANT REASONING
+**Adjusting simplify order for allocation**
+
+**Exploring spill cost adjustment via aliasing**
+
+**Testing GET_GROUND reuse impact on registers**
+
+ASSISTANT REASONING
+**Mapping assembly blocks and decoding opcode**
+
+**Analyzing callback address and data references**
+
+**Identifying inline assert in HSD_JObj setters**
+
+ASSISTANT REASONING
+**Assessing inline helper impact on spill cost**
+
+**Planning alias-based code modification tests**
+
+**Evaluating parameter order impact on VR allocation**
+
+ASSISTANT REASONING
+**Testing helper parameter order changes**
+
+TOOL edit {"edits":[{"newText":"static inline void grBigBlueRoute_SpawnRoute(Ground_GObj* gobj, s32 route_idx,\n                                             Ground* gp)\n","oldText":"static inline void grBigBl…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+
+ASSISTANT REASONING
+**Reverting parameter and testing alias**
+
+TOOL edit {"edits":[{"newText":"static inline void grBigBlueRoute_SpawnRoute(s32 route_idx, Ground* gp,\n                                             Ground_GObj* gobj)\n","oldText":"static inline void grBigBl…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.09836%) | left 4092: DIFF_ARG_MISMATCH lis r5, grBb_Route_StageCallbacks@ha | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG…
+
+ASSISTANT REASONING
+**Reverting alias coalescing changes**
+
+**Verifying helper modifications in git history**
+
+TOOL edit {"edits":[{"newText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp = GET_GROUND(gobj);\n","oldText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground_GObj* current…
+
+RESULT edit Successfully replaced 2 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL bash {"command":"git log --all --oneline -- src/melee/gr/grbigblueroute.c | head -30; git log --all -S'grBigBlueRoute_SpawnRoute' --oneline -- src/melee/gr/grbigblueroute.c | head -30; git log --all -S'gr…
+
+TOOL past_prs_search {"limit":20,"query":"PR 2695 postmortem exact source grBigBlueRoute_SpawnRoute PAD_STACK 8 route-delay route-spawn"}
+
+TOOL knowledge_graph_search {"limit":20,"query":"grBigBlueRoute_SpawnRoute"}
+
+TOOL code_graph_search {"limit":20,"query":"grBigBlueRoute_SpawnRoute"}
+
+RESULT bash 122830b0 boundary repairs after upstream #3259–#3262 (part 1): restore worker-improved function bodies clobbered by the -X theirs merge (110 keep-ours functions), take upstream's matched/better functions, apply #3260/#3262 symbol renames tree-wide, guard matching self-assign/volatile locals with MUST_MATCH, drop unused carried helpers | 05b5ee29 Improve decompilation matches (#3259) | diff --git …
+
+RESULT past_prs_search status=ok | PR 2695 postmortem exact source grBigBlueRoute_SpawnRoute PAD_STACK 8 route-delay route-spawn | PR 2695: grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering | grbigblueroute: match C85C, DED4, DF80 sizes; improve CD20 and fix sdata2 ordering Closed, unmerged PR touching only src/melee/gr/grbigblueroute.c. It attempted stage decomp matching improvements f…
+
+RESULT knowledge_graph_search status=ok | Bounded source-permuter searches over grBigBlueRoute_SpawnRoute and grBigBlueRoute_8020C85C, totaling 1400 iterations across two checkpoints, found no improvement over the 98.39017% baseline. | status=proposed | Reordering grBigBlueRoute_SpawnRoute parameters or the timer locals did not alter code generation for grBigBlueRoute_8020C85C in the tested variants and therefore did not chan…
+
+RESULT code_graph_search { "tool": "code_graph_search", "status": "ok", "graph_db": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/graph/graph.sqlite", "query": "grBigBlueRoute_SpawnRoute", "source_id": "code_graph", "limit": 20, "active_sources_only": false, "results": [] }
+
+ASSISTANT REASONING
+**Inspecting checkpoint commit diffs**
+
+TOOL bash {"command":"for c in c4418038 122830b0 05b5ee29 53f3bbee 1e246ee9 89690701 90538135 ad66c3ee 6a37862c; do echo =====$c; git show -s --format='%H%n%s%n%b' $c; git show --stat --oneline $c -- src/melee…
+
+TOOL bash {"command":"git show c4418038 -- src/melee/gr/grbigblueroute.c; echo PREV; git diff c4418038^ c4418038 -- src/melee/gr/grbigblueroute.c","timeout":30}
+
+TOOL bash {"command":"for c in c4418038 122830b0 05b5ee29 53f3bbee 1e246ee9 89690701 90538135 ad66c3ee 6a37862c; do echo =====$c; git show $c:src/melee/gr/grbigblueroute.c 2>/dev/null | sed -n '/#define GRBB_R…
+
+TOOL read {"limit":240,"offset":1,"path":"/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/knowledge/sources/code_context/past_prs/data/prs/pr-2695/postmortem/postmortem.json"}
+
+RESULT bash boundary repairs after upstream #3259–#3262 (part 1): restore worker-improved function bodies clobbered by the -X theirs merge (110 keep-ours functions), take upstream's matched/better functions, apply #3260/#3262 symbol renames tree-wide, guard matching self-assign/volatile locals with MUST_MATCH, drop unused carried helpers | 122830b0 boundary repairs after upstream #3259–#3262 (part 1): restor…
+
+RESULT bash diff --git a/src/melee/gr/grbigblueroute.c b/src/melee/gr/grbigblueroute.c
+
+RESULT bash [long result omitted: 4461 chars] =====c4418038
+
+RESULT read file not found: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/knowledge/sources/code_context/past_prs/data/prs/pr-2695/postmortem/postmortem.json
+
+ASSISTANT REASONING
+**Inspecting commit impacts on scoring wrapper**
+
+**Testing wrapper placement effects on scoring**
+
+TOOL bash {"command":"for c in 6a37862c ad66c3ee 90538135 89690701 1e246ee9 53f3bbee 05b5ee29 122830b0 c4418038; do echo =====$c; git show --format=fuller --no-ext-diff $c -- src/melee/gr/grbigblueroute.c | se…
+
+TOOL grep {"context":2,"glob":"*.json","ignoreCase":false,"limit":100,"literal":false,"path":"../../","pattern":"c4418038|dabb3955|99.85246|f1f800ed|59ee41c0|b4606c47|3f6a0eff"}
+
+TOOL bash {"command":"git show 1e246ee9^:src/melee/gr/grbigblueroute.c | sed -n '520,725p'; echo COMMIT; git show 1e246ee9:src/melee/gr/grbigblueroute.c | sed -n '520,725p'","timeout":20}
+
+TOOL read {"limit":260,"offset":1,"path":"../../knowledge/sources/code_context/past_prs/data/prs/pr-2695/postmortem/postmortem.json"}
+
+RESULT bash diff --git a/src/melee/gr/grbigblueroute.c b/src/melee/gr/grbigblueroute.c | Improve decompilation matches (#3259) | boundary repairs after upstream #3259–#3262 (part 1): restore worker-improved function bodies clobbered by the -X theirs merge (110 keep-ours functions), take upstream's matched/better functions, apply #3260/#3262 symbol renames tree-wide, guard matching self-assign/volatile locals…
+
+RESULT grep ./proc/tty/driver: Permission denied (os error 13) ./proc/sys/net/ipv4/neigh/default/gc_thresh3: Not a directory (os error 20) ./proc/sys/net/ipv4/neigh/default/gc_thresh2: Not a directory (os error 20) ./proc/sys/net/ipv4/neigh/default/gc_thresh1: Not a directory (os error 20)
+
+RESULT bash [long result omitted: 11980 chars] gp->u.car.xF0.x *= 0.5F;
+
+RESULT read file not found: /knowledge/sources/code_context/past_prs/data/prs/pr-2695/postmortem/postmortem.json
+
+ASSISTANT REASONING
+**Testing direct call before wrapper**
+
+TOOL edit {"edits":[{"newText":"            new_timer = min_val + ((range != 0) ? HSD_Randi(range) : 0);\n","oldText":"            new_timer =\n                min_val + ((range != 0) ? grBigBlueRoute_Randi(ra…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.75410%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4220: DIFF_ARG_MISMATCH li r30, 0…
+
+ASSISTANT REASONING
+**Analyzing wrapper inline order effects**
+
+**Planning helper wrapper experiments**
+
+TOOL edit {"edits":[{"newText":"static inline s32 grBigBlueRoute_Randi(s32 range)\n{\n    return HSD_Randi(range);\n}\n\nstatic inline s32 grBigBlueRoute_Randi2(s32 range)\n{\n    return HSD_Randi(range);\n}\n…
+
+RESULT edit Successfully replaced 3 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+codex
+The transcripts are 748 and 5,550 lines. I’m splitting the full read in parallel, then I’ll cross-check every quoted line and the decisive edit against the source transcripts before writing.
+exec
+/bin/zsh -lc "rg -n \"100\\.000|100%|EXACT|SUCCESS|FINAL|checkdiff_run|TOOL edit|TOOL permuter|ASSISTANT REASONING\" condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md | tail -180" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+1:ASSISTANT REASONING
+12:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+22:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+24:ASSISTANT REASONING
+53:ASSISTANT REASONING
+60:ASSISTANT REASONING
+67:ASSISTANT REASONING
+74:ASSISTANT REASONING
+81:ASSISTANT REASONING
+88:ASSISTANT REASONING
+95:ASSISTANT REASONING
+102:ASSISTANT REASONING
+125:ASSISTANT REASONING
+132:ASSISTANT REASONING
+139:ASSISTANT REASONING
+146:ASSISTANT REASONING
+153:ASSISTANT REASONING
+156:TOOL edit {"edits":[{"newText":"static inline void grBigBlueRoute_SpawnRoute(Ground_GObj* gobj, s32 route_idx,\n                                             Ground* gp)\n","oldText":"static inline void grBigBl…
+160:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+162:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+164:ASSISTANT REASONING
+167:TOOL edit {"edits":[{"newText":"static inline void grBigBlueRoute_SpawnRoute(s32 route_idx, Ground* gp,\n                                             Ground_GObj* gobj)\n","oldText":"static inline void grBigBl…
+171:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+173:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.09836%) | left 4092: DIFF_ARG_MISMATCH lis r5, grBb_Route_StageCallbacks@ha | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG…
+175:ASSISTANT REASONING
+180:TOOL edit {"edits":[{"newText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp = GET_GROUND(gobj);\n","oldText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground_GObj* current…
+200:ASSISTANT REASONING
+219:ASSISTANT REASONING
+240:ASSISTANT REASONING
+243:TOOL edit {"edits":[{"newText":"            new_timer = min_val + ((range != 0) ? HSD_Randi(range) : 0);\n","oldText":"            new_timer =\n                min_val + ((range != 0) ? grBigBlueRoute_Randi(ra…
+247:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+249:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.75410%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4220: DIFF_ARG_MISMATCH li r30, 0…
+251:ASSISTANT REASONING
+256:TOOL edit {"edits":[{"newText":"static inline s32 grBigBlueRoute_Randi(s32 range)\n{\n    return HSD_Randi(range);\n}\n\nstatic inline s32 grBigBlueRoute_Randi2(s32 range)\n{\n    return HSD_Randi(range);\n}\n…
+260:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+262:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+264:ASSISTANT REASONING
+269:TOOL edit {"edits":[{"newText":"static inline s32 grBigBlueRoute_Randi(s32 range)\n{\n    return HSD_Randi(range);\n}\n\nstatic inline s32 grBigBlueRoute_SelectRoute(Ground_GObj* gobj)\n{\n    return grBigBlue…
+273:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+275:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+277:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (98.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+279:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (98.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+281:ASSISTANT REASONING
+284:TOOL edit {"edits":[{"newText":"static inline HSD_JObj* grBigBlueRoute_GetRoot(Ground_GObj* gobj)\n{\n    return gobj->hsd_obj;\n}\n\nstatic inline void grBigBlueRoute_SpawnRoute","oldText":"static inline s32 …
+288:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+290:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.79344%) | left 4104: DIFF_ARG_MISMATCH stwu r1, -0x50(r1) | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageC…
+292:ASSISTANT REASONING
+299:ASSISTANT REASONING
+304:TOOL edit {"edits":[{"newText":"static inline void grBigBlueRoute_SpawnRoute","oldText":"static inline HSD_JObj* grBigBlueRoute_GetRoot(Ground_GObj* gobj)\n{\n    return gobj->hsd_obj;\n}\n\nstatic inline void…
+308:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+310:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+312:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.79344%) | left 4104: DIFF_ARG_MISMATCH stwu r1, -0x50(r1) | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageC…
+314:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.79344%) | left 4104: DIFF_ARG_MISMATCH stwu r1, -0x50(r1) | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageC…
+316:ASSISTANT REASONING
+321:TOOL edit {"edits":[{"newText":"        if (!GRBB_ROUTE_ENTRY_AT(gp->u.car.car_info, offset)->flags.b1) {\n            HSD_JObj* root = gobj->hsd_obj;\n","oldText":"        if (!GRBB_ROUTE_ENTRY_AT(gp->u.car.c…
+325:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+327:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+329:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+331:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.85246%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+333:ASSISTANT REASONING
+336:TOOL edit {"edits":[{"newText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp = GET_GROUND(gobj);\n","oldText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp;\n\n    g…
+340:ASSISTANT REASONING
+359:ASSISTANT REASONING
+364:RESULT source_permuter_run "exit_code": 0, | "status": "ok", | "stderr": "\n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters…
+366:ASSISTANT REASONING
+371:TOOL edit {"edits":[{"newText":"        gp->u.car.x10A = (s16) new_timer;\n    }\n\n    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n","oldText":"        gp->u.car.x10A = (s16) new_timer;\n    }\n\n…
+375:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+377:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+379:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+381:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+383:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+385:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+387:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+389:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+391:ASSISTANT REASONING
+398:ASSISTANT REASONING
+401:TOOL edit {"edits":[{"newText":"    if (gobj != NULL && route_idx != -1) {\n","oldText":"    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n"}],"path":"src/melee/gr/grbigblueroute.c"}
+405:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+407:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.34426%) | left 4176: ARG_DIFF bge 0x14a8 | left 4196: ARG_DIFF bge 0x14a8 | left DIFF_INSERT | right 4184: ARG_DIFF bge 0x14b8 | right 4204: ARG_DIFF bge 0x14b8 | right 4436: DIFF_INSERT cmplwi r29, 0x0 | right 4…
+409:ASSISTANT REASONING
+414:TOOL edit {"edits":[{"newText":"    {\n        HSD_JObj* root = gobj->hsd_obj;\n\n        if (route_idx != -1) {\n","oldText":"    if (gobj != NULL && route_idx != -1) {\n"},{"newText":"        if (!GRBB_ROUTE…
+418:ASSISTANT REASONING
+421:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+423:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (98.67213%) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MISMATCH lwz r6, 0x2c(r29) | left 4264: DIFF_ARG_MISMATCH mr r3, r2…
+425:ASSISTANT REASONING
+430:TOOL edit {"edits":[{"newText":"    if (route_idx != -1) {\n","oldText":"    {\n        HSD_JObj* root = gobj->hsd_obj;\n\n        if (route_idx != -1) {\n"},{"newText":"        if (!GRBB_ROUTE_ENTRY_AT(gp->u.…
+434:ASSISTANT REASONING
+453:ASSISTANT REASONING
+460:ASSISTANT REASONING
+467:ASSISTANT REASONING
+470:TOOL edit {"edits":[{"newText":"    {\n        Ground* route_gp = GET_GROUND(gobj);\n\n        if (route_idx != -1) {\n            s32 offset = route_idx * sizeof(RouteEntry);\n            RouteEntry* re =\n  …
+474:ASSISTANT REASONING
+477:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+479:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.79344%) | left 4104: DIFF_ARG_MISMATCH stwu r1, -0x50(r1) | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageC…
+481:ASSISTANT REASONING
+488:TOOL edit {"edits":[{"newText":"    if (route_idx != -1) {\n        s32 offset = route_idx * sizeof(RouteEntry);\n        RouteEntry* re = GRBB_ROUTE_ENTRY_AT(gp->u.car.car_info, offset);\n","oldText":"    {\n…
+492:ASSISTANT REASONING
+501:ASSISTANT REASONING
+510:ASSISTANT REASONING
+519:ASSISTANT REASONING
+526:ASSISTANT REASONING
+529:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+531:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (30.41967%) | left 4092: DIFF_DELETE lis r5, grBb_Route_StageCallbacks@ha | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4116: DIFF_DELETE addi r28, r5, grBb_Route_StageCallbacks@l | left 4120: DIFF_ARG_MIS…
+533:ASSISTANT REASONING
+544:ASSISTANT REASONING
+563:ASSISTANT REASONING
+570:ASSISTANT REASONING
+575:TOOL edit {"edits":[{"newText":"    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n","oldText":"    if (route_idx != -1) {\n"}],"path":"src/melee/gr/grbigblueroute.c"}
+579:ASSISTANT REASONING
+586:ASSISTANT REASONING
+593:ASSISTANT REASONING
+600:ASSISTANT REASONING
+609:ASSISTANT REASONING
+612:TOOL edit {"edits":[{"newText":"    if (route_idx != -1) {\n","oldText":"    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n"},{"newText":"            HSD_JObj* root = HSD_GObjGetHSDObj(gobj);\n","old…
+616:ASSISTANT REASONING
+619:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+621:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.79344%) | left 4104: DIFF_ARG_MISMATCH stwu r1, -0x50(r1) | left 4108: DIFF_ARG_MISMATCH stmw r26, 0x38(r1) | left 4112: DIFF_ARG_MISMATCH mr r29, r3 | left 4116: DIFF_ARG_MISMATCH addi r28, r5, grBb_Route_StageC…
+623:ASSISTANT REASONING
+630:ASSISTANT REASONING
+635:TOOL edit {"edits":[{"newText":"    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n","oldText":"    if (route_idx != -1) {\n"},{"newText":"            HSD_JObj* root = gobj->hsd_obj;\n","oldText":"   …
+639:ASSISTANT REASONING
+654:ASSISTANT REASONING
+675:ASSISTANT REASONING
+680:TOOL edit {"edits":[{"newText":"#ifdef MUST_MATCH\n    /// @remark This keeps @c gobj live through route setup for MWCC register\n    /// allocation.\n    if (gobj != NULL) {\n    }\n#endif\n    if (route_idx …
+684:ASSISTANT REASONING
+687:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+695:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+703:ASSISTANT REASONING
+708:TOOL edit {"edits":[{"newText":"    /// @remark Matching tactic: this keeps @c gobj live through route setup\n    /// for MWCC register allocation.\n","oldText":"    /// @remark This keeps @c gobj live through…
+712:ASSISTANT REASONING
+717:TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+725:RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+731:ASSISTANT REASONING
+739:  "result": "100.00000%",
+741:    "checkdiff_run grBigBlueRoute_8020C85C: PASS (100.00000%)",
+
+exec
+/bin/zsh -lc "rg -n \"99\\.85401|99\\.5|stuck|remaining|mismatch|DIFF_|TOOL (edit|checkdiff_run|source_permuter|past_prs|mwcc|asm)|ASSISTANT REASONING\" condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md | tail -320" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+3681:ASSISTANT REASONING
+3684:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3688:ASSISTANT REASONING
+3695:ASSISTANT REASONING
+3698:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+3702:ASSISTANT REASONING
+3707:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+3711:ASSISTANT REASONING
+3714:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3718:ASSISTANT REASONING
+3723:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+3727:ASSISTANT REASONING
+3730:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3734:ASSISTANT REASONING
+3737:TOOL edit {"edits":[{"newText":"                {\n …
+3741:ASSISTANT REASONING
+3748:ASSISTANT REASONING
+3751:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+3755:ASSISTANT REASONING
+3758:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3762:ASSISTANT REASONING
+3767:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+3771:ASSISTANT REASONING
+3774:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3786:ASSISTANT REASONING
+3793:ASSISTANT REASONING
+3800:  "summary": "Investigated ftCo_80095EFC's final floating-point register-allocation mismatch without retaining a regression. The current shared interpolation local preserves the target instruction schedule but assigns frame_speed_mul to f0 and itemthrow4.x8.x to f1 instead of the target's f1/f0. A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%. Reusing the interpolation local first for frame_speed_mul also produces the desired denominator/item ownership, but changes the numerator to f7 and similarly disrupts scheduling. Helper parameter/order/type variants, separate X/Y interpolation variables, delta/result aliases, local scope and declaration changes, pointer accessors, expression ordering, compound assignments, and table-speed restructuring either compiled identically to baseline or regressed. A 10,000-iteration source-permuter search from the clean baseline found no improvement.",
+3806:    "final_checkdiff": "FAIL (99.70803% tool score; packet/runner baseline 99.85401%)",
+3807:    "remaining_code_mismatch": [
+3818:ASSISTANT REASONING
+3823:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+3829:TOOL past_prs_search {"limit":20,"query":"ftCo_80095EFC src/mel…
+3831:TOOL mwcc_debug_lookup {"limit":20,"query":"ftCo_80095EFC frame_s…
+3845:ASSISTANT REASONING
+3852:TOOL mwcc_debug_dump_function {"function":"ftCo_80095EFC","runner":"auto…
+3854:TOOL mwcc_debug_diagnose_regflow {"function":"ftCo_80095EFC","runner":"auto…
+3856:TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limi…
+3868:ASSISTANT REASONING
+3887:ASSISTANT REASONING
+3908:ASSISTANT REASONING
+3927:ASSISTANT REASONING
+3932:TOOL mwcc_alloc_snapshot {"capture":"pair","function":"ftCo_80095EF…
+3936:ASSISTANT REASONING
+3943:ASSISTANT REASONING
+3958:ASSISTANT REASONING
+3965:ASSISTANT REASONING
+3972:ASSISTANT REASONING
+3979:ASSISTANT REASONING
+3984:TOOL edit {"edits":[{"newText":"static inline float …
+3988:TOOL checkdiff_run {"full_diff":false,"function":"ftCo_80095E…
+3992:ASSISTANT REASONING
+3995:TOOL edit {"edits":[{"newText":"inline float getItem…
+3999:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4003:ASSISTANT REASONING
+4004:**Reverting helper local due to stack mismatch**
+4006:TOOL edit {"edits":[{"newText":"inline float getItem…
+4010:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4014:ASSISTANT REASONING
+4031:ASSISTANT REASONING
+4040:ASSISTANT REASONING
+4047:ASSISTANT REASONING
+4054:ASSISTANT REASONING
+4061:ASSISTANT REASONING
+4068:ASSISTANT REASONING
+4077:ASSISTANT REASONING
+4084:ASSISTANT REASONING
+4091:ASSISTANT REASONING
+4098:TOOL edit {"edits":[{"newText":"                    …
+4102:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4106:ASSISTANT REASONING
+4113:ASSISTANT REASONING
+4118:TOOL edit {"edits":[{"newText":"    float interpolat…
+4122:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4124:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4130:ASSISTANT REASONING
+4137:ASSISTANT REASONING
+4144:ASSISTANT REASONING
+4151:ASSISTANT REASONING
+4156:TOOL edit {"edits":[{"newText":"                    …
+4160:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4164:ASSISTANT REASONING
+4171:ASSISTANT REASONING
+4174:TOOL edit {"edits":[{"newText":"    float fsm;\n    …
+4178:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4182:ASSISTANT REASONING
+4185:TOOL edit {"edits":[{"newText":"    float interpolat…
+4189:ASSISTANT REASONING
+4196:ASSISTANT REASONING
+4203:ASSISTANT REASONING
+4210:TOOL edit {"edits":[{"newText":"                    …
+4214:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4218:ASSISTANT REASONING
+4225:ASSISTANT REASONING
+4230:TOOL edit {"edits":[{"newText":"                    …
+4234:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4236:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4242:ASSISTANT REASONING
+4245:TOOL edit {"edits":[{"newText":"                    …
+4249:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4253:ASSISTANT REASONING
+4258:TOOL edit {"edits":[{"newText":"    float interpolat…
+4262:ASSISTANT REASONING
+4269:ASSISTANT REASONING
+4272:TOOL mwcc_alloc_compare {"after":"build/mwcc-alloc/ftCo_80095EFC-f…
+4276:ASSISTANT REASONING
+4291:ASSISTANT REASONING
+4300:ASSISTANT REASONING
+4309:ASSISTANT REASONING
+4316:ASSISTANT REASONING
+4323:ASSISTANT REASONING
+4328:TOOL edit {"edits":[{"newText":"                    …
+4332:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4334:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4340:ASSISTANT REASONING
+4347:TOOL edit {"edits":[{"newText":"                    …
+4351:ASSISTANT REASONING
+4358:ASSISTANT REASONING
+4361:TOOL edit {"edits":[{"newText":"                    …
+4365:ASSISTANT REASONING
+4368:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4370:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4376:ASSISTANT REASONING
+4383:ASSISTANT REASONING
+4392:ASSISTANT REASONING
+4397:TOOL edit {"edits":[{"newText":"inline float getItem…
+4401:ASSISTANT REASONING
+4404:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4406:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4412:ASSISTANT REASONING
+4417:TOOL edit {"edits":[{"newText":"inline float getItem…
+4421:ASSISTANT REASONING
+4424:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4426:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4428:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4430:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4440:ASSISTANT REASONING
+4447:ASSISTANT REASONING
+4450:TOOL edit {"edits":[{"newText":"","oldText":"\ninlin…
+4454:ASSISTANT REASONING
+4457:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4459:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4465:ASSISTANT REASONING
+4472:ASSISTANT REASONING
+4475:TOOL edit {"edits":[{"newText":"    Vec3 vec0;\n    …
+4479:ASSISTANT REASONING
+4482:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4484:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4490:ASSISTANT REASONING
+4493:TOOL edit {"edits":[{"newText":"    Vec3 vec0;\n    …
+4497:ASSISTANT REASONING
+4500:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4502:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4508:ASSISTANT REASONING
+4515:ASSISTANT REASONING
+4518:TOOL edit {"edits":[{"newText":"inline float getItem…
+4522:ASSISTANT REASONING
+4525:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4527:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4533:ASSISTANT REASONING
+4538:TOOL edit {"edits":[{"newText":"inline float getItem…
+4542:ASSISTANT REASONING
+4545:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4547:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4553:ASSISTANT REASONING
+4558:TOOL edit {"edits":[{"newText":"inline float getItem…
+4562:ASSISTANT REASONING
+4565:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4567:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4573:ASSISTANT REASONING
+4580:ASSISTANT REASONING
+4587:ASSISTANT REASONING
+4606:ASSISTANT REASONING
+4625:ASSISTANT REASONING
+4640:ASSISTANT REASONING
+4647:ASSISTANT REASONING
+4650:TOOL edit {"edits":[{"newText":"inline float getItem…
+4654:ASSISTANT REASONING
+4657:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4659:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4665:ASSISTANT REASONING
+4672:ASSISTANT REASONING
+4675:TOOL edit {"edits":[{"newText":"    float interpolat…
+4679:ASSISTANT REASONING
+4682:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4684:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4690:ASSISTANT REASONING
+4707:ASSISTANT REASONING
+4712:TOOL edit {"edits":[{"newText":"void ftCo_80095EFC(F…
+4716:ASSISTANT REASONING
+4719:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4721:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4727:ASSISTANT REASONING
+4734:TOOL edit {"edits":[{"newText":"void ftCo_80095EFC(F…
+4738:ASSISTANT REASONING
+4741:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4743:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4749:ASSISTANT REASONING
+4754:TOOL edit {"edits":[{"newText":"static inline float …
+4758:ASSISTANT REASONING
+4761:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4763:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4769:ASSISTANT REASONING
+4776:ASSISTANT REASONING
+4783:ASSISTANT REASONING
+4788:TOOL edit {"edits":[{"newText":"inline float getItem…
+4792:ASSISTANT REASONING
+4795:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4797:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4803:ASSISTANT REASONING
+4806:TOOL edit {"edits":[{"newText":"inline float getItem…
+4810:ASSISTANT REASONING
+4813:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4815:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4821:ASSISTANT REASONING
+4830:ASSISTANT REASONING
+4833:TOOL edit {"edits":[{"newText":"inline float getItem…
+4837:ASSISTANT REASONING
+4840:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4844:ASSISTANT REASONING
+4849:TOOL edit {"edits":[{"newText":"inline float getItem…
+4853:ASSISTANT REASONING
+4856:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4860:ASSISTANT REASONING
+4867:ASSISTANT REASONING
+4870:TOOL edit {"edits":[{"newText":"inline float getItem…
+4874:ASSISTANT REASONING
+4877:TOOL source_permuter_run {"function":"ftCo_80095EFC","jobs":8,"keep…
+4881:ASSISTANT REASONING
+4886:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4892:ASSISTANT REASONING
+4905:ASSISTANT REASONING
+4910:  "summary": "Investigated ftCo_80095EFC's remaining floating-point register swap without retaining a regression. FPR allocator capture confirmed that the baseline assigns the item X load (virtual f37) to f1 and frame_speed_mul (virtual f49) to f0; the target requires the opposite. A distinct X local produces the desired register ownership, but post-allocation scheduling moves six independent loads/operations and regresses to 94.47445%. Named denominator locals, helper float parameters, and interpolation helpers introduce an extra inline-local stack home or shift Vec3 slots, reaching only 99.51825%. A direct named-denominator form reached 99.63504% but changed the negated FSM operand to f7. Declaration ordering, helper linkage/order, result aliases, direct vec2.x assignment, and register/pointer probes were neutral or regressed. A fresh 10,000-candidate permuter search found no improvement. All experimental edits were reverted.",
+4916:    "final_checkdiff": "FAIL (99.70803% tool score; remaining code mismatch is the frame_speed_mul/itemthrow4.x8.x f0/f1 swap and dependent fdivs/fsubs operands)",
+4927:ASSISTANT REASONING
+4930:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+4936:TOOL past_prs_search {"limit":10,"query":"ftCo_80095EFC src/mel…
+4950:ASSISTANT REASONING
+4955:TOOL mwcc_debug_diagnose_regflow {"function":"ftCo_80095EFC","runner":"auto…
+4957:TOOL mwcc_debug_lookup {"limit":20,"query":"ftCo_80095EFC f0 f1 s…
+4959:TOOL asm_window_search {"all":true,"exclude_self_unit":true,"limi…
+4969:ASSISTANT REASONING
+4984:ASSISTANT REASONING
+4999:ASSISTANT REASONING
+5014:ASSISTANT REASONING
+5021:ASSISTANT REASONING
+5022:**Diagnosing missing PATH commands and instruction mismatch**
+5028:ASSISTANT REASONING
+5035:ASSISTANT REASONING
+5042:ASSISTANT REASONING
+5049:ASSISTANT REASONING
+5052:TOOL mwcc_alloc_compare {"after":"build/mwcc-alloc/ftCo_80095EFC-f…
+5060:ASSISTANT REASONING
+5067:ASSISTANT REASONING
+5076:ASSISTANT REASONING
+5085:ASSISTANT REASONING
+5092:ASSISTANT REASONING
+5101:ASSISTANT REASONING
+5108:ASSISTANT REASONING
+5115:ASSISTANT REASONING
+5122:ASSISTANT REASONING
+5131:ASSISTANT REASONING
+5138:ASSISTANT REASONING
+5145:ASSISTANT REASONING
+5152:ASSISTANT REASONING
+5159:ASSISTANT REASONING
+5160:**Analyzing register allocation mismatches**
+5166:ASSISTANT REASONING
+5173:ASSISTANT REASONING
+5180:ASSISTANT REASONING
+5187:ASSISTANT REASONING
+5194:ASSISTANT REASONING
+5201:ASSISTANT REASONING
+5208:ASSISTANT REASONING
+5215:ASSISTANT REASONING
+5222:ASSISTANT REASONING
+5229:ASSISTANT REASONING
+5236:ASSISTANT REASONING
+5245:ASSISTANT REASONING
+5252:ASSISTANT REASONING
+5261:ASSISTANT REASONING
+5268:ASSISTANT REASONING
+5287:ASSISTANT REASONING
+5294:ASSISTANT REASONING
+5301:ASSISTANT REASONING
+5308:ASSISTANT REASONING
+5317:ASSISTANT REASONING
+5324:ASSISTANT REASONING
+5331:ASSISTANT REASONING
+5340:ASSISTANT REASONING
+5347:ASSISTANT REASONING
+5356:ASSISTANT REASONING
+5365:ASSISTANT REASONING
+5372:ASSISTANT REASONING
+5379:ASSISTANT REASONING
+5386:ASSISTANT REASONING
+5395:ASSISTANT REASONING
+5404:ASSISTANT REASONING
+5407:TOOL mwcc_debug_lookup {"limit":20,"query":"PowerPC floating regi…
+5411:ASSISTANT REASONING
+5418:ASSISTANT REASONING
+5429:ASSISTANT REASONING
+5436:ASSISTANT REASONING
+5443:ASSISTANT REASONING
+5452:ASSISTANT REASONING
+5463:ASSISTANT REASONING
+5470:ASSISTANT REASONING
+5477:ASSISTANT REASONING
+5482:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+5486:ASSISTANT REASONING
+5489:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+5497:ASSISTANT REASONING
+5500:TOOL source_permuter_run {"function":"ftCo_80095EFC","jobs":8,"keep…
+5504:ASSISTANT REASONING
+5511:ASSISTANT REASONING
+5514:TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+5518:ASSISTANT REASONING
+5521:TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+5533:ASSISTANT REASONING
+5538:  "summary": "Investigated the remaining ftCo_80095EFC FPR allocation mismatch without retaining a regression. Compared candidate and reference object bytes directly and tested more than 100 targeted source shapes, including helper signatures, denominator expressions, declaration scopes, copy/coalescing chains, inline accessors, identity helpers, container layouts, and statement ordering. A separate function-scope X copy gives the desired frame_speed_mul/itemthrow4.x8.x register ownership, but changes five independent scheduling pairs and drops checkdiff to 94.47445%. A 10,000-candidate permuter search from that alternate structure found no improvement. All experimental edits were reverted.",
+5544:    "final_checkdiff": "FAIL (99.70803% tool score; remaining code mismatch is the frame_speed_mul/itemthrow4.x8.x f0/f1 swap and dependent fdivs/fsubs operands)",
+
+exec
+/bin/zsh -lc "sed -n '333,410p' condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md; sed -n '5480,5548p' condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md; rg -c '"'^TOOL edit'"' condensed/*.md; rg -c '"'^TOOL checkdiff_run'"' condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+ASSISTANT REASONING
+**Restoring exact baseline formatting**
+
+TOOL edit {"edits":[{"newText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp = GET_GROUND(gobj);\n","oldText":"void grBigBlueRoute_8020C85C(Ground_GObj* gobj)\n{\n    Ground* gp;\n\n    g…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gr/grbigblueroute.c.
+
+ASSISTANT REASONING
+**Running mutation preview seeds**
+
+TOOL source_mutation_preview {"function":"grBigBlueRoute_8020C85C","no_types":false,"pass_name":"","seed":1,"source_path":"src/melee/gr/grbigblueroute.c","steps":3,"timeout_seconds":120}
+
+TOOL source_mutation_preview {"function":"grBigBlueRoute_SpawnRoute","no_types":false,"pass_name":"","seed":2,"source_path":"src/melee/gr/grbigblueroute.c","steps":3,"timeout_seconds":120}
+
+TOOL source_mutation_preview {"function":"grBigBlueRoute_8020C85C","no_types":false,"pass_name":"","seed":3,"source_path":"src/melee/gr/grbigblueroute.c","steps":5,"timeout_seconds":120}
+
+TOOL source_mutation_preview {"function":"grBigBlueRoute_SpawnRoute","no_types":false,"pass_name":"","seed":4,"source_path":"src/melee/gr/grbigblueroute.c","steps":5,"timeout_seconds":120}
+
+RESULT source_mutation_preview exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT source_mutation_preview exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT source_mutation_preview exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+RESULT source_mutation_preview exit_code=0 | status=ok | parse_error=null | "exit_code": 0, | "status": "ok", | "parse_error": null,
+
+ASSISTANT REASONING
+**Configuring permuter with target and helper functions**
+
+TOOL source_permuter_run {"function":"grBigBlueRoute_8020C85C","jobs":8,"keep_prob":0.3,"max_iters":2500,"mutate_functions":["grBigBlueRoute_SpawnRoute","grBigBlueRoute_8020C85C"],"no_narrow":false,"save_replay":"build/permu…
+
+RESULT source_permuter_run "exit_code": 0, | "status": "ok", | "stderr": "\n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n0s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters=0 (0.0/s) best=163930 dup=100% compile-fail=0 \n1s iters…
+
+ASSISTANT REASONING
+**Investigating empty if condition impact**
+
+**Applying empty if for scoring test**
+
+TOOL edit {"edits":[{"newText":"        gp->u.car.x10A = (s16) new_timer;\n    }\n\n    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n","oldText":"        gp->u.car.x10A = (s16) new_timer;\n    }\n\n…
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=ok | grBigBlueRoute_8020C85C: PASS (100.00000%) | /tmp/tool-cache/checkdiff | parse_error=null | checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/toolpacks/gamecube-decomp/validation/checkdiff | /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/to…
+
+ASSISTANT REASONING
+**Exploring source shape for empty if**
+
+**Analyzing empty if impact on allocation**
+
+**Testing null guard effect on compiler**
+
+ASSISTANT REASONING
+**Merging conditional checks and removing empty if**
+
+TOOL edit {"edits":[{"newText":"    if (gobj != NULL && route_idx != -1) {\n","oldText":"    if (gobj != NULL) {\n    }\n    if (route_idx != -1) {\n"}],"path":"src/melee/gr/grbigblueroute.c"}
+
+RESULT edit Successfully replaced 1 block(s) in src/melee/gr/grbigblueroute.c.
+
+TOOL checkdiff_run {"full_diff":true,"function":"grBigBlueRoute_8020C85C","timeout_seconds":120}
+
+RESULT checkdiff_run checkdiff_run | tool:checkdiff:run.py | exit_code=0 | exit_code=1 | full_diff=True | checkdiff:run | /opt/tool-data/checkdiff | status=failed | failed | grBigBlueRoute_8020C85C: FAIL (99.34426%) | left 4176: ARG_DIFF bge 0x14a8 | left 4196: ARG_DIFF bge 0x14a8 | left DIFF_INSERT | right 4184: ARG_DIFF bge 0x14b8 | right 4204: ARG_DIFF bge 0x14b8 | right 4436: DIFF_INSERT cmplwi r29, 0x0 | right 4…
+
+ASSISTANT REASONING
+**Refining conditional expression for clarity**
+**Applying temporary xcopy with targeted edits**
+
+TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+
+RESULT edit 
+
+ASSISTANT REASONING
+**Validating alternate scoring approach**
+
+TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+
+TOOL source_mutation_preview {"function":"ftCo_80095EFC","no_types":fal…
+
+RESULT checkdiff_run 
+
+RESULT source_mutation_preview 
+
+ASSISTANT REASONING
+**Proceeding with permuter processing**
+
+TOOL source_permuter_run {"function":"ftCo_80095EFC","jobs":8,"keep…
+
+RESULT source_permuter_run 
+
+ASSISTANT REASONING
+**Inspecting replay files in temporary directory**
+
+TOOL bash {"command":"ls -l /tmp/ftco-xcopy-permuter…
+
+RESULT bash 
+
+ASSISTANT REASONING
+**Reverting temporary exact edits**
+
+TOOL edit {"edits":[{"newText":"    Fighter* fp = GE…
+
+RESULT edit 
+
+ASSISTANT REASONING
+**Running final diff and status checks**
+
+TOOL checkdiff_run {"full_diff":true,"function":"ftCo_80095EF…
+
+TOOL direct_compile_tu {"function":"ftCo_80095EFC","keep_object":…
+
+TOOL bash {"command":"git status --short -- src/mele…
+
+RESULT checkdiff_run 
+
+RESULT direct_compile_tu 
+
+RESULT bash 
+
+ASSISTANT REASONING
+**Compiling final handoff JSON**
+
+ASSISTANT TEXT
+{
+  "summary": "Investigated the remaining ftCo_80095EFC FPR allocation mismatch without retaining a regression. Compared candidate and reference object bytes directly and tested more than 100 targeted source shapes, including helper signatures, denominator expressions, declaration scopes, copy/coalescing chains, inline accessors, identity helpers, container layouts, and statement ordering. A separate function-scope X copy gives the desired frame_speed_mul/itemthrow4.x8.x register ownership, but changes five independent scheduling pairs and drops checkdiff to 94.47445%. A 10,000-candidate permuter search from that alternate structure found no improvement. All experimental edits were reverted.",
+  "target": "ftCo_80095EFC",
+  "source_path": "src/melee/ft/chara/ftCommon/ftCo_ItemThrow.c",
+  "result": "stalled_at_baseline",
+  "retained_edits": [],
+  "validation": {
+    "final_checkdiff": "FAIL (99.70803% tool score; remaining code mismatch is the frame_speed_mul/itemthrow4.x8.x f0/f1 swap and dependent fdivs/fsubs operands)",
+    "direct_compile": "PASS",
+    "alternate_structure": "Distinct function-scope X copy reached the desired FPR ownership but scored 94.47445% because five pairs of independent loads/operations were rescheduled.",
+    "source_permuter": "10,000 candidates from the distinct-X alternate structure across ftCo_80095EFC and getItemThrowFsm; no improvement.",
+    "working_tree": "Approved source file is clean; git diff --check and git diff --exit-code passed. No local regression remains."
+condensed/0cf5c824-8966-4eed-b0c2-8674f5a57d56.md:48
+condensed/24fc4148-8b96-4b91-af23-bbb37c5b2877.md:7
+condensed/049b90b1-e6e3-4ba0-84d8-752f52b2a062.md:17
+condensed/03f25a33-7b78-4ee1-bf82-6b473c53cab8.md:1
+condensed/1b7dfee0-e219-4ac5-8c38-440eeecde071.md:151
+condensed/04f2403d-aa64-462f-b1a4-fa79875b317f.md:80
+condensed/38fc6552-851f-4606-a426-160bfd8a25f2.md:63
+condensed/3e2e7291-f56d-4b25-8470-f1a6eb298e7f.md:81
+condensed/39d97d26-f735-4a43-90df-d8f8e9ab20d0.md:11
+condensed/31f98405-c8f1-4a5a-b451-b0c399f120f8.md:106
+condensed/2d543a40-61eb-4386-8781-68577b1c7b97.md:47
+condensed/3185e9c2-f274-4c63-b076-777937bfcaea.md:90
+condensed/57dfab33-d93f-4454-8d08-9a3d98c02f2b.md:29
+condensed/2c34c372-dcde-4cf1-8f1c-927371750378.md:75
+condensed/5362dd1d-9366-4c14-a90a-ae7bedd924d8.md:70
+condensed/46aca9ca-bfd0-49d9-a95b-62d4bfee126d.md:74
+condensed/25422630-5f00-48dc-b3cf-c6ccca9fd36c.md:149
+condensed/58db912a-2eab-4092-b18b-265938ac6a7b.md:80
+condensed/27af3e8a-968b-4a21-8034-713ec3b1dc94.md:13
+condensed/58f2e39c-2f6e-4596-94d3-65910412e28a.md:79
+condensed/6ebe7b5c-a53a-46c3-8735-37ece47e72a6.md:30
+condensed/03cc7e73-bb52-47e4-b8f2-379145ba21df.md:32
+condensed/4d28a12a-db0b-432b-9a54-fcf32d6ccb58.md:96
+condensed/41cd30bd-b0d8-4f11-a91d-b0e210d5be20.md:83
+condensed/63f4c0f1-0afe-4cb7-9218-4252f0d9cf25.md:5
+condensed/70b2c0d7-f2b9-434e-a870-d1466f1a8b57.md:5
+condensed/40834601-006a-41de-8c4b-c88100bed109.md:106
+condensed/02629e21-ba1c-4f0a-a0f3-aee1e402dd26.md:81
+condensed/70bb3bcd-1117-4d8b-a928-cdfa4e7f1aa7.md:5
+condensed/6b9f6954-d151-4277-a570-65601bd6c0d7.md:17
+condensed/9a547e09-0ba7-4295-b078-bfc120ad5f50.md:36
+condensed/9dce9616-111a-422c-a82a-092444ef49fa.md:8
+condensed/415c1809-9adf-4212-b694-ada2509f45a3.md:58
+condensed/86ddef5f-5464-46dd-ac6d-420e38220de9.md:121
+condensed/31821b92-a814-45aa-8bba-77de9c656292.md:76
+condensed/6b0d2f77-fa33-47a5-9f63-c919394a3b25.md:24
+condensed/9720f112-b093-433b-926e-29c598091be3.md:62
+condensed/c31ba6a9-57de-4293-8119-93ca27d8ad59.md:17
+condensed/32e6a7e5-37d7-4a02-aad2-db00c47cc78c.md:43
+condensed/9cbece80-e52a-46c1-b621-a9eeb5dd2dad.md:8
+condensed/5d1c88e5-1b58-4497-bac9-14c1683c71ce.md:8
+condensed/314aa899-fb04-4f5f-8b6b-c4ac172a244b.md:1
+condensed/5f0d5f85-8768-460d-9d56-be8fe00efc35.md:59
+condensed/a5cd2934-88ef-4950-b137-967e0ee87ab0.md:108
+condensed/96fe32d4-255a-4dfd-abe5-70829ced443e.md:2
+condensed/48312a2f-a758-4ace-a380-b813b50a5a23.md:47
+condensed/544b6c97-ca50-4cba-935f-31cb4b9e684b.md:65
+condensed/b82bf69b-9432-4e48-aaf0-726a93740f62.md:98
+condensed/72b2ed01-a585-4180-bfb7-a96f4cf706c3.md:23
+condensed/c155f4f0-d092-43ce-84a3-469da3e4c64a.md:22
+condensed/d66d012c-69fd-4e8b-8d17-2732b111c7ed.md:5
+condensed/74d59465-7735-4d3a-83f1-34fcc0ff083d.md:16
+condensed/638fc846-c62c-4d8b-b84c-fd25e2ad65b6.md:22
+condensed/c7af4f27-8f28-46fb-94fb-2b82a012da52.md:41
+condensed/b5892094-f209-4b98-8316-4d5b2e327600.md:171
+condensed/46e962c3-632b-43d3-aed5-83f2abcd396a.md:8
+condensed/6d8a1b06-f54d-4855-b9e3-8369d618bc30.md:113
+condensed/d08dc042-eef9-41be-a208-d99718dd1548.md:23
+condensed/9de8ed2f-577c-4786-b832-da432fc5979e.md:5
+condensed/fdbab6d8-b453-4322-bd67-f81f0656f6a1.md:7
+condensed/d5049af5-a570-46f5-9c33-e9910b2abe50.md:59
+condensed/69430968-2483-4799-b9a6-b59c1d56e7c2.md:68
+condensed/cd4c9889-abad-47f2-aa7f-5badafdda93f.md:1
+condensed/a071ac22-28cf-4f4c-9b64-7373baa90f74.md:77
+condensed/f1a4a406-5560-4f37-8efc-ae57d9694baa.md:54
+condensed/be134157-4f45-4915-b3b8-9211dbf76e1e.md:68
+condensed/7e2da56a-e0cf-4286-aefb-b6339ba565cc.md:3
+condensed/f541d8ee-a5eb-423e-b79b-74d77f759dcb.md:76
+condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md:208
+condensed/64b76d5b-6f57-4d73-8f38-a53b26d385d1.md:31
+condensed/96772f3d-e0ac-445c-9e01-800feca8c3ba.md:5
+condensed/fd494fba-911b-42a4-880f-173b438d3fea.md:49
+condensed/c73c1a4b-cbc7-4568-b0cf-2ca7de344639.md:170
+condensed/a497e56d-9dd3-47b9-a7fc-fffa168bb864.md:29
+condensed/c4ad3b3b-f9a4-499e-a797-3a72bfe74e7c.md:53
+condensed/cb2c62e8-437b-4123-a27e-1b2b80a478b7.md:2
+condensed/8fc06ef7-2ab4-46e1-adf4-d2a52e73da37.md:42
+condensed/f4d7c3de-bae0-42dd-8930-ba2d690de7d6.md:20
+condensed/f81ff92a-0c87-4493-a1b7-eb2ff97d6e32.md:111
+condensed/b9f6d5b5-af93-4755-adc4-6937b4811854.md:200
+condensed/eec2b59b-f9c8-46d6-b09f-741cc13db1d6.md:5
+condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md:21
+condensed/c72df1cf-0e85-43fc-b2a2-51c8ed3d7768.md:38
+condensed/e26d51ec-0a99-438c-8586-9f8d749d4689.md:10
+condensed/f40f9b2e-71bd-4e31-8abe-db10affaf356.md:35
+condensed/a9872728-d65f-4b92-8804-86dabc0f33bd.md:4
+condensed/f3e0a532-6afd-4d7d-850b-f0d5ddab4490.md:28
+condensed/d34938fe-5f73-4d71-9858-bc2b6ec5292d.md:42
+condensed/d0c7a4ab-0c74-4f50-8d44-b4353d4a3945.md:29
+condensed/c975368c-c368-4890-8846-15a5261b3397.md:16
+condensed/e0f64a2b-5d74-4747-bf1c-d2d8f626007e.md:28
+condensed/fb115dd3-15b9-4c3e-8004-6491b0c15c8f.md:203
+condensed/ade520c2-b4e7-4b32-967d-b324f5b4c336.md:23
+
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Both workers diagnosed register allocation correctly. The meaningful contrast is narrower than “systematic versus guessing”: the exact worker tested a semantics-empty liveness constraint and verified that it alone changed coloring, while the near-miss worker explored many allocation/source shapes but never found that kind of no-op lifetime lever without breaking scheduling.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0955b7c6e1bfc3775f74ec35c048d910e50862f9
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolate a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0955b7c6e1bfc3775f74ec35c048d910e50862f9
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolate a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+exec
+/bin/zsh -lc "wc -l phase3_notes/pair_epoch-12-pair-04.md && sed -n '1,120p' phase3_notes/pair_epoch-12-pair-04.md && git status --short -- phase3_notes/pair_epoch-12-pair-04.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+      29 phase3_notes/pair_epoch-12-pair-04.md
+## Verdict
+
+The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
+
+## Exact worker: how the gap was closed
+
+- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
+- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
+- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
+
+## Near-miss worker: why it stalled
+
+- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolate a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
+- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
+- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
+
+## Transferable technique
+
+- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
+- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
+- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
+- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
+
+## Flags
+
+- exact_loop: mixed
+- control_loop: mixed
+- outcome_explained_by_process: partial
+- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+?? phase3_notes/pair_epoch-12-pair-04.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0955b7c6e1bfc3775f74ec35c048d910e50862f9
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolate a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc9add7b528a6b0c99f33b338d104c4ef02ebb91
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolated a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc9add7b528a6b0c99f33b338d104c4ef02ebb91
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolated a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+codex
+DONE
+diff --git a/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc9add7b528a6b0c99f33b338d104c4ef02ebb91
+--- /dev/null
++++ b/analysis/worker-audit-2026-09-01/phase3_notes/pair_epoch-12-pair-04.md
+@@ -0,0 +1,29 @@
++## Verdict
++
++The exact worker's key process advantage was testing a semantics-empty liveness constraint after diagnosing a register-coloring swap. Its empty `if (gobj != NULL) {}` kept `gobj` live long enough to flip MWCC's r28/r29 allocation without disturbing the schedule. The near-miss worker diagnosed its f0/f1 swap at least as deeply and ran far more experiments, but concentrated on expression, local, helper, type, stack, and ordering shapes; variants that fixed ownership disrupted scheduling, and it never found an equivalent no-op lifetime-only lever. Process explains the exact result only partially because the control's remaining constraint was demonstrably harder: allocation and five scheduling pairs had to stay correct together.
++
++## Exact worker: how the gap was closed
++
++- **Diff-reading style:** Instruction-level first, then targeted source experiments. The opening diff isolated a function-wide r28/r29 swap, and the worker explicitly wrote, "**Analyzing r28/r29 register swap in assembly**". Later it moved to "**Applying empty if for scoring test**" rather than continuing arbitrary rewrites.
++- **The decisive move:** `checkdiff` showed `gobj` and the callback/data base colored into the wrong persistent registers. Regflow diagnostics, object disassembly, and allocator snapshots focused the hypothesis on liveness and coloring. Parameter reorders, aliases, wrappers, accessors, and local placement were neutral or worse. Adding an empty null test immediately before the route block made four consecutive checks reach 100%. Merging the null test with the route condition or hoisting a root local regressed, confirming that the separate empty test was the needed source shape. The retained `MUST_MATCH` comment states that it "keeps @c gobj live through route setup".
++- **Tool rhythm:** Inspect/search/debug, then edit -> full `checkdiff` -> revert or refine. There were about 21 edit calls and 23 checkdiff calls. Pivotal tools were full instruction diffs, MWCC regflow diagnostics, allocator snapshots, and object disassembly. A 2,500-iteration permuter run and mutation previews did not solve it. Past-PR, graph, ledger, and knowledge searches supplied context, not the final code.
++
++## Near-miss worker: why it stalled
++
++- The remaining code mismatch was precise: the target assigned `frame_speed_mul` to f1 and item X to f0, while the candidate assigned them to f0 and f1, also swapping dependent `fdivs`/`fsubs` operands. It tried more than 100 source shapes across helper signatures, expression forms, local scope/order, copies, types, accessors, container/stack layouts, and statement scheduling, plus six permuter runs. It never produced or isolated a semantics-empty use that changed only the two values' live ranges, the exact worker's successful pattern.
++- The stall was diagnosable, and the worker neither misread nor ignored it: "A distinct X-coordinate local or direct X expression produces the desired register ownership and matching fdivs/fsubs operands, but reorders the independent interpolation and throw-speed chains and falls to 94.47445%." Allocator captures later confirmed the virtual-register assignments. The unsolved problem was preserving schedule after fixing ownership.
++- **Loop quality:** Mixed. Diagnosis was specific and systematic, but roughly 208 edits and 203 checkdiff calls became repetitive, with duplicate checks and many low-yield variants. It restored baseline after regressions and retained no bad edit.
++
++## Transferable technique
++
++- When a near-match is a persistent-register swap, map each mismatched physical register to its source value and inspect allocator live ranges before changing semantics.
++- When the desired register ownership is known, test a separate semantics-empty use of the affected value at the boundary where its lifetime must extend; validate that it changes coloring without changing control flow or scheduling.
++- After a source form fixes register ownership, compare instruction scheduling separately. Reject it if independent loads or arithmetic move, even when the focal operands now match.
++- After a surprising exact match, falsify the explanation with nearby variants, then run repeated target checks and neighboring-function/TU validation before retaining a guarded `MUST_MATCH` tactic.
++
++## Flags
++
++- exact_loop: mixed
++- control_loop: mixed
++- outcome_explained_by_process: partial
++- techniques: asm-diff-instruction-level, register-allocation-reasoning, scheduling-reasoning, type-shape-experiments, permuter, past-pr-lookup, inline-hypothesis
+
+tokens used
+99,349
+DONE

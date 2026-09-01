@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { immediateTransaction, now, withBusyRetry, writeSetHash, type StateStore } from "@server/core/orchestrator-state";
 import type { WriteSetEntry } from "./write-set-categories.js";
-import { enqueueBackgroundKnowledgeForWorker } from "@server/core/knowledge/background/index.js";
 import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
 import type { ClaimToken } from "@server/core/job-queue/types.js";
 import { MAX_CONSECUTIVE_TARGET_INFRA_FAILURES } from "./infrastructure-failure.js";
@@ -847,6 +846,5 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
         `,
       )
       .run(String(row.epoch_id));
-    enqueueBackgroundKnowledgeForWorker(store, input.workerStateId);
   });
 }

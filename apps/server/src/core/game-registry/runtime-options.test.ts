@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parse } from "./runtime-options.js";
+import { parse, workerSummaryFlag } from "./runtime-options.js";
 
 describe("game CLI options", () => {
   test("preserves canonical cycle flags", () => {
@@ -30,5 +30,13 @@ describe("game CLI options", () => {
     ]);
     expect(parsed.args.get("--kernel-project-id")).toBe("kernel-game");
     expect(parsed.args.get("--orchestrator-project-id")).toBe("orchestrator-game");
+  });
+
+  test("defaults worker summaries off", () => {
+    expect(workerSummaryFlag(parse(["status"]).args)).toBe(false);
+  });
+
+  test("enables worker summaries with --worker-summary", () => {
+    expect(workerSummaryFlag(parse(["status", "--worker-summary"]).args)).toBe(true);
   });
 });

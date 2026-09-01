@@ -220,7 +220,10 @@ export interface KernelPromptBundleConversion {
   contextResolver?: AgentContextResolver | null;
 }
 
-export type ResolveMeleeKernelAgent = (role: RuntimeAgentRole) => MeleeKernelAgentCatalogEntry;
+export type ResolveMeleeKernelAgent = (
+  role: RuntimeAgentRole,
+  catalogAgentId?: KernelAgentId,
+) => MeleeKernelAgentCatalogEntry;
 
 export type ConvertMeleeKernelPromptBundle = (
   entry: MeleeKernelAgentCatalogEntry,
@@ -238,6 +241,7 @@ export interface MeleeKernelSpawnRuntime {
 }
 
 export interface MeleeKernelPiRunOptions extends PiRunOptions {
+  catalogAgentId?: KernelAgentId;
   autoInitializeKernelRuntime?: boolean;
   kernelContext?: MeleeKernelSpawnContext;
   kernelOptions?: MeleeKernelSpawnOptions;
@@ -455,7 +459,7 @@ export function createMeleeKernelPiAgentRunner(
       traceWriter,
       ...piOptions
     } = options;
-    const entry = resolveKernelAgent(piOptions.role);
+    const entry = resolveKernelAgent(piOptions.role, piOptions.catalogAgentId);
     const converted = convertPromptBundle(entry, piOptions.prompt);
     const context = {
       ...defaultKernelContext(piOptions),
@@ -511,6 +515,7 @@ export function createMeleeKernelPiAgentRunner(
       spawnAgent: useKernelCreateSpawnAgent
         ? createMeleeKernelSpawnAgent({
             piOptions,
+            expectedAgentName: entry.name,
             parsedAgent: converted.parsed,
             contextResolver: converted.contextResolver ?? null,
             runtime: {
@@ -627,8 +632,8 @@ export const buildMeleeKernelToolFactories: BuildMeleeKernelToolFactories = (opt
 
 export const runMeleeKernelPiAgent = createMeleeKernelPiAgentRunner({
   buildToolFactories: buildMeleeKernelToolFactories,
-  resolveKernelAgent(role) {
-    return meleeKernelAgent(role as KernelAgentId);
+  resolveKernelAgent(role, catalogAgentId) {
+    return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
   },
   runPiAgent,
   toKernelParsedAgentFromBundle(entry, bundle) {

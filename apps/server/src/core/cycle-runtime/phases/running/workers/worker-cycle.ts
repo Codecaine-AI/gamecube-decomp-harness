@@ -33,6 +33,7 @@ import {
   openKnowledgeGraph,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
+import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import {
   captureWorkspaceGitDiff,
   runCommand,
@@ -1366,7 +1367,11 @@ async function executeClaimedWorker(params: {
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
     const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath });
     const target = targetPacketTarget(claimed.target);
-    const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath);
+    const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath, {
+      unit: String(target.unit ?? ""),
+      symbol: (target.symbol as string | undefined) ?? null,
+      gameId: game?.gameId,
+    });
     const initialBoardPath = resolve(globals.stateDir, "runs", runId, "snapshots", "initial_board.json");
     const reportDir = resolve(outputDir, "state");
     await mkdir(reportDir, { recursive: true });
@@ -2380,13 +2385,26 @@ async function executeClaimedWorker(params: {
     };
 }
 
-export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resourceGraphDbPath()): Record<string, unknown> {
+export function buildWorkerKnowledgeContext(
+  sourcePath: string,
+  graphDb = resourceGraphDbPath(),
+  v2?: { unit?: string; symbol?: string | null; gameId?: string },
+): Record<string, unknown> {
   const lookupTools = [...defaultWorkerToolProfile];
+  const v2Card = v2?.unit
+    ? loadV2TargetCard({
+        gameId: v2.gameId,
+        unit: v2.unit,
+        symbol: v2.symbol,
+        budget: "full",
+      })
+    : null;
   if (!sourcePath) {
     return {
       status: "missing_source_path",
       graph_db: graphDb,
       lookup_tools: lookupTools,
+      ...(v2Card ? { knowledge_card_v2: v2Card } : {}),
     };
   }
   if (!graphDbExists(graphDb)) {
@@ -2394,6 +2412,7 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
       status: "graph_missing",
       graph_db: graphDb,
       lookup_tools: lookupTools,
+      ...(v2Card ? { knowledge_card_v2: v2Card } : {}),
     };
   }
   const store = openKnowledgeGraph(graphDb);
@@ -2404,6 +2423,7 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
       generated_at: new Date().toISOString(),
       file_card: fileGraphCard(store, sourcePath),
       lookup_tools: lookupTools,
+      ...(v2Card ? { knowledge_card_v2: v2Card } : {}),
     };
   } catch (error) {
     return {
@@ -2411,6 +2431,7 @@ export function buildWorkerKnowledgeContext(sourcePath: string, graphDb = resour
       graph_db: graphDb,
       reason: error instanceof Error ? error.message : String(error),
       lookup_tools: lookupTools,
+      ...(v2Card ? { knowledge_card_v2: v2Card } : {}),
     };
   } finally {
     store.db.close();

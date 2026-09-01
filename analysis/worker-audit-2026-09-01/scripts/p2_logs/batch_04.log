@@ -1,0 +1,605 @@
+Reading additional input from stdin...
+OpenAI Codex v0.151.0
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a05d7a-d381-74b0-a907-89093a74fc88
+--------
+user
+# Task: Worker-audit Phase 2 — self-summary sweep, batch 04
+
+You are auditing AI decomp workers (they try to make C source byte-match GameCube asm; score = match %). Your batch file is:
+`/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/scripts/p2_batches/batch_04.tsv`
+Tab-separated columns: ws_id, cohort, epoch, target_key, baseline_score, best_score, artifact_dir.
+Cohorts: exact (reached 100%), near_miss (>=99.5 but not exact), progressed, no_progress.
+
+For EACH row, read the worker's self-summary files: every file matching `worker_*.txt` directly inside artifact_dir (each ~4KB JSON-ish text; there may be 1-3; a missing dir or no files -> note it and move on). These summaries describe what the worker tried and why it stalled or succeeded.
+
+Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+Produce exactly two output files:
+
+1. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.json` — array with one record per worker:
+   {"ws_id", "cohort", "epoch", "target_key",
+    "techniques": [short slugs of concrete techniques the worker described using, e.g. "asm-diff-instruction-level", "register-allocation-reasoning", "permuter", "past-pr-lookup", "type-shape-experiments", "float-literal-tricks", "loop-restructure", "checkpoint-restore", "inline-hypothesis" — invent slugs as needed but keep them consistent and reusable],
+    "stall_reason": one short phrase or null (e.g. "single fcmpo register mismatch", "stack frame layout", "regalloc churn", "instruction scheduling"),
+    "success_factor": one short phrase or null — for exact workers, what per their own account closed the gap,
+    "loop_quality": one of "systematic" (each edit driven by reading the diff), "mixed", "shotgun" (variant spam without diagnosis), "unknown",
+    "notable": one sentence if anything unusual, else null}
+2. `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md` — <=60 lines: counts of techniques by cohort within this batch, the 3 most interesting exact-worker accounts (2 sentences each, with ws_id), the most common stall_reason per cohort, and anything that surprised you.
+
+Be evidence-based: only record techniques the summary actually describes, don't infer from the score. Read files with stdlib scripting if that is faster than opening each one. Do not modify anything outside /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes. Print DONE plus record count when finished.
+codex
+I’m using the Pi agent tool-analysis skill because this task is the repository’s worker-audit/report workflow. I’ll read its instructions, split the batch across parallel sub-agents, then validate and write only the two requested files.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/.codex/skills/pi-agent-tool-analysis-report/SKILL.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: pi-agent-tool-analysis-report
+description: "Build, rerun, update, and interpret the repo's Pi agent tool-analysis reports. Use when a user asks to regenerate reports/pi-agent-tool-analysis-*.html or *.stats.json, compare Pi worker sweeps, analyze worker tool usage/lift, review kill thresholds, update report HTML formatting, or preserve the repeatable report workflow from reports/."
+---
+
+# Pi Agent Tool Analysis Report
+
+Use this skill to refresh the Pi worker tool-analysis report from repo-local
+SQLite events and worker JSONL transcripts. Keep the existing analyzer and
+renderer scripts as the source of truth unless the user explicitly asks to
+change the report shape.
+
+For report semantics, HTML section expectations, and formatting notes, read
+`references/report-contract.md` before changing `scripts/analyze-pi-agent-tools.py`
+or `scripts/render-pi-agent-tool-report.py`.
+
+## Standard Workflow
+
+1. Work from the repository root. Inspect recent artifacts and current run
+   mapping:
+
+   ```bash
+   ls -t reports/pi-agent-tool-analysis-* 2>/dev/null | head -20
+   sed -n '/^RUNS = {/,/^}/p' scripts/analyze-pi-agent-tools.py
+   ```
+
+2. Discover candidate run IDs from the state database. Do not infer run IDs from
+   report filenames.
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   db = sqlite3.connect("projects/melee/state/orchestrator.sqlite")
+   rows = db.execute("""
+     SELECT run_id, COUNT(*) AS sessions, MIN(created_at), MAX(created_at)
+     FROM pi_sessions
+     WHERE role='worker'
+     GROUP BY run_id
+     ORDER BY MAX(created_at) DESC
+     LIMIT 12
+   """)
+   for run_id, sessions, first, last in rows:
+       print(f"{run_id}\t{sessions}\t{first}\t{last}")
+   PY
+   ```
+
+3. Map the baseline/control sweep to `run1` and the new/experiment/latest sweep
+   to `run2`. If the mapping needs to change, prefer the helper:
+
+   ```bash
+   python3 .codex/skills/pi-agent-tool-analysis-report/scripts/set-pi-tool-runs.py \
+     --run1 <baseline-or-control-run-id> \
+     --run2 <experiment-or-latest-run-id>
+   ```
+
+4. Build durable artifacts beside the report:
+
+   ```bash
+   export OUT="reports/pi-agent-tool-analysis-$(date +%F)"
+   python3 scripts/analyze-pi-agent-tools.py "${OUT}.stats.json"
+   python3 scripts/render-pi-agent-tool-report.py "${OUT}.stats.json" "${OUT}.html"
+   ```
+
+   Use a `/tmp/*.json` stats path only for scratch exploration. For a handoff or
+   rerunnable result, keep `reports/*.stats.json` next to `reports/*.html`.
+
+5. Validate the output before reporting success:
+
+   ```bash
+   python3 -m json.tool "${OUT}.stats.json" >/dev/null
+   python3 - <<'PY'
+   import json, os
+   out = os.environ.get("OUT", "reports/pi-agent-tool-analysis")
+   with open(out + ".stats.json") as f:
+       stats = json.load(f)
+   assert stats["leases"], "stats JSON has no leases"
+   assert {"run1", "run2"} <= set(stats["funnel"]), "missing run1/run2 funnel"
+   print(len(stats["leases"]), "leases")
+   PY
+   rg -n "\\{\\{|TODO|Traceback|nan" "${OUT}.html"
+   ```
+
+   `rg` returning no matches for the HTML check is expected.
+
+## Interpretation Rules
+
+- Treat `runner_validation` as canonical. "Confirmed" means result
+  `exact`/`improved` with validation status `passed`, not the worker's local
+  claim.
+- Compare runs by rate and worker-hours, not raw success count alone.
+- Keep `run1`/`run2` labels stable for the renderer: `run1` is the comparison
+  baseline, `run2` is the new run.
+- Remember that medium-thinking leases are filtered out by the analyzer; the
+  report is xhigh-only unless the script is intentionally changed.
+- Treat lift as correlational. Use it to choose exposure experiments, not to
+  declare a tool causally good or bad.
+- In-flight leases are excluded from terminal stats. Mid-run refreshes are fine,
+  but call out that the report is a snapshot.
+
+## HTML And Format Changes
+
+- Prefer changing `scripts/render-pi-agent-tool-report.py` and rerendering over
+  hand-editing generated HTML. If a one-off HTML edit is unavoidable, document
+  that in the report's method note.
+- Keep the report self-contained: inline CSS, no external JS, no remote assets.
+- Preserve the method/caveats block near the end and mention data sources,
+  included run IDs, in-flight exclusions, and runner validation.
+- When the user asks for branch-delta or "big sweep" formatting, use
+  `reports/pi-agent-tool-analysis-2026-06-16.html` as the current rich-layout
+  reference and include branch-delta data only when
+  `projects/melee/checkout/build/GALE01/report_changes_production.json` is
+  present and relevant.
+- After any tool surface change, update renderer tier lists before rerendering:
+  `PRIMARY_SURFACE_TOOLS`, `INJECTED_CONTEXT_TOOLS`, `AUTO_CLOSE_TOOLS`,
+  `SPECIALIST_TOOLS`, and the optional-action rules.
+
+  → Inspect batch rows and assign worker summaries
+  • Extract evidence-based records in parallel
+  • Normalize records and calculate cohort counts
+  • Write and validate the two output files
+exec
+/bin/zsh -lc "wc -l scripts/p2_batches/batch_04.tsv && sed -n '1,8p' scripts/p2_batches/batch_04.tsv" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+      80 scripts/p2_batches/batch_04.tsv
+fb04b941-36da-416e-9eeb-9f37b9554fe1	near_miss	1	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800ADE48	99.13976999999998	99.524124	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/fb04b941-36da-416e-9eeb-9f37b9554fe1
+5278078c-7616-4881-8245-ddd8359f1f27	near_miss	1	main/melee/mn/mnsnap::fn_802545C4	99.706955	99.72378	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5278078c-7616-4881-8245-ddd8359f1f27
+bf5ca537-5093-4cf1-893f-884c97eb8ee6	no_progress	1	main/sysdolphin/baselib/debugconsole_main::hsd_80394544	98.287674	98.287674	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/bf5ca537-5093-4cf1-893f-884c97eb8ee6
+59fc58be-deff-4d4e-8b35-49ca2b933728	no_progress	1	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A6D2C	99.30723	99.30723	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/59fc58be-deff-4d4e-8b35-49ca2b933728
+3a8fb2e1-b9bd-4ab6-a67b-a2e756a6ed78	no_progress	1	main/melee/gm/gmtoulib::fn_8018A514	98.60215	98.60215	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/3a8fb2e1-b9bd-4ab6-a67b-a2e756a6ed78
+4f499a70-9c6d-4956-a438-41860f1e98af	near_miss	1	main/melee/ft/chara/ftCommon/ftCo_0D95::fn_800D9930	99.82927	99.82927	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/4f499a70-9c6d-4956-a438-41860f1e98af
+5ed7fda5-1ff6-4d16-aefc-68b9e77c75b5	near_miss	1	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A8940	99.86532	99.86532	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/5ed7fda5-1ff6-4d16-aefc-68b9e77c75b5
+44e0dde9-cd5c-4aa1-bf6f-ddb10021362c	near_miss	1	main/melee/ft/chara/ftCommon/ftCo_0A01::ftCo_800A6700	99.78260999999999	99.78260999999999	/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/runs/4a45af8a-9f8c-499b-b375-c0d8e93fc8fd/worker_state/44e0dde9-cd5c-4aa1-bf6f-ddb10021362c
+
+codex
+Step 1 of 4 done: 80 workers found. Four parallel reviewers will each handle 20 rows; missing summaries will remain explicit `unknown` records instead of being dropped.
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv, glob, os, collections
+p='scripts/p2_batches/batch_04.tsv'
+rows=list(csv.reader(open(p),delimiter='\\t'))
+print('cohorts',dict(collections.Counter(r[1] for r in rows)))
+miss=[]; counts=collections.Counter()
+for i,r in enumerate(rows,1):
+ f=glob.glob(os.path.join(r[6],'worker_*.txt'))
+ counts[len(f)]+=1
+ if not f: miss.append((i,r[0],r[1],os.path.isdir(r[6])))
+print('summary_file_counts',dict(counts))
+print('missing',miss)
+print('exact_rows')
+for i,r in enumerate(rows,1):
+ if r[1]=='exact': print(i,r[0],r[3],len(glob.glob(os.path.join(r[6],'worker_*.txt'))))
+PY" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+cohorts {'near_miss': 20, 'no_progress': 38, 'exact': 5, 'progressed': 17}
+summary_file_counts {4: 5, 7: 2, 12: 1, 34: 1, 8: 1, 5: 47, 1: 10, 2: 10, 3: 3}
+missing []
+exact_rows
+11 154e451d-ec65-4d6e-bd4d-2d689ea04e7a main/melee/gr/grbigblue::grBigBlue_801E8D64 1
+23 96fe32d4-255a-4dfd-abe5-70829ced443e main/melee/gm/gmtou_1::fn_801981A0 2
+35 63f4c0f1-0afe-4cb7-9218-4252f0d9cf25 main/melee/mn/mnmainrule::mn_8022FB88 2
+44 e26d51ec-0a99-438c-8586-9f8d749d4689 main/melee/gr/grbigblue::grBigBlue_801E6364 2
+46 03f25a33-7b78-4ee1-bf82-6b473c53cab8 main/melee/gm/gmtou_1::fn_801983E4 2
+
+codex
+All 80 artifact directories contain summaries. Five exact workers are present; the final report will select three based on the clearest self-described gap-closing evidence, not score alone.
+Batch inventory is complete and all artifact directories contain at least one matching summary.
+  ✓ Inspect batch rows and assign worker summaries
+  → Extract evidence-based records in parallel
+  • Normalize records and calculate cohort counts
+  • Write and validate the two output files
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+collab: Wait
+codex
+Step 2 of 4 done: all 80 records are extracted. I’m consolidating synonymous technique names (for example stack-padding variants) so the cohort counts are meaningful and reusable.
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'ls -l /tmp/batch04_part*.json 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+-rw-r--r--@ 1 Ford  wheel  12377 Sep  1 10:01 /tmp/batch04_part1.json
+-rw-r--r--@ 1 Ford  wheel  11686 Sep  1 10:01 /tmp/batch04_part2.json
+-rw-r--r--@ 1 Ford  wheel  11272 Sep  1 10:01 /tmp/batch04_part3.json
+-rw-r--r--@ 1 Ford  wheel  10604 Sep  1 10:01 /tmp/batch04_part4.json
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import json, csv, collections, os
+parts=[]
+for i in range(1,5):
+    with open(f'/tmp/batch04_part{i}.json') as f: parts += json.load(f)
+rows=list(csv.reader(open('scripts/p2_batches/batch_04.tsv'), delimiter='\\t'))
+assert len(parts)==len(rows)==80
+assert [x['ws_id'] for x in parts]==[r[0] for r in rows]
+# Conservative synonym normalization: merge only equivalent labels.
+alias={
+ 'stack-layout-reasoning':'stack-layout-analysis','stack-layout-reconstruction':'stack-layout-analysis',
+ 'pad-stack-tuning':'stack-padding-adjustment','stack-padding':'stack-padding-adjustment',
+ 'local-lifetime-experiments':'scoped-local-lifetime','lifetime-scope-experiments':'scoped-local-lifetime',
+ 'variable-lifetime-experiments':'scoped-local-lifetime','local-scope-tuning':'scoped-local-lifetime',
+ 'stack-local-scope-experiments':'scoped-local-lifetime','scoped-local-lifetime':'scoped-local-lifetime',
+ 'allocator-capture':'mwcc-allocator-snapshot','past-source-lookup':'historical-source-lookup',
+ 'historical-source-lookup':'historical-source-lookup','sibling-source-lookup':'nearby-function-lookup',
+ 'analog-function-lookup':'nearby-function-lookup','analogue-function-comparison':'nearby-function-lookup',
+ 'branch-restructure':'control-flow-restructure','float-literal-correction':'float-literal-tricks',
+ 'direct-float-literal':'float-literal-tricks','sdata2-order-control':'sdata2-order-reconstruction',
+ 'sdata2-order-helper':'sdata2-order-reconstruction','manual-qemu-compile':'qemu-compiler-workaround',
+ 'qemu-compiler-diagnosis':'qemu-compiler-workaround','pointer-alias-experiments':'alias-lifetime-experiment',
+ 'pointer-alias-removal':'alias-elimination','alias-lifetime-reduction':'alias-lifetime-experiment',
+ 'variable-reuse-experiments':'variable-reuse-experiments','type-shape-analysis':'type-shape-experiments',
+ 'declaration-order-analysis':'declaration-order-experiments','direct-expression-substitution':'direct-expression-substitution',
+ 'temporary-elimination':'temporary-elimination','padding-adjustment':'stack-padding-adjustment',
+ 'helper-extraction':'helper-boundary-experiments','inline-helper-extraction':'helper-boundary-experiments',
+ 'inline-hypothesis':'inline-hypothesis','canonical-header-inline':'inline-hypothesis',
+ 'copied-helper-removal':'helper-boundary-experiments'
+}
+for x in parts:
+    x['epoch']=int(x['epoch'])
+    seen=[]
+    for t in x['techniques']:
+        t=alias.get(t,t)
+        if t not in seen: seen.append(t)
+    x['techniques']=seen
+    assert x['loop_quality'] in {'systematic','mixed','shotgun','unknown'}
+# Counts
+cohorts=['exact','near_miss','progressed','no_progress']
+counts={c:collections.Counter(t for x in parts if x['cohort']==c for t in x['techniques']) for c in cohorts}
+# Most frequent exact phrase (null separately)
+stalls={}
+for c in cohorts:
+    vals=[x['stall_reason'] for x in parts if x['cohort']==c and x['stall_reason']]
+    co=collections.Counter(vals)
+    stalls[c]=co.most_common()
+# Markdown <=60 lines, full technique counts per cohort.
+lines=['# Worker-audit Phase 2 — batch 04','',f'Workers: **{len(parts)}** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one "'`worker_*.txt` summary.'"','','## Technique counts by cohort','']
+for c in cohorts:
+    vals=', '.join(f'"'`{k}` {v}'"' for k,v in sorted(counts[c].items(), key=lambda kv:(-kv[1],kv[0]))) or 'None'
+    lines += [f'- **{c} ({sum(1 for x in parts if x[\"cohort\"]==c)} workers):** {vals}']
+lines += ['','## Three exact-worker accounts','',
+'**154e451d-ec65-4d6e-bd4d-2d689ea04e7a:** The worker isolated the last gap to a malformed maximum-float sentinel. Changing "'`3.4028235e28f` to `-3.4028235e38f` restored the expected relocation and reached exact.'"',
+'',
+'**63f4c0f1-0afe-4cb7-9218-4252f0d9cf25:** A packed "'`JObjIndices` union with typed byte-walker loops fixed every instruction mismatch. Standalone scoring still named four relocations differently, but runner data-value validation recorded 100%.'"',
+'',
+'**03f25a33-7b78-4ee1-bf82-6b473c53cab8:** The body needed a "'`0.01f` argument correction, while a sanctioned ordering helper reconstructed all 35 `.sdata2` entries. Together those code and data-layout changes closed the gap.'"',
+'', '## Most common stall reason by cohort','',
+'- **exact:** none; all five report a closing factor instead.',
+'- **near_miss:** no exact phrase repeated; register-allocation mismatches dominate the distinct descriptions.',
+'- **progressed:** no exact phrase repeated; remaining register/source-shape allocation differences dominate.',
+'- **no_progress:** "'`compiler-wrapper execution failure` (3); many other unique descriptions are register-coloring variants.'"',
+'', '## Surprises','',
+'- Several summaries described opcode-identical or instruction-identical output that still missed because of relocation identity or register provenance.',
+'- Workers repeatedly rejected higher-scoring permuter outputs when they required implausible micro-helpers or prohibited "'`volatile` locals.'"',
+'- Broken 32-bit compiler execution was sometimes bypassed with "'`qemu-i386`, but elsewhere prevented validation entirely.'"'
+]
+assert len(lines)<=60, len(lines)
+outdir='phase2_notes'; os.makedirs(outdir,exist_ok=True)
+with open(outdir+'/batch_04.json','w') as f: json.dump(parts,f,indent=2); f.write('\\n')
+with open(outdir+'/batch_04.md','w') as f: f.write('\\n'.join(lines)+'\\n')
+print('records',len(parts),'md_lines',len(lines))
+print('json_bytes',os.path.getsize(outdir+'/batch_04.json'))
+PY
+python3 -m json.tool phase2_notes/batch_04.json >/dev/null
+wc -l phase2_notes/batch_04.md
+ls -l phase2_notes/batch_04.json phase2_notes/batch_04.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+records 80 md_lines 31
+json_bytes 54836
+      31 phase2_notes/batch_04.md
+-rw-r--r--@ 1 Ford  staff  54836 Sep  1 10:02 phase2_notes/batch_04.json
+-rw-r--r--@ 1 Ford  staff   5707 Sep  1 10:02 phase2_notes/batch_04.md
+
+codex
+Step 3 of 4 done: normalization and cohort statistics are complete. I’m applying the required unslop pass to the Markdown, then checking schema, row order, line count, and output scope.
+exec
+/bin/zsh -lc "sed -n '1,260p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..c88b86a6bc66f7562c32e49a3ec27241c35faa9f
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,4 +1,4 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+ Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..c88b86a6bc66f7562c32e49a3ec27241c35faa9f
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,4 +1,4 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+ Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+
+exec
+/bin/zsh -lc "python3 - <<'PY'
+import csv,json
+jp='phase2_notes/batch_04.json'; mp='phase2_notes/batch_04.md'
+rows=list(csv.reader(open('scripts/p2_batches/batch_04.tsv'),delimiter='\\t'))
+data=json.load(open(jp))
+keys={'ws_id','cohort','epoch','target_key','techniques','stall_reason','success_factor','loop_quality','notable'}
+assert len(data)==80
+assert all(set(x)==keys for x in data)
+assert [x['ws_id'] for x in data]==[r[0] for r in rows]
+assert all((x['cohort'],x['epoch'],x['target_key'])==(r[1],int(r[2]),r[3]) for x,r in zip(data,rows))
+assert all(x['success_factor'] is None for x in data if x['cohort']"'!='"'exact')
+assert all(x['success_factor'] for x in data if x['cohort']=='exact')
+assert all(len(x['techniques'])==len(set(x['techniques'])) for x in data)
+assert sum(1 for _ in open(mp))<=60
+print('schema_ok records=80 exact_success_factors=5 md_lines='+str(sum(1 for _ in open(mp))))
+PY
+rg -n '—|Additionally|crucial|delve|showcase|testament|I hope|Let me know' phase2_notes/batch_04.md || true
+git status --short -- phase2_notes/batch_04.json phase2_notes/batch_04.md" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01
+ succeeded in 0ms:
+schema_ok records=80 exact_success_factors=5 md_lines=31
+3:Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+?? phase2_notes/batch_04.json
+?? phase2_notes/batch_04.md
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..c88b86a6bc66f7562c32e49a3ec27241c35faa9f
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,4 +1,4 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+ Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..d3b91c5d1dc4a240f855b2130b72d1d5b682ff0e
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,6 +1,6 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+-Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
++Workers: **80**. Cohorts include exact 5, near_miss 20, progressed 17, and no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+ ## Technique counts by cohort
+ 
+
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..d3b91c5d1dc4a240f855b2130b72d1d5b682ff0e
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,6 +1,6 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+-Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
++Workers: **80**. Cohorts include exact 5, near_miss 20, progressed 17, and no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+ ## Technique counts by cohort
+ 
+
+The two requested files are written and passed schema, order, cohort metadata, exact-worker success-factor, uniqueness, JSON syntax, and Markdown line-count checks.
+  ✓ Inspect batch rows and assign worker summaries
+  ✓ Extract evidence-based records in parallel
+  ✓ Normalize records and calculate cohort counts
+  ✓ Write and validate the two output files
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..d3b91c5d1dc4a240f855b2130b72d1d5b682ff0e
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,6 +1,6 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+-Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
++Workers: **80**. Cohorts include exact 5, near_miss 20, progressed 17, and no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+ ## Technique counts by cohort
+ 
+
+codex
+DONE — 80 records.
+
+- [batch_04.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.json)
+- [batch_04.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md)
+diff --git a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+index c97afcce6f29a1ca0e67368354d1a310f8db5290..d3b91c5d1dc4a240f855b2130b72d1d5b682ff0e
+--- a/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
++++ b/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md
+@@ -1,6 +1,6 @@
+-# Worker-audit Phase 2 — batch 04
++# Worker-audit Phase 2, Batch 04
+ 
+-Workers: **80** — exact 5, near_miss 20, progressed 17, no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
++Workers: **80**. Cohorts include exact 5, near_miss 20, progressed 17, and no_progress 38. All 80 artifact directories had at least one `worker_*.txt` summary.
+ 
+ ## Technique counts by cohort
+ 
+
+tokens used
+101,918
+DONE — 80 records.
+
+- [batch_04.json](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.json)
+- [batch_04.md](/Users/Ford/Github%20Repos/Codecaine/gamecube-decomp-harness/analysis/worker-audit-2026-09-01/phase2_notes/batch_04.md)

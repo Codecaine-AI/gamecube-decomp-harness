@@ -6,10 +6,6 @@ import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/cor
 import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
 import { queryBackgroundKnowledgeSummary } from "@server/core/knowledge/background/index.js";
 import {
-  defaultBackfillManifestPath,
-  loadBackfillManifest,
-} from "@server/core/knowledge/jobs/librarian-backfill.js";
-import {
   activeSchedulerEpoch,
   activeWorkerCount,
   getRun,
@@ -189,17 +185,6 @@ export interface DashboardSyncSummary {
       at: string | null;
       messages_pulled: number | null;
     } | null;
-    staged: {
-      batches: number;
-      messages: number;
-      days: number;
-      channels: number;
-    } | null;
-    corpus: {
-      batches_done: number;
-      messages_indexed: number;
-      through_month: string | null;
-    };
   } | null;
   staging: {
     epochs_applied: number;
@@ -1079,8 +1064,7 @@ function syncSummaryProjection(
          AND correlation_id = ?
          AND event_type IN (
            'sync.discord_refresh_requested',
-           'sync.discord_refresh_completed',
-           'sync.discord_staged'
+           'sync.discord_refresh_completed'
          )
        ORDER BY sequence ASC`,
     )
@@ -1096,25 +1080,9 @@ function syncSummaryProjection(
   );
   const latestDiscordRequested = latestDiscordEvent("sync.discord_refresh_requested");
   const latestDiscordCompleted = latestDiscordEvent("sync.discord_refresh_completed");
-  const latestDiscordStaged = latestDiscordEvent("sync.discord_staged");
   const completedPayload = latestDiscordCompleted ? asObject(JSON.parse(latestDiscordCompleted.payload_json)) : null;
-  const stagedPayload = latestDiscordStaged ? asObject(JSON.parse(latestDiscordStaged.payload_json)) : null;
   const refreshIsRunning = latestDiscordRequested !== null && (
     latestDiscordCompleted === null || latestDiscordRequested.sequence > latestDiscordCompleted.sequence
-  );
-  const discordManifest = loadBackfillManifest(defaultBackfillManifestPath(store.stateDir, "discord"));
-  const discordCorpus = [...discordManifest.values()].reduce(
-    (corpus, row) => {
-      if (row.status !== "done") return corpus;
-      const descriptor = asObject(row.descriptor);
-      corpus.batches_done += 1;
-      corpus.messages_indexed += numberValue(descriptor.message_count);
-      if (typeof descriptor.month === "string" && (
-        corpus.through_month === null || descriptor.month > corpus.through_month
-      )) corpus.through_month = descriptor.month;
-      return corpus;
-    },
-    { batches_done: 0, messages_indexed: 0, through_month: null as string | null },
   );
   const discord = {
     refresh: refreshIsRunning
@@ -1134,15 +1102,6 @@ function syncSummaryProjection(
               : null,
           }
         : null,
-    staged: stagedPayload
-      ? {
-          batches: numberValue(stagedPayload.batches),
-          messages: numberValue(stagedPayload.messages),
-          days: numberValue(stagedPayload.days),
-          channels: numberValue(stagedPayload.channels),
-        }
-      : null,
-    corpus: discordCorpus,
   };
   const reconciliationCounts = {
     clean: 0,

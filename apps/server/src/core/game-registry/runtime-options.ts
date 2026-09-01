@@ -175,6 +175,10 @@ export function booleanArg(args: Map<string, string | true>, name: string): bool
   return args.get(name) === true;
 }
 
+export function workerSummaryFlag(args: Map<string, string | true>): boolean {
+  return booleanArg(args, "--worker-summary");
+}
+
 export function writeSetWideningArg(args: Map<string, string | true>): WriteSetWideningMode {
   const raw = args.get("--write-set-widening");
   const value = (raw === true ? "shadow" : typeof raw === "string" ? raw : "off").trim().toLowerCase();

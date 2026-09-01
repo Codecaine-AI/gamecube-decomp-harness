@@ -100,10 +100,6 @@ function fixture(
     },
     sourceRoot: () => root,
     refreshDiscordMirror: async () => ({ ok: true, detail: "discord mirror test fixture" }),
-    stageDiscordSyncBatches: () => ({
-      corpusBatchIds: [], staged: 0, messageCount: 0, days: 0, channels: 0,
-      firstMessageAt: null, lastMessageAt: null,
-    }),
     ...(processors ? { processors } : {}),
     ...extraDeps,
   });
@@ -270,7 +266,7 @@ describe("S4 sync operator runtime", () => {
 
     await current.runtime.start({ gameId: "melee", syncId: "sync-prepare-intake" });
 
-    expect(commands).toHaveLength(2);
+    expect(commands).toHaveLength(1);
     expect(commands[0]).toEqual(expect.arrayContaining([
       "--orchestrator-run-id",
       "sync-prepare-intake",
@@ -278,19 +274,14 @@ describe("S4 sync operator runtime", () => {
       "--pr",
       "41",
     ]));
-    expect(commands[1]).toContain("kg-knowledge-intake-agent");
   });
 
-  test("dispatches staged Discord corpus through kg-librarian-batch", async () => {
+  test("keeps legacy Discord-shaped staged corpus on the JSON passthrough path", async () => {
     const commands: string[][] = [];
     const current = fixture(defaultSyncGitRunner, null, {
       runCli: async (command) => {
         commands.push(command);
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify({ command: "kg-librarian-batch", batch_id: "batch-17", failed: false }),
-          stderr: "",
-        };
+        return { exitCode: 0, stdout: "{}", stderr: "" };
       },
     });
     const source = resolve(current.stateDir, "staged_corpora", "discord-batch-17.json");
@@ -304,26 +295,7 @@ describe("S4 sync operator runtime", () => {
 
     await current.runtime.start({ gameId: "melee", syncId: "sync-discord-corpus" });
 
-    expect(commands).toHaveLength(1);
-    expect(commands[0]).toEqual([
-      "bun",
-      resolve(current.root, "job-runner.ts"),
-      "--game",
-      "melee",
-      "--repo-root",
-      current.paths.repoRoot,
-      "--state-dir",
-      current.stateDir,
-      "kg-librarian-batch",
-      "--batch-file",
-      source,
-      "--run-id",
-      "sync-discord-corpus",
-      "--output-dir",
-      expect.stringContaining("/agent"),
-      "--manifest-path",
-      resolve(current.stateDir, "knowledge_librarian", "backfill", "discord", "manifest.jsonl"),
-    ]);
+    expect(commands).toEqual([]);
   });
 
   test("keeps plain staged corpus on the JSON passthrough path", async () => {
@@ -450,11 +422,9 @@ describe("S4 sync operator runtime", () => {
   test.each<{
     ok: boolean;
     detail: string;
-    staged: number;
-    batchIds: string[];
   }>([
-    { ok: true, detail: "refresh complete", staged: 0, batchIds: [] as string[] },
-    { ok: false, detail: "refresh unavailable; using mirror", staged: 1, batchIds: ["discord-fixture"] },
+    { ok: true, detail: "refresh complete" },
+    { ok: false, detail: "refresh unavailable; using mirror" },
   ])("records the complete Discord observation sequence when refresh ok=$ok", async (scenario) => {
     const emitted: SyncWorkflowEventInput[] = [];
     const current = fixture(async (_repoRoot, args) => {
@@ -465,15 +435,6 @@ describe("S4 sync operator runtime", () => {
       throw new Error(`Unexpected git command: ${args.join(" ")}`);
     }, undefined, {
       refreshDiscordMirror: async () => ({ ok: scenario.ok, detail: scenario.detail }),
-      stageDiscordSyncBatches: () => ({
-        corpusBatchIds: scenario.batchIds,
-        staged: scenario.staged,
-        messageCount: scenario.staged * 12,
-        days: scenario.staged * 2,
-        channels: scenario.staged,
-        firstMessageAt: scenario.staged ? "2026-08-20T00:00:00.000Z" : null,
-        lastMessageAt: scenario.staged ? "2026-08-21T00:00:00.000Z" : null,
-      }),
       submitWorkflowEvent: async (_paths, input) => {
         emitted.push(input);
         return { containerId: "discord-sync-intake" };
@@ -482,7 +443,7 @@ describe("S4 sync operator runtime", () => {
     current.store.db.close();
 
     const sync = await current.runtime.observe({ gameId: "melee", syncId: `sync-discord-${String(scenario.ok)}` });
-    expect(sync.intake.corpus_batch_ids).toEqual(scenario.batchIds);
+    expect(sync.intake.corpus_batch_ids).toEqual([]);
     const store = openState(current.stateDir);
     try {
       const events = listGameEvents(store.db).filter((event) => event.subjectId === sync.sync_id);
@@ -490,22 +451,13 @@ describe("S4 sync operator runtime", () => {
         "sync.requested",
         "sync.discord_refresh_requested",
         "sync.discord_refresh_completed",
-        "sync.discord_staged",
         "sync.observation_refreshed",
       ]);
       expect(events[2]?.payload).toEqual(expect.objectContaining({ ok: scenario.ok, detail: scenario.detail }));
-      expect(events[3]?.payload).toMatchObject({
-        batches: scenario.staged,
-        messages: scenario.staged * 12,
-        days: scenario.staged * 2,
-        channels: scenario.staged,
-      });
       expect(emitted.map((event) => [event.operation, event.status])).toEqual([
         ["sync.discord_refresh", scenario.ok ? "completed" : "failed"],
-        ["sync.discord_stage", "completed"],
       ]);
       expect(emitted[0]?.metadata).toMatchObject({ ok: scenario.ok, detail: scenario.detail });
-      expect(emitted[1]?.metadata).toMatchObject({ batches: scenario.staged, days: scenario.staged * 2 });
     } finally {
       store.db.close();
     }
@@ -1047,8 +999,8 @@ describe("sync subprocess retry", () => {
         },
         sleep: async (ms) => { delays.push(ms); },
       },
-      "Merged PR #7 staged knowledge intake",
-      () => ["bun", "job-runner.ts", "kg-knowledge-intake-agent"],
+      "Merged PR #7 staged fetch",
+      () => ["python3", "fetch_recent_pr_dump.py"],
     );
 
     expect(result.exitCode).toBe(0);
@@ -1067,8 +1019,8 @@ describe("sync subprocess retry", () => {
         },
         sleep: async () => {},
       },
-      "Merged PR #8 staged knowledge intake",
-      () => ["bun", "job-runner.ts", "kg-knowledge-intake-agent"],
+      "Merged PR #8 staged fetch",
+      () => ["python3", "fetch_recent_pr_dump.py"],
     );
 
     expect(attempts).toBe(3);

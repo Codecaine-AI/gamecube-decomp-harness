@@ -16,14 +16,13 @@ import { getRun } from "@server/core/cycle-runtime/run-state";
 import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
-import { defaultBackfillManifestPath } from "@server/core/knowledge/jobs/librarian-backfill.js";
 import { sourceDataRoot } from "@server/core/knowledge/paths.js";
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { activateAcquiredSync } from "./activation.js";
 import { createSyncTraceEmitter, type SubmitSyncWorkflowEvent } from "./trace.js";
-import { refreshDiscordMirror, stageDiscordSyncBatches } from "./discord.js";
+import { refreshDiscordMirror } from "./discord.js";
 import { appendSyncDiscordEvent } from "./state.js";
 import {
   cancelSync,
@@ -101,7 +100,6 @@ export interface SyncRuntimeDeps {
   sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
   refreshDiscordMirror?: typeof refreshDiscordMirror;
-  stageDiscordSyncBatches?: typeof stageDiscordSyncBatches;
   withOperation?: <T>(name: string, label: string, stepNames: string[], fn: () => Promise<T>) => Promise<T>;
   processors?: (input: {
     body: Record<string, unknown>;
@@ -690,7 +688,6 @@ function defaultProcessors(
   sync: SyncState,
 ): SyncKnowledgeProcessors {
   const dryRunAgents = body.dryRunAgents === true;
-  const agentFlags = syncAgentFlags(body);
   return {
     async processMergedPr({ artifactDirectory, job }) {
       const number = Number(job.sourceId.replace(/^pr-/, ""));
@@ -737,40 +734,13 @@ function defaultProcessors(
       );
       commandFailure(`Merged PR #${number} staged fetch`, fetched);
       if (!existsSync(postmortem)) throw new Error(`Merged PR #${number} staged postmortem was not produced`);
-      const command = [
-        "bun",
-        deps.serverJobPath,
-        ...(paths.game ? ["--game", paths.game.gameId] : []),
-        "--repo-root",
-        paths.repoRoot,
-        "--state-dir",
-        paths.stateDir,
-        ...(dryRunAgents ? ["--dry-run-agents"] : []),
-        ...agentFlags,
-        "kg-knowledge-intake-agent",
-        "--postmortem",
-        postmortem,
-        "--pr",
-        String(number),
-        "--run-id",
-        sync.sync_id,
-        "--item-id",
-        `pr-${number}`,
-        "--knowledge-curator-enrichment",
-        resolve(artifactDirectory, "curated.jsonl"),
-        "--agent-output-dir",
-        resolve(artifactDirectory, "agent"),
-      ];
-      const curated = await runSyncCliWithRetry(deps, `Merged PR #${number} staged knowledge intake`, () => command);
-      commandFailure(`Merged PR #${number} staged knowledge intake`, curated);
       return {
         pr: number,
         postmortem_path: postmortem,
         postmortem: JSON.parse(readFileSync(postmortem, "utf8")) as JsonValue,
-        curation: parseCliOutput(curated) as JsonValue,
       };
     },
-    async processCorpus({ artifactDirectory, job }): Promise<JsonValue> {
+    async processCorpus({ job }): Promise<JsonValue> {
       const stagedRoot = resolve(paths.stateDir, "staged_corpora");
       const candidates = [
         resolve(stagedRoot, `${job.sourceId}.json`),
@@ -785,52 +755,6 @@ function defaultProcessors(
         parsed = JSON.parse(content) as JsonValue;
       } catch {
         return { corpus_batch_id: job.sourceId, source_path: source, content };
-      }
-      const object = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed as Record<string, unknown>
-        : null;
-      const batch = object?.batch;
-      const payload = object?.payload;
-      const isDiscord = (
-        batch && typeof batch === "object" && !Array.isArray(batch) &&
-        (batch as Record<string, unknown>).source === "discord"
-      ) || (
-        payload && typeof payload === "object" && !Array.isArray(payload) &&
-        (payload as Record<string, unknown>).kind === "discord_backfill"
-      );
-      if (isDiscord) {
-          const command = [
-            "bun",
-            deps.serverJobPath,
-            ...(paths.game ? ["--game", paths.game.gameId] : []),
-            "--repo-root",
-            paths.repoRoot,
-            "--state-dir",
-            paths.stateDir,
-            ...(dryRunAgents ? ["--dry-run-agents"] : []),
-            ...agentFlags,
-            "kg-librarian-batch",
-            "--batch-file",
-            source,
-            "--run-id",
-            sync.sync_id,
-            "--output-dir",
-            resolve(artifactDirectory, "agent"),
-            "--manifest-path",
-            defaultBackfillManifestPath(paths.stateDir, "discord"),
-          ];
-          const librarian = await runSyncCliWithRetry(
-            deps,
-            `Discord corpus ${job.sourceId} librarian batch`,
-            () => command,
-          );
-          commandFailure(`Discord corpus ${job.sourceId} librarian batch`, librarian);
-        return {
-          corpus_batch_id: job.sourceId,
-          source_path: source,
-          kind: "discord_backfill",
-          librarian: parseCliOutput(librarian) as JsonValue,
-        };
       }
       return { corpus_batch_id: job.sourceId, source_path: source, content: parsed };
     },
@@ -939,32 +863,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         detail: mirror.detail,
         metadata: { ok: mirror.ok, detail: mirror.detail, messages_pulled: messagesPulled, duration_ms: durationMs },
       });
-      const discord = (deps.stageDiscordSyncBatches ?? stageDiscordSyncBatches)({ stateDir: paths.stateDir });
-      appendSyncDiscordEvent(store, {
-        syncId,
-        eventType: "sync.discord_staged",
-        payload: {
-          batches: discord.staged,
-          messages: discord.messageCount,
-          days: discord.days,
-          channels: discord.channels,
-          first_message_at: discord.firstMessageAt,
-          last_message_at: discord.lastMessageAt,
-        },
-        actor: actor === "external_observer" ? "runner" : actor,
-        commandId,
-        spanId: actionSpanId,
-      });
-      await emitSyncMilestone(paths, sync, "discord_staged", {
-        detail: `staged ${String(discord.staged)} Discord batch(es)`,
-        metadata: {
-          batches: discord.staged,
-          messages: discord.messageCount,
-          days: discord.days,
-          channels: discord.channels,
-        },
-      });
-      const corpusBatchIds = [...new Set([...bodyCorpusBatchIds, ...discord.corpusBatchIds])]
+      const corpusBatchIds = [...new Set(bodyCorpusBatchIds)]
         .sort((left, right) => left.localeCompare(right));
       sync = recordSyncRequested(store, {
         gameId,
