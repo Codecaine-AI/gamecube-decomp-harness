@@ -46,21 +46,29 @@ Explain the worker's hypotheses, the run's development, each submission's outcom
 </task>
 
 <target_card_reference>
+\`\`\`json
 {{TARGET_CARD_REFERENCE_JSON}}
+\`\`\`
 </target_card_reference>
 
 <checkpoint_submission_digest>
+\`\`\`json
 {{CHECKPOINT_SUBMISSION_DIGEST_JSON}}
+\`\`\`
 </checkpoint_submission_digest>
 
 <worker_transcript>
+\`\`\`json
 {{TRANSCRIPT_JSON}}
+\`\`\`
 </worker_transcript>
 
 <output_contract>
 Return this exact LLM-emitted shape:
 
+\`\`\`json
 {{WORKER_SUMMARIZER_OUTPUT_SCHEMA_JSON}}
+\`\`\`
 </output_contract>
 
 Return exactly one JSON object.`;

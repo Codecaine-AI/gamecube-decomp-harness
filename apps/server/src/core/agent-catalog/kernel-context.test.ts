@@ -10,19 +10,19 @@ describe("renderLoadedKernelContext", () => {
   test("throws with every required input that failed to load", () => {
     const loaded = [
       {
-        decl: { kind: "librarian-context", ref: "batch-42" },
+        decl: { kind: "missing-context", ref: "batch-42" },
         status: "error",
         error: "Unknown loader kind",
       },
       {
-        decl: { kind: "librarian-pr-index-context", ref: "pr-17" },
+        decl: { kind: "worker-summarizer-context", ref: "summary-17" },
         status: "error",
-        error: "PR index unavailable",
+        error: "Worker summary unavailable",
       },
     ] as unknown as LoadedMap;
 
     expect(() => renderLoadedKernelContext(loaded, spawnContext)).toThrow(
-      "Kernel context load failed for required inputs:\nlibrarian-context (batch-42): Unknown loader kind\nlibrarian-pr-index-context (pr-17): PR index unavailable",
+      "Kernel context load failed for required inputs:\nmissing-context (batch-42): Unknown loader kind\nworker-summarizer-context (summary-17): Worker summary unavailable",
     );
   });
 
@@ -34,20 +34,25 @@ describe("renderLoadedKernelContext", () => {
         content: "Session context",
       },
       {
-        decl: { kind: "librarian-curation-context", ref: "curation-1" },
+        decl: { kind: "first-empty-context", ref: "curation-1" },
         status: "empty",
         content: "",
       },
       {
-        decl: { kind: "librarian-pr-index-context", ref: "pr-1" },
+        decl: { kind: "second-empty-context", ref: "blank-1" },
         status: "ok",
-        content: "PR index context",
+        content: "  \n",
+      },
+      {
+        decl: { kind: "worker-summarizer-context", ref: "summary-1" },
+        status: "ok",
+        content: "Worker summary context",
       },
     ] as unknown as LoadedMap;
 
     expect(renderLoadedKernelContext(loaded, spawnContext)).toBe(
       '<melee-session-context ref="session-1">\nSession context\n</melee-session-context>\n\n' +
-        '<librarian-pr-index-context ref="pr-1">\nPR index context\n</librarian-pr-index-context>',
+        '<worker-summarizer-context ref="summary-1">\nWorker summary context\n</worker-summarizer-context>',
     );
   });
 });

@@ -1,9 +1,5 @@
 import { resolve } from "node:path";
-import {
-  librarianPrompt,
-  WORKER_CANONICAL_TOOL_PATHS,
-  workerPrompt,
-} from "@server/core/agent-catalog";
+import { WORKER_CANONICAL_TOOL_PATHS, workerPrompt } from "@server/core/agent-catalog";
 import {
   KERNEL_AGENT_IDS,
   meleeKernelAgent,
@@ -13,7 +9,10 @@ import {
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
 import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
+import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/core/tools";
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
+import { librarianV2Prompt } from "@server/core/agent-catalog/agents/knowledge/librarian-v2/index.js";
+import { backfillLibrarianPrompt } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/index.js";
 
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
@@ -40,6 +39,21 @@ function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undef
     descriptorPath: paths.game.descriptorPath,
     localOverridePath: paths.game.localOverridePath,
   };
+}
+
+function renderedTools(
+  entry: ReturnType<typeof meleeKernelAgent>,
+  paths: KernelAgentCatalogContext,
+): string | null {
+  if (entry.tools.length === 0) return null;
+  const context: AgentToolRuntimeContext = {
+    role: entry.toolProfile,
+    cwd: paths.repoRoot,
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    game: gameMetadata(paths),
+  };
+  return availableToolsPromptXml(context, { replace: entry.tools });
 }
 
 function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext): PiPromptBundle {
@@ -127,36 +141,6 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           "",
         ].join("\n"),
       });
-    case "librarian":
-      return librarianPrompt({
-        librarianBatch: {
-          batch_id: "kernel-viewer-librarian-batch",
-          kind: "worker_run",
-          worker_state: {
-            id: "kernel-viewer-worker-state",
-            target_key: "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c:ftKb_SpecialHi_Enter",
-            baseline_score: 62.5,
-            best_score: 87.5,
-            exact: false,
-          },
-          checkpoints: [
-            {
-              kind: "checkpoint",
-              id: "kernel-viewer-checkpoint-1",
-              attempt_index: 1,
-              new_score: 87.5,
-              delta: 25.0,
-              exact_match: false,
-              improved_over_baseline: true,
-              validation_time: "2026-08-10T00:00:00Z",
-            },
-          ],
-          transcripts: [],
-        },
-        repoRoot: paths.repoRoot,
-        stateDir: paths.stateDir,
-        game,
-      });
     case "worker-summarizer":
       return workerSummarizerPrompt({
         targetCardReference: {
@@ -189,6 +173,64 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
         stateDir: paths.stateDir,
         game,
       });
+    case "librarian-v2":
+      return librarianV2Prompt({
+        task: {
+          pathway: "run_closed",
+          payload: { worker_run_id: "kernel-viewer-run-1" },
+        },
+        object: {
+          run: { id: "kernel-viewer-run-1", target_stable_key: "GALE01:ftDemo_KernelViewerSample" },
+          submissions: [{ seq: 1, hypothesis: "Guard order controls the branch shape." }],
+          proposal: { purpose: "Updates the demo fighter state after the guard passes." },
+        },
+        subjectRecords: {
+          subjects: [{ target_stable_key: "GALE01:ftDemo_KernelViewerSample", facts: [], links: [], evidence: [] }],
+        },
+        searchResults: {
+          attempts: [{
+            locator: "attempt://run/kernel-viewer-run-1/submission/1",
+            stable_key: "GALE01:ftDemo_KernelViewerSample",
+            final_outcome: "improvement",
+            description_snippet: "Reordered the guard branches.",
+          }],
+          discord: [{
+            locator: "discord://message/1234567890",
+            author: "sample-contributor",
+            snippet: "The guard order controls the branch shape.",
+          }],
+        },
+        repoRoot: paths.repoRoot,
+        stateDir: paths.stateDir,
+        game,
+      });
+    case "backfill-librarian":
+      return backfillLibrarianPrompt({
+        task: { mode: "fill_out_pass", reason: "dashboard preview" },
+        fillOutSubjects: [
+          {
+            order: 1,
+            kind: "entity",
+            entity_kind: "translation_unit",
+            entity_locator: "src/melee/ft/chara/ftDemo.c",
+            record: { facts: {}, links: [] },
+            material: { members: [{ stable_key: "GALE01:ftDemo_KernelViewerSample", named: true }], total_pr_count: 2 },
+          },
+          {
+            order: 2,
+            kind: "target",
+            target_stable_key: "GALE01:ftDemo_KernelViewerSample",
+            detail: { symbol: "ftDemo_KernelViewerSample", match_pct: 100, linked: true },
+            ledger: [{ type: "submission", seq: 1, score: 100 }],
+            record: { facts: { purpose: { value: "Updates demo fighter state.", confidence: 0.55 } }, links: [] },
+          },
+        ],
+        supportingSubjects: [],
+        decompStandards: { standards: [{ id: "std-sample", rule: "Match the original file layout." }] },
+        repoRoot: paths.repoRoot,
+        stateDir: paths.stateDir,
+        game,
+      });
   }
 }
 
@@ -200,6 +242,7 @@ export function loadKernelAgentsPayload(paths: KernelAgentCatalogContext): Kerne
     try {
       return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths), {
         generatedAt,
+        renderedTools: renderedTools(entry, paths),
       });
     } catch (error) {
       warnings.push(
@@ -208,6 +251,7 @@ export function loadKernelAgentsPayload(paths: KernelAgentCatalogContext): Kerne
       return toKernelAgentViewerDefinition(entry, undefined, {
         generatedAt,
         warnings: ["Sample prompt render failed; catalog metadata is still available."],
+        renderedTools: renderedTools(entry, paths),
       });
     }
   });

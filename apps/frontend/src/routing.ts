@@ -17,6 +17,7 @@
 //   /cycles/active/run/epoch/<epochId>
 //   /cycles/active/sync/stage/<stage>
 //   /agents
+//   /agents/<agent-name>
 //   /trace
 //   /settings
 //   /style
@@ -36,7 +37,7 @@ export type CycleFocus = "active" | "new" | string;
 
 export type AppRoute =
   | { kind: "dashboard" }
-  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage; cycleDetail?: CycleDetail };
+  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage; cycleDetail?: CycleDetail; agent?: string };
 
 export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: string; description: string }> = [
   { id: "overview", label: "Overview", description: "Active cycle, PR gate, readiness, and next action." },
@@ -226,6 +227,10 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
       : { ...base, cycle, cycleSub };
   }
 
+  if (section === "agents") {
+    return { ...base, agent: second || undefined };
+  }
+
   return base;
 }
 
@@ -264,6 +269,8 @@ export function routeToUrl(route: AppRoute): string {
         }
       }
       url.pathname = `/${segments.join("/")}`;
+    } else if (route.section === "agents" && route.agent) {
+      url.pathname = `/agents/${encodeURIComponent(route.agent)}`;
     } else {
       url.pathname = `/${route.section}`;
     }

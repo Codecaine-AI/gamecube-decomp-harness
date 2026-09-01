@@ -14,6 +14,7 @@ import {
   schedulingForWorkers,
   workerCountOptions,
 } from "@/pages/workspace/_lib/model";
+import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
 import type {
   CycleView,
 } from "@/pages/workspace/_lib/types";
@@ -24,7 +25,6 @@ import {
 } from "./config-card";
 
 const providerOptions = ["codex-lb"] as const;
-const modelOptions = ["gpt-5.6-sol", "gpt-5.6-terra"] as const;
 const sandboxProfileOptions = [
   { label: "2 cores", value: "2-core" },
   { label: "4 cores", value: "4-core" },
@@ -106,7 +106,7 @@ export function RunSetupSection({
               className={twoColumnConfigFieldClass}
               label="Model"
               onChange={(event) => setForm({ model: event.currentTarget.value })}
-              options={modelOptions}
+              options={RUN_MODEL_OPTIONS}
               value={form.model}
             />
             <SelectField

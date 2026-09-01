@@ -18,7 +18,7 @@ function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav
     return <StandardsPage form={props.form} gameName={gameName} onNavigate={props.onNavigate} route={props.route} />;
   }
   if (props.route.section === "agents") {
-    return <AgentsPage form={props.form} />;
+    return <AgentsPage form={props.form} onNavigate={props.onNavigate} route={props.route} setForm={props.setForm} />;
   }
   if (props.route.section === "trace") {
     return <TracePage form={props.form} view={props.view} />;

@@ -5,11 +5,10 @@ import { resolve } from "node:path";
 
 import type { PiPromptBundle } from "@server/core/shared/types";
 
-import {
-  librarianPrompt,
-  workerPrompt,
-} from "@server/core/agent-catalog";
+import { workerPrompt } from "@server/core/agent-catalog";
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
+import { librarianV2Prompt } from "@server/core/agent-catalog/agents/knowledge/librarian-v2/index.js";
+import { backfillLibrarianPrompt } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/index.js";
 import { agentRegistry } from "@server/core/agent-catalog/registry";
 import {
   assertMeleeKernelCatalogComplete,
@@ -21,7 +20,11 @@ import {
   type KernelAgentId,
 } from "./kernel-catalog.js";
 import { loadKernelAgentsPayload } from "./kernel-preview.js";
-import { defaultKernelTurnPrompt, ROOT_CONTEXT_LOADER_KIND } from "./kernel-context.js";
+import {
+  defaultKernelTurnPrompt,
+  renderKernelContextInputsPreview,
+  ROOT_CONTEXT_LOADER_KIND,
+} from "./kernel-context.js";
 import {
   agentToolProfileSummary,
   defaultLibrarianToolProfile,
@@ -29,6 +32,7 @@ import {
   resolveAgentToolIds,
 } from "@server/core/tools/index.js";
 import { createMeleeLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
+import { formatLocator, parseLocator } from "@server/core/knowledge-v2/locator.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
@@ -55,35 +59,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         workerLogDir: resolve(sampleStateDir, "workers"),
         existingCanonicalToolPaths: new Set(),
       });
-    case "librarian":
-      return librarianPrompt({
-        librarianBatch: {
-          batch_id: "sample-librarian-batch",
-          kind: "worker_run",
-          worker_state: {
-            id: "sample-worker-state",
-            target_key: "src/melee/ft/chara/ftDemo.c:ftDemo_Target",
-            baseline_score: 91.25,
-            best_score: 97.5,
-            exact: false,
-          },
-          checkpoints: [
-            {
-              kind: "checkpoint",
-              id: "sample-checkpoint",
-              attempt_index: 1,
-              new_score: 97.5,
-              delta: 6.25,
-              exact_match: false,
-              improved_over_baseline: true,
-              validation_time: "2026-08-10T00:00:00Z",
-            },
-          ],
-          transcripts: [],
-        },
-        repoRoot: sampleRepoRoot,
-        stateDir: sampleStateDir,
-      });
     case "worker-summarizer":
       return workerSummarizerPrompt({
         targetCardReference: {
@@ -102,10 +77,88 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
+    case "librarian-v2":
+      return librarianV2Prompt({
+        task: { pathway: "run_closed", payload: { worker_run_id: "sample-run" } },
+        object: {
+          run: { id: "sample-run", target_stable_key: "GALE01:ftDemo_Target" },
+          submissions: [{ seq: 1, hypothesis: "Guard order controls branch shape." }],
+          proposal: { purpose: "Updates fighter state after the guard passes." },
+        },
+        subjectRecords: {
+          subjects: [{ target_stable_key: "GALE01:ftDemo_Target", facts: [], links: [], evidence: [] }],
+        },
+        searchResults: {
+          attempts: [{
+            locator: "attempt://run/sample-run/submission/1",
+            stable_key: "GALE01:ftDemo_Target",
+            final_outcome: "improvement",
+            description_snippet: "Reordered the guard branches.",
+          }],
+          discord: [{
+            locator: "discord://message/1234567890",
+            author: "sample-contributor",
+            snippet: "The guard order controls the branch shape.",
+          }],
+        },
+        repoRoot: sampleRepoRoot,
+        stateDir: sampleStateDir,
+      });
+    case "backfill-librarian":
+      return backfillLibrarianPrompt({
+        task: { mode: "fill_out_pass" },
+        fillOutSubjects: [
+          {
+            order: 1,
+            kind: "entity",
+            entity_kind: "translation_unit",
+            entity_locator: "src/melee/ft/ftDemo.c",
+            record: { facts: {}, links: [] },
+          },
+          {
+            order: 2,
+            kind: "target",
+            target_stable_key: "GALE01:ftDemo_Target",
+            detail: { symbol: "ftDemo_Target", match_pct: 100, linked: true },
+            ledger: [],
+            record: { facts: { purpose: { value: "Updates fighter state.", confidence: 0.5 } }, links: [] },
+          },
+        ],
+        supportingSubjects: [],
+        decompStandards: { standards: [{ id: "std-sample", rule: "Match the original file layout." }] },
+        repoRoot: sampleRepoRoot,
+        stateDir: sampleStateDir,
+      });
   }
 }
 
 describe("meleeKernelAgentCatalog", () => {
+  test("keeps librarian sample locators in canonical format", () => {
+    const locatorPattern = /(?:discord|wiki|pr|attempt|code):[^\s"'<>\\]+/gu;
+    const locators: string[] = [];
+    const visit = (value: unknown): void => {
+      if (typeof value === "string") {
+        for (const match of value.matchAll(locatorPattern)) locators.push(match[0]);
+        return;
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item);
+        return;
+      }
+      if (value !== null && typeof value === "object") {
+        for (const item of Object.values(value)) visit(item);
+      }
+    };
+
+    visit(samplePrompt("librarian-v2"));
+    visit(samplePrompt("backfill-librarian"));
+
+    expect(locators.length).toBeGreaterThan(0);
+    for (const locator of locators) {
+      expect(formatLocator(parseLocator(locator))).toBe(locator);
+    }
+  });
+
   test("registers every declared context loader kind", () => {
     const catalog = createMeleeLoaderCatalog();
 
@@ -116,24 +169,23 @@ describe("meleeKernelAgentCatalog", () => {
     }
   });
 
-  test("registers all librarian context loader kinds", () => {
-    const catalog = createMeleeLoaderCatalog();
-
-    expect(catalog.has("librarian-context")).toBeTrue();
-    expect(catalog.has("librarian-curation-context")).toBeTrue();
-    expect(catalog.has("librarian-pr-index-context")).toBeTrue();
-  });
-
   test("registers the worker summarizer context loader kind", () => {
     expect(createMeleeLoaderCatalog().has("worker-summarizer-context")).toBeTrue();
+  });
+
+  test("registers the draft librarian context loader kinds", () => {
+    const catalog = createMeleeLoaderCatalog();
+
+    expect(catalog.has("librarian-v2-context")).toBeTrue();
+    expect(catalog.has("backfill-librarian-context")).toBeTrue();
   });
 
   test("covers every registered backend agent exactly once", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
     expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
-    expect(KERNEL_AGENT_IDS).toHaveLength(3);
-    expect(meleeKernelAgentCatalog).toHaveLength(3);
+    expect(KERNEL_AGENT_IDS).toHaveLength(4);
+    expect(meleeKernelAgentCatalog).toHaveLength(4);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
     expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
   });
@@ -155,18 +207,21 @@ describe("meleeKernelAgentCatalog", () => {
     expect(
       agentToolProfileSummary("worker").map((tool) => tool.id),
     ).toContain("ledger_search");
-    expect(meleeKernelAgent("librarian").tools).toEqual([...defaultLibrarianToolProfile]);
     expect(defaultLibrarianToolProfile).toEqual([
       "code_graph_search",
-      "past_prs_search",
-      "decomp_standards_context",
-      "decomp_standards_proposals",
-      "review_lint_scan",
-      "smashwiki_search",
-      "smashwiki_get_page",
-      "ledger_search",
+      "graph_related_functions",
+      "kv2_discord_search",
+      "kv2_wiki_search",
+      "kv2_pr_search",
+      "kv2_attempt_search",
+      "kv2_subject_record",
+      "kv2_entity_lookup",
+      "kv2_resolve_locator",
+      "kv2_unit_context",
     ]);
     expect(meleeKernelAgent("worker-summarizer").tools).toEqual([]);
+    expect(meleeKernelAgent("librarian-v2").tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(meleeKernelAgent("backfill-librarian").tools).toEqual([...defaultLibrarianToolProfile]);
   });
 
   test("describes worker output as a runner validation handoff in the catalog", () => {
@@ -252,8 +307,41 @@ describe("meleeKernelAgentCatalog", () => {
         expect(entry.contextLoaderKinds).toContain(kind);
       }
       expect(viewerDefinition.context?.modulePath).toBe(entry.promptPaths.contextModulePath);
-      expect(viewerDefinition.context?.renderedContext).toBe(bundle.kernelContext?.renderedContext ?? bundle.userPrompt);
+      const renderedInputs = renderKernelContextInputsPreview(bundle.kernelContext?.inputs ?? []);
+      expect(viewerDefinition.context?.renderedContext).toBe(
+        renderedInputs || (bundle.kernelContext?.renderedContext ?? bundle.userPrompt),
+      );
     }
+  });
+
+  test("renders viewer context inputs with the runtime envelope", () => {
+    expect(renderKernelContextInputsPreview([
+      { loaderKind: "worker packet", inputRef: "packet-7", content: "first" },
+      { loaderKind: "ignored", content: "  \n" },
+      { loaderKind: "standard-examples", content: "second" },
+    ])).toBe([
+      '<worker_packet ref="packet-7">\nfirst\n</worker_packet>',
+      '<standard-examples ref="standard-examples">\nsecond\n</standard-examples>',
+    ].join("\n\n"));
+  });
+
+  test("falls back when viewer context inputs do not render", () => {
+    const entry = meleeKernelAgent("worker");
+    const bundle = samplePrompt("worker");
+    const emptyInputs = toKernelAgentViewerDefinition(entry, {
+      ...bundle,
+      kernelContext: { inputs: [], renderedContext: "legacy rendered context" },
+    });
+    const blankInput = toKernelAgentViewerDefinition(entry, {
+      ...bundle,
+      userPrompt: "fallback user prompt",
+      kernelContext: {
+        inputs: [{ loaderKind: "worker-packet", content: "  \n" }],
+      },
+    });
+
+    expect(emptyInputs.context?.renderedContext).toBe("legacy rendered context");
+    expect(blankInput.context?.renderedContext).toBe("fallback user prompt");
   });
 
   test("renders dashboard worker sample with validation handoff language and hypothesis context", () => {
@@ -264,15 +352,20 @@ describe("meleeKernelAgentCatalog", () => {
       graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
     });
     const worker = payload.agents.find((agent) => agent.name === "worker");
-    const librarian = payload.agents.find((agent) => agent.name === "librarian");
     const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
 
     const workerSummarizer = payload.agents.find((agent) => agent.name === "worker-summarizer");
     const summarizerRendered = `${workerSummarizer?.renderedPrompt?.content ?? ""}\n${workerSummarizer?.context?.renderedContext ?? ""}`;
 
-    expect(payload.agents).toHaveLength(3);
+    const librarianV2 = payload.agents.find((agent) => agent.name === "librarian-v2");
+    const librarianV2Rendered = `${librarianV2?.renderedPrompt?.content ?? ""}\n${librarianV2?.context?.renderedContext ?? ""}`;
+    const backfillLibrarian = payload.agents.find((agent) => agent.name === "backfill-librarian");
+    const backfillRendered = `${backfillLibrarian?.renderedPrompt?.content ?? ""}\n${backfillLibrarian?.context?.renderedContext ?? ""}`;
+
+    expect(payload.agents).toHaveLength(4);
     expect(payload.warnings).toEqual([]);
-    expect(librarian?.tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(worker?.renderedTools).toContain("<available_tools>");
+    expect(worker?.renderedTools).toContain('tool name="asm_window_search"');
     expect(worker).toBeDefined();
     expect(rendered).toContain("return a handoff JSON");
     expect(rendered).toContain("Do not treat non-100% progress as failure");
@@ -285,11 +378,23 @@ describe("meleeKernelAgentCatalog", () => {
     expect(rendered).toContain('provider="type_layout_lookup" type="diagnostics"');
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
     expect(workerSummarizer?.tools).toEqual([]);
+    expect(workerSummarizer?.renderedTools).toBeNull();
     expect(summarizerRendered).toContain("narrative fields only");
     expect(summarizerRendered).toContain("<worker_transcript>");
     expect(summarizerRendered).toContain("<checkpoint_submission_digest>");
     expect(summarizerRendered).toContain("<target_card_reference>");
     expect(summarizerRendered).not.toMatch(unresolvedPlaceholderPattern);
+    expect(librarianV2?.tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(librarianV2Rendered).toContain("<subject_records>");
+    expect(librarianV2Rendered).toContain("<output_contract>");
+    expect(librarianV2Rendered).toContain("librarian_pass_v1");
+    expect(librarianV2Rendered).not.toMatch(unresolvedPlaceholderPattern);
+    expect(backfillLibrarian?.tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(backfillRendered).toContain("<fill_out_subjects>");
+    expect(backfillRendered).toContain("<supporting_subjects>");
+    expect(backfillRendered).toContain("<output_contract>");
+    expect(backfillRendered).toContain("librarian_pass_v1");
+    expect(backfillRendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 
 });

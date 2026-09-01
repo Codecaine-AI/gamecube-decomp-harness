@@ -31,6 +31,19 @@ function safeContextTag(value: string): string {
   return value.replace(/[^a-z0-9_:-]+/gi, "_").replace(/^_+|_+$/g, "") || "context";
 }
 
+export function renderKernelContextInputsPreview(
+  inputs: PiPromptKernelContextInput[],
+): string {
+  const sections: string[] = [];
+  for (const input of inputs) {
+    if (!input.content.trim()) continue;
+    const tag = safeContextTag(input.loaderKind);
+    const ref = input.inputRef ?? input.loaderKind;
+    sections.push(`<${tag} ref="${ref}">\n${input.content}\n</${tag}>`);
+  }
+  return sections.join("\n\n");
+}
+
 function loadedInputRef(input: LoadedMap[number]): string {
   const record = input.decl as Record<string, unknown>;
   const ref = record.ref ?? record.label ?? record.id ?? record.name ?? record.path ?? input.decl.kind;
@@ -52,7 +65,7 @@ export function renderLoadedKernelContext(loaded: LoadedMap, _ctx: SpawnContext)
   for (const input of loaded) {
     const tag = safeContextTag(input.decl.kind);
     const ref = loadedInputRef(input);
-    if (input.status === "empty" || !input.content) continue;
+    if (input.status === "empty" || !input.content.trim()) continue;
     sections.push(`<${tag} ref="${ref}">\n${input.content}\n</${tag}>`);
   }
   return sections.join("\n\n");

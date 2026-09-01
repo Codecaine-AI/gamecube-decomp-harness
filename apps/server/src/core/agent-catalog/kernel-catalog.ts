@@ -8,18 +8,21 @@ import type { HarnessAgentDefinition } from "@server/core/agent-catalog/agent-de
 import { agentRegistry, type RegisteredAgentId } from "@server/core/agent-catalog/registry";
 import {
   defaultKernelTurnPrompt,
+  renderKernelContextInputsPreview,
   renderLoadedKernelContext,
   ROOT_CONTEXT_LOADER_KIND,
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
 import workerKernelAgent from "@server/core/agent-catalog/agents/running/worker/agent.js";
-import librarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian/agent.js";
 import workerSummarizerKernelAgent from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/agent.js";
+import librarianV2KernelAgent from "@server/core/agent-catalog/agents/knowledge/librarian-v2/agent.js";
+import backfillLibrarianKernelAgent from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/agent.js";
 
 export const KERNEL_AGENT_IDS = [
   "worker",
-  "librarian",
   "worker-summarizer",
+  "librarian-v2",
+  "backfill-librarian",
 ] as const satisfies readonly RegisteredAgentId[];
 
 export type KernelAgentId = (typeof KERNEL_AGENT_IDS)[number];
@@ -68,6 +71,7 @@ export interface KernelAgentViewerDefinition {
   model: string;
   source?: "typed" | "markdown";
   prompt?: PromptDocument | null;
+  renderedTools: string | null;
   tools: string[];
   disallowedTools: string[];
   extensions: true | string[] | false;
@@ -112,8 +116,9 @@ type KernelAgentViewerContext = NonNullable<KernelAgentViewerDefinition["context
 const ROOT_CONTEXT_LOADERS = [ROOT_CONTEXT_LOADER_KIND] as const;
 const typedAgentDefinitions = {
   worker: workerKernelAgent,
-  librarian: librarianKernelAgent,
   "worker-summarizer": workerSummarizerKernelAgent,
+  "librarian-v2": librarianV2KernelAgent,
+  "backfill-librarian": backfillLibrarianKernelAgent,
 } as const satisfies Record<KernelAgentId, HarnessAgentDefinition>;
 
 function typedAgentDefinition(id: KernelAgentId): HarnessAgentDefinition {
@@ -272,27 +277,6 @@ export const meleeKernelAgentCatalog = [
       "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
     ),
   }),
-  catalogEntry("librarian", {
-    group: "knowledge",
-    phase: "knowledge-curation",
-    promptPaths: promptPaths(
-      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/agent.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/prompt.ts",
-      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
-    ),
-    contextLoaderKinds: [
-      ...ROOT_CONTEXT_LOADERS,
-      "librarian-context",
-      "librarian-curation-context",
-      "librarian-pr-index-context",
-    ],
-    resultContract: resultContract(
-      "librarian_v1",
-      "apps/server/src/core/agent-catalog/agents/knowledge/librarian/schema.json",
-      null,
-      "Librarian output is schema-described; learnings and attempt overlays are appended to the knowledge ledger by the harness-owned condense job.",
-    ),
-  }),
   catalogEntry("worker-summarizer", {
     group: "knowledge",
     phase: "worker-summary",
@@ -308,6 +292,40 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/schema.json",
       null,
       "Worker summarizer output contains narrative fields only. A future job mechanically joins scores, sequence numbers, runtime references, final outcome, and baseline.",
+    ),
+  }),
+  catalogEntry("librarian-v2", {
+    group: "knowledge",
+    phase: "knowledge-curation",
+    promptPaths: promptPaths(
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/agent.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/prompt.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/schema.json",
+      false,
+    ),
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "librarian-v2-context"],
+    resultContract: resultContract(
+      "librarian_pass_v1",
+      "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/schema.json",
+      null,
+      "This output is a proposal envelope only. A later mechanical apply layer resolves subjects, validates locators and store rows, computes code digests, and performs every write.",
+    ),
+  }),
+  catalogEntry("backfill-librarian", {
+    group: "knowledge",
+    phase: "knowledge-backfill",
+    promptPaths: promptPaths(
+      "apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/agent.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/prompt.ts",
+      "apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/schema.json",
+      false,
+    ),
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "backfill-librarian-context"],
+    resultContract: resultContract(
+      "librarian_pass_v1",
+      "apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/schema.json",
+      null,
+      "This output is a proposal envelope only. A later mechanical apply layer resolves subjects, validates locators and store rows, computes code digests, and performs every write.",
     ),
   }),
 ] as const satisfies readonly KernelAgentCatalogEntry[];
@@ -352,6 +370,7 @@ function viewerContextInputs(entry: KernelAgentCatalogEntry, bundle?: PiPromptBu
       timestamp: null,
     };
   }
+  const renderedInputs = renderKernelContextInputsPreview(bundle.kernelContext.inputs);
   return {
     modulePath: entry.promptPaths.contextModulePath,
     inputs: [
@@ -368,7 +387,8 @@ function viewerContextInputs(entry: KernelAgentCatalogEntry, bundle?: PiPromptBu
         bytes: Buffer.byteLength(input.content, "utf8"),
       })),
     ],
-    renderedContext: bundle.kernelContext.renderedContext ?? bundle.userPrompt,
+    renderedContext:
+      renderedInputs || (bundle.kernelContext.renderedContext ?? bundle.userPrompt),
     timestamp: null,
   };
 }
@@ -384,7 +404,7 @@ function renderedPromptContent(bundle: PiPromptBundle): string {
 export function toKernelAgentViewerDefinition(
   entry: KernelAgentCatalogEntry,
   bundle?: PiPromptBundle,
-  options: { generatedAt?: string; warnings?: string[] } = {},
+  options: { generatedAt?: string; warnings?: string[]; renderedTools?: string | null } = {},
 ): KernelAgentViewerDefinition {
   const definition = typedAgentDefinition(entry.id);
   return {
@@ -393,6 +413,7 @@ export function toKernelAgentViewerDefinition(
     model: entry.model,
     source: "typed",
     prompt: isPromptDocument(definition.prompt) ? definition.prompt : null,
+    renderedTools: options.renderedTools ?? null,
     tools: entry.tools,
     disallowedTools: entry.disallowedTools,
     extensions: entry.extensions,

@@ -871,7 +871,6 @@ async function main(): Promise<void> {
   stateDir = await mkdtemp(join(tmpdir(), "decomp-orchestrator-smoke-"));
   const commonFlags = ["--game", "melee", "--repo-root", fixtureRoot, "--state-dir", stateDir, "--dry-run-agents"];
   const smokeGraphSources = "code_graph,past_prs,agent_shared_state,mismatch_patterns";
-  const smokeCuratedGraphSources = `${smokeGraphSources},curator_enrichment`;
   const graphDb = join(stateDir, "knowledge-graph.sqlite");
   const legacyAgentStateDb = join(stateDir, "legacy-agent-state.sqlite");
   const legacyAgentStateEnrichment = join(stateDir, "agent-shared-state-lessons.jsonl");
@@ -959,28 +958,6 @@ async function main(): Promise<void> {
     runId: init.run.id,
   });
   const status = parseJson<Record<string, unknown>>(await runCli([...commonFlags, "status"]));
-  const curatorOutput = join(stateDir, "knowledge_curator_updates.jsonl");
-  const kgCurate = parseJson<{ records_written: number; worker_lessons: number; pr_lessons: number }>(
-    await runCli([...commonFlags, "kg-curate", "--run-id", init.run.id, "--output", curatorOutput]),
-  );
-  assertSmoke("kg-curate writes curator enrichment records", kgCurate.records_written > 0);
-  assertSmoke("kg-curate extracts worker lessons", kgCurate.worker_lessons === 1);
-  assertSmoke("kg-curate extracts PR lessons", kgCurate.pr_lessons > 0);
-  const kgCuratedRebuild = parseJson<{ indexed_sources: string[] }>(
-    await runCli([
-      ...commonFlags,
-      "kg-rebuild-graph",
-      "--graph-db",
-      graphDb,
-      "--agent-state-enrichment",
-      legacyAgentStateEnrichment,
-      "--knowledge-curator-enrichment",
-      curatorOutput,
-      "--sources",
-      smokeCuratedGraphSources,
-    ]),
-  );
-  assertSmoke("kg-rebuild-graph ingests curator enrichment", kgCuratedRebuild.indexed_sources.includes("curator_enrichment"));
 
   const store = openState(stateDir);
   try {
@@ -1575,7 +1552,7 @@ async function main(): Promise<void> {
   const kernelWorkerContext = kernelWorker?.context?.renderedContext ?? "";
   const kernelWorkerJson = JSON.stringify(kernelWorker ?? {});
   assertSmoke("dashboard kernel agents endpoint responds", kernelAgentsResponse.ok);
-  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 3);
+  assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 5);
   assertSmoke("dashboard kernel agents endpoint has no warnings", (kernelAgentsPayload.warnings ?? []).length === 0);
   assertSmoke("dashboard kernel worker catalog entry exists", Boolean(kernelWorker));
   assertSmoke("dashboard kernel worker catalog exposes attached tools out of prompt", (kernelWorker?.tools ?? []).length === defaultWorkerToolProfile.length);
@@ -1588,6 +1565,14 @@ async function main(): Promise<void> {
     kernelWorkerContext.includes('<target_file path="src/melee/ft/chara/ftDemo.c"') &&
       kernelWorkerContext.includes('"source_path": "src/melee/ft/chara/ftDemo.c"') &&
       kernelWorkerContext.includes("ftDemo_KernelViewerSample"),
+  );
+  assertSmoke(
+    "dashboard kernel worker context matches runtime input envelopes",
+    kernelWorkerContext.startsWith('<worker_packet ref="worker-packet">\n') &&
+      kernelWorkerContext.includes(
+        '\n</worker_packet>\n\n<knowledge_graph_file_card ref="knowledge-graph-file-card">\n',
+      ) &&
+      kernelWorkerContext.endsWith("\n</knowledge_graph_file_card>"),
   );
   assertSmoke(
     "dashboard kernel worker catalog keeps target, baseline, tools, and standards",

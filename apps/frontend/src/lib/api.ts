@@ -3,7 +3,7 @@ import {
   type KernelTraceSessionDetail,
   type KernelTraceSessionListResponse,
 } from "@agent-kernel/viewer-core";
-import type { PromptDocument } from "@codecaine-ai/prompt-kit";
+import type { AgentViewerDefinition } from "@agent-kernel/viewer-ui";
 import type { BoundaryStepDetail } from "./boundary-step-detail-types";
 import type {
   Dashboard,
@@ -19,43 +19,9 @@ import type {
 
 export type KernelAgentGroup = "running" | "knowledge" | "pr";
 
-export interface KernelAgentDefinition {
-  name: string;
-  description: string;
-  model: string;
-  source: "typed" | "markdown";
-  prompt: PromptDocument | null;
-  tools: string[];
-  disallowedTools: string[];
-  extensions: true | string[] | false;
-  canSpawnSubagent: boolean;
-  variables: Record<string, { default: unknown; description?: string | null }>;
-  maxTurns: number | null;
-  runInBackground: boolean;
-  thinking: string | null;
-  body: string;
-  agentFile: string;
-  contextModulePath: string | null;
-  warnings: string[];
+export interface KernelAgentDefinition extends AgentViewerDefinition {
   group: KernelAgentGroup;
-  renderedPrompt: {
-    content: string;
-    timestamp?: string | null;
-    resolvedVariables?: Record<string, unknown>;
-    toolsAllowlist?: string[];
-    toolsDisallowlist?: string[];
-  } | null;
-  context: {
-    modulePath: string | null;
-    inputs: Array<{
-      loaderKind: string;
-      inputRef: string;
-      status: string;
-      bytes: number;
-    }>;
-    renderedContext?: string | null;
-    timestamp?: string | null;
-  } | null;
+  renderedTools: string | null;
 }
 
 export interface KernelAgentsPayload {
