@@ -17,6 +17,11 @@
         "b-sks-rc-wr-sub-heading",
         "b-sks-rc-wr-sub-shape",
         "b-sks-rc-wr-sub-example-note-1",
+        "b-sks-rc-wr-sub-example-note-2",
+        "b-sks-rc-wr-narrative-heading",
+        "b-sks-rc-wr-narrative-shape",
+        "b-sks-rc-wr-narrative-output-note",
+        "b-sks-rc-wr-narrative-backfill-note",
         "b-sks-rc-wr-outcomes-heading",
         "b-sks-rc-wr-outcomes-table",
         "b-sks-rc-wr-outcomes-shared-note",
@@ -422,13 +427,13 @@
           {
             "name": "description",
             "type": "string",
-            "description": "What the worker was doing or had changed when it submitted"
+            "description": "What this submission did and what the deterministic result showed; composed from the summarizer's approach and outcome_reasoning"
           },
           {
             "name": "hypothesis",
             "type": "string",
             "required": false,
-            "description": "The explanation the submission tested; anything the transcript claimed but no submission proved"
+            "description": "Unused by the summarizer flow; null on every row"
           },
           {
             "name": "score",
@@ -447,7 +452,7 @@
             "description": "Id of the run-state artifact holding the submission's diff and transcript; runtime, outside the store"
           }
         ],
-        "example": "[\n  {\n    \"id\": \"sub_01J9WMQ4T8_01\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 1,\n    \"description\": \"Submitted the slice untouched to confirm the baseline before changing anything\",\n    \"score\": 91.2,\n    \"submitted_at\": \"2026-08-28T14:05:03Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0002\"\n  },\n  {\n    \"id\": \"sub_01J9WMQ4T8_02\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 2,\n    \"description\": \"Replaced the inline float compare with __fabsf and reordered the guard branches\",\n    \"score\": 94.6,\n    \"submitted_at\": \"2026-08-28T14:18:40Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0003\"\n  },\n  {\n    \"id\": \"sub_01J9WMQ4T8_03\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 3,\n    \"description\": \"Hoisted the ftCo_800BFFD0 damage-vector load above the loop\",\n    \"hypothesis\": \"The regalloc mismatch comes from the load sitting inside the loop body\",\n    \"score\": 93.1,\n    \"submitted_at\": \"2026-08-28T14:29:55Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0004\"\n  }\n]"
+        "example": "[\n  {\n    \"id\": \"sub_01J9WMQ4T8_01\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 1,\n    \"description\": \"Submitted the slice untouched to confirm the baseline before changing anything\",\n    \"score\": 91.2,\n    \"submitted_at\": \"2026-08-28T14:05:03Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0002\"\n  },\n  {\n    \"id\": \"sub_01J9WMQ4T8_02\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 2,\n    \"description\": \"Replaced the inline float compare with __fabsf and reordered the guard branches\",\n    \"score\": 94.6,\n    \"submitted_at\": \"2026-08-28T14:18:40Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0003\"\n  },\n  {\n    \"id\": \"sub_01J9WMQ4T8_03\",\n    \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n    \"seq\": 3,\n    \"description\": \"Hoisted the ftCo_800BFFD0 damage-vector load above the loop. The improved but inexact result showed load placement mattered without being the whole regalloc story.\",\n    \"score\": 93.1,\n    \"submitted_at\": \"2026-08-28T14:29:55Z\",\n    \"runtime_ref\": \"rs_run-epoch10_ftCo_800BFFD0_0004\"\n  }\n]"
       },
       "children": []
     },
@@ -468,16 +473,7 @@
           }
         },
         {
-          "insert": " resolves to the run-state artifact of a scored submission of this run. The third row keeps its failed "
-        },
-        {
-          "insert": "hypothesis",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " labelled as a hypothesis, never promoted into "
+          "insert": " resolves to the run-state artifact of a scored submission of this run. "
         },
         {
           "insert": "description",
@@ -486,7 +482,7 @@
           }
         },
         {
-          "insert": "."
+          "insert": " narrates what the try did and what its deterministic result showed; deterministic values live only in their own columns."
         }
       ],
       "children": []
@@ -1215,6 +1211,91 @@
                 "insert": " so the librarian can cite it"
               }
             ]
+          ],
+          [
+            "Narrative fields only",
+            [
+              {
+                "insert": "The model emits "
+              },
+              {
+                "insert": "run",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "submissions",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", and "
+              },
+              {
+                "insert": "notable_observations",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " narrative fields and nothing deterministic except the echoed "
+              },
+              {
+                "insert": "submission_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " join key; the validator requires emitted ids to equal the digest's ids exactly"
+              }
+            ]
+          ],
+          [
+            "Historical re-narration stays queue-silent",
+            [
+              {
+                "insert": "kg2-renarrate",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " writes "
+              },
+              {
+                "insert": "run_narrative",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and the one-time submission fill but never advances the "
+              },
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " watermark or enqueues a "
+              },
+              {
+                "insert": "run_closed",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " index task"
+              }
+            ]
           ]
         ]
       },
@@ -1679,6 +1760,268 @@
         },
         {
           "insert": " — evidence resolution, contradiction, and staleness rules applied when facts are overwritten."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-wr-narrative-heading": {
+      "id": "b-sks-rc-wr-narrative-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "run_narrative",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-wr-narrative-shape": {
+      "id": "b-sks-rc-wr-narrative-shape",
+      "type": "state-shape",
+      "props": {
+        "name": "run_narrative",
+        "description": "Run-level narrative sidecar, one row per narrated worker_run. Immutable; written once by the worker summary agent (live run close) or the historical re-narration backfill. The target-history views join it onto the run object.",
+        "fields": [
+          {
+            "name": "worker_run_id",
+            "type": "worker_run id",
+            "description": "Primary key; FK → worker_run"
+          },
+          {
+            "name": "summary",
+            "type": "string",
+            "description": "Narrative account of the approach, changes in direction, and what the run established"
+          },
+          {
+            "name": "notable_observations",
+            "type": "json array",
+            "description": "[{observation, reusable_when}] — reusable facts, tactics, failed paths, and constraints grounded in the run's evidence"
+          },
+          {
+            "name": "narrative",
+            "type": "json",
+            "description": "The complete validated model output object, stored lossless for audit and search"
+          },
+          {
+            "name": "produced_by",
+            "type": "'live' | 'backfill'",
+            "description": "Which writer narrated the run: the run-close job or the historical re-narration backfill"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp",
+            "description": "When the narrative row was written"
+          }
+        ],
+        "example": "{\n  \"worker_run_id\": \"wr-ftCo_800BFFD0-0008\",\n  \"summary\": \"The worker isolated load placement as the likely cause of the remaining mismatch; the submitted rewrite improved the result without closing the diff, so load placement mattered but was not the whole explanation.\",\n  \"notable_observations\": [\n    {\n      \"observation\": \"Load placement changed the generated register lifetime but did not resolve the complete mismatch.\",\n      \"reusable_when\": \"A related target diverges around a loop-carried value and a simple hoist improves code generation without reaching exact.\"\n    }\n  ],\n  \"narrative\": \"{ ...the full validated model output object, lossless... }\",\n  \"produced_by\": \"live\",\n  \"created_at\": \"2026-08-28T14:32:11Z\"\n}"
+      },
+      "children": []
+    },
+    "b-sks-rc-wr-narrative-output-note": {
+      "id": "b-sks-rc-wr-narrative-output-note",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "The summarizer emits exactly one narrative-only JSON object: "
+        },
+        {
+          "insert": "run{summary}",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "submissions[{submission_id, approach, outcome_reasoning}]",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "notable_observations[{observation, reusable_when}]",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The join to submission rows is by the echoed "
+        },
+        {
+          "insert": "submission_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": each entry carries its digest submission's id verbatim, the validator requires exact set equality with the digest, and any mismatch rejects the whole output. "
+        },
+        {
+          "insert": "approach",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " plus "
+        },
+        {
+          "insert": "outcome_reasoning",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " compose "
+        },
+        {
+          "insert": "submission.description",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Scores, sequence numbers, runtime references, "
+        },
+        {
+          "insert": "final_outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "baseline",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " are joined mechanically after validation and are never model-emitted; "
+        },
+        {
+          "insert": "submission_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the one deterministic key the model echoes."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-wr-narrative-backfill-note": {
+      "id": "b-sks-rc-wr-narrative-backfill-note",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Historical re-narration: the mechanically migrated runs predate the summarizer, so "
+        },
+        {
+          "insert": "kg2-renarrate",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " replays each transcript-bearing run through the summarizer as a one-time documented enrichment — rewriting the templated "
+        },
+        {
+          "insert": "submission.description",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in place and inserting "
+        },
+        {
+          "insert": "run_narrative",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "produced_by = 'backfill'",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The backfill is queue-silent: it advances no watermark and enqueues no "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " index task; the librarian consumes historical narratives in its own target-by-target backfill. Runs with no surviving transcript stay unnarrated."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-wr-sub-example-note-2": {
+      "id": "b-sks-rc-wr-sub-example-note-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "One documented exception to written-once: rows migrated from orchestrator run state landed with a templated "
+        },
+        {
+          "insert": "description",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the historical re-narration backfill rewrites it exactly once (guarded by the run's "
+        },
+        {
+          "insert": "run_narrative",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row not yet existing), after which the row is immutable again. The "
+        },
+        {
+          "insert": "hypothesis",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " column is unused by the summarizer flow and stays null."
         }
       ],
       "children": []

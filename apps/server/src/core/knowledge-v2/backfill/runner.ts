@@ -31,6 +31,22 @@ import { buildPassContext, type BackfillPassContext } from "./context.js";
 const DEFAULT_CONCURRENCY = 4;
 const DEFAULT_TIMEOUT_MS = 900_000;
 
+
+/**
+ * The librarian sees standards only to recognize standard-mandated code shapes (so it never curates
+ * them as patterns). Project the worker/QA-facing standards context down to what recognition needs.
+ */
+export function librarianStandardsView(context: Record<string, unknown>): unknown {
+  const standards = Array.isArray(context.standards) ? context.standards : [];
+  return {
+    note: "Recognition only: id, title, and summary per accepted standard.",
+    standards: standards
+      .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+      .filter((entry) => entry.status === undefined || entry.status === "accepted")
+      .map((entry) => ({ id: entry.id, title: entry.title, summary: entry.summary })),
+  };
+}
+
 export interface LibrarianPassEnvelope {
   facts: unknown[];
   links: unknown[];
@@ -220,7 +236,7 @@ async function modelProposal(
       },
       fillOutSubjects: context.fillOut,
       supportingSubjects: context.supporting,
-      decompStandards: globalStandardsContext(),
+      decompStandards: librarianStandardsView(globalStandardsContext()),
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,
@@ -323,7 +339,10 @@ export async function runPass(
   let applyMs = 0;
   try {
     const contextStarted = clockMs();
-    const context = buildPassContext(store, target);
+    const context = buildPassContext(store, target, {
+      checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
+      graphDbPath: deps.globals.graphDbPath,
+    });
     contextMs = clockMs() - contextStarted;
 
     const modelStarted = clockMs();

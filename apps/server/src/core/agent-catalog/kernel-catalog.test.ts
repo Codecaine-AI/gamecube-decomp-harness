@@ -85,22 +85,21 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
           submissions: [{ seq: 1, hypothesis: "Guard order controls branch shape." }],
           proposal: { purpose: "Updates fighter state after the guard passes." },
         },
-        subjectRecords: {
-          subjects: [{ target_stable_key: "GALE01:ftDemo_Target", facts: [], links: [], evidence: [] }],
-        },
-        searchResults: {
-          attempts: [{
-            locator: "attempt://run/sample-run/submission/1",
-            stable_key: "GALE01:ftDemo_Target",
-            final_outcome: "improvement",
-            description_snippet: "Reordered the guard branches.",
-          }],
-          discord: [{
-            locator: "discord://message/1234567890",
-            author: "sample-contributor",
-            snippet: "The guard order controls the branch shape.",
-          }],
-        },
+        touchedSubjects: [
+          {
+            order: 1,
+            kind: "target",
+            target_stable_key: "GALE01:ftDemo_Target",
+            record: { facts: {}, links: [] },
+            material: {
+              source: { locator: "code://1e28b420/src/melee/ft/chara/ftDemo.c#L12-L40", truncated: false },
+              analogs: { unavailable: true },
+              ledger: { runs: [{ id: "sample-run", submissions: [{ seq: 1, score: 100, locator: "attempt://run/sample-run/submission/1" }] }] },
+            },
+          },
+        ],
+        supportingSubjects: [],
+        decompStandards: { standards: [] },
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
@@ -120,8 +119,8 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
             kind: "target",
             target_stable_key: "GALE01:ftDemo_Target",
             detail: { symbol: "ftDemo_Target", match_pct: 100, linked: true },
-            ledger: [],
-            record: { facts: { purpose: { value: "Updates fighter state.", confidence: 0.5 } }, links: [] },
+            ledger: { runs: [{ id: "sample-run", submissions: [{ seq: 1, score: 100, locator: "attempt://run/sample-run/submission/1" }] }] },
+            record: { facts: { purpose: { value: "Updates fighter state.", confidence: 0.5, evidence: [{ kind: "discord", locator: "discord://message/1234567890" }] } }, links: [] },
           },
         ],
         supportingSubjects: [],
@@ -382,10 +381,11 @@ describe("meleeKernelAgentCatalog", () => {
     expect(summarizerRendered).toContain("narrative fields only");
     expect(summarizerRendered).toContain("<worker_transcript>");
     expect(summarizerRendered).toContain("<checkpoint_submission_digest>");
-    expect(summarizerRendered).toContain("<target_card_reference>");
+    expect(summarizerRendered).toContain("<target_reference>");
     expect(summarizerRendered).not.toMatch(unresolvedPlaceholderPattern);
     expect(librarianV2?.tools).toEqual([...defaultLibrarianToolProfile]);
-    expect(librarianV2Rendered).toContain("<subject_records>");
+    expect(librarianV2Rendered).toContain("<touched_subjects>");
+    expect(librarianV2Rendered).toContain("<supporting_subjects>");
     expect(librarianV2Rendered).toContain("<output_contract>");
     expect(librarianV2Rendered).toContain("librarian_pass_v1");
     expect(librarianV2Rendered).not.toMatch(unresolvedPlaceholderPattern);
@@ -395,6 +395,23 @@ describe("meleeKernelAgentCatalog", () => {
     expect(backfillRendered).toContain("<output_contract>");
     expect(backfillRendered).toContain("librarian_pass_v1");
     expect(backfillRendered).not.toMatch(unresolvedPlaceholderPattern);
+  });
+
+  test("renders the backfill librarian stub when pass context is unavailable", () => {
+    const payload = loadKernelAgentsPayload({
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    }, {
+      loadBackfillPassContext: () => null,
+    });
+    const backfillLibrarian = payload.agents.find((agent) => agent.name === "backfill-librarian");
+    const rendered = `${backfillLibrarian?.renderedPrompt?.content ?? ""}\n${backfillLibrarian?.context?.renderedContext ?? ""}`;
+
+    expect(backfillLibrarian).toBeDefined();
+    expect(rendered).toContain("GALE01:ftDemo_KernelViewerSample");
+    expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 
 });

@@ -274,17 +274,26 @@ function countMessageOrdinals(tokens: string[], messagesByToken: Map<string, Set
 }
 
 function targetTokenClasses(target: TargetQueryRow): TargetTokenClasses {
+  return symbolTokensFor({
+    symbol: target.kind === "data" ? null : target.symbol,
+    unit: target.unit_locator,
+  });
+}
+
+export function symbolTokensFor(input: { symbol: string | null; unit: string }): {
+  symbolTokens: string[];
+  unitTokens: string[];
+} {
   const symbolTokens: string[] = [];
   // A data target's symbol is a section name, not a unique identifier. extab appeared in 37 discord messages,
   // x weight 5 = 185 direct score on each of 8 unrelated data targets, occupying ranks 3-10.
-  if (target.kind !== "data"
-    && target.symbol !== null
-    && target.symbol.length >= 3
-    && !AMBIGUOUS_SYMBOL_TOKENS.has(target.symbol)) {
-    symbolTokens.push(target.symbol);
+  if (input.symbol !== null
+    && input.symbol.length >= 3
+    && !AMBIGUOUS_SYMBOL_TOKENS.has(input.symbol)) {
+    symbolTokens.push(input.symbol);
   }
   const unitTokens: string[] = [];
-  const sourceBasename = basename(target.unit_locator);
+  const sourceBasename = basename(input.unit);
   // Bare stems such as "float", "list", "state", "math" and "debug" are ordinary English words and
   // produced hundreds of false discord hits per unit. Only the dotted filename form, such as
   // "fighter.c", is specific enough to be evidence.
@@ -292,7 +301,7 @@ function targetTokenClasses(target: TargetQueryRow): TargetTokenClasses {
   return { symbolTokens, unitTokens };
 }
 
-function tokenize(content: string): Set<string> {
+export function tokenize(content: string): Set<string> {
   const tokens = new Set<string>();
   for (const match of content.matchAll(/[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9]+/g)) tokens.add(match[0]);
   for (const match of content.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) tokens.add(match[0]);

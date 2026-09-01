@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import {
   bulletList,
   definePrompt,
+  item,
   orderedList,
   renderXmlMarkdown,
   section,
@@ -39,19 +40,56 @@ export const prompt = definePrompt({
     ]),
     section("goal", [
       bulletList([
-        "run_closed: inspect the closed run, its submissions, and proposal; preserve durable meaning learned about in-scope subjects without promoting scores, outcomes, or failed hypotheses into facts.",
+        "Each task asks one question of each touched subject: does this material reveal something new about what the code is, confirm what the record already says, or teach nothing? New → write or overwrite facts; confirmed → re-cite the standing fact with the new record; nothing → no facts, and the task still completes.",
+        "run_closed: inspect the closed run, its submissions, and its narrative; preserve durable meaning learned about in-scope subjects without promoting scores, outcomes, or failed hypotheses into facts. An error run with no scored submission usually teaches nothing.",
         "pr_imported: reconcile an imported pull request and its archived discussion with current records, citing the PR or archived source records that actually support each claim.",
         "archival_ingest: review an appended PR, Discord, or wiki source slice for durable claims, connect it to existing subjects, and admit only justified curated concepts or patterns.",
         "regression: recheck flagged facts after a score regression; revise only claims whose meaning changed and re-cite claims that remain sound.",
         "drift_recheck: reassess flagged facts against newer evidence and code context, retaining, overwriting, clearing, linking, or merging only where the current record warrants it.",
       ]),
     ]),
+    section("thinking", [
+      bulletList([
+        item("Trust the sources in this order when they disagree:", [
+          bulletList([
+            "The matched source itself and the scored submissions that produced it — what the code demonstrably does.",
+            "Pull request discussion — maintainers explaining why a shape matched.",
+            "Discord — community lore, often right about roles and names, rarely precise about mechanics.",
+            "The wiki — authoritative for game mechanics, silent about code.",
+          ]),
+        ]),
+        item("What a good fact of each type says:", [
+          bulletList([
+            "purpose — what the subject does and why it exists in its subsystem, not a paraphrase of its name.",
+            "inferred_name — the name the original developers plausibly used, in the codebase's own conventions; a guess with its confidence.",
+            "inferred_type — the shape, unit, enum domain, or callback signature; for a data section, the layout it holds.",
+            "data_flow — where its inputs originate, how they change, where its outputs are consumed.",
+            "state_behavior — the states, transitions, guards, and timers it participates in.",
+            "game_mapping — the grounded game mechanic or concept the behaviour realizes.",
+          ]),
+        ]),
+        item("New material rarely rewrites a record wholesale:", [
+          bulletList([
+            "A run that matched confirms purpose and sharpens data_flow; a run that failed teaches only what the ledger already holds.",
+            "A PR discussion explains why an idiom matched — that is state_behavior or a pattern, not a new purpose.",
+            "A Discord thread names things and connects them to mechanics — inferred_name, game_mapping, links.",
+          ]),
+        ]),
+        item("Conventional link roles — use these before inventing one:", [
+          bulletList([
+            "target → entity: implements (a game concept), exhibits or uses (a pattern), reads or writes (a struct field), parameter.",
+            "entity → entity: typed_as (parameter to struct), related (concepts in one subsystem).",
+            "target → target: related.",
+          ]),
+        ]),
+      ]),
+    ]),
     section("context_contract", [
       usesContext("librarian-v2-context", {
         instructions: [
-          "Read the index_task, triggering object, current subject_records, and supplied search_results together; the task pathway controls the review emphasis, and the current records are the live library state, never a blank slate.",
+          "The context arrives split: <object> is the triggering material, <touched_subjects> the ordered subjects it names — linked entities first, targets last, each with its current record and material — and <supporting_subjects> connected concepts and patterns you read but do not owe facts; the task pathway sets the emphasis, and the records are live library state, never a blank slate.",
           "The exact JSON shape you must return is the <output_contract> block in the injected context; your entire reply is that one JSON object, machine-processed directly, with no prose around it.",
-          "Search with your own tools on top of anything supplied: kv2_attempt_search for prior worker attempts, kv2_subject_record for another subject's assembled record and ledger, kv2_unit_context for a translation unit's members and recent pull requests, kv2_entity_lookup before admitting any entity, graph_related_functions for a target\u2019s opseq-similar analogs, callers, callees, and xrefs (follow an analog with kv2_subject_record to read what is already known about it), then kv2_discord_search, kv2_wiki_search, and kv2_pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
+          "Search with your own tools: kv2_attempt_search for prior worker attempts, kv2_subject_record for another subject's assembled record and ledger, kv2_unit_context for a translation unit's members and recent pull requests, kv2_entity_lookup before admitting any entity, graph_related_functions for a target\u2019s opseq-similar analogs, callers, callees, and xrefs (follow an analog with kv2_subject_record to read what is already known about it), then kv2_discord_search, kv2_wiki_search, and kv2_pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
           "Call kv2_resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
         ],
       }),
@@ -65,8 +103,8 @@ export const prompt = definePrompt({
       ], { attrs: { id: "1", name: "read_task" } }),
       section("phase", [
         bulletList([
-          "Determine every subject the material actually touches: targets by stable_key, entities by locator.",
-          "Pull each touched subject's current record with kv2_subject_record before judging anything.",
+          "Take <touched_subjects> as the subject list; each arrived with its record and material, so read those before judging anything.",
+          "Widen only when the material names a subject the assembler missed: resolve it by stable_key or locator with kv2_subject_record.",
         ]),
       ], { attrs: { id: "2", name: "scope_subjects" } }),
       section("phase", [
@@ -77,7 +115,7 @@ export const prompt = definePrompt({
       ], { attrs: { id: "3", name: "corroborate" } }),
       section("phase", [
         bulletList([
-          "Take each touched subject in turn and draft only the fact types the resolved evidence genuinely carries; omit the rest.",
+          "Take each touched subject in turn and decide: new, confirmed, or nothing. Draft only the fact types the resolved evidence genuinely carries; omit the rest.",
           "Draft a link, with its own citation, for each relationship the evidence shows.",
         ]),
       ], { attrs: { id: "4", name: "draft_per_subject" } }),
@@ -116,6 +154,7 @@ export const prompt = definePrompt({
         "Do not auto-invalidate facts when scores change; on regression, revise only where the claim about meaning changed and re-cite it where it still stands.",
         "Do not invent searches, evidence, locators, subjects, claims, relationships, entities, or merges.",
         "Propose a fact type only when a genuine, evidence-supported claim exists for it; omit a type with nothing supportable instead of filling it with a placeholder or a restatement of another fact.",
+        "Treat the injected decomp standards as harness rules, not knowledge: never propose a standard or a restatement of one as a pattern or fact, never cite a standard as evidence, and never propose a new standard.",
       ]),
     ]),
     section("definition_of_done", [

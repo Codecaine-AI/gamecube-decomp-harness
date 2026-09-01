@@ -73,6 +73,9 @@ function openFixture(): KnowledgeStore {
     finalOutcome: "improvement", integration: "integrated",
     startedAt: "2026-01-03T00:00:00.000Z", closedAt: "2026-01-03T00:30:00.000Z",
   }, [{ id: "submission-1", seq: 1, description: "Changed branch", score: 70, submittedAt: "2026-01-03T00:20:00.000Z" }]);
+  store.db.query(`INSERT INTO run_narrative
+    (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+    VALUES ('run-1', 'Changing the branch improved the score', '[]', '{}', 'live', '2026-01-03T00:31:00.000Z')`).run();
   insertPullRequestEntries(store, [{
     id: "pr-1", targetId: "fn-a1", prRef: "pr://42", summary: "Merged improvement",
     outcome: "improvement", mergedAt: "2026-01-04T00:00:00.000Z",
@@ -143,6 +146,21 @@ describe("knowledge-v2 derived views", () => {
       ["pr-unit", "unit"],
       ["pr-1", "target"],
     ]);
-    expect(ledger[3]).toMatchObject({ workerRun: { id: "run-1", baseline: { score: 50 } } });
+    expect(ledger[3]).toMatchObject({
+      workerRun: {
+        id: "run-1",
+        baseline: { score: 50 },
+        summary: "Changing the branch improved the score",
+      },
+    });
+  });
+
+  test("returns null narrative fields for an unnarrated worker run", () => {
+    const store = openFixture();
+    store.db.query("DELETE FROM run_narrative WHERE worker_run_id = 'run-1'").run();
+
+    const submission = targetLedger(store, "fn-a1").find((entry) => entry.type === "submission");
+
+    expect(submission).toMatchObject({ workerRun: { summary: null } });
   });
 });

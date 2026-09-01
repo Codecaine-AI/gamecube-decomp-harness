@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import type { PrioritizedTargetRow } from "../migration/prioritize.js";
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
-import { buildPassContext } from "./context.js";
+import { buildPassContext, type BackfillPassContext } from "./context.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -197,6 +197,20 @@ function prioritizedTarget(): PrioritizedTargetRow {
   };
 }
 
+function targetFillOut(context: BackfillPassContext) {
+  const target = context.fillOut.at(-1);
+  if (target?.kind !== "target") throw new Error("expected the target last");
+  return target;
+}
+
+function fixtureCheckout(source: string): string {
+  const checkoutRoot = mkdtempSync(join(tmpdir(), "knowledge-v2-backfill-checkout-"));
+  tempDirs.push(checkoutRoot);
+  mkdirSync(join(checkoutRoot, "src"), { recursive: true });
+  writeFileSync(join(checkoutRoot, "src/main.c"), source, "utf8");
+  return checkoutRoot;
+}
+
 describe("buildPassContext", () => {
   test("includes the full target, status, and unbounded target ledger", () => {
     const context = buildPassContext(openFixture(), prioritizedTarget());
@@ -282,10 +296,9 @@ describe("buildPassContext", () => {
       [4, "entity", "struct://Fighter"],
       [5, "target", "main:set_state"],
     ]);
-    const fillOutTarget = context.fillOut.at(-1);
-    if (fillOutTarget?.kind !== "target") throw new Error("expected the target last");
+    const fillOutTarget = targetFillOut(context);
     expect(fillOutTarget.record.facts.purpose?.value).toBe("Sets the fighter state");
-    expect(fillOutTarget.ledger.length).toBeGreaterThan(0);
+    expect(fillOutTarget.ledger.runs.length).toBeGreaterThan(0);
     const unitEntry = context.fillOut[0];
     if (unitEntry?.kind !== "entity") throw new Error("expected the unit entity first");
     expect(unitEntry.material?.unit.locator).toBe("src/main.c");
@@ -302,6 +315,255 @@ describe("buildPassContext", () => {
         "struct-field://Fighter/state",
         "struct://Fighter",
       ],
+    });
+  });
+
+  test("groups target ledger runs once with ordered submissions and citable locators", () => {
+    const store = openFixture();
+    store.db.query(`INSERT INTO run_narrative
+      (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+      VALUES ('run-main', 'Main run narrative', '[]', '{}', 'live',
+        '2026-01-18T00:22:00.000Z')`).run();
+    store.db.query(`INSERT INTO worker_run
+      (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type,
+        integration, started_at, ended_at, closed_at)
+      VALUES ('run-new', 'target-main', 'Try a newer shape', '{"score":85}', 'operator-new',
+        'state-new', 'match', NULL, 'integrated', '2026-01-19T00:00:00.000Z',
+        '2026-01-19T00:20:00.000Z', '2026-01-19T00:21:00.000Z')`).run();
+    const insertSubmission = store.db.query(`INSERT INTO submission
+      (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref)
+      VALUES (?, 'run-new', ?, ?, ?, ?, ?, NULL)`);
+    insertSubmission.run(
+      "submission-new-2",
+      2,
+      "New second attempt",
+      "Second hypothesis",
+      95,
+      "2026-01-19T00:15:00.000Z",
+    );
+    insertSubmission.run(
+      "submission-new-1",
+      1,
+      "New first attempt",
+      "First hypothesis",
+      90,
+      "2026-01-19T00:10:00.000Z",
+    );
+    store.db.query(`INSERT INTO run_narrative
+      (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+      VALUES ('run-new', 'New run narrative', '[]', '{}', 'live',
+        '2026-01-19T00:22:00.000Z')`).run();
+    store.db.query(`INSERT INTO event
+      (id, target_id, kind, cause, summary, created_at)
+      VALUES ('event-new', 'target-main', 'regression', 'upstream_change', 'New fixture event',
+        '2026-01-21T00:00:00.000Z')`).run();
+
+    const ledger = targetFillOut(buildPassContext(store, prioritizedTarget(), {
+      checkoutRoot: store.path,
+      graphDbPath: join(store.path, "missing-graph.sqlite"),
+    })).ledger;
+
+    expect(ledger.runs.map((run) => run.id)).toEqual(["run-new", "run-main"]);
+    expect(new Set(ledger.runs.map((run) => run.id)).size).toBe(ledger.runs.length);
+    expect(ledger.runs.map((run) => run.summary)).toEqual([
+      "New run narrative",
+      "Main run narrative",
+    ]);
+    expect(ledger.runs[0]?.submissions.map((entry) => [entry.seq, entry.locator])).toEqual([
+      [1, "attempt://run/run-new/submission/1"],
+      [2, "attempt://run/run-new/submission/2"],
+    ]);
+    expect(ledger.runs[1]?.submissions.map((entry) => [entry.seq, entry.locator])).toEqual([
+      [1, "attempt://run/run-main/submission/1"],
+      [2, "attempt://run/run-main/submission/2"],
+    ]);
+    expect(ledger.runs[0]).not.toHaveProperty("runId");
+    expect(ledger.runs[0]).not.toHaveProperty("workerStateId");
+    expect(ledger.runs[0]).not.toHaveProperty("closedAt");
+    expect(ledger.pull_requests[0]).toEqual({
+      locator: "pr://target-pr",
+      pr_ref: "melee#100",
+      outcome: "improvement",
+      summary: "Direct target pull request",
+      merged_at: "2026-01-19T00:00:00.000Z",
+    });
+    expect(ledger.pull_requests.at(-1)).toEqual({
+      locator: "pr://unit-pr-01",
+      pr_ref: "melee#1",
+      outcome: "improvement",
+      summary: "Unit pull request 1",
+      merged_at: "2026-01-01T00:00:00.000Z",
+    });
+    expect(ledger.events).toEqual([
+      {
+        kind: "regression",
+        cause: "upstream_change",
+        summary: "New fixture event",
+        created_at: "2026-01-21T00:00:00.000Z",
+      },
+      {
+        kind: "note",
+        cause: null,
+        summary: "Fixture note",
+        created_at: "2026-01-20T00:00:00.000Z",
+      },
+    ]);
+  });
+
+  test("locates and emits the target source definition span", () => {
+    const source = [
+      "void",
+      "set_state(int value)",
+      "{",
+      "    const char* braces = \"{ not a body }\";",
+      "    /* a comment with } */",
+      "    if (value) {",
+      "        value++;",
+      "    }",
+      "}",
+      "",
+    ].join("\n");
+    const context = buildPassContext(openFixture(), prioritizedTarget(), {
+      checkoutRoot: fixtureCheckout(source),
+      checkoutRev: "fixture-rev",
+      graphDbPath: join(tmpdir(), "knowledge-v2-missing-graph.sqlite"),
+    });
+
+    expect(targetFillOut(context).material.source).toEqual({
+      locator: "code://fixture-rev/src/main.c#L1-L9",
+      text: source.trimEnd(),
+      truncated: false,
+    });
+  });
+
+  test("locates a source definition whose return type starts with lowercase t", () => {
+    const source = [
+      "t32 set_state(int value)",
+      "{",
+      "    return value;",
+      "}",
+      "",
+    ].join("\n");
+    const context = buildPassContext(openFixture(), prioritizedTarget(), {
+      checkoutRoot: fixtureCheckout(source),
+      checkoutRev: "fixture-rev",
+      graphDbPath: join(tmpdir(), "knowledge-v2-missing-graph.sqlite"),
+    });
+
+    expect(targetFillOut(context).material.source).toEqual({
+      locator: "code://fixture-rev/src/main.c#L1-L4",
+      text: source.trimEnd(),
+      truncated: false,
+    });
+  });
+
+  test("reports when the target symbol is not found in the unit source", () => {
+    const context = buildPassContext(openFixture(), prioritizedTarget(), {
+      checkoutRoot: fixtureCheckout("void other_function(void) {}\n"),
+      checkoutRev: "fixture-rev",
+      graphDbPath: join(tmpdir(), "knowledge-v2-missing-graph.sqlite"),
+    });
+
+    expect(targetFillOut(context).material.source).toEqual({
+      locator: null,
+      reason: "symbol not found in unit source",
+    });
+  });
+
+  test("skips source scanning for data targets", () => {
+    const store = openFixture();
+    store.db.query("UPDATE target SET kind = 'data' WHERE id = 'target-main'").run();
+    const context = buildPassContext(store, { ...prioritizedTarget(), kind: "data" }, {
+      checkoutRoot: join(tmpdir(), "knowledge-v2-missing-checkout"),
+      graphDbPath: join(tmpdir(), "knowledge-v2-missing-graph.sqlite"),
+    });
+
+    expect(targetFillOut(context).material.source).toEqual({
+      locator: null,
+      reason: "section target",
+    });
+  });
+
+  test("precomputes capped analogs with target match and fact status", () => {
+    const graphRows = [
+      { unit: "main", symbol: "set_state", score: 0.99 },
+      { unit: "main", symbol: "helper", score: 0.98 },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        unit: `peer/unit-${index}`,
+        symbol: `Peer_${index}`,
+        score: 0.9 - index / 100,
+      })),
+      { unit: null, symbol: "Malformed", score: 1 },
+    ];
+    let receivedQuery: unknown;
+    const context = buildPassContext(openFixture(), prioritizedTarget(), {
+      checkoutRoot: join(tmpdir(), "knowledge-v2-missing-checkout"),
+      relatedFunctions: (query) => {
+        receivedQuery = query;
+        return {
+          query: {},
+          resolved_function_count: 1,
+          functions: [{
+            entity_id: "function:main:set_state",
+            function: {},
+            opseq_analogs: graphRows,
+            callers: [
+              { unit: "main", symbol: "helper" },
+              { unit: "", symbol: "MalformedCaller" },
+            ],
+            callees: [{ unit: "main", symbol: "set_state" }],
+            data_references: [],
+            learnings: [],
+          }],
+        };
+      },
+    });
+
+    expect(receivedQuery).toEqual({ unit: "main", symbol: "set_state", limit: 8 });
+    const analogs = targetFillOut(context).material.analogs;
+    if ("unavailable" in analogs) throw new Error("expected analog material");
+    expect(analogs.opseq_analogs).toHaveLength(8);
+    expect(analogs.opseq_analogs[0]).toEqual({
+      stable_key: "main:set_state",
+      relation: "opseq_analog",
+      score: 0.99,
+      match_pct: 75,
+      has_facts: true,
+    });
+    expect(analogs.opseq_analogs[1]).toEqual({
+      stable_key: "main:helper",
+      relation: "opseq_analog",
+      score: 0.98,
+      match_pct: 25,
+      has_facts: false,
+    });
+    expect(analogs.callers).toEqual([{
+      stable_key: "main:helper",
+      relation: "caller",
+      score: null,
+      match_pct: 25,
+      has_facts: false,
+    }]);
+    expect(analogs.callees).toEqual([{
+      stable_key: "main:set_state",
+      relation: "callee",
+      score: null,
+      match_pct: 75,
+      has_facts: true,
+    }]);
+  });
+
+  test("marks analogs unavailable when the graph database is missing", () => {
+    const root = mkdtempSync(join(tmpdir(), "knowledge-v2-backfill-missing-graph-"));
+    tempDirs.push(root);
+    const context = buildPassContext(openFixture(), prioritizedTarget(), {
+      checkoutRoot: root,
+      graphDbPath: join(root, "graph.sqlite"),
+    });
+
+    expect(targetFillOut(context).material.analogs).toEqual({
+      unavailable: true,
+      reason: "knowledge graph unavailable",
     });
   });
 });

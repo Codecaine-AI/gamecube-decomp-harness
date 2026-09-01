@@ -12,7 +12,7 @@ import {
 } from "./index.js";
 
 describe("worker state transaction fencing", () => {
-  test("rolls back a close when its transaction cannot enqueue background knowledge", () => {
+  test("rolls back a close when its transaction cannot update the epoch rollup", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "worker-state-close-rollback-"));
     const store = openState(stateDir);
     try {
@@ -51,7 +51,9 @@ describe("worker state transaction fencing", () => {
       });
       if (!claim) throw new Error("Expected a worker claim");
 
-      store.db.exec("DROP TABLE jobs");
+      store.db.exec(
+        "CREATE TRIGGER fail_epoch_rollup BEFORE UPDATE ON epochs BEGIN SELECT RAISE(ABORT, 'epoch rollup blocked'); END",
+      );
       expect(() =>
         closeWorkerState(store, {
           workerStateId: claim.workerStateId,

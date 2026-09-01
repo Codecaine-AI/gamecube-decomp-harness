@@ -611,23 +611,6 @@ export function syncIngestConcurrency(
   return Number.isInteger(parsed) && parsed >= 1 ? parsed : SYNC_INGEST_CONCURRENCY_DEFAULT;
 }
 
-/**
- * Operator overrides for the sync's knowledge agents (postmortem intake and
- * librarian batches). The UI sends these with every sync command body, so
- * start and recover both carry them; absent or empty values fall back to the
- * job-runner defaults.
- */
-export function syncAgentFlags(body: Record<string, unknown>): string[] {
-  const flags: string[] = [];
-  const provider = text(body.syncProvider);
-  const model = text(body.syncModel);
-  const thinking = text(body.syncThinking);
-  if (provider) flags.push("--provider", provider);
-  if (model) flags.push("--model", model);
-  if (thinking) flags.push("--thinking-level", thinking);
-  return flags;
-}
-
 let ghTokenEnvReady: Promise<void> | null = null;
 
 const GH_TOKEN_RESOLUTION_TIMEOUT_MS = 15_000;

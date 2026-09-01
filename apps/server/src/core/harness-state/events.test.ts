@@ -69,18 +69,6 @@ describe("game event registry", () => {
         payload: { ...base.payload, ok: "yes" },
       })).toThrow("payload fact ok must be boolean");
       expect(() => appendGameEvent(store.db, envelope(
-        "sync.discord_staged",
-        "sync_workflow",
-        {
-          batches: 1,
-          messages: 10,
-          days: 2,
-          channels: 1,
-          first_message_at: null,
-          last_message_at: "2026-08-02T00:00:00.000Z",
-        },
-      ))).not.toThrow();
-      expect(() => appendGameEvent(store.db, envelope(
         "sync.discord_refresh_requested",
         "sync_workflow",
         { unexpected: true },

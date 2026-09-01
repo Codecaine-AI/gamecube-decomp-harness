@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer";
@@ -30,9 +30,10 @@ import {
   type AttemptSourceWorkerState,
 } from "../ingest/attempts.js";
 import { taskId } from "../ingest/common.js";
-import { advanceWatermark, enqueueIndexTask, insertWorkerRun, type KnowledgeStoreHandle } from "../records/index.js";
+import { advanceWatermark, enqueueIndexTask, insertRunNarrative, insertWorkerRun, type KnowledgeStoreHandle } from "../records/index.js";
 import { immediateTransaction } from "../storage/transaction.js";
 import { openKnowledgeStore as realOpenKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
+import { buildTranscriptPacket } from "./transcript.js";
 
 const KIND = "worker_summary" as const;
 const CONCURRENCY_LIMIT = 16;
@@ -52,12 +53,13 @@ interface WorkerSource {
 }
 
 interface NarrativeSubmission {
-  hypothesis: string;
+  submission_id: string;
+  approach: string;
   outcome_reasoning: string;
 }
 
-interface WorkerSummaryNarrative {
-  run: { hypothesis: string; summary: string };
+export interface WorkerSummaryNarrative {
+  run: { summary: string };
   submissions: NarrativeSubmission[];
   notable_observations: Array<{ observation: string; reusable_when: string }>;
 }
@@ -112,28 +114,29 @@ export function catchUpWorkerSummaries(store: StateStore, gameId?: string): numb
   });
 }
 
-function validateNarrative(value: Record<string, unknown> | null): WorkerSummaryNarrative {
+export function validateNarrative(value: Record<string, unknown> | null): WorkerSummaryNarrative {
   const run = value?.run;
   const submissions = value?.submissions;
   const observations = value?.notable_observations;
   if (!run || typeof run !== "object" || Array.isArray(run)
-    || typeof (run as Record<string, unknown>).hypothesis !== "string"
     || typeof (run as Record<string, unknown>).summary !== "string"
     || !Array.isArray(submissions) || !Array.isArray(observations)) {
     throw new Error("worker summarizer returned an invalid narrative object");
   }
   const unexpectedTopLevel = Object.keys(value).filter((key) => !["run", "submissions", "notable_observations"].includes(key));
-  const unexpectedRun = Object.keys(run).filter((key) => !["hypothesis", "summary"].includes(key));
+  const unexpectedRun = Object.keys(run).filter((key) => key !== "summary");
   if (unexpectedTopLevel.length > 0 || unexpectedRun.length > 0) {
     throw new Error("worker summarizer returned fields outside the narrative schema");
   }
   for (const row of submissions) {
     if (!row || typeof row !== "object" || Array.isArray(row)
-      || typeof (row as Record<string, unknown>).hypothesis !== "string"
+      || typeof (row as Record<string, unknown>).submission_id !== "string"
+      || ((row as Record<string, unknown>).submission_id as string).trim().length === 0
+      || typeof (row as Record<string, unknown>).approach !== "string"
       || typeof (row as Record<string, unknown>).outcome_reasoning !== "string") {
       throw new Error("worker summarizer returned an invalid submission narrative");
     }
-    if (Object.keys(row).some((key) => !["hypothesis", "outcome_reasoning"].includes(key))) {
+    if (Object.keys(row).some((key) => !["submission_id", "approach", "outcome_reasoning"].includes(key))) {
       throw new Error("worker summarizer returned fields outside the submission narrative schema");
     }
   }
@@ -150,11 +153,29 @@ function validateNarrative(value: Record<string, unknown> | null): WorkerSummary
   return value as unknown as WorkerSummaryNarrative;
 }
 
-async function transcriptPacket(rows: ReturnType<typeof loadWorkerCondenseInput>["transcripts"]): Promise<unknown[]> {
-  return Promise.all(rows.map(async (row) => ({
-    ...row,
-    content: row.exists && row.path ? await readFile(row.path, "utf8") : null,
-  })));
+export function narrativeSubmissionsById(
+  submissionIds: readonly string[],
+  narrative: WorkerSummaryNarrative,
+): Map<string, NarrativeSubmission> {
+  if (narrative.submissions.length !== submissionIds.length) {
+    throw new Error(`worker summarizer submission count mismatch: expected ${submissionIds.length}, received ${narrative.submissions.length}`);
+  }
+  const expectedIds = new Set(submissionIds);
+  const rowsById = new Map<string, NarrativeSubmission>();
+  for (const row of narrative.submissions) {
+    if (rowsById.has(row.submission_id)) {
+      throw new Error(`worker summarizer returned duplicate submission_id: ${row.submission_id}`);
+    }
+    if (!expectedIds.has(row.submission_id)) {
+      throw new Error(`worker summarizer returned unknown submission_id: ${row.submission_id}`);
+    }
+    rowsById.set(row.submission_id, row);
+  }
+  const missingId = submissionIds.find((id) => !rowsById.has(id));
+  if (missingId !== undefined) {
+    throw new Error(`worker summarizer omitted submission_id: ${missingId}`);
+  }
+  return rowsById;
 }
 
 function sourceCheckpoint(row: LibrarianCheckpointRow): AttemptSourceCheckpoint | null {
@@ -216,7 +237,7 @@ export async function handleWorkerSummaryJob(
       catalogAgentId: "worker-summarizer",
       cwd: deps.globals.repoRoot,
       prompt: workerSummarizerPrompt({
-        transcript: await transcriptPacket(input.transcripts),
+        transcript: await buildTranscriptPacket(input.transcripts),
         checkpointSubmissionDigest: { checkpoints: input.checkpoints, submissions: mechanical.submissions },
         targetCardReference: { id: target.id, stable_key: target.stable_key },
         repoRoot: deps.globals.repoRoot,
@@ -256,12 +277,16 @@ export async function handleWorkerSummaryJob(
     const parsed = parseJsonObject(result.rawText);
     if (!parsed.object) throw new Error(parsed.error ?? "worker summarizer output was not JSON");
     const narrative = validateNarrative(parsed.object);
-    if (narrative.submissions.length > mechanical.submissions.length) {
-      deps.log?.(`worker_summary dropped ${narrative.submissions.length - mechanical.submissions.length} extra submission narrative row(s) for ${workerStateId}`);
-    }
-    const submissions = mechanical.submissions.map((submission, index) => {
-      const modelRow = narrative.submissions[index];
-      return modelRow ? { ...submission, hypothesis: modelRow.hypothesis, description: modelRow.outcome_reasoning } : submission;
+    const narrativeBySubmissionId = narrativeSubmissionsById(
+      mechanical.submissions.map((submission) => submission.id),
+      narrative,
+    );
+    const submissions = mechanical.submissions.map((submission) => {
+      const modelRow = narrativeBySubmissionId.get(submission.id)!;
+      return {
+        ...submission,
+        description: `${modelRow.approach.trim()} ${modelRow.outcome_reasoning.trim()}`.trim(),
+      };
     });
     const proposalDir = resolve(deps.globals.stateDir, "knowledge_v2", "proposals");
     await mkdir(proposalDir, { recursive: true });
@@ -269,15 +294,23 @@ export async function handleWorkerSummaryJob(
     await writeFile(proposalPath, `${JSON.stringify({
       run: { id: mechanical.run.id, ...narrative.run },
       notable_observations: narrative.notable_observations,
-      submissions: mechanical.submissions.map((submission, index) => ({
+      submissions: mechanical.submissions.map((submission) => ({
         id: submission.id,
-        hypothesis: narrative.submissions[index]?.hypothesis ?? null,
-        outcome_reasoning: narrative.submissions[index]?.outcome_reasoning ?? submission.description,
+        submission_id: narrativeBySubmissionId.get(submission.id)!.submission_id,
+        approach: narrativeBySubmissionId.get(submission.id)!.approach,
+        outcome_reasoning: narrativeBySubmissionId.get(submission.id)!.outcome_reasoning,
       })),
     }, null, 2)}\n`, "utf8");
     const payload = `attempt://run/${mechanical.run.id}`;
     immediateTransaction(knowledge.db, () => {
       insertWorkerRun(knowledge, mechanical.run, submissions);
+      insertRunNarrative(knowledge, {
+        workerRunId: mechanical.run.id,
+        summary: narrative.run.summary,
+        notableObservations: narrative.notable_observations,
+        narrative,
+        producedBy: "live",
+      });
       advanceWatermark(knowledge, "attempt", JSON.stringify({ last_worker_state_id: workerStateId }));
       enqueueIndexTask(knowledge, { id: taskId("run_closed", payload), pathway: "run_closed", payload });
     });

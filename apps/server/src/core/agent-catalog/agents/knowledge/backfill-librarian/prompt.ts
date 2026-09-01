@@ -56,6 +56,41 @@ export const prompt = definePrompt({
         "Sibling functions and neighbouring records are research material for understanding, never fill-out subjects; admit a new game concept or pattern only when a supported fact needs one, and record relationships as links.",
       ]),
     ]),
+    section("thinking", [
+      bulletList([
+        item("Trust the sources in this order when they disagree:", [
+          bulletList([
+            "The matched source itself and the scored submissions that produced it — what the code demonstrably does.",
+            "Pull request discussion — maintainers explaining why a shape matched.",
+            "Discord — community lore, often right about roles and names, rarely precise about mechanics.",
+            "The wiki — authoritative for game mechanics, silent about code.",
+          ]),
+        ]),
+        item("What a good fact of each type says:", [
+          bulletList([
+            "purpose — what the subject does and why it exists in its subsystem, not a paraphrase of its name.",
+            "inferred_name — the name the original developers plausibly used, in the codebase's own conventions; a guess with its confidence.",
+            "inferred_type — the shape, unit, enum domain, or callback signature; for a data section, the layout it holds.",
+            "data_flow — where its inputs originate, how they change, where its outputs are consumed.",
+            "state_behavior — the states, transitions, guards, and timers it participates in.",
+            "game_mapping — the grounded game mechanic or concept the behaviour realizes.",
+          ]),
+        ]),
+        item("Understand from the neighbourhood: a function is one square on a larger board.", [
+          bulletList([
+            "Its callers and callees say what role it plays; its opseq analogs say what shape of routine it is; what is already known about those says what it likely is.",
+            "A translation unit's member list and the names already recovered in it reveal its subsystem and the naming convention its unnamed members should follow.",
+          ]),
+        ]),
+        item("Conventional link roles — use these before inventing one:", [
+          bulletList([
+            "target → entity: implements (a game concept), exhibits or uses (a pattern), reads or writes (a struct field), parameter.",
+            "entity → entity: typed_as (parameter to struct), related (concepts in one subsystem).",
+            "target → target: related.",
+          ]),
+        ]),
+      ]),
+    ]),
     section("context_contract", [
       usesContext("backfill-librarian-context", {
         instructions: [
@@ -76,7 +111,7 @@ export const prompt = definePrompt({
       section("phase", [
         "For each fill-out subject, in order:",
         orderedList([
-          "Read what it arrived with: its current record, plus its material — the translation unit entry brings its members and recent pull requests, the target entry brings its full ledger and status.",
+          "Read what it arrived with: its current record plus its material — the target entry brings its source span, its analogs, its full ledger, and its status; the translation unit entry brings its members and recent pull requests. The source is the primary text: read it before anything else.",
           "Research it across every resource: kv2_attempt_search for its attempts, kv2_pr_search for its pull requests, kv2_discord_search for its symbol, address, or name, kv2_wiki_search for the mechanic it might realize.",
           "Find its analogs: graph_related_functions for opseq-similar functions, callers, callees, and xrefs; read the analogs\u2019 records with kv2_subject_record \u2014 what is already known about similar code is often the strongest signal for what this subject is.",
           "Resolve in full, with kv2_resolve_locator, every record you will cite for it.",

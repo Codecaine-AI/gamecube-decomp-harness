@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatLocator, parseLocator, type DiscordLocator } from "../locator.js";
 import { openKnowledgeStore } from "../storage/store.js";
-import { importDiscord } from "./discord.js";
+import { DISCORD_TASK_CHUNK_SIZE, importDiscord } from "./discord.js";
 
 const tempDirs: string[] = [];
 
@@ -102,6 +102,61 @@ describe("importDiscord", () => {
     });
     expect(store.db.query("SELECT COUNT(*) AS count FROM index_task").get()).toEqual({ count: 2 });
     expect(store.db.query("SELECT position, updated_at FROM source_watermark WHERE source = 'discord'").get()).toEqual(before);
+
+    store.close();
+  });
+
+  test("chunks a large channel batch into contiguous index tasks", () => {
+    const { rawRoot, channelsConfigPath, store } = fixture();
+    const messageCount = DISCORD_TASK_CHUNK_SIZE * 2 + 5;
+    const messages = Array.from({ length: messageCount }, (_, index) => {
+      const id = String(index + 1).padStart(3, "0");
+      return JSON.stringify({
+        id,
+        channel_id: "100",
+        author: `author-${id}`,
+        timestamp: "2020-01-01T00:00:00.000+00:00",
+        content: `message-${id}`,
+      });
+    });
+    writeFileSync(join(rawRoot, "100", "2020-01.jsonl"), `${messages.join("\n")}\n`);
+    writeFileSync(join(rawRoot, "100", "2020-02.jsonl"), "");
+    writeFileSync(join(rawRoot, "200", "2020-01.jsonl"), "");
+
+    const result = importDiscord(store, { rawRoot, channelsConfigPath });
+    const payloads = store.db.query<{ payload: string }, []>(
+      "SELECT payload FROM index_task ORDER BY rowid",
+    ).all().map(({ payload }) => JSON.parse(payload));
+
+    expect(result.tasksEnqueued).toBe(Math.ceil(messageCount / DISCORD_TASK_CHUNK_SIZE));
+    expect(payloads).toEqual([
+      { source: "discord", channel_id: "100", from_id: "001", to_id: "040", count: 40 },
+      { source: "discord", channel_id: "100", from_id: "041", to_id: "080", count: 40 },
+      { source: "discord", channel_id: "100", from_id: "081", to_id: "085", count: 5 },
+    ]);
+
+    store.close();
+  });
+
+  test("does not enqueue large-batch tasks again on re-import", () => {
+    const { rawRoot, channelsConfigPath, store } = fixture();
+    const messageCount = DISCORD_TASK_CHUNK_SIZE + 1;
+    const messages = Array.from({ length: messageCount }, (_, index) => JSON.stringify({
+      id: String(index + 1).padStart(3, "0"),
+      channel_id: "100",
+      author: "author",
+      timestamp: "2020-01-01T00:00:00.000+00:00",
+      content: "message",
+    }));
+    writeFileSync(join(rawRoot, "100", "2020-01.jsonl"), `${messages.join("\n")}\n`);
+    writeFileSync(join(rawRoot, "100", "2020-02.jsonl"), "");
+    writeFileSync(join(rawRoot, "200", "2020-01.jsonl"), "");
+
+    importDiscord(store, { rawRoot, channelsConfigPath });
+    const second = importDiscord(store, { rawRoot, channelsConfigPath });
+
+    expect(second.tasksEnqueued).toBe(0);
+    expect(store.db.query("SELECT COUNT(*) AS count FROM index_task").get()).toEqual({ count: 2 });
 
     store.close();
   });

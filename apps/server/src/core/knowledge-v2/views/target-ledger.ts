@@ -5,6 +5,7 @@ export interface LedgerWorkerRun {
   id: string;
   goal: string;
   baseline: Record<string, unknown>;
+  summary: string | null;
   runId: string | null;
   workerStateId: string | null;
   finalOutcome: Outcome;
@@ -25,6 +26,7 @@ interface SubmissionRow {
   submitted_at: string; runtime_ref: string | null; worker_run_id: string; goal: string; baseline: string;
   run_id: string | null; worker_state_id: string | null; final_outcome: Outcome; error_type: WorkerErrorType | null;
   integration: Integration | null; started_at: string; ended_at: string | null; closed_at: string;
+  narrative_summary: string | null;
 }
 
 interface PullRequestRow {
@@ -41,13 +43,16 @@ export function targetLedger(store: KnowledgeStoreHandle, targetId: string): Tar
   const submissionEntries: TargetLedgerEntry[] = store.db.query<SubmissionRow, [string]>(`
     SELECT s.id AS submission_id, s.seq, s.description, s.hypothesis, s.score, s.submitted_at, s.runtime_ref,
       w.id AS worker_run_id, w.goal, w.baseline, w.run_id, w.worker_state_id, w.final_outcome,
-      w.error_type, w.integration, w.started_at, w.ended_at, w.closed_at
+      w.error_type, w.integration, w.started_at, w.ended_at, w.closed_at,
+      n.summary AS narrative_summary
     FROM submission s JOIN worker_run w ON w.id = s.worker_run_id
+    LEFT JOIN run_narrative n ON n.worker_run_id = w.id
     WHERE w.target_id = ?
   `).all(targetId).map((row) => ({
     type: "submission", timestamp: row.submitted_at, id: row.submission_id, seq: row.seq,
     description: row.description, hypothesis: row.hypothesis, score: row.score, runtimeRef: row.runtime_ref,
     workerRun: { id: row.worker_run_id, goal: row.goal, baseline: parseBaseline(row.baseline), runId: row.run_id,
+      summary: row.narrative_summary,
       workerStateId: row.worker_state_id, finalOutcome: row.final_outcome, errorType: row.error_type,
       integration: row.integration, startedAt: row.started_at, endedAt: row.ended_at, closedAt: row.closed_at },
     isRegression: false,

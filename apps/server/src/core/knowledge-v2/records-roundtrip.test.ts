@@ -19,6 +19,7 @@ import {
   type KnowledgeStore,
   type Locator,
 } from "./index.js";
+import { getRunNarrative, insertRunNarrative } from "./records/index.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -97,6 +98,34 @@ describe("knowledge locators", () => {
 });
 
 describe("record helpers", () => {
+  test("reads an inserted run narrative and returns null when missing", () => {
+    const store = openStore("run-narrative-reader");
+    insertTranslationUnit(store);
+    insertFunction(store);
+    insertWorkerRun(store, {
+      id: "worker-narrative", targetId: "function-1", goal: "Match function", baseline: "{}",
+      finalOutcome: "match", startedAt: "2026-01-01T00:00:00.000Z", closedAt: "2026-01-01T00:10:00.000Z",
+    }, []);
+    insertRunNarrative(store, {
+      workerRunId: "worker-narrative",
+      summary: "The function matched.",
+      notableObservations: [{ observation: "The branch order mattered." }],
+      narrative: { result: "match", attempts: 2 },
+      producedBy: "backfill",
+      createdAt: "2026-01-01T00:11:00.000Z",
+    });
+
+    expect(getRunNarrative(store, "worker-narrative")).toEqual({
+      workerRunId: "worker-narrative",
+      summary: "The function matched.",
+      notableObservations: [{ observation: "The branch order mattered." }],
+      narrative: { result: "match", attempts: 2 },
+      producedBy: "backfill",
+      createdAt: "2026-01-01T00:11:00.000Z",
+    });
+    expect(getRunNarrative(store, "missing-worker")).toBeNull();
+  });
+
   test("round-trips a worker run with submissions and an event with refs", () => {
     const store = openStore("worker-event");
     insertTranslationUnit(store);
@@ -110,6 +139,14 @@ describe("record helpers", () => {
       { id: "submission-1", seq: 1, description: "First try", hypothesis: "Swap branch", score: 75, submittedAt: "2026-01-01T00:05:00.000Z", runtimeRef: "attempt://run/runtime-1/submission/1" },
       { id: "submission-2", seq: 2, description: "Second try", score: 80, submittedAt: "2026-01-01T00:09:00.000Z" },
     ]);
+    insertRunNarrative(store, {
+      workerRunId: "worker-1",
+      summary: "Reversing the branch improved the match.",
+      notableObservations: [{ observation: "The branch controls the epilogue.", reusable_when: "Matching related functions" }],
+      narrative: { run: { summary: "Reversing the branch improved the match." } },
+      producedBy: "live",
+      createdAt: "2026-01-01T00:12:00.000Z",
+    });
     insertEvent(store, {
       id: "event-1", targetId: "function-1", kind: "regression", cause: "upstream_change",
       summary: "Score dropped", createdAt: "2026-01-02T00:00:00.000Z",
@@ -126,6 +163,19 @@ describe("record helpers", () => {
       { id: "submission-1", worker_run_id: "worker-1", seq: 1, hypothesis: "Swap branch", score: 75, runtime_ref: "attempt://run/runtime-1/submission/1" },
       { id: "submission-2", worker_run_id: "worker-1", seq: 2, hypothesis: null, score: 80, runtime_ref: null },
     ]);
+    expect(store.db.query("SELECT worker_run_id, summary, produced_by, created_at FROM run_narrative").get()).toEqual({
+      worker_run_id: "worker-1",
+      summary: "Reversing the branch improved the match.",
+      produced_by: "live",
+      created_at: "2026-01-01T00:12:00.000Z",
+    });
+    expect(() => insertRunNarrative(store, {
+      workerRunId: "worker-1",
+      summary: "Replacement",
+      notableObservations: [],
+      narrative: {},
+      producedBy: "backfill",
+    })).toThrow();
     expect(store.db.query("SELECT id, kind, cause, summary, created_at FROM event").get()).toEqual({
       id: "event-1", kind: "regression", cause: "upstream_change", summary: "Score dropped", created_at: "2026-01-02T00:00:00.000Z",
     });

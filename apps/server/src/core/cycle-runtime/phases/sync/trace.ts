@@ -43,7 +43,6 @@ export type SubmitSyncWorkflowEvent<TPaths> = (
 export type SyncMilestone =
   | "activation"
   | "discord_refresh"
-  | "discord_staged"
   | "ingest"
   | "reconciling"
   | "validated"
@@ -65,11 +64,6 @@ const MILESTONES: Record<SyncMilestone, SyncMilestoneDescriptor> = {
   discord_refresh: {
     eventTypes: ["sync.discord_refresh_completed"],
     operation: "sync.discord_refresh",
-    status: "completed",
-  },
-  discord_staged: {
-    eventTypes: ["sync.discord_staged"],
-    operation: "sync.discord_stage",
     status: "completed",
   },
   ingest: { eventTypes: ["sync.ingesting"], operation: "sync.ingest", status: "started" },

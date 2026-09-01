@@ -74,14 +74,10 @@ House decompilation standards, injected for awareness only. These are QA-owned, 
 </decomp_standards>
 
 <output_contract>
-Return this exact librarian_pass_v1 LLM-emitted shape:
-
 \`\`\`json
 {{BACKFILL_LIBRARIAN_OUTPUT_SCHEMA_JSON}}
 \`\`\`
-</output_contract>
-
-Return exactly one JSON object.`;
+</output_contract>`;
 
 function schemaPath(): string {
   return fileURLToPath(new URL("./schema.json", import.meta.url));

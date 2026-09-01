@@ -312,9 +312,6 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
   const next = new Map<string, string | true>([["--run-id", runId]]);
   for (const key of [
     "--agent-state-enrichment",
-    "--curator-agent-batch-size",
-    "--curator-agent-jobs",
-    "--curator-agent-record-limit",
     "--graph-db",
     "--knowledge-curator-enrichment",
     "--no-pr-index",
@@ -327,7 +324,6 @@ function knowledgeMaintenanceArgs(args: Map<string, string | true>, runId: strin
     "--pr-limit",
     "--rerun-existing-prs",
     "--run-pr-agent",
-    "--run-curator-agent",
     "--sources",
     "--worker-limit",
   ]) {

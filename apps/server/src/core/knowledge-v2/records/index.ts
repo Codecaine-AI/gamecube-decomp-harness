@@ -55,6 +55,24 @@ export interface SubmissionInput {
   runtimeRef?: string | null;
 }
 
+export interface RunNarrativeInput {
+  workerRunId: string;
+  summary: string;
+  notableObservations: readonly unknown[];
+  narrative: unknown;
+  producedBy: "live" | "backfill";
+  createdAt?: string;
+}
+
+export interface RunNarrativeRow {
+  workerRunId: string;
+  summary: string;
+  notableObservations: unknown[];
+  narrative: unknown;
+  producedBy: "live" | "backfill";
+  createdAt: string;
+}
+
 export interface EventInput {
   id: string;
   targetId: string;
@@ -163,6 +181,49 @@ export function insertWorkerRun(store: KnowledgeStoreHandle, run: WorkerRunInput
   });
 }
 
+export function insertRunNarrative(store: KnowledgeStoreHandle, narrative: RunNarrativeInput): void {
+  store.db.query(`INSERT INTO run_narrative
+    (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)`).run(
+    narrative.workerRunId,
+    narrative.summary,
+    JSON.stringify(narrative.notableObservations),
+    JSON.stringify(narrative.narrative),
+    narrative.producedBy,
+    narrative.createdAt ?? now(),
+  );
+}
+
+export function getRunNarrative(store: KnowledgeStoreHandle, workerRunId: string): RunNarrativeRow | null {
+  const row = store.db.query<{
+    worker_run_id: string;
+    summary: string;
+    notable_observations: string;
+    narrative: string;
+    produced_by: "live" | "backfill";
+    created_at: string;
+  }, [string]>(`SELECT worker_run_id, summary, notable_observations, narrative, produced_by, created_at
+    FROM run_narrative WHERE worker_run_id = ?`).get(workerRunId);
+  if (!row) return null;
+
+  const parseStoredJson = <T>(value: string): T => {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
+  };
+
+  return {
+    workerRunId: row.worker_run_id,
+    summary: row.summary,
+    notableObservations: parseStoredJson<unknown[]>(row.notable_observations),
+    narrative: parseStoredJson<unknown>(row.narrative),
+    producedBy: row.produced_by,
+    createdAt: row.created_at,
+  };
+}
+
 export function insertEvent(store: KnowledgeStoreHandle, event: EventInput, refs: readonly EventRefInput[]): void {
   immediateTransaction(store.db, () => {
     store.db.query("INSERT INTO event (id, target_id, kind, cause, summary, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
@@ -228,6 +289,11 @@ export function claimIndexTask(store: KnowledgeStoreHandle, id: string, startedA
 
 export function completeIndexTask(store: KnowledgeStoreHandle, id: string, doneAt = now()): boolean {
   return store.db.query("UPDATE index_task SET done_at = ? WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL").run(doneAt, id).changes > 0;
+}
+
+/** Release a claimed, unfinished task back to the queue (dry run, failed pass). */
+export function releaseIndexTask(store: KnowledgeStoreHandle, id: string): boolean {
+  return store.db.query("UPDATE index_task SET started_at = NULL WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL").run(id).changes > 0;
 }
 
 export function stampSubjectIndexed(store: KnowledgeStoreHandle, subject: SubjectRef, indexedAt = now()): void {

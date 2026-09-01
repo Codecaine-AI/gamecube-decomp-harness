@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { immediateTransaction } from "../transaction.js";
 import { baselineMigration } from "./001-baseline.js";
+import { runNarrativeMigration } from "./002-run-narrative.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { KnowledgeStorageMigration } from "./types.js";
 
@@ -8,6 +9,7 @@ export type { KnowledgeStorageMigration } from "./types.js";
 
 export const knowledgeStorageMigrations: readonly KnowledgeStorageMigration[] = Object.freeze([
   baselineMigration,
+  runNarrativeMigration,
 ]);
 
 interface AppliedMigrationRow {

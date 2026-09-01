@@ -55,6 +55,7 @@ interface WorkTarget {
 }
 
 interface TextCorpusEntry {
+  title?: string;
   kind: string;
   author: string;
   created_at: string;
@@ -331,16 +332,16 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
 
 export interface ResolvedPrComment {
   locator: string;
+  title?: string;
   kind: string;
   author: string;
   createdAt: string;
   body: string;
 }
 
-export function resolvePrComment(prsRoot: string, prNumber: number, n: number): ResolvedPrComment | null {
-  if (!Number.isInteger(n) || n < 0) return null;
+export function listPrComments(prsRoot: string, prNumber: number): ResolvedPrComment[] {
   const directory = findPrDirectories(prsRoot).find((candidate) => candidate.number === prNumber);
-  if (directory === undefined) return null;
+  if (directory === undefined) return [];
   const entries = readJsonLines<TextCorpusEntry>(join(directory.path, "extracted", "text_corpus.jsonl"));
   const body = entries.filter(({ kind }) => kind === "pr_body");
   const remainder = entries
@@ -348,13 +349,17 @@ export function resolvePrComment(prsRoot: string, prNumber: number, n: number): 
     .filter(({ entry }) => entry.kind !== "pr_body")
     .sort((a, b) => a.entry.created_at.localeCompare(b.entry.created_at) || a.index - b.index)
     .map(({ entry }) => entry);
-  const entry = [...body, ...remainder][n];
-  if (entry === undefined) return null;
-  return {
-    locator: `pr://${prNumber}/comment/${n}`,
+  return [...body, ...remainder].map((entry, index) => ({
+    locator: `pr://${prNumber}/comment/${index}`,
+    ...(typeof entry.title === "string" ? { title: entry.title } : {}),
     kind: entry.kind,
     author: entry.author,
     createdAt: entry.created_at,
     body: entry.body,
-  };
+  }));
+}
+
+export function resolvePrComment(prsRoot: string, prNumber: number, n: number): ResolvedPrComment | null {
+  if (!Number.isInteger(n) || n < 0) return null;
+  return listPrComments(prsRoot, prNumber)[n] ?? null;
 }

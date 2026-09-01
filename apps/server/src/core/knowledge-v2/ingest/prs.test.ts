@@ -9,6 +9,7 @@ import { shortHash, slugify, taskId } from "./common.js";
 import {
   findBotReportBody,
   importPrs,
+  listPrComments,
   parseBotReportComment,
   resolvePrComment,
 } from "./prs.js";
@@ -180,7 +181,7 @@ function createFixture(issueComments?: unknown) {
     { pr: 1000, file: "src/melee/ft/ftcommon.c", added: 4, deleted: 3, hunks: 2 },
     { pr: 1000, file: "docs/unmapped.md", added: 1, deleted: 0, hunks: 1 },
   ], [
-    { pr: 1000, kind: "pr_body", author: "author", created_at: "2023-11-03T09:00:00Z", body: "body" },
+    { pr: 1000, title: "Language and fighter updates", kind: "pr_body", author: "author", created_at: "2023-11-03T09:00:00Z", body: "body" },
     { pr: 1000, kind: "comment", author: "late", created_at: "2023-11-03T08:00:00Z", body: "late comment" },
     { pr: 1000, kind: "review", author: "early", created_at: "2023-11-03T07:00:00Z", body: "early review" },
   ], issueComments);
@@ -641,11 +642,36 @@ No table here.
   });
 });
 
-describe("resolvePrComment", () => {
+describe("PR comment readers", () => {
   test("puts the PR body first and sorts the remaining archive records", () => {
     const { prsRoot } = createFixture();
+    expect(listPrComments(prsRoot, 1000)).toEqual([
+      {
+        locator: "pr://1000/comment/0",
+        title: "Language and fighter updates",
+        kind: "pr_body",
+        author: "author",
+        createdAt: "2023-11-03T09:00:00Z",
+        body: "body",
+      },
+      {
+        locator: "pr://1000/comment/1",
+        kind: "review",
+        author: "early",
+        createdAt: "2023-11-03T07:00:00Z",
+        body: "early review",
+      },
+      {
+        locator: "pr://1000/comment/2",
+        kind: "comment",
+        author: "late",
+        createdAt: "2023-11-03T08:00:00Z",
+        body: "late comment",
+      },
+    ]);
     expect(resolvePrComment(prsRoot, 1000, 0)).toEqual({
       locator: "pr://1000/comment/0",
+      title: "Language and fighter updates",
       kind: "pr_body",
       author: "author",
       createdAt: "2023-11-03T09:00:00Z",

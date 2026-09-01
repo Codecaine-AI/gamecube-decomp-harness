@@ -221,38 +221,43 @@
       "id": "b-ks2-bfp-ex-input",
       "type": "state-shape",
       "props": {
-        "description": "What the runner assembles mechanically and hands to the agent — no model is involved in building this. The same object is persisted in the pass artifact for audit.",
-        "example": "{\n  \"task\": { \"run_id\": \"backfill-01\", \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n  \"subject\": { \"kind\": \"function\", \"address\": \"0x800BFFD0\", \"match_pct\": 100, \"linked\": true,\n               \"named_symbol\": false, \"unit_named_ratio\": 0.62 },\n  \"given_ledger\": { \"worker_runs\": [ { \"id\": \"run:7f3a…\", \"final_outcome\": \"match\", \"integration\": \"integrated\",\n                    \"submissions\": [ { \"seq\": 1, \"score\": 91.2 }, { \"seq\": 2, \"score\": 100.0 } ] } ],\n                    \"pull_requests\": [] },\n  \"unit_context\": { \"entity_locator\": \"src/melee/ft/ftcommon.c\", \"member_count\": 109,\n                    \"recent_prs\": [\"pr-1482--main-melee-ft-ftcommon\", \"…14 more\"], \"total_pr_count\": 99 },\n  \"subject_records\": { \"target\": { \"facts\": {}, \"links\": [] }, \"src/melee/ft/ftcommon.c\": { \"facts\": {}, \"links\": [] } },\n  \"scope\": { \"targetStableKeys\": [\"main/melee/ft/ftcommon:ftCo_800BFFD0\"],\n             \"entityLocators\": [\"src/melee/ft/ftcommon.c\"] }\n}",
+        "description": "What the runner assembles mechanically and hands to the agent — no model is involved in building this. The same object is persisted in the pass artifact for audit. Measured on a real pass: about 85KB, most of it the target's grouped ledger and the trimmed standards.",
+        "example": "{\n  \"task\": { \"run_id\": \"backfill-01\", \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\" },\n  \"fill_out_subjects\": [\n    { \"order\": 1, \"kind\": \"entity\", \"entity_kind\": \"translation_unit\", \"entity_locator\": \"src/melee/ft/ftcommon.c\",\n      \"record\": { \"facts\": {}, \"links\": [] },\n      \"material\": { \"members\": [ { \"stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\", \"match_pct\": 100, \"named\": false }, \"…108 more\" ],\n                    \"pull_requests\": [ \"…15 most recent\" ], \"total_pr_count\": 99 } },\n    { \"order\": 2, \"kind\": \"target\", \"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\",\n      \"detail\": { \"address\": \"0x800BFFD0\", \"match_pct\": 100, \"linked\": true, \"named_symbol\": false, \"unit_named_ratio\": 0.62 },\n      \"record\": { \"facts\": {}, \"links\": [] },\n      \"material\": {\n        \"source\": { \"locator\": \"code://1e28b420/src/melee/ft/ftcommon.c#L210-L242\", \"text\": \"void ftCo_800BFFD0(Fighter* fp) { … }\", \"truncated\": false },\n        \"analogs\": [ { \"stable_key\": \"main/melee/ft/ftcommon:ftCo_800C0210\", \"relation\": \"opseq_analog\", \"score\": 0.52, \"match_pct\": 100, \"has_facts\": true },\n                     { \"stable_key\": \"main/melee/ft/ft_0877:ftCommon_800C0F44\", \"relation\": \"caller\", \"match_pct\": 100, \"has_facts\": false } ],\n        \"ledger\": { \"runs\": [ { \"id\": \"run:7f3a…\", \"final_outcome\": \"match\", \"integration\": \"integrated\",\n                                 \"submissions\": [ { \"seq\": 1, \"score\": 91.2, \"locator\": \"attempt://run/run:7f3a…/submission/1\" },\n                                                  { \"seq\": 2, \"score\": 100.0, \"locator\": \"attempt://run/run:7f3a…/submission/2\" } ] } ],\n                    \"pull_requests\": [], \"events\": [] } } }\n  ],\n  \"supporting_subjects\": [],\n  \"decomp_standards\": { \"standards\": [ { \"id\": \"global_standard:natural-loops\", \"title\": \"Natural loops are required\", \"summary\": [\"…\"] } ] },\n  \"scope\": { \"targetStableKeys\": [\"main/melee/ft/ftcommon:ftCo_800BFFD0\"], \"entityLocators\": [\"src/melee/ft/ftcommon.c\"] }\n}",
         "fields": [
           {
             "name": "task",
             "type": "object",
-            "description": "The pass descriptor: run id and the one subject this pass owns"
+            "description": "The pass descriptor: run id, the target's stable_key, and the loop instruction"
           },
           {
-            "name": "subject",
-            "type": "object",
-            "description": "The target row, its target_status, and its funnel columns (matched, linked, named, unit_named_ratio)"
+            "name": "fill_out_subjects",
+            "type": "array",
+            "description": "The ordered loop — linked entities first, the target last. Each entry: order, kind, its locator or stable_key, its current knowledge record, and its material"
           },
           {
-            "name": "given_ledger",
+            "name": "fill_out_subjects[].material (translation unit)",
             "type": "object",
-            "description": "Pre-joined, complete: every worker_run with its submissions, every pull_request row attributed to the target"
+            "description": "The unit view aggregate, the member target list with match and named flags, and the 15 most recent unit-attributed PR rows with the total count"
           },
           {
-            "name": "unit_context",
+            "name": "fill_out_subjects[].material (target)",
             "type": "object",
-            "description": "The translation_unit entity, the unit view aggregate, the 15 most recent unit-attributed PR rows with the total count, and the member target list"
+            "description": "source: the function's definition span from the checkout as a code:// locator plus text (null with a reason when the symbol cannot be located confidently); analogs: opseq-similar functions, callers, and callees, each with match % and a has_facts flag; ledger: runs grouped with their submissions (header once, attempt:// locator per submission), pull_request rows, events"
           },
           {
-            "name": "subject_records",
+            "name": "supporting_subjects",
+            "type": "array",
+            "description": "Connected game concepts and patterns with their records: context to read, not owed facts"
+          },
+          {
+            "name": "decomp_standards",
             "type": "object",
-            "description": "The assembled knowledge record for the target and each linked mechanical entity — empty on pass 1"
+            "description": "Accepted standards projected to id, title, summary — recognition only, never knowledge"
           },
           {
             "name": "scope",
             "type": "object",
-            "description": "The write territory the apply layer will enforce: the target plus its linked mechanical entities"
+            "description": "The write territory the apply layer enforces: the target plus its linked mechanical entities"
           }
         ],
         "name": "backfill_pass_context"
@@ -284,8 +289,8 @@
         "rows": [
           [
             "1",
-            "kv2_attempt_search { target: …:ftCo_800BFFD0 }",
-            "The given ledger's run confirmed: two scored submissions, 91.2 then 100.0, integrated; mechanical descriptions only (no narrative yet)"
+            "(no call — read the material)",
+            "The target arrived with its source span, its analogs (one already carries facts), and its grouped ledger: two scored submissions, 91.2 then 100.0, integrated. The source is read first."
           ],
           [
             "2",

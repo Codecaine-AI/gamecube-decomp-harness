@@ -33,7 +33,7 @@ export interface WorkerSummarizerPromptOptions {
 
 export const WORKER_SUMMARIZER_TURN_PROMPT = [
   "Use the injected worker summarizer context packet.",
-  "Explain the run and each submission, then return exactly one narrative-only JSON object.",
+  "Narrate the run, each submission, and the reusable observations, then return exactly one narrative-only JSON object.",
 ].join(" ");
 
 export const context = defineContext(
@@ -41,15 +41,14 @@ export const context = defineContext(
 );
 
 const WORKER_SUMMARIZER_CONTEXT_TEMPLATE = `<task>
-Read the complete worker transcript beside the deterministic checkpoint and submission digest.
-Explain the worker's hypotheses, the run's development, each submission's outcome, and reusable observations.
+Summarize this closed worker run from its digest and transcript.
 </task>
 
-<target_card_reference>
+<target_reference>
 \`\`\`json
 {{TARGET_CARD_REFERENCE_JSON}}
 \`\`\`
-</target_card_reference>
+</target_reference>
 
 <checkpoint_submission_digest>
 \`\`\`json
@@ -64,14 +63,10 @@ Explain the worker's hypotheses, the run's development, each submission's outcom
 </worker_transcript>
 
 <output_contract>
-Return this exact LLM-emitted shape:
-
 \`\`\`json
 {{WORKER_SUMMARIZER_OUTPUT_SCHEMA_JSON}}
 \`\`\`
-</output_contract>
-
-Return exactly one JSON object.`;
+</output_contract>`;
 
 function schemaPath(): string {
   return fileURLToPath(new URL("./schema.json", import.meta.url));

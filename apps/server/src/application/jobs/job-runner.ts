@@ -8,6 +8,8 @@ import { kg2Backfill } from "@server/core/knowledge-v2/backfill/cli.js";
 import { kg2Ingest } from "@server/core/knowledge-v2/ingest/cli.js";
 import { kg2Index } from "@server/core/knowledge-v2/index/job.js";
 import { kg2Prioritize } from "@server/core/knowledge-v2/migration/prioritize.js";
+import { kg2Renarrate } from "@server/core/knowledge-v2/renarrate/cli.js";
+import { kg2Librarian } from "@server/core/knowledge-v2/librarian/cli.js";
 import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
 import { savePoint } from "@server/core/cycle-runtime/phases/pr/jobs/save-point.js";
 import {
@@ -73,6 +75,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg2-index") await kg2Index(globals, args);
     else if (command === "kg2-prioritize") await kg2Prioritize(globals, args);
     else if (command === "kg2-backfill") await kg2Backfill(globals, args);
+    else if (command === "kg2-renarrate") await kg2Renarrate(globals, args);
+    else if (command === "kg2-librarian") await kg2Librarian(globals, args);
     else if (command === "status") await status(globals);
     else throw new Error(`Unknown server job: ${command}`);
   } finally {

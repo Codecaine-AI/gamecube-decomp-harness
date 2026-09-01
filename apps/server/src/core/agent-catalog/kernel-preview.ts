@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { WORKER_CANONICAL_TOOL_PATHS, workerPrompt } from "@server/core/agent-catalog";
 import {
@@ -13,6 +14,12 @@ import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/c
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
 import { librarianV2Prompt } from "@server/core/agent-catalog/agents/knowledge/librarian-v2/index.js";
 import { backfillLibrarianPrompt } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/index.js";
+import { globalStandardsContext } from "@server/core/knowledge";
+import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { buildPassContext, type BackfillPassContext } from "@server/core/knowledge-v2/backfill/context.js";
+import { librarianStandardsView } from "@server/core/knowledge-v2/backfill/runner.js";
+import { prioritizeTargets } from "@server/core/knowledge-v2/migration/prioritize.js";
+import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
@@ -26,6 +33,36 @@ export interface KernelAgentsPayload {
   source: "sample";
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
+}
+
+type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting">;
+
+export interface KernelPreviewDeps {
+  loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
+}
+
+function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): BackfillPreviewContext | null {
+  let store: KnowledgeStore | undefined;
+  try {
+    if (!paths.game) return null;
+    const gameId = paths.game.gameId;
+    const sqlitePath = resolve(gameKnowledgeRoot(gameId), "knowledge.sqlite");
+    if (!existsSync(sqlitePath)) return null;
+
+    // Opening runs migrations; for an up-to-date existing store that pass is a no-op.
+    store = openKnowledgeStore({ gameId });
+    const rows = prioritizeTargets(store).rows;
+    const row = rows.find(
+      (candidate) => candidate.stable_key.startsWith("main/melee/") && candidate.attempts_runs > 0,
+    ) ?? rows[0];
+    if (!row) return null;
+    const context = buildPassContext(store, row);
+    return { fillOut: context.fillOut, supporting: context.supporting };
+  } catch {
+    return null;
+  } finally {
+    store?.close();
+  }
 }
 
 function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undefined {
@@ -56,7 +93,11 @@ function renderedTools(
   return availableToolsPromptXml(context, { replace: entry.tools });
 }
 
-function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext): PiPromptBundle {
+function samplePrompt(
+  agentId: KernelAgentId,
+  paths: KernelAgentCatalogContext,
+  deps: KernelPreviewDeps,
+): PiPromptBundle {
   const game = gameMetadata(paths);
   switch (agentId) {
     case "worker":
@@ -141,38 +182,89 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           "",
         ].join("\n"),
       });
-    case "worker-summarizer":
+    case "worker-summarizer": {
+      const workerRunId = "run:31f060aa-de8d-49cc-adf0-601e8735dd4e";
+      const workerStateId = "31f060aa-de8d-49cc-adf0-601e8735dd4e";
+      const targetId = "target:function:main/melee/ft/chara/ftCommon/ftCo_Guard:ftCo_GuardReflect_Anim";
+      const stableKey = "main/melee/ft/chara/ftCommon/ftCo_Guard:ftCo_GuardReflect_Anim";
+      const checkpoint = (attemptIndex: number, validationTime: string, newScore: number, exact: 0 | 1) => ({
+        kind: "checkpoint",
+        id: `checkpoint-${attemptIndex}-${workerStateId.slice(0, 8)}`,
+        worker_state_id: workerStateId,
+        attempt_index: attemptIndex,
+        validation_time: validationTime,
+        old_score: 80.51613,
+        new_score: newScore,
+        delta: Number((newScore - 80.51613).toFixed(5)),
+        exact_match: exact,
+        hard_gates_passed: exact,
+        improved_over_baseline: 1,
+        selectable: exact,
+        selected: exact,
+        validation_status: exact === 1 ? "passed" : "failed",
+        failure_reasons_json: exact === 1
+          ? "[]"
+          : JSON.stringify([`target ftCo_GuardReflect_Anim improved from 80.51613 to ${newScore} but did not reach exact as claimed; runner records improved progress`]),
+        metadata_json: JSON.stringify({ agent_output_path: `${paths.stateDir}/runs/53d5b342/workers/${workerStateId}/attempt-${attemptIndex}` }),
+      });
+      const transcriptLines = [
+        { type: "session", id: "8f5861fc", timestamp: "2026-07-12T00:01:35.565Z", cwd: paths.repoRoot },
+        { type: "message", id: "a1", message: { role: "user", content: [{ type: "text", text: `Match ${stableKey}. Baseline 80.51613. Claim exact only when the validator agrees.…[transcript-condenser: truncated 61204 chars]` }] } },
+        { type: "message", id: "a2", message: { role: "assistant", content: [
+          { type: "thinking", thinking: "The diff shows the callee chain for the guard-reflect helper is inlined in the reference. I should compare the two helper call sites before touching anything." },
+          { type: "toolCall", id: "t1", name: "asm_window_search", arguments: { symbol: "ftCo_GuardReflect_Anim", window: 48 } },
+        ] } },
+        { type: "message", id: "a3", message: { role: "toolResult", toolCallId: "t1", content: [{ type: "text", text: "ftCo_GuardReflect_Anim:\n  stwu r1, -0x20(r1)\n  mflr r0\n  stw r0, 0x24(r1)\n  stw r31, 0x1c(r1)\n  mr r31, r3\n  lwz r3, 0x2c(r3)\n  bl ftCo_800BFFD0\n  lwz r0, 0x1c(r31)…[transcript-condenser: truncated 21447 chars]" }] } },
+        { type: "message", id: "a4", message: { role: "assistant", content: [
+          { type: "thinking", thinking: "The reference inlines ftCo_GuardReflectHelper into the caller; my version calls it out of line. Inlining the helper should recover the branch shape." },
+          { type: "toolCall", id: "t2", name: "source_edit", arguments: { path: "src/melee/ft/chara/ftCommon/ftCo_Guard.c", summary: "mark ftCo_GuardReflectHelper static inline and hoist the reflect check" } },
+        ] } },
+        { type: "message", id: "a5", message: { role: "toolResult", toolCallId: "t2", content: [{ type: "text", text: "edit applied: 2 hunks…[transcript-condenser: truncated 1180 chars]" }] } },
+        { type: "message", id: "a6", message: { role: "assistant", content: [{ type: "text", text: "Inlining the helper reproduced the branch layout; the remaining diff is a single register rotation around the animation-frame compare. Submitting." }] } },
+      ];
       return workerSummarizerPrompt({
-        targetCardReference: {
-          target_key: "src/melee/ft/chara/ftDemo.c:ftDemo_KernelViewerSample",
-          symbol: "ftDemo_KernelViewerSample",
-          source_path: "src/melee/ft/chara/ftDemo.c",
-        },
+        targetCardReference: { id: targetId, stable_key: stableKey },
         checkpointSubmissionDigest: {
-          checkpoints: [
-            {
-              submission_count: 1,
-              result: "improved but inexact",
-              changed_area: "guard order and loop-carried load placement",
-            },
-          ],
+          run: {
+            id: workerRunId,
+            target_id: targetId,
+            worker_state_id: workerStateId,
+            run_id: "53d5b342-c066-48fc-aa49-dd78b69dc2ac",
+            goal: `Match ${stableKey} (worker runloop-35365-71-a1122c32, epoch fe8d8bd5-604c-48aa-a1ce-6c3f995662ac)`,
+            baseline: JSON.stringify({ score: 80.51613 }),
+            final_outcome: "match",
+            error_type: null,
+            integration: null,
+            started_at: "2026-07-12T00:01:35.565Z",
+            ended_at: "2026-07-12T00:19:59.710Z",
+            closed_at: "2026-07-12T00:19:59.710Z",
+            target_stable_key: stableKey,
+          },
           submissions: [
-            {
-              result: "improved but inexact",
-              validation_summary: "The mismatch narrowed after the load moved before the loop.",
-            },
+            { id: `${workerRunId}:sub:1`, seq: 1, description: "checkpoint 0 scored 84.23387", hypothesis: null, score: 84.23387, submitted_at: "2026-07-12T00:04:23.159Z", runtime_ref: "007fd7e0-12a5-421a-be9e-b0053f8dc3a7" },
+            { id: `${workerRunId}:sub:2`, seq: 2, description: "checkpoint 1 scored 99.951614", hypothesis: null, score: 99.951614, submitted_at: "2026-07-12T00:13:16.971Z", runtime_ref: "0d7435ea-8377-4ffa-99d9-58c2a9637ac7" },
+            { id: `${workerRunId}:sub:3`, seq: 3, description: "checkpoint 2 scored 100", hypothesis: null, score: 100, submitted_at: "2026-07-12T00:19:41.008Z", runtime_ref: "c4e2a9d1-6b0f-4f3a-9c7e-2d8b1e5f0a64" },
+          ],
+          checkpoints: [
+            checkpoint(0, "2026-07-12T00:04:23.159Z", 84.23387, 0),
+            checkpoint(1, "2026-07-12T00:13:16.971Z", 99.951614, 0),
+            checkpoint(2, "2026-07-12T00:19:41.008Z", 100, 1),
           ],
         },
         transcript: [
           {
-            role: "assistant",
-            content: "The remaining mismatch may come from branch order. I reordered the guard, then moved the damage-vector load above the loop before submitting.",
+            kind: "transcript_span",
+            session_id: "019f1424-f574-716d-8065-c53713ee2cf0",
+            path: `${paths.repoRoot}/games/melee/worktrees/cycles/53d5b342/epochs/0071/workers/${workerStateId}/source/.pi-sessions/8f5861fc/worker/2026-07-12T00-01-35-565Z_019f1424-f574-716d-8065-c53713ee2cf0.jsonl`,
+            exists: true,
+            content: `${transcriptLines.map((line) => JSON.stringify(line)).join("\n")}\n`,
           },
         ],
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,
       });
+    }
     case "librarian-v2":
       return librarianV2Prompt({
         task: {
@@ -184,30 +276,31 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
           submissions: [{ seq: 1, hypothesis: "Guard order controls the branch shape." }],
           proposal: { purpose: "Updates the demo fighter state after the guard passes." },
         },
-        subjectRecords: {
-          subjects: [{ target_stable_key: "GALE01:ftDemo_KernelViewerSample", facts: [], links: [], evidence: [] }],
-        },
-        searchResults: {
-          attempts: [{
-            locator: "attempt://run/kernel-viewer-run-1/submission/1",
-            stable_key: "GALE01:ftDemo_KernelViewerSample",
-            final_outcome: "improvement",
-            description_snippet: "Reordered the guard branches.",
-          }],
-          discord: [{
-            locator: "discord://message/1234567890",
-            author: "sample-contributor",
-            snippet: "The guard order controls the branch shape.",
-          }],
-        },
+        touchedSubjects: [
+          {
+            order: 1,
+            kind: "target",
+            target_stable_key: "GALE01:ftDemo_Target",
+            record: { facts: {}, links: [] },
+            material: { source: { locator: null, reason: "sample" }, analogs: { unavailable: true } },
+          },
+        ],
+        supportingSubjects: [],
+        decompStandards: { standards: [] },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,
       });
-    case "backfill-librarian":
+    case "backfill-librarian": {
+      let context: BackfillPreviewContext | null = null;
+      try {
+        context = (deps.loadBackfillPassContext ?? loadRealBackfillPassContext)(paths);
+      } catch {
+        context = null;
+      }
       return backfillLibrarianPrompt({
         task: { mode: "fill_out_pass", reason: "dashboard preview" },
-        fillOutSubjects: [
+        fillOutSubjects: context?.fillOut ?? [
           {
             order: 1,
             kind: "entity",
@@ -225,22 +318,26 @@ function samplePrompt(agentId: KernelAgentId, paths: KernelAgentCatalogContext):
             record: { facts: { purpose: { value: "Updates demo fighter state.", confidence: 0.55 } }, links: [] },
           },
         ],
-        supportingSubjects: [],
-        decompStandards: { standards: [{ id: "std-sample", rule: "Match the original file layout." }] },
+        supportingSubjects: context?.supporting ?? [],
+        decompStandards: librarianStandardsView(globalStandardsContext()),
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,
       });
+    }
   }
 }
 
-export function loadKernelAgentsPayload(paths: KernelAgentCatalogContext): KernelAgentsPayload {
+export function loadKernelAgentsPayload(
+  paths: KernelAgentCatalogContext,
+  deps: KernelPreviewDeps = {},
+): KernelAgentsPayload {
   const generatedAt = new Date().toISOString();
   const warnings: string[] = [];
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
-      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths), {
+      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps), {
         generatedAt,
         renderedTools: renderedTools(entry, paths),
       });

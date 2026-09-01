@@ -1,10 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
-import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
-import { librarianPrompt } from "@server/core/agent-catalog/agents/knowledge/librarian";
-import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import {
   agentSharedStateEnrichmentPath,
   knowledgeCuratorEnrichmentPath,
@@ -16,9 +11,7 @@ import {
 } from "@server/core/knowledge/paths";
 import {
   curateKnowledgeEnrichments,
-  appendCuratedKnowledgeRecords,
   defaultGraphSources,
-  KNOWLEDGE_CURATOR_SCHEMA_VERSION,
   fileGraphCard,
   graphDbExists,
   graphStats,
@@ -30,17 +23,12 @@ import {
   readToolRegistryEntries,
   rebuildKnowledgeGraph,
   searchKnowledgeGraph,
-  type CuratedKnowledgeRecord,
 } from "@server/core/knowledge";
-import { shortHash, stringValue, truncate } from "@server/core/knowledge/graph/util";
 import { resolveRegisteredTool, type ToolRuntimeContext } from "@server/core/tools/resolver";
-import { addPiSession } from "@server/core/cycle-runtime/run-state";
-import { openState } from "@server/core/cycle-runtime/run-state";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { booleanArg, numberArg, stringArg } from "@server/core/game-registry/runtime-options.js";
-import { knowledgeCycleSessionId } from "./cycle-session.js";
 
 export interface SpawnSummary {
   tool?: string;
@@ -362,7 +350,6 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
       includeStalled: !booleanArg(args, "--progress-only"),
     }),
   );
-  const agentReview = await runKnowledgeStep(options, "curator_agent_review", { repo_root: repoRoot }, () => maybeRunCuratorAgent(globals, args, curator.output_path));
   const rebuild = await runKnowledgeStep(options, "rebuild_graph", { repo_root: repoRoot, command: ["rebuildKnowledgeGraph"] }, () =>
     booleanArg(args, "--no-rebuild")
       ? { skipped: true, reason: "--no-rebuild" }
@@ -374,7 +361,6 @@ export async function runKnowledgeMaintenance(globals: GlobalArgs, args: Map<str
     tool_runners: toolRunners,
     tool_indexes: toolIndexes,
     curator,
-    agent_review: agentReview,
     rebuild,
   };
   await reportKnowledgeProgress(options, {
@@ -667,213 +653,6 @@ async function runPrPostmortemIndex(globals: GlobalArgs, args: Map<string, strin
 
 function skipSummary(commandName: string, reason: string): SpawnSummary {
   return { command: [commandName], exit_code: 0, stdout: "", stderr: "", skipped: true, reason };
-}
-
-async function maybeRunCuratorAgent(globals: GlobalArgs, args: Map<string, string | true>, enrichmentPath: string): Promise<Record<string, unknown>> {
-  if (!booleanArg(args, "--run-curator-agent") && !booleanArg(args, "--run-librarian-curation")) {
-    return { skipped: true, reason: "no --run-curator-agent or --run-librarian-curation" };
-  }
-  const recordLimit = Math.max(
-    1,
-    Math.floor(numberArg(args, "--librarian-curation-record-limit", numberArg(args, "--curator-agent-record-limit", 40))),
-  );
-  const batchSize = Math.max(
-    1,
-    Math.floor(numberArg(args, "--librarian-curation-batch-size", numberArg(args, "--curator-agent-batch-size", recordLimit))),
-  );
-  const jobs = Math.max(1, Math.floor(numberArg(args, "--librarian-curation-jobs", numberArg(args, "--curator-agent-jobs", 16))));
-  const records = readJsonlRecords(enrichmentPath, recordLimit);
-  const batches = chunkRecords(records, batchSize);
-  const outputDir = resolve(globals.stateDir, "knowledge_curator", new Date().toISOString().replace(/[:.]/g, "-"));
-  await mkdir(outputDir, { recursive: true });
-  const deterministicRecordCount = countJsonlRecords(enrichmentPath);
-  const runId = stringArg(args, "--run-id", "");
-  const kernelGameId = stringArg(args, "--kernel-project-id", globals.game?.gameId ?? globals.gameId ?? "");
-  const reviewed = await mapLimit(batches, Math.min(jobs, batches.length || 1), async (batch, index) => {
-    const result = await runPiAgent({
-      role: "librarian",
-      cwd: globals.repoRoot,
-      prompt: librarianPrompt({
-        door: "curation",
-        repoRoot: globals.repoRoot,
-        stateDir: globals.stateDir,
-        game: globals.game,
-        curatorContext: {
-          enrichment_path: enrichmentPath,
-          deterministic_record_count: deterministicRecordCount,
-          batch_index: index + 1,
-          batch_count: batches.length,
-          sampled_records: batch.map((record) => ({
-            ...record,
-            kind: "curated_record",
-          })),
-        },
-      }),
-      outputDir,
-      dryRun: globals.dryRunAgents,
-      provider: globals.provider,
-      model: globals.model,
-      thinkingLevel: globals.thinkingLevel,
-      timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
-      toolContext: {
-        repoRoot: globals.repoRoot,
-        stateDir: globals.stateDir,
-        game: globals.game,
-      },
-      kernelContext: createMeleeKernelSpawnContext({
-        kind: "knowledge-curation",
-        gameId: kernelGameId || undefined,
-        sessionId: knowledgeCycleSessionId({
-          globals,
-          gameId: kernelGameId || undefined,
-          fallback: runId || "knowledge-curation",
-        }),
-        runId: runId || undefined,
-        jobId: `${runId || "knowledge-curation"}-batch-${index + 1}`,
-        jobKind: "Curator review",
-        phase: "knowledge-curation",
-        workingDir: globals.repoRoot,
-        metadata: {
-          enrichmentPath,
-          deterministicRecordCount,
-          batchIndex: index + 1,
-          batchCount: batches.length,
-          sampledRecords: batch.length,
-          recordCount: batch.length,
-          batchId: `${runId || "knowledge-curation"}-batch-${index + 1}`,
-        },
-      }),
-    });
-    const parsed =
-      result.dryRun || result.failed ? { object: null, error: result.error ?? (result.dryRun ? "dry-run" : "agent failed") } : parseJsonObject(result.rawText);
-    recordCuratorSession(globals, args, result);
-    return {
-      batch_index: index + 1,
-      sampled_records: batch.length,
-      result,
-      parsed,
-      proposals: parsed.object ? curatorAgentProposalRecords(parsed.object, result.outputPath) : [],
-    };
-  });
-  const proposalRecords = reviewed.flatMap((item) => item.proposals).sort((left, right) => stringValue(left.id).localeCompare(stringValue(right.id)));
-  if (proposalRecords.length > 0) appendCuratedKnowledgeRecords(enrichmentPath, proposalRecords);
-  return {
-    skipped: false,
-    output_dir: outputDir,
-    record_limit: recordLimit,
-    batch_size: batchSize,
-    jobs,
-    batch_count: batches.length,
-    failed_batches: reviewed.filter((item) => item.result.failed).length,
-    parse_errors: reviewed.filter((item) => item.parsed.error).map((item) => ({ batch_index: item.batch_index, error: item.parsed.error })),
-    outputs: reviewed.map((item) => ({
-      batch_index: item.batch_index,
-      sampled_records: item.sampled_records,
-      output_path: item.result.outputPath,
-      system_prompt_path: item.result.systemPromptPath,
-      user_prompt_path: item.result.userPromptPath,
-      failed: item.result.failed ?? false,
-      parse_error: item.parsed.error ?? null,
-      proposed_source_updates: item.proposals.length,
-    })),
-    appended_source_update_proposals: proposalRecords.length,
-  };
-}
-
-function curatorAgentProposalRecords(output: Record<string, unknown>, evidenceRef: string): CuratedKnowledgeRecord[] {
-  const proposals = Array.isArray(output.source_update_proposals) ? output.source_update_proposals : [];
-  return proposals
-    .filter((proposal): proposal is Record<string, unknown> => Boolean(proposal) && typeof proposal === "object" && !Array.isArray(proposal))
-    .map((proposal, index) => {
-      const targetSourceId = stringValue(proposal.target_source_id, stringValue(proposal.source_id, "unknown_source"));
-      const title = stringValue(proposal.title, `Curator agent proposal for ${targetSourceId}`);
-      const text = truncate(stringValue(proposal.text, stringValue(proposal.reason, JSON.stringify(proposal))), 2000);
-      return {
-        schema_version: KNOWLEDGE_CURATOR_SCHEMA_VERSION,
-        id: `source_update_proposal:curator_agent:${shortHash(`${evidenceRef}:${index}:${JSON.stringify(proposal)}`)}`,
-        kind: "source_update_proposal",
-        status: "proposal",
-        trust_tier: "local",
-        confidence: 0.4,
-        source_path: stringValue(proposal.source_path) || undefined,
-        unit: stringValue(proposal.unit) || undefined,
-        symbol: stringValue(proposal.symbol) || undefined,
-        title,
-        text,
-        evidence_ref: stringValue(proposal.evidence_ref, evidenceRef),
-        created_at: new Date().toISOString(),
-        payload: {
-          ...proposal,
-          target_source_id: targetSourceId,
-          mutation_policy: "proposal_only",
-          curator_agent_output: evidenceRef,
-        },
-      } satisfies CuratedKnowledgeRecord;
-    });
-}
-
-function recordCuratorSession(globals: GlobalArgs, args: Map<string, string | true>, result: Awaited<ReturnType<typeof runPiAgent>>): void {
-  const runId = stringArg(args, "--run-id", "");
-  if (!runId) return;
-  const store = openState(globals.stateDir);
-  try {
-    addPiSession({
-      store,
-      runId,
-      role: "librarian",
-      sessionId: result.sessionId,
-      sessionFile: result.sessionFile,
-      provider: globals.provider,
-      model: globals.model,
-      thinkingLevel: globals.thinkingLevel,
-      status: result.failed ? "failed" : result.dryRun ? "dry_run" : "succeeded",
-      outputPath: result.outputPath,
-    });
-  } finally {
-    store.db.close();
-  }
-}
-
-function readJsonlRecords(path: string, limit: number): Record<string, unknown>[] {
-  if (!existsSync(path)) return [];
-  const rows: Record<string, unknown>[] = [];
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    try {
-      rows.push(JSON.parse(line) as Record<string, unknown>);
-    } catch {
-      // Ignore malformed rows in the sample; graph ingestion will surface bad rows separately.
-    }
-    if (rows.length >= limit) break;
-  }
-  return rows;
-}
-
-function countJsonlRecords(path: string): number {
-  if (!existsSync(path)) return 0;
-  return readFileSync(path, "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.trim()).length;
-}
-
-function chunkRecords<T>(records: T[], batchSize: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < records.length; index += batchSize) chunks.push(records.slice(index, index + batchSize));
-  return chunks;
-}
-
-export async function mapLimit<T, U>(items: T[], limit: number, fn: (item: T, index: number) => Promise<U>): Promise<U[]> {
-  const results = new Array<U>(items.length);
-  let nextIndex = 0;
-  async function worker(): Promise<void> {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await fn(items[index], index);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
-  return results;
 }
 
 function sourceListArg(args: Map<string, string | true>): string[] {

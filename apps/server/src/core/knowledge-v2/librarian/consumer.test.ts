@@ -1,0 +1,586 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, test } from "bun:test";
+
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { createSharedGate } from "../apply/index.js";
+import type { LibrarianPassEnvelope } from "../backfill/runner.js";
+import { enqueueIndexTask } from "../records/index.js";
+import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
+import { parseLibrarianArgs } from "./cli.js";
+import {
+  claimNextLibrarianTask,
+  runLibrarianConsumer,
+  runLibrarianPass,
+  type LibrarianPassArtifact,
+  type LibrarianRunOptions,
+} from "./consumer.js";
+import type { LibrarianPathway, LibrarianTaskRow } from "./context.js";
+
+const FIXED_NOW = "2026-08-31T12:00:00.000Z";
+const fixtures: Array<{ root: string; store: KnowledgeStore }> = [];
+
+type FakeRunPiAgent = NonNullable<LibrarianRunOptions["runPiAgent"]>;
+type CountedTable = "entity" | "fact" | "evidence" | "link" | "subject_index_state" | "index_task";
+
+interface ConsumerFixture {
+  root: string;
+  stateDir: string;
+  store: KnowledgeStore;
+  globals: GlobalArgs;
+}
+
+interface TaskState {
+  started_at: string | null;
+  done_at: string | null;
+  enqueued_at: string;
+}
+
+function fixture(name: string, targetCount = 2): ConsumerFixture {
+  const root = mkdtempSync(join(tmpdir(), `knowledge-v2-librarian-consumer-${name}-`));
+  const stateDir = join(root, "state");
+  const store = openKnowledgeStore({ knowledgeRoot: join(root, "knowledge") });
+  fixtures.push({ root, store });
+
+  store.db.query(`INSERT INTO entity
+    (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
+    VALUES ('unit-main', 'translation_unit', 'src/main.c', NULL, 'active', NULL)`).run();
+
+  const insertTarget = store.db.query(`INSERT INTO target
+    (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+    VALUES (?, 'function', 'unit', 'unit-main', ?, ?, ?, 'current', 'fixture-rev')`);
+  const insertStatus = store.db.query(`INSERT INTO target_status
+    (target_id, match_pct, linked, size, content_hash, report_revision, updated_at)
+    VALUES (?, ?, 1, 64, ?, 'fixture-rev', '2026-08-30T00:00:00.000Z')`);
+  const insertPr = store.db.query(`INSERT INTO pull_request
+    (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+    VALUES (?, ?, NULL, ?, ?, 'improvement', ?)`);
+  const insertRun = store.db.query(`INSERT INTO worker_run
+    (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type,
+      integration, started_at, ended_at, closed_at)
+    VALUES (?, ?, 'Improve the target', '{}', ?, NULL, 'improvement', NULL, 'integrated',
+      '2026-08-29T00:00:00.000Z', '2026-08-29T00:05:00.000Z', '2026-08-29T00:06:00.000Z')`);
+  const insertSubmission = store.db.query(`INSERT INTO submission
+    (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref)
+    VALUES (?, ?, 1, 'Fixture attempt', 'Reorder expressions', 50,
+      '2026-08-29T00:03:00.000Z', NULL)`);
+
+  for (let index = 1; index <= targetCount; index += 1) {
+    const targetId = `target-${index}`;
+    insertTarget.run(targetId, `func_${index}`, `unit:func_${index}`, `0x${(0x80000000 + index * 0x10).toString(16)}`);
+    insertStatus.run(targetId, 100 - index, `sha256:target-${index}`);
+    insertPr.run(`pr-${index}`, targetId, `melee#${100 + index}`, `Fixture pull request ${index}`, `2026-08-${String(20 + index).padStart(2, "0")}T00:00:00.000Z`);
+    insertRun.run(`attempt-${index}`, targetId, `operator-${index}`);
+    insertSubmission.run(`submission-${index}`, `attempt-${index}`);
+  }
+
+  return {
+    root,
+    stateDir,
+    store,
+    globals: {
+      repoRoot: root,
+      stateDir,
+      gameId: "melee",
+      dryRunAgents: false,
+      provider: "fixture-provider",
+      model: "fixture-model",
+      thinkingLevel: "medium",
+    },
+  };
+}
+
+function enqueueRunClosed(f: ConsumerFixture, index: number, enqueuedAt = FIXED_NOW): string {
+  const id = `task:run_closed:${index}`;
+  enqueueIndexTask(f.store, { id, pathway: "run_closed", payload: `attempt://run/attempt-${index}`, enqueuedAt });
+  return id;
+}
+
+function insertDiscordMessages(store: KnowledgeStore, count: number): { from: string; to: string } {
+  const insert = store.db.query(`INSERT INTO discord_message
+    (id, channel, author, posted_at, content, thread_id, ingested_at)
+    VALUES (?, 'chan', 'author', ?, ?, NULL, '2026-08-30T00:00:00.000Z')`);
+  const base = 1_000_000n;
+  for (let index = 0; index < count; index += 1) {
+    insert.run(String(base + BigInt(index)), `2026-08-01T00:${String(index % 60).padStart(2, "0")}:00.000Z`, `message ${index}`);
+  }
+  return { from: String(base), to: String(base + BigInt(count - 1)) };
+}
+
+function modelResult(value: unknown): ReturnType<FakeRunPiAgent> {
+  return Promise.resolve({
+    sessionId: "fake-session",
+    sessionDir: "/tmp/fake-session",
+    outputPath: "/tmp/fake-output",
+    systemPromptPath: "/tmp/fake-system",
+    userPromptPath: "/tmp/fake-user",
+    rawText: typeof value === "string" ? value : JSON.stringify(value),
+    dryRun: false,
+    failed: false,
+  });
+}
+
+function requestedTaskId(options: Parameters<FakeRunPiAgent>[0]): string {
+  const taskId = options.kernelContext?.metadata?.taskId;
+  if (typeof taskId !== "string") throw new Error("fake agent call has no task id");
+  return taskId;
+}
+
+function fact(targetIndex: number): Record<string, unknown> {
+  return {
+    subject: { target_stable_key: `unit:func_${targetIndex}` },
+    type: "purpose",
+    op: "write",
+    value: `Consumer purpose for target ${targetIndex}`,
+    rationale: "The fixture PR and attempt both describe this target.",
+    confidence: 0.9,
+    evidence: [
+      { kind: "pr", locator: `pr://pr-${targetIndex}`, why: "The merged PR records the target change." },
+      { kind: "attempt", locator: `attempt://run/attempt-${targetIndex}/submission/1`, why: "The worker submission records the attempt." },
+    ],
+  };
+}
+
+function proposal(targetIndex: number): LibrarianPassEnvelope {
+  return { facts: [fact(targetIndex)], links: [], entities: [], merges: [] };
+}
+
+const emptyProposal: LibrarianPassEnvelope = { facts: [], links: [], entities: [], merges: [] };
+
+function rowCount(store: KnowledgeStore, table: CountedTable): number {
+  return store.db.query<{ count: number }, []>(`SELECT COUNT(*) AS count FROM ${table}`).get()!.count;
+}
+
+function taskState(store: KnowledgeStore, id: string): TaskState {
+  const row = store.db.query<TaskState, [string]>(
+    "SELECT started_at, done_at, enqueued_at FROM index_task WHERE id = ?",
+  ).get(id);
+  if (!row) throw new Error(`task not found: ${id}`);
+  return row;
+}
+
+function indexedAt(store: KnowledgeStore, targetId: string): string | null {
+  return store.db.query<{ indexed_at: string }, [string]>(
+    "SELECT indexed_at FROM subject_index_state WHERE target_id = ?",
+  ).get(targetId)?.indexed_at ?? null;
+}
+
+function logEntries(f: ConsumerFixture, runId: string): Array<Record<string, unknown>> {
+  const path = join(f.stateDir, "knowledge_v2", "librarian", runId, "run-log.jsonl");
+  return readFileSync(path, "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+function taskRow(store: KnowledgeStore, id: string): LibrarianTaskRow {
+  const row = store.db.query<LibrarianTaskRow, [string]>(
+    "SELECT id, pathway, payload, enqueued_at, started_at, done_at FROM index_task WHERE id = ?",
+  ).get(id);
+  if (!row) throw new Error(`task not found: ${id}`);
+  return row;
+}
+
+afterEach(() => {
+  for (const item of fixtures.splice(0)) {
+    item.store.close();
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+describe("claimNextLibrarianTask", () => {
+  test("claims run_closed and regression first, then pr_imported, archival_ingest, drift_recheck, FIFO within pathway", () => {
+    const f = fixture("priority");
+    const enqueue = (id: string, pathway: LibrarianPathway, enqueuedAt: string): void =>
+      enqueueIndexTask(f.store, { id, pathway, payload: `payload-${id}`, enqueuedAt });
+    enqueue("drift", "drift_recheck", "2026-08-01T00:00:00.000Z");
+    enqueue("archival", "archival_ingest", "2026-08-02T00:00:00.000Z");
+    enqueue("pr-b", "pr_imported", "2026-08-03T00:00:00.000Z");
+    enqueue("pr-a", "pr_imported", "2026-08-03T00:00:00.000Z");
+    enqueue("regression", "regression", "2026-08-04T00:00:00.000Z");
+    enqueue("run-late", "run_closed", "2026-08-06T00:00:00.000Z");
+    enqueue("run-early", "run_closed", "2026-08-05T00:00:00.000Z");
+
+    const order: string[] = [];
+    for (;;) {
+      const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+      if (claimed === undefined) break;
+      expect(claimed.split).toBeUndefined();
+      expect(claimed.task.started_at).toBe(FIXED_NOW);
+      order.push(claimed.task.id);
+    }
+    expect(order).toEqual(["regression", "run-early", "run-late", "pr-a", "pr-b", "archival", "drift"]);
+    for (const id of order) expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: null });
+  });
+
+  test("honors the pathway filter and the exclude set", () => {
+    const f = fixture("filter");
+    enqueueIndexTask(f.store, { id: "run-1", pathway: "run_closed", payload: "x", enqueuedAt: FIXED_NOW });
+    enqueueIndexTask(f.store, { id: "pr-1", pathway: "pr_imported", payload: "x", enqueuedAt: FIXED_NOW });
+    enqueueIndexTask(f.store, { id: "pr-2", pathway: "pr_imported", payload: "x", enqueuedAt: FIXED_NOW });
+
+    const first = claimNextLibrarianTask(f.store, { pathway: "pr_imported", exclude: new Set(["pr-1"]) });
+    expect(first?.task.id).toBe("pr-2");
+    expect(claimNextLibrarianTask(f.store, { pathway: "pr_imported", exclude: new Set(["pr-1"]) })).toBeUndefined();
+    expect(taskState(f.store, "run-1").started_at).toBeNull();
+    expect(taskState(f.store, "pr-1").started_at).toBeNull();
+  });
+
+  test("splits an oversized Discord slice into 40/40/20 children and completes the parent", () => {
+    const f = fixture("split");
+    const range = insertDiscordMessages(f.store, 100);
+    const payload = JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.from, to_id: range.to, count: 100 });
+    enqueueIndexTask(f.store, { id: "task:archival_ingest:big", pathway: "archival_ingest", payload, enqueuedAt: "2026-08-01T00:00:00.000Z" });
+
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+    expect(claimed?.task.id).toBe("task:archival_ingest:big");
+    expect(claimed?.split?.children).toEqual([
+      "task:archival_ingest:big/1",
+      "task:archival_ingest:big/2",
+      "task:archival_ingest:big/3",
+    ]);
+    expect(taskState(f.store, "task:archival_ingest:big")).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    const counts = claimed!.split!.children.map((id) => {
+      const state = taskState(f.store, id);
+      expect(state).toEqual({ started_at: null, done_at: null, enqueued_at: "2026-08-01T00:00:00.000Z" });
+      return (JSON.parse(taskRow(f.store, id).payload) as { count: number }).count;
+    });
+    expect(counts).toEqual([40, 40, 20]);
+
+    // The children are the next claims, in order.
+    expect(claimNextLibrarianTask(f.store)?.task.id).toBe("task:archival_ingest:big/1");
+  });
+
+  test("does not split during a dry run", () => {
+    const f = fixture("split-dry");
+    const range = insertDiscordMessages(f.store, 41);
+    const payload = JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.from, to_id: range.to, count: 41 });
+    enqueueIndexTask(f.store, { id: "big", pathway: "archival_ingest", payload, enqueuedAt: FIXED_NOW });
+    const claimed = claimNextLibrarianTask(f.store, { dryRun: true });
+    expect(claimed?.split).toBeUndefined();
+    expect(rowCount(f.store, "index_task")).toBe(1);
+  });
+});
+
+describe("runLibrarianPass", () => {
+  test("applies the proposal, stamps the touched target, completes the task, and writes the artifact", async () => {
+    const f = fixture("happy", 1);
+    const id = enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+    let clock = 0;
+    let promptTouched: unknown;
+
+    const result = await runLibrarianPass(f.store, claimed!.task, {
+      runId: "happy-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: (options) => {
+        expect(options.catalogAgentId).toBe("librarian-v2");
+        expect(options.role).toBe("librarian");
+        promptTouched = options.prompt.kernelContext?.renderedContext;
+        return modelResult(proposal(1));
+      },
+      now: () => FIXED_NOW,
+      clockMs: () => clock++,
+    });
+
+    expect(typeof promptTouched).toBe("string");
+    expect(promptTouched as string).toContain("unit:func_1");
+    expect(result.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(result.stamped).toEqual({ targetIds: ["target-1"], entityIds: [] });
+    expect(f.store.db.query("SELECT target_id, type, value FROM fact").get()).toEqual({
+      target_id: "target-1",
+      type: "purpose",
+      value: "Consumer purpose for target 1",
+    });
+    expect(rowCount(f.store, "evidence")).toBe(2);
+    expect(indexedAt(f.store, "target-1")).toBe(FIXED_NOW);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8")) as LibrarianPassArtifact;
+    expect(result.artifactPath).toBe(join(f.stateDir, "knowledge_v2", "librarian", "happy-run", "task-run-closed-1.json"));
+    expect(artifact).toMatchObject({
+      run_id: "happy-run",
+      task: { id, pathway: "run_closed" },
+      proposal: proposal(1),
+      dry_run: false,
+      apply_report: { counts: { applied: 1, rejected: 0, skipped: 0 } },
+    });
+    expect(artifact.context.touched.map((subject) => subject.kind)).toEqual(["entity", "target"]);
+    expect(logEntries(f, "happy-run")).toEqual([
+      expect.objectContaining({ task_id: id, status: "completed", claim: "completed" }),
+    ]);
+  });
+
+  test("rejects a malformed envelope, releases the claim, and writes nothing", async () => {
+    const f = fixture("malformed", 1);
+    const id = enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+
+    await expect(runLibrarianPass(f.store, claimed!.task, {
+      runId: "malformed-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult({ facts: "nope" }),
+      now: () => FIXED_NOW,
+    })).rejects.toThrow("malformed librarian_pass_v1 envelope");
+
+    expect(taskState(f.store, id)).toMatchObject({ started_at: null, done_at: null });
+    expect(rowCount(f.store, "fact")).toBe(0);
+    expect(rowCount(f.store, "subject_index_state")).toBe(0);
+    expect(logEntries(f, "malformed-run")).toEqual([
+      expect.objectContaining({ task_id: id, status: "failed", claim: "released" }),
+    ]);
+  });
+
+  test("fails a task whose context cannot be assembled without calling the model", async () => {
+    const f = fixture("no-context", 1);
+    enqueueIndexTask(f.store, { id: "dangling", pathway: "run_closed", payload: "attempt://run/missing", enqueuedAt: FIXED_NOW });
+    const claimed = claimNextLibrarianTask(f.store);
+    let calls = 0;
+    await expect(runLibrarianPass(f.store, claimed!.task, {
+      runId: "no-context-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => {
+        calls += 1;
+        return modelResult(emptyProposal);
+      },
+    })).rejects.toThrow("context assembly failed: Worker run not found: missing");
+    expect(calls).toBe(0);
+    expect(taskState(f.store, "dangling").started_at).toBeNull();
+  });
+});
+
+describe("runLibrarianConsumer", () => {
+  test("drains the queue in order, splitting the oversized slice, and reports the summary", async () => {
+    const f = fixture("drain", 2);
+    const range = insertDiscordMessages(f.store, 50);
+    enqueueIndexTask(f.store, {
+      id: "task:archival_ingest:big",
+      pathway: "archival_ingest",
+      payload: JSON.stringify({ source: "discord", channel_id: "chan", from_id: range.from, to_id: range.to, count: 50 }),
+      enqueuedAt: "2026-08-01T00:00:00.000Z",
+    });
+    enqueueRunClosed(f, 2, "2026-08-02T00:00:00.000Z");
+    enqueueRunClosed(f, 1, "2026-08-01T00:00:00.000Z");
+    const calls: string[] = [];
+    const fakeAgent: FakeRunPiAgent = (options) => {
+      const taskId = requestedTaskId(options);
+      calls.push(taskId);
+      const match = /^task:run_closed:(\d+)$/.exec(taskId);
+      return modelResult(match ? proposal(Number(match[1])) : emptyProposal);
+    };
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "drain-run",
+      globals: f.globals,
+      concurrency: 1,
+      runPiAgent: fakeAgent,
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toEqual([
+      "task:run_closed:1",
+      "task:run_closed:2",
+      "task:archival_ingest:big/1",
+      "task:archival_ingest:big/2",
+    ]);
+    expect(summary).toMatchObject({
+      passesRun: 4,
+      passesApplied: 4,
+      itemsApplied: 2,
+      passesFailed: 0,
+      tasksSplit: 1,
+      childrenEnqueued: 2,
+      tasksRemaining: 0,
+      aborted: false,
+      stopped: false,
+    });
+    expect(indexedAt(f.store, "target-1")).toBe(FIXED_NOW);
+    expect(indexedAt(f.store, "target-2")).toBe(FIXED_NOW);
+    expect(f.store.db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM index_task WHERE done_at IS NULL").get()!.n).toBe(0);
+    const statuses = logEntries(f, "drain-run").map((entry) => [entry.task_id, entry.status]);
+    expect(statuses).toEqual([
+      ["task:run_closed:1", "completed"],
+      ["task:run_closed:2", "completed"],
+      ["task:archival_ingest:big", "split"],
+      ["task:archival_ingest:big/1", "completed"],
+      ["task:archival_ingest:big/2", "completed"],
+    ]);
+  });
+
+  test("dry run validates, writes the artifact, releases the claim, and writes nothing to the store", async () => {
+    const f = fixture("dry-run", 1);
+    const id = enqueueRunClosed(f, 1);
+    const tables: CountedTable[] = ["entity", "fact", "evidence", "link", "subject_index_state", "index_task"];
+    const before = Object.fromEntries(tables.map((table) => [table, rowCount(f.store, table)]));
+    const dataVersionBefore = f.store.db.query<{ data_version: number }, []>("PRAGMA data_version").get();
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "dry-run",
+      globals: f.globals,
+      concurrency: 1,
+      dryRun: true,
+      runPiAgent: () => modelResult(proposal(1)),
+      now: () => FIXED_NOW,
+    });
+
+    expect(summary).toMatchObject({ dryRun: true, passesRun: 1, passesApplied: 1, itemsApplied: 1, passesFailed: 0, tasksRemaining: 1 });
+    expect(Object.fromEntries(tables.map((table) => [table, rowCount(f.store, table)]))).toEqual(before);
+    expect(f.store.db.query<{ data_version: number }, []>("PRAGMA data_version").get()).toEqual(dataVersionBefore);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: null, done_at: null });
+    expect(indexedAt(f.store, "target-1")).toBeNull();
+    const artifactPath = join(f.stateDir, "knowledge_v2", "librarian", "dry-run", "task-run-closed-1.json");
+    expect(existsSync(artifactPath)).toBeTrue();
+    expect(JSON.parse(readFileSync(artifactPath, "utf8"))).toMatchObject({
+      dry_run: true,
+      apply_report: { dryRun: true, counts: { applied: 1, rejected: 0, skipped: 0 } },
+    });
+    expect(logEntries(f, "dry-run")).toEqual([
+      expect.objectContaining({ task_id: id, status: "completed", dry_run: true, claim: "released" }),
+    ]);
+  });
+
+  test("limit caps the number of model passes", async () => {
+    const f = fixture("limit", 2);
+    enqueueRunClosed(f, 1);
+    enqueueRunClosed(f, 2);
+    let calls = 0;
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "limit-run",
+      globals: f.globals,
+      concurrency: 2,
+      limit: 1,
+      runPiAgent: (options) => {
+        calls += 1;
+        return modelResult(proposal(Number(requestedTaskId(options).split(":").at(-1))));
+      },
+      now: () => FIXED_NOW,
+    });
+    expect(calls).toBe(1);
+    expect(summary).toMatchObject({ passesRun: 1, tasksRemaining: 1 });
+  });
+
+  test("stop file: finishes the in-flight pass and claims nothing after the stop appears", async () => {
+    const f = fixture("stop", 3);
+    const stopFile = join(f.root, "operator.stop");
+    for (let index = 1; index <= 3; index += 1) enqueueRunClosed(f, index);
+    let calls = 0;
+    const fakeAgent: FakeRunPiAgent = async (options) => {
+      calls += 1;
+      writeFileSync(stopFile, "stop\n");
+      return modelResult(proposal(Number(requestedTaskId(options).split(":").at(-1))));
+    };
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "stop-run",
+      globals: f.globals,
+      concurrency: 1,
+      stopFile,
+      runPiAgent: fakeAgent,
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(1);
+    expect(summary).toMatchObject({ passesRun: 1, passesApplied: 1, stopped: true, aborted: false, tasksRemaining: 2 });
+    expect(taskState(f.store, "task:run_closed:2").started_at).toBeNull();
+  });
+
+  test("a stop file present before the run claims nothing", async () => {
+    const f = fixture("stop-early", 1);
+    enqueueRunClosed(f, 1);
+    const stopFile = join(f.root, "operator.stop");
+    writeFileSync(stopFile, "stop\n");
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "stop-early-run",
+      globals: f.globals,
+      stopFile,
+      runPiAgent: () => {
+        throw new Error("must not be called");
+      },
+    });
+    expect(summary).toMatchObject({ passesRun: 0, stopped: true, tasksRemaining: 1 });
+  });
+
+  test("logs one model failure, releases that claim, then continues", async () => {
+    const f = fixture("failure-continue", 2);
+    enqueueRunClosed(f, 1, "2026-08-01T00:00:00.000Z");
+    enqueueRunClosed(f, 2, "2026-08-02T00:00:00.000Z");
+    const fakeAgent: FakeRunPiAgent = (options) => {
+      if (requestedTaskId(options) === "task:run_closed:1") return Promise.reject(new Error("fixture model offline"));
+      return modelResult(proposal(2));
+    };
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "failure-continue-run",
+      globals: f.globals,
+      concurrency: 1,
+      runPiAgent: fakeAgent,
+      now: () => FIXED_NOW,
+    });
+
+    expect(summary).toMatchObject({ passesRun: 2, passesApplied: 1, passesFailed: 1, aborted: false, tasksRemaining: 1 });
+    expect(taskState(f.store, "task:run_closed:1")).toMatchObject({ started_at: null, done_at: null });
+    expect(taskState(f.store, "task:run_closed:2")).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(indexedAt(f.store, "target-1")).toBeNull();
+    expect(indexedAt(f.store, "target-2")).toBe(FIXED_NOW);
+    expect(logEntries(f, "failure-continue-run")).toEqual([
+      expect.objectContaining({ task_id: "task:run_closed:1", status: "failed", error: "fixture model offline" }),
+      expect.objectContaining({ task_id: "task:run_closed:2", status: "completed" }),
+    ]);
+  });
+
+  test("aborts after six consecutive failures and leaves every claim released", async () => {
+    const f = fixture("failure-abort", 8);
+    for (let index = 1; index <= 8; index += 1) enqueueRunClosed(f, index);
+    let calls = 0;
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "failure-abort-run",
+      globals: f.globals,
+      concurrency: 1,
+      runPiAgent: async () => {
+        calls += 1;
+        throw new Error(`fixture failure ${calls}`);
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(6);
+    expect(summary).toMatchObject({ passesRun: 6, passesApplied: 0, passesFailed: 6, aborted: true, stopped: false, tasksRemaining: 8 });
+    expect(rowCount(f.store, "subject_index_state")).toBe(0);
+    expect(f.store.db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM index_task WHERE started_at IS NOT NULL").get()!.n).toBe(0);
+    expect(logEntries(f, "failure-abort-run")).toHaveLength(6);
+  });
+});
+
+describe("parseLibrarianArgs", () => {
+  test("parses every flag", () => {
+    const parsed = parseLibrarianArgs(new Map<string, string | true>([
+      ["--run-id", "pilot-lv2-01"],
+      ["--limit", "1"],
+      ["--concurrency", "2"],
+      ["--dry-run", true],
+      ["--pathway", "pr_imported"],
+      ["--json", true],
+    ]));
+    expect(parsed).toEqual({
+      runId: "pilot-lv2-01",
+      stop: false,
+      status: false,
+      json: true,
+      dryRun: true,
+      limit: 1,
+      concurrency: 2,
+      pathway: "pr_imported",
+      knowledgeRoot: undefined,
+    });
+  });
+
+  test("defaults concurrency to 4 and rejects bad values", () => {
+    expect(parseLibrarianArgs(new Map([["--run-id", "r"]]))).toMatchObject({ concurrency: 4, limit: undefined, pathway: undefined });
+    expect(() => parseLibrarianArgs(new Map())).toThrow("--run-id requires a value");
+    expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--pathway", "bogus"]]))).toThrow("--pathway must be one of");
+    expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--limit", "-1"]]))).toThrow("--limit requires a non-negative integer");
+    expect(() => parseLibrarianArgs(new Map([["--run-id", "r"], ["--concurrency", "0"]]))).toThrow("--concurrency requires a positive integer");
+  });
+});

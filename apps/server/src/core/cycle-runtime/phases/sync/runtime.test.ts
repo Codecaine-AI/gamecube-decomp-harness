@@ -16,7 +16,6 @@ import {
   createSyncRuntime,
   gameSyncAction,
   runSyncCliWithRetry,
-  syncAgentFlags,
   syncIngestConcurrency,
   type SyncRuntimeDeps,
   type SyncRuntimeGameContext,
@@ -288,7 +287,7 @@ describe("S4 sync operator runtime", () => {
     mkdirSync(resolve(source, ".."), { recursive: true });
     writeFileSync(source, JSON.stringify({
       batch: { batch_id: "batch-17", source: "discord" },
-      payload: { kind: "discord_backfill", messages: [] },
+      payload: { kind: "legacy_archive", messages: [] },
     }), "utf8");
     requested(current.store, "sync-discord-corpus", ["discord-batch-17"]);
     current.store.db.close();
@@ -1078,19 +1077,5 @@ describe("syncIngestConcurrency", () => {
     expect(syncIngestConcurrency({}, 2.5)).toBe(16);
     expect(syncIngestConcurrency({}, "not-a-number")).toBe(16);
     expect(syncIngestConcurrency({}, undefined)).toBe(16);
-  });
-});
-
-describe("syncAgentFlags", () => {
-  test("maps sync body overrides to job-runner global flags, skipping absent values", () => {
-    expect(syncAgentFlags({})).toEqual([]);
-    expect(syncAgentFlags({ syncProvider: "codex-lb", syncModel: "gpt-5.6-sol", syncThinking: "medium" })).toEqual([
-      "--provider", "codex-lb",
-      "--model", "gpt-5.6-sol",
-      "--thinking-level", "medium",
-    ]);
-    expect(syncAgentFlags({ syncModel: "gpt-5.6-sol" })).toEqual(["--model", "gpt-5.6-sol"]);
-    expect(syncAgentFlags({ syncProvider: "", syncThinking: "" })).toEqual([]);
-    expect(syncAgentFlags({ syncProvider: 42 })).toEqual([]);
   });
 });

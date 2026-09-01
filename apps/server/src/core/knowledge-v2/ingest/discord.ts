@@ -16,6 +16,8 @@ export interface DiscordImportOptions extends LaneOptions {
   channelsConfigPath: string;
 }
 
+export const DISCORD_TASK_CHUNK_SIZE = 40;
+
 export function importDiscord(store: KnowledgeStoreHandle, options: DiscordImportOptions): DiscordImportResult {
   interface ChannelConfig {
     id: string;
@@ -103,26 +105,28 @@ export function importDiscord(store: KnowledgeStoreHandle, options: DiscordImpor
       threadId: record.thread_id ?? record.thread ?? null,
       ingestedAt,
     }));
-    const payload = JSON.stringify({
-      source: "discord",
-      channel_id: channelId,
-      from_id: batch[0]!.id,
-      to_id: batch[batch.length - 1]!.id,
-      count: batch.length,
-    });
-
     inserted += batch.length;
     channels += 1;
-    tasksEnqueued += 1;
     watermarkByChannel[channelId] = batch[batch.length - 1]!.id;
-    if (!options.dryRun) {
-      pendingMessages.push(...messages);
-      pendingTasks.push({
-        id: taskId("archival_ingest", payload),
-        pathway: "archival_ingest",
-        payload,
-        enqueuedAt: ingestedAt,
+    if (!options.dryRun) pendingMessages.push(...messages);
+    for (let index = 0; index < batch.length; index += DISCORD_TASK_CHUNK_SIZE) {
+      const slice = batch.slice(index, index + DISCORD_TASK_CHUNK_SIZE);
+      const payload = JSON.stringify({
+        source: "discord",
+        channel_id: channelId,
+        from_id: slice[0]!.id,
+        to_id: slice[slice.length - 1]!.id,
+        count: slice.length,
       });
+      tasksEnqueued += 1;
+      if (!options.dryRun) {
+        pendingTasks.push({
+          id: taskId("archival_ingest", payload),
+          pathway: "archival_ingest",
+          payload,
+          enqueuedAt: ingestedAt,
+        });
+      }
     }
   }
 

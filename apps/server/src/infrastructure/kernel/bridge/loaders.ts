@@ -21,8 +21,6 @@ export const MELEE_INLINE_CONTEXT_LOADER_KINDS = [
   "pr-split-context",
   "curator-context",
   "reconcile-context",
-  "librarian-context",
-  "librarian-curation-context",
   "worker-summarizer-context",
   "librarian-v2-context",
   "backfill-librarian-context",

@@ -1046,17 +1046,6 @@ type SyncDiscordEventInput = {
         messages_pulled: number | null;
       };
     }
-  | {
-      eventType: "sync.discord_staged";
-      payload: {
-        batches: number;
-        messages: number;
-        days: number;
-        channels: number;
-        first_message_at: string | null;
-        last_message_at: string | null;
-      };
-    }
 );
 
 /** Appends a Discord intake fact without revising the sync state envelope. */

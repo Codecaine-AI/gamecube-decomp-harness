@@ -125,7 +125,6 @@ describe("SyncState", () => {
       "sync.observation_refreshed",
       "sync.discord_refresh_requested",
       "sync.discord_refresh_completed",
-      "sync.discord_staged",
       "sync.ingesting",
       "sync.reconciling",
       "sync.staging_progressed",

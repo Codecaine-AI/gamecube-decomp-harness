@@ -11,6 +11,7 @@ import {
   catchUpWorkerSummaries,
   enqueueWorkerSummaryForWorker,
   handleWorkerSummaryJob,
+  validateNarrative,
 } from "./index.js";
 
 const fixtures: Array<{ root: string; state: StateStore }> = [];
@@ -94,6 +95,30 @@ afterEach(() => {
 });
 
 describe("worker summary handler", () => {
+  test("validates the narrative schema strictly", () => {
+    const narrative = {
+      run: { summary: "s" },
+      submissions: [{ submission_id: "submission-1", approach: "a", outcome_reasoning: "r" }],
+      notable_observations: [{ observation: "o", reusable_when: "w" }],
+    };
+    expect(validateNarrative(narrative)).toEqual(narrative);
+    expect(() => validateNarrative({ ...narrative, extra: true })).toThrow("outside the narrative schema");
+    expect(() => validateNarrative({
+      ...narrative,
+      submissions: [{ ...narrative.submissions[0], extra: true }],
+    })).toThrow("outside the submission narrative schema");
+    expect(() => validateNarrative({ ...narrative, dead_ends: [] })).toThrow("outside the narrative schema");
+    expect(() => validateNarrative({ ...narrative, run: { ...narrative.run, hypothesis: "h" } })).toThrow("outside the narrative schema");
+    expect(() => validateNarrative({
+      ...narrative,
+      submissions: [{ ...narrative.submissions[0], hypothesis: "sh" }],
+    })).toThrow("outside the submission narrative schema");
+    expect(() => validateNarrative({
+      ...narrative,
+      submissions: [{ approach: "a", outcome_reasoning: "r" }],
+    })).toThrow("invalid submission narrative");
+  });
+
   test("joins model narrative onto mechanical run and submission fields", async () => {
     const f = fixture();
     seedWorker(f.state);
@@ -111,10 +136,10 @@ describe("worker summary handler", () => {
       globals: f.globals,
       openKnowledgeStore: injectedStore(f.knowledgeRoot),
       runPiAgent: () => modelResult({
-        run: { hypothesis: "run hypothesis", summary: "run summary" },
+        run: { summary: "run summary" },
         submissions: [
-          { hypothesis: "first hypothesis", outcome_reasoning: "first reasoning" },
-          { hypothesis: "second hypothesis", outcome_reasoning: "second reasoning" },
+          { submission_id: "run:worker-1:sub:2", approach: "second approach", outcome_reasoning: "second reasoning" },
+          { submission_id: "run:worker-1:sub:1", approach: " first approach ", outcome_reasoning: " first reasoning " },
         ],
         notable_observations: [{ observation: "shared state matters", reusable_when: "editing this unit" }],
       }),
@@ -128,9 +153,24 @@ describe("worker summary handler", () => {
     });
     expect(knowledge.db.query(`SELECT seq, score, runtime_ref, hypothesis, description
       FROM submission ORDER BY seq`).all()).toEqual([
-      { seq: 1, score: 12, runtime_ref: "cp-worker-1-1", hypothesis: "first hypothesis", description: "first reasoning" },
-      { seq: 2, score: 20, runtime_ref: "cp-worker-1-2", hypothesis: "second hypothesis", description: "second reasoning" },
+      { seq: 1, score: 12, runtime_ref: "cp-worker-1-1", hypothesis: null, description: "first approach first reasoning" },
+      { seq: 2, score: 20, runtime_ref: "cp-worker-1-2", hypothesis: null, description: "second approach second reasoning" },
     ]);
+    expect(knowledge.db.query(`SELECT worker_run_id, summary, notable_observations, narrative, produced_by
+      FROM run_narrative`).get()).toEqual({
+      worker_run_id: "run:worker-1",
+      summary: "run summary",
+      notable_observations: '[{"observation":"shared state matters","reusable_when":"editing this unit"}]',
+      narrative: JSON.stringify({
+        run: { summary: "run summary" },
+        submissions: [
+          { submission_id: "run:worker-1:sub:2", approach: "second approach", outcome_reasoning: "second reasoning" },
+          { submission_id: "run:worker-1:sub:1", approach: " first approach ", outcome_reasoning: " first reasoning " },
+        ],
+        notable_observations: [{ observation: "shared state matters", reusable_when: "editing this unit" }],
+      }),
+      produced_by: "live",
+    });
     const run = knowledge.db.query<{ id: string }, []>("SELECT id FROM worker_run").get()!;
     expect(knowledge.db.query("SELECT source, position FROM source_watermark").get()).toEqual({
       source: "attempt", position: '{"last_worker_state_id":"worker-1"}',
@@ -142,59 +182,42 @@ describe("worker summary handler", () => {
 
     const proposal = JSON.parse(readFileSync(join(f.globals.stateDir, "knowledge_v2", "proposals", "run-worker-1.json"), "utf8"));
     expect(proposal).toMatchObject({
-      run: { id: "run:worker-1", hypothesis: "run hypothesis", summary: "run summary" },
+      run: { id: "run:worker-1", summary: "run summary" },
       notable_observations: [{ observation: "shared state matters", reusable_when: "editing this unit" }],
     });
     expect(proposal.submissions).toHaveLength(2);
-    expect(proposal.submissions[0]).toMatchObject({ hypothesis: "first hypothesis", outcome_reasoning: "first reasoning" });
+    expect(proposal.submissions[0]).toMatchObject({
+      id: "run:worker-1:sub:1",
+      submission_id: "run:worker-1:sub:1",
+      approach: " first approach ",
+      outcome_reasoning: " first reasoning ",
+    });
   });
 
-  test("uses fallback narrative for missing rows and drops extra rows", async () => {
+  test.each([
+    ["duplicate id", ["run:worker-1:sub:1", "run:worker-1:sub:1"], "duplicate submission_id"],
+    ["unknown id", ["run:worker-1:sub:1", "unknown-submission"], "unknown submission_id"],
+    ["count mismatch", ["run:worker-1:sub:1"], "submission count mismatch"],
+  ])("rejects %s", async (_case, submissionIds, message) => {
     const f = fixture();
     seedWorker(f.state);
     seedCheckpoint(f.state, "worker-1", 1, 12);
     seedCheckpoint(f.state, "worker-1", 2, 20);
     seedTarget(f.knowledgeRoot);
-    const logs: string[] = [];
-    const job = enqueueWorkerSummaryForWorker(f.state, "worker-1");
-    await handleWorkerSummaryJob(f.state, job, {
+    await expect(handleWorkerSummaryJob(f.state, enqueueWorkerSummaryForWorker(f.state, "worker-1"), {
       globals: f.globals,
       openKnowledgeStore: injectedStore(f.knowledgeRoot),
-      log: (message) => logs.push(message),
       runPiAgent: () => modelResult({
-        run: { hypothesis: "h", summary: "s" },
-        submissions: [
-          { hypothesis: "model one", outcome_reasoning: "reason one" },
-          { hypothesis: "model two", outcome_reasoning: "reason two" },
-          { hypothesis: "extra", outcome_reasoning: "discard me" },
-        ],
+        run: { summary: "s" },
+        submissions: submissionIds.map((submission_id) => ({
+          submission_id, approach: "approach", outcome_reasoning: "reason",
+        })),
         notable_observations: [],
       }),
-    });
+    })).rejects.toThrow(message);
     const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
-    expect(knowledge.db.query("SELECT COUNT(*) AS count FROM submission").get()).toEqual({ count: 2 });
+    expect(knowledge.db.query("SELECT COUNT(*) AS count FROM worker_run").get()).toEqual({ count: 0 });
     knowledge.close();
-    expect(logs.some((line) => line.includes("dropped 1 extra"))).toBe(true);
-
-    const f2 = fixture();
-    seedWorker(f2.state);
-    seedCheckpoint(f2.state, "worker-1", 1, 12);
-    seedCheckpoint(f2.state, "worker-1", 2, 20);
-    seedTarget(f2.knowledgeRoot);
-    await handleWorkerSummaryJob(f2.state, enqueueWorkerSummaryForWorker(f2.state, "worker-1"), {
-      globals: f2.globals,
-      openKnowledgeStore: injectedStore(f2.knowledgeRoot),
-      runPiAgent: () => modelResult({
-        run: { hypothesis: "h", summary: "s" },
-        submissions: [{ hypothesis: "model one", outcome_reasoning: "reason one" }],
-        notable_observations: [],
-      }),
-    });
-    const knowledge2 = openKnowledgeStore({ knowledgeRoot: f2.knowledgeRoot });
-    expect(knowledge2.db.query("SELECT hypothesis, description FROM submission WHERE seq = 2").get()).toEqual({
-      hypothesis: null, description: "checkpoint 2 scored 20",
-    });
-    knowledge2.close();
   });
 
   test("skips an existing worker run without invoking the model", async () => {
