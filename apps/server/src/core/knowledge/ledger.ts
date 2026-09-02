@@ -67,11 +67,11 @@ export interface LedgerLearningSearchResult {
 
 export function defaultLedgerPath(gameId = "melee"): string {
   // ORCH_GAME_KNOWLEDGE_ROOT overrides this root; --state-dir does not, so disposable runs must set the env to avoid the production ledger.
-  return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings.jsonl");
+  return resolve(gameKnowledgeRoot(gameId), "deprecated", "ledger-v1", "learnings.jsonl");
 }
 
 export function defaultLedgerSearchDbPath(gameId = "melee"): string {
-  return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings-fts.sqlite");
+  return resolve(gameKnowledgeRoot(gameId), "deprecated", "ledger-v1", "learnings-fts.sqlite");
 }
 
 export function appendLearnings(outputPath: string, records: LearningRecord[]): AppendLearningsResult {

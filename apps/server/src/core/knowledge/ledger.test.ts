@@ -6,11 +6,18 @@ import { join } from "node:path";
 import {
   appendLearnings,
   buildLedgerSearchIndex,
+  defaultLedgerPath,
   readLearnings,
   searchLedgerIndex,
   searchLedgerLearnings,
   type LearningRecord,
 } from "./ledger.js";
+
+describe("default ledger paths", () => {
+  test("places the legacy ledger under the deprecated V1 directory", () => {
+    expect(defaultLedgerPath().endsWith("deprecated/ledger-v1/learnings.jsonl")).toBe(true);
+  });
+});
 
 function learning(id: string, overrides: Partial<LearningRecord> = {}): LearningRecord {
   return {

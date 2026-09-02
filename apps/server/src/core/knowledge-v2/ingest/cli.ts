@@ -43,7 +43,7 @@ export function resolveIngestPaths(knowledgeRoot: string): IngestPaths {
     discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
     wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
     prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-    ledgerPath: resolve(knowledgeRoot, "ledger/learnings.jsonl"),
+    ledgerPath: resolve(knowledgeRoot, "deprecated/ledger-v1/learnings.jsonl"),
     reportPath: resolve(gameRoot, "checkout/build/GALE01/report.json"),
     checkoutRoot: resolve(gameRoot, "checkout"),
     orchestratorDbPath: resolve(gameRoot, "state/orchestrator.sqlite"),

@@ -1,7 +1,7 @@
 /**
  * Knowledge-ledger graph builder: indexes learnings onto targets.
  *
- * Reads games/melee/knowledge/ledger/learnings.jsonl (append-only;
+ * Reads games/melee/knowledge/deprecated/ledger-v1/learnings.jsonl (append-only;
  * latest record per id wins), anchors each learning against the current
  * live build report, with a static function-index fallback (present-anchoring: a missing anchor marks the
  * learning stale rather than dropping it), and emits:
