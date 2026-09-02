@@ -19,6 +19,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     stable_key TEXT NOT NULL,
     address TEXT,
     identity_status TEXT NOT NULL CHECK (identity_status IN ('current', 'moved', 'unresolved', 'retired')),
+    moved_to_id TEXT REFERENCES target(id),
     report_revision TEXT NOT NULL,
     CHECK (symbol IS NOT NULL AND address IS NOT NULL AND unit_entity_id IS NOT NULL)
   );

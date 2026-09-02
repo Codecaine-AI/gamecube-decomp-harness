@@ -224,6 +224,7 @@ describe("buildPassContext", () => {
       stable_key: "main:set_state",
       address: "0x80001000",
       identity_status: "current",
+      moved_to_id: null,
       report_revision: "fixture-rev",
       target_status: {
         target_id: "target-main",

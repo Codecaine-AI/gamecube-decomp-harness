@@ -6,6 +6,7 @@ import { Database } from "bun:sqlite";
 import { openKnowledgeStore, type KnowledgeStore } from "../store.js";
 import { runKnowledgeStorageMigrations } from "./index.js";
 import { workerRunIntegrationDetailMigration } from "./004-worker-run-integration-detail.js";
+import { targetMovedToIdMigration } from "./005-target-moved-to-id.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -39,6 +40,7 @@ describe("knowledge-v2 storage migrations", () => {
       db.exec("CREATE INDEX evidence_fact_id ON evidence(fact_id)");
       db.exec("DELETE FROM schema_migrations WHERE version = 3");
       db.exec("DELETE FROM schema_migrations WHERE version = 4");
+      db.exec("DELETE FROM schema_migrations WHERE version = 5");
 
       expect(() => runKnowledgeStorageMigrations(db)).not.toThrow();
     } finally {
@@ -56,6 +58,28 @@ describe("knowledge-v2 storage migrations", () => {
 
       const columns = db.query<{ name: string }, []>("PRAGMA table_info('worker_run')").all();
       expect(columns.filter(({ name }) => name === "integration_detail")).toHaveLength(1);
+    } finally {
+      db.close();
+    }
+  });
+
+  test("adds target moved_to_id idempotently", () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec("CREATE TABLE target (id TEXT PRIMARY KEY)");
+
+      targetMovedToIdMigration.up(db);
+      targetMovedToIdMigration.up(db);
+
+      const columns = db.query<{ name: string }, []>("PRAGMA table_info('target')").all();
+      expect(columns.filter(({ name }) => name === "moved_to_id")).toHaveLength(1);
+
+      const foreignKeys = db
+        .query<{ from: string; table: string; to: string }, []>("PRAGMA foreign_key_list('target')")
+        .all();
+      expect(foreignKeys).toContainEqual(
+        expect.objectContaining({ from: "moved_to_id", table: "target", to: "id" }),
+      );
     } finally {
       db.close();
     }

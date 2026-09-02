@@ -9,6 +9,7 @@ import { kg2Index } from "./index/job.js";
 import { kg2Librarian } from "./librarian/cli.js";
 import { kg2Prioritize } from "./migration/prioritize.js";
 import { kg2Renarrate } from "./renarrate/cli.js";
+import { kg2DriftScan } from "./drift/cli.js";
 
 const roots: string[] = [];
 
@@ -39,6 +40,7 @@ describe("knowledge-v2 default-root guards", () => {
     ["kg2-prioritize", kg2Prioritize, new Map<string, string | true>()],
     ["kg2-renarrate", kg2Renarrate, new Map<string, string | true>([["--limit", "0"]])],
     ["kg2-librarian", kg2Librarian, new Map<string, string | true>([["--run-id", "guard"], ["--limit", "0"]])],
+    ["kg2-drift-scan", kg2DriftScan, new Map<string, string | true>([["--limit", "0"]])],
   ] as const)("refuses the %s default root under a test runner", async (command, run, args) => {
     const { globals } = fixture();
     await expect(run(globals, args)).rejects.toThrow(
@@ -65,6 +67,11 @@ describe("knowledge-v2 default-root guards", () => {
     await kg2Librarian(globals, new Map<string, string | true>([
       ["--knowledge-root", knowledgeRoot],
       ["--run-id", "explicit-root"],
+      ["--limit", "0"],
+      ["--dry-run", true],
+    ]));
+    await kg2DriftScan(globals, new Map<string, string | true>([
+      ["--knowledge-root", knowledgeRoot],
       ["--limit", "0"],
       ["--dry-run", true],
     ]));

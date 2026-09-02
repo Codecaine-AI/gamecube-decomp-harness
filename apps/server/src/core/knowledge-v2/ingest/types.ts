@@ -58,6 +58,29 @@ export interface ReconcileResult {
   statusesUpserted: number;
   skippedMalformed: number;
   skippedMalformedSample: Array<{ unit: string; symbol: string | null; reason: string }>;
+  renames: {
+    applied: number;
+    ambiguous: Array<{
+      unit: string;
+      address: string;
+      unresolved: string[];
+      inserted: string[];
+    }>;
+    pairs: Array<{
+      from_stable_key: string;
+      to_stable_key: string;
+      address: string;
+      moved_rows: {
+        fact: number;
+        link: number;
+        worker_run: number;
+        pull_request: number;
+        event: number;
+        subject_index_state: number;
+      };
+      fact_collisions: number;
+    }>;
+  };
 }
 
 export interface EntityExtractResult {

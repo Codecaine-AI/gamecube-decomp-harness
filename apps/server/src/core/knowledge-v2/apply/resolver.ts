@@ -35,7 +35,7 @@ function exists(
   return store.db.query<{ found: number }, Array<string | number>>(sql).get(...parameters) != null;
 }
 
-function resolveCodeCitation(
+export function resolveCodeCitation(
   revision: string,
   path: string,
   startLine: number,

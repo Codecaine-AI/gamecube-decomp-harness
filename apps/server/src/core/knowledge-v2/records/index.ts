@@ -299,6 +299,15 @@ export function enqueueIndexTask(store: KnowledgeStoreHandle, task: IndexTaskInp
   );
 }
 
+export function movedFromStableKeys(store: KnowledgeStoreHandle, targetId: string): string[] {
+  return store.db.query<{ stable_key: string }, [string]>(`
+    SELECT stable_key
+    FROM target
+    WHERE moved_to_id = ?
+    ORDER BY stable_key
+  `).all(targetId).map(({ stable_key }) => stable_key);
+}
+
 export function claimIndexTask(store: KnowledgeStoreHandle, id: string, startedAt = now()): boolean {
   return store.db.query("UPDATE index_task SET started_at = ? WHERE id = ? AND started_at IS NULL AND done_at IS NULL").run(startedAt, id).changes > 0;
 }

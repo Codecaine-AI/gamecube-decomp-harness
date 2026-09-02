@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -225,6 +227,36 @@ function writePrArchive(): string {
   return prsRoot;
 }
 
+function codeDigest(span: string): string {
+  return `sha256:${createHash("sha256").update(span).digest("hex").slice(0, 16)}`;
+}
+
+function writeDriftCheckout(): { root: string; originalRevision: string; headRevision: string } {
+  const root = mkdtempSync(join(tmpdir(), "knowledge-v2-librarian-drift-checkout-"));
+  tempDirs.push(root);
+  execFileSync("git", ["init", "-q", root]);
+  execFileSync("git", ["-C", root, "config", "user.email", "fixture@example.com"]);
+  execFileSync("git", ["-C", root, "config", "user.name", "Fixture"]);
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src/main.c"), "stable line\nold line\n");
+  execFileSync("git", ["-C", root, "add", "src/main.c"]);
+  execFileSync("git", ["-C", root, "commit", "-qm", "original"]);
+  const originalRevision = execFileSync(
+    "git",
+    ["-C", root, "rev-parse", "HEAD"],
+    { encoding: "utf8" },
+  ).trim();
+  writeFileSync(join(root, "src/main.c"), "stable line\nnew line\n");
+  execFileSync("git", ["-C", root, "add", "src/main.c"]);
+  execFileSync("git", ["-C", root, "commit", "-qm", "head"]);
+  const headRevision = execFileSync(
+    "git",
+    ["-C", root, "rev-parse", "HEAD"],
+    { encoding: "utf8" },
+  ).trim();
+  return { root, originalRevision, headRevision };
+}
+
 function insertPrCapFixture(store: KnowledgeStore): string[] {
   const insertTarget = store.db.query(`INSERT INTO target
     (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status,
@@ -327,6 +359,123 @@ describe("buildTaskContext", () => {
     assertOrderingAndScope(context);
   });
 
+  test("unwraps retry envelopes for raw and structured pathway payloads", () => {
+    const store = openFixture();
+    const prsRoot = writePrArchive();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-retry-target', 'target-main', NULL, 'melee#1533',
+        'Retry envelope fixture', 'improvement', '2026-01-21T00:00:00.000Z')`).run();
+
+    const runContext = buildTaskContext(
+      store,
+      task("run_closed", JSON.stringify({ task_payload: "run-main", drift_attempts: 1 })),
+      fixtureOptions(store),
+    );
+    const prContext = buildTaskContext(
+      store,
+      task("pr_imported", JSON.stringify({
+        task_payload: ["pr-retry-target"],
+        drift_attempts: 1,
+      })),
+      fixtureOptions(store, prsRoot),
+    );
+
+    expect(runContext.object).toHaveProperty("worker_run.id", "run-main");
+    expect(prContext.object).toHaveProperty("pr_ref", "melee#1533");
+  });
+
+  test("adds rename history to the closed run target", () => {
+    const store = openFixture();
+    store.db.query(`INSERT INTO target
+      (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status,
+        report_revision, moved_to_id)
+      VALUES ('target-main-old', 'function', 'main/melee/ft/ftcommon', 'unit-main',
+        'ftCo_Old', 'main/melee/ft/ftcommon:ftCo_Old', '0x800BFFD0', 'moved',
+        'fixture-rev', 'target-main')`).run();
+
+    const context = buildTaskContext(
+      store,
+      task("run_closed", "run-main"),
+      fixtureOptions(store),
+    );
+    const target = context.touched.find((subject) => subject.kind === "target");
+
+    expect(target).toMatchObject({
+      target_stable_key: "main/melee/ft/ftcommon:ftCo_800BFFD0",
+      renamed_from: ["main/melee/ft/ftcommon:ftCo_Old"],
+    });
+  });
+
+  test("adds compact code-drift reports to every closed run subject", () => {
+    const store = openFixture();
+    const checkout = writeDriftCheckout();
+    writeFactWithEvidence(store, {
+      id: "fact-run-target-drift",
+      targetId: "target-main",
+      type: "purpose",
+      value: "Target fixture",
+      rationale: "Closed run target drift fixture",
+      confidence: 0.8,
+    }, [{
+      id: "evidence-run-target-unchanged",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L1-L1`,
+      digest: codeDigest("stable line"),
+      why: "Stable line",
+    }, {
+      id: "evidence-run-target-drifted",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L2-L2`,
+      digest: codeDigest("old line"),
+      why: "Changed line",
+    }]);
+    writeFactWithEvidence(store, {
+      id: "fact-run-unit-drift",
+      entityId: "unit-main",
+      type: "purpose",
+      value: "Unit fixture",
+      rationale: "Closed run unit drift fixture",
+      confidence: 0.7,
+    }, [{
+      id: "evidence-run-unit-drifted",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L2-L2`,
+      digest: codeDigest("old line"),
+      why: "Changed line",
+    }]);
+
+    const context = buildTaskContext(
+      store,
+      task("run_closed", "run-main"),
+      {
+        ...fixtureOptions(store),
+        checkoutRoot: checkout.root,
+        checkoutRev: checkout.headRevision,
+      },
+    );
+
+    expect(context.touched.every((subject) => subject.drift !== undefined)).toBeTrue();
+    const unit = context.touched.find((subject) =>
+      subject.kind === "entity" && subject.entity_locator === "src/main.c");
+    const target = context.touched.find((subject) => subject.kind === "target");
+    expect(unit).toMatchObject({
+      drift: {
+        drifted_count: 1,
+        unresolvable_count: 0,
+        evidence: [{ evidence_id: "evidence-run-unit-drifted", status: "drifted" }],
+      },
+    });
+    expect(target).toMatchObject({
+      drift: {
+        drifted_count: 1,
+        unresolvable_count: 0,
+        evidence: [{ evidence_id: "evidence-run-target-drifted", status: "drifted" }],
+      },
+    });
+    expect((target as unknown as { drift: { evidence: unknown[] } }).drift.evidence).toHaveLength(1);
+  });
+
   test("splits PR rows, parses CI metrics, preserves discussion order, and caps targets", () => {
     const store = openFixture();
     const prsRoot = writePrArchive();
@@ -401,6 +550,7 @@ describe("buildTaskContext", () => {
     const touchedTargets = context.touched.filter((subject) => subject.kind === "target");
     expect(touchedTargets).toHaveLength(12);
     expect(touchedTargets.every((subject) => subject.material !== undefined)).toBeTrue();
+    expect(touchedTargets.every((subject) => Array.isArray(subject.renamed_from))).toBeTrue();
     expect(touchedTargets.map(({ target_stable_key }) => target_stable_key)).toEqual(
       Array.from({ length: 12 }, (_, index) => {
         const suffix = String(13 - index).padStart(2, "0");
@@ -413,6 +563,130 @@ describe("buildTaskContext", () => {
     });
     expect(context.scope.targetStableKeys).not.toContain("cap/unit:Cap01");
     assertOrderingAndScope(context);
+  });
+
+  test("adds compact code-drift reports to every imported PR subject", () => {
+    const store = openFixture();
+    const prsRoot = writePrArchive();
+    const checkout = writeDriftCheckout();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-drift-target', 'target-main', NULL, 'melee#1533',
+        'Target drift fixture', 'improvement', '2026-01-21T00:00:00.000Z')`).run();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-drift-unit', NULL, 'unit-main', 'melee#1533',
+        'Unit drift fixture', 'no_change', '2026-01-21T00:00:00.000Z')`).run();
+    writeFactWithEvidence(store, {
+      id: "fact-pr-target-drift",
+      targetId: "target-main",
+      type: "purpose",
+      value: "Target fixture",
+      rationale: "Target drift context fixture",
+      confidence: 0.8,
+    }, [{
+      id: "evidence-pr-target-unchanged",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L1-L1`,
+      digest: codeDigest("stable line"),
+      why: "Stable line",
+    }, {
+      id: "evidence-pr-target-drifted",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L2-L2`,
+      digest: codeDigest("old line"),
+      why: "Changed line",
+    }]);
+    writeFactWithEvidence(store, {
+      id: "fact-pr-unit-drift",
+      entityId: "unit-main",
+      type: "purpose",
+      value: "Unit fixture",
+      rationale: "Unit drift context fixture",
+      confidence: 0.7,
+    }, [{
+      id: "evidence-pr-unit-drifted",
+      kind: "code",
+      locator: `code://${checkout.originalRevision}/src/main.c#L2-L2`,
+      digest: codeDigest("old line"),
+      why: "Changed line",
+    }]);
+
+    const context = buildTaskContext(
+      store,
+      task("pr_imported", JSON.stringify(["pr-drift-target", "pr-drift-unit"])),
+      {
+        ...fixtureOptions(store, prsRoot),
+        checkoutRoot: checkout.root,
+        checkoutRev: checkout.headRevision,
+      },
+    );
+
+    expect(context.touched).toHaveLength(2);
+    const unit = context.touched[0]!;
+    const target = context.touched[1]!;
+    expect(unit).toMatchObject({
+      kind: "entity",
+      drift: {
+        subject: { entityId: "unit-main" },
+        head_revision: checkout.headRevision,
+        drifted_count: 1,
+        unresolvable_count: 0,
+        evidence: [{
+          evidence_id: "evidence-pr-unit-drifted",
+          status: "drifted",
+          head_digest: codeDigest("new line"),
+          head_locator: `code://${checkout.headRevision}/src/main.c#L2-L2`,
+        }],
+      },
+    });
+    expect(target).toMatchObject({
+      kind: "target",
+      drift: {
+        subject: { targetId: "target-main" },
+        head_revision: checkout.headRevision,
+        drifted_count: 1,
+        unresolvable_count: 0,
+        evidence: [{
+          evidence_id: "evidence-pr-target-drifted",
+          status: "drifted",
+        }],
+      },
+    });
+    expect((target as unknown as { drift: { evidence: Array<{ status: string }> } }).drift.evidence)
+      .toHaveLength(1);
+  });
+
+  test("adds rename history to imported PR targets", () => {
+    const store = openFixture();
+    const prsRoot = writePrArchive();
+    store.db.query(`INSERT INTO target
+      (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status,
+        report_revision, moved_to_id)
+      VALUES ('target-main-old-z', 'function', 'main/melee/ft/ftcommon', 'unit-main',
+        'ftCo_OldZ', 'main/melee/ft/ftcommon:ftCo_OldZ', '0x800BFFD0', 'moved',
+        'fixture-rev', 'target-main'),
+        ('target-main-old-a', 'function', 'main/melee/ft/ftcommon', 'unit-main',
+        'ftCo_OldA', 'main/melee/ft/ftcommon:ftCo_OldA', '0x800BFFD0', 'moved',
+        'fixture-rev', 'target-main')`).run();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-rename-target', 'target-main', NULL, 'melee#1533',
+        'Rename history fixture', 'improvement', '2026-01-21T00:00:00.000Z')`).run();
+
+    const context = buildTaskContext(
+      store,
+      task("pr_imported", JSON.stringify(["pr-rename-target"])),
+      fixtureOptions(store, prsRoot),
+    );
+
+    expect(context.touched.find((subject) => subject.kind === "target")).toMatchObject({
+      target_stable_key: "main/melee/ft/ftcommon:ftCo_800BFFD0",
+      renamed_from: [
+        "main/melee/ft/ftcommon:ftCo_OldA",
+        "main/melee/ft/ftcommon:ftCo_OldZ",
+      ],
+    });
   });
 
   test("uses whole-token archival mentions and gives material only after two records", () => {
@@ -564,8 +838,9 @@ describe("buildTaskContext", () => {
     assertOrderingAndScope(context);
   });
 
-  test("attaches a resolver verdict to every drift evidence row", () => {
+  test("attaches resolver verdicts and current code-drift statuses to drift facts", () => {
     const store = openFixture();
+    const checkout = writeDriftCheckout();
     store.db.query(`INSERT INTO discord_message
       (id, channel, author, posted_at, content, thread_id, ingested_at)
       VALUES ('900', 'fixture', 'author', '2026-01-01T00:00:00.000Z', 'evidence', NULL,
@@ -587,8 +862,8 @@ describe("buildTaskContext", () => {
     }, {
       id: "evidence-code",
       kind: "code",
-      locator: "code://deadbeef/src/main.c#L1-L1",
-      digest: "sha256:stored",
+      locator: `code://${checkout.originalRevision}/src/main.c#L2-L2`,
+      digest: codeDigest("old line"),
       why: "Code evidence",
       capturedAt: "2026-01-20T00:00:00.000Z",
     }]);
@@ -596,30 +871,123 @@ describe("buildTaskContext", () => {
     const context = buildTaskContext(
       store,
       task("drift_recheck", JSON.stringify({ target_id: "target-main" })),
-      fixtureOptions(store),
+      {
+        ...fixtureOptions(store),
+        checkoutRoot: checkout.root,
+        checkoutRev: checkout.headRevision,
+      },
     );
     const object = context.object as {
+      drift: {
+        head_revision: string;
+        drifted_count: number;
+        unresolvable_count: number;
+      };
       flagged_facts: Array<{
         type: string;
-        evidence: Array<{ kind: string; resolver_verdict: unknown }>;
+        evidence: Array<{
+          kind: string;
+          resolver_verdict: unknown;
+          drift_status?: string;
+          head_digest?: string;
+          head_locator?: string;
+        }>;
       }>;
     };
     const fact = object.flagged_facts.find(({ type }) => type === "purpose");
-    const verdicts = Object.fromEntries(
-      fact?.evidence.map(({ kind, resolver_verdict }) => [kind, resolver_verdict]) ?? [],
+    const evidenceByKind = Object.fromEntries(
+      fact?.evidence.map((evidence) => [evidence.kind, evidence]) ?? [],
     );
 
-    expect(verdicts).toEqual({
-      discord: { ok: true, digest: null },
-      code: { ok: false, reason: "code_revision_unresolvable" },
+    expect(evidenceByKind.discord).toMatchObject({
+      resolver_verdict: { ok: true, digest: null },
+    });
+    expect(evidenceByKind.discord).not.toHaveProperty("drift_status");
+    expect(evidenceByKind.code).toMatchObject({
+      resolver_verdict: { ok: true, digest: codeDigest("old line") },
+      drift_status: "drifted",
+      head_digest: codeDigest("new line"),
+      head_locator: `code://${checkout.headRevision}/src/main.c#L2-L2`,
     });
     expect(fact?.evidence.every(({ resolver_verdict }) => resolver_verdict !== undefined)).toBeTrue();
+    expect(object.drift).toMatchObject({
+      head_revision: checkout.headRevision,
+      drifted_count: 1,
+      unresolvable_count: 0,
+    });
     expect(context.touched).toHaveLength(1);
     expect(context.touched[0]).toMatchObject({
       kind: "target",
       target_stable_key: "main/melee/ft/ftcommon:ftCo_800BFFD0",
     });
     expect(context.touched[0]?.material).toBeDefined();
+    assertOrderingAndScope(context);
+  });
+
+  test("surfaces rename metadata in drift recheck context", () => {
+    const store = openFixture();
+    const context = buildTaskContext(
+      store,
+      task("drift_recheck", JSON.stringify({
+        target_id: "target-main",
+        renamed_from: "main/melee/ft/ftcommon:OldName",
+        previous_target_id: "target-function-old",
+        reason: "rename",
+      })),
+      fixtureOptions(store),
+    );
+
+    expect(context.object).toMatchObject({
+      renamed_from: "main/melee/ft/ftcommon:OldName",
+      previous_target_id: "target-function-old",
+    });
+  });
+
+  test("builds a batched drift recheck context with listed subjects and its unit as support", () => {
+    const store = openFixture();
+    const context = buildTaskContext(
+      store,
+      task("drift_recheck", JSON.stringify({
+        unit: "main/melee/ft/ftcommon",
+        unit_entity_id: "unit-main",
+        subjects: [
+          { target_id: "target-main", drifted: 1, unresolvable: 0 },
+          { entity_id: "concept-guard", drifted: 0, unresolvable: 1 },
+        ],
+        reason: "drift",
+      })),
+      fixtureOptions(store),
+    );
+
+    expect(context.touched.map((subject) => subject.kind === "target"
+      ? subject.target_stable_key
+      : subject.entity_locator)).toEqual([
+      "concept://guard",
+      "main/melee/ft/ftcommon:ftCo_800BFFD0",
+    ]);
+    expect(context.supporting).toHaveLength(1);
+    expect(context.supporting[0]).toMatchObject({
+      kind: "translation_unit",
+      entity_locator: "src/main.c",
+    });
+    expect(context.object).toMatchObject({
+      unit: "main/melee/ft/ftcommon",
+      unit_entity_id: "unit-main",
+      reason: "drift",
+      subjects: [
+        {
+          subject: {
+            subjectKind: "target",
+            stableKey: "main/melee/ft/ftcommon:ftCo_800BFFD0",
+          },
+          drift: { subject: { targetId: "target-main" } },
+        },
+        {
+          subject: { subjectKind: "entity", locator: "concept://guard" },
+          drift: { subject: { entityId: "concept-guard" } },
+        },
+      ],
+    });
     assertOrderingAndScope(context);
   });
 

@@ -19,10 +19,19 @@ import {
   type BackfillUnitContext,
   type TargetRow,
 } from "../backfill/context.js";
+import {
+  flagCodeDrift,
+  type DriftEvidenceEntry,
+  type DriftReport,
+} from "../drift/flagger.js";
 import { listPrComments, type ResolvedPrComment } from "../ingest/prs.js";
 import { formatLocator, parseLocator } from "../locator.js";
 import { symbolTokensFor, tokenize } from "../migration/prioritize.js";
-import { getRunNarrative, type KnowledgeStoreHandle } from "../records/index.js";
+import {
+  getRunNarrative,
+  movedFromStableKeys,
+  type KnowledgeStoreHandle,
+} from "../records/index.js";
 import type {
   EntityKind,
   EventCause,
@@ -68,15 +77,18 @@ export type LibrarianTouchedSubject =
     entity_kind: string;
     entity_locator: string;
     record: KnowledgeRecord;
+    drift?: DriftReport;
     material?: BackfillUnitContext;
   }
   | {
     order: number;
     kind: "target";
     target_stable_key: string;
+    renamed_from: string[];
     detail: BackfillPassTarget;
     ledger: BackfillGroupedLedger;
     record: KnowledgeRecord;
+    drift?: DriftReport;
     material?: BackfillTargetMaterial;
   };
 
@@ -89,7 +101,7 @@ export interface LibrarianTaskContext {
   };
   object: unknown;
   touched: LibrarianTouchedSubject[];
-  supporting: BackfillSupportingSubject[];
+  supporting: LibrarianSupportingSubject[];
   scope: BackfillApplyScope;
   omitted?: {
     reason: string;
@@ -97,6 +109,13 @@ export interface LibrarianTaskContext {
     entity_locators?: string[];
   };
 }
+
+export type LibrarianSupportingSubject = BackfillSupportingSubject | {
+  kind: "translation_unit";
+  entity_locator: string;
+  record: KnowledgeRecord;
+  material: BackfillUnitContext;
+};
 
 export type LibrarianSlicePayload =
   | {
@@ -202,7 +221,7 @@ interface MentionEntry {
 interface BuiltPathwayContext {
   object: unknown;
   touched: LibrarianTouchedSubject[];
-  supporting: BackfillSupportingSubject[];
+  supporting: LibrarianSupportingSubject[];
   scope: BackfillApplyScope;
   omitted?: LibrarianTaskContext["omitted"];
 }
@@ -217,6 +236,18 @@ function parsedPayloadForTask(payload: string): unknown {
   } catch {
     return payload;
   }
+}
+
+function unwrapRetryPayload(payload: string): string {
+  const parsed = parsedPayloadForTask(payload);
+  if (!isRecord(parsed)
+    || !("task_payload" in parsed)
+    || typeof parsed.drift_attempts !== "number") {
+    return payload;
+  }
+  return typeof parsed.task_payload === "string"
+    ? parsed.task_payload
+    : JSON.stringify(parsed.task_payload);
 }
 
 function parseStoredJson(value: string): unknown {
@@ -242,7 +273,7 @@ function instructionFor(pathway: LibrarianPathway): string {
     case "archival_ingest":
       return "Work the mentioned archival subjects in order — entities first, targets last — researching the bounded source slice across every resource before devising facts.";
     case "drift_recheck":
-      return "Work the flagged subject in order — checking each live fact and every evidence verdict — before devising replacement facts.";
+      return "Work the flagged subjects in order — checking each live fact and every evidence verdict — before devising replacement facts.";
     default:
       throw new TypeError(`Unknown librarian pathway: ${String(pathway)}`);
   }
@@ -259,7 +290,7 @@ function noOpContext(reason: string): BuiltPathwayContext {
 
 function finalizeSubjects(
   subjects: LibrarianTouchedSubject[],
-  supporting: BackfillSupportingSubject[],
+  supporting: LibrarianSupportingSubject[],
   object: unknown,
   omitted?: LibrarianTaskContext["omitted"],
 ): BuiltPathwayContext {
@@ -306,6 +337,7 @@ function targetSubject(
     order: 0,
     kind: "target",
     target_stable_key: target.stable_key,
+    renamed_from: movedFromStableKeys(store, target.id),
     detail: targetDetail(store, target),
     ledger: groupedLedger(targetLedger(store, target.id)),
     record: knowledgeRecord(store, { targetId: target.id }),
@@ -313,22 +345,48 @@ function targetSubject(
   };
 }
 
+function subjectDrift(
+  store: KnowledgeStoreHandle,
+  subject: { targetId: string } | { entityId: string },
+  options: LibrarianContextOptions,
+): DriftReport {
+  return flagCodeDrift(store, {
+    subject,
+    checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout")),
+    ...(options.checkoutRev === undefined ? {} : { headRevision: options.checkoutRev }),
+  });
+}
+
+function compactDrift(report: DriftReport): DriftReport {
+  return {
+    ...report,
+    evidence: report.evidence.filter(({ status }) => status !== "unchanged"),
+  };
+}
+
 function fullTargetPathwaySubjects(
   store: KnowledgeStoreHandle,
   target: TargetRow,
   options: LibrarianContextOptions,
+  includeDrift = false,
 ): LibrarianTouchedSubject[] {
   const entities = linkedMechanicalEntities(store, target);
   if (!entities.some((entity) => entity.id === target.unit_entity_id)) {
     throw new Error(`Translation unit not found for target: ${target.id}`);
   }
   return [
-    ...entities.map((entity) => entitySubject(
-      store,
-      entity,
-      entity.id === target.unit_entity_id,
-    )),
-    targetSubject(store, target, options, true),
+    ...entities.map((entity) => ({
+      ...entitySubject(store, entity, entity.id === target.unit_entity_id),
+      ...(includeDrift
+        ? { drift: compactDrift(subjectDrift(store, { entityId: entity.id }, options)) }
+        : {}),
+    })),
+    {
+      ...targetSubject(store, target, options, true),
+      ...(includeDrift
+        ? { drift: compactDrift(subjectDrift(store, { targetId: target.id }, options)) }
+        : {}),
+    },
   ];
 }
 
@@ -442,7 +500,7 @@ function buildRunClosedContext(
     integration: run.integration,
   };
   return finalizeSubjects(
-    fullTargetPathwaySubjects(store, target, options),
+    fullTargetPathwaySubjects(store, target, options, true),
     supportingSubjects(store, target.id),
     object,
   );
@@ -638,9 +696,14 @@ function buildPrImportedContext(
   const omittedTargets = capped ? rankedTargets.slice(12) : [];
 
   const touched = [
-    ...[...entityCandidates.values()].map((entity) =>
-      entitySubject(store, entity, entity.kind === "translation_unit")),
-    ...includedTargets.map(({ target }) => targetSubject(store, target, options, true)),
+    ...[...entityCandidates.values()].map((entity) => ({
+      ...entitySubject(store, entity, entity.kind === "translation_unit"),
+      drift: compactDrift(subjectDrift(store, { entityId: entity.id }, options)),
+    })),
+    ...includedTargets.map(({ target }) => ({
+      ...targetSubject(store, target, options, true),
+      drift: compactDrift(subjectDrift(store, { targetId: target.id }, options)),
+    })),
   ];
   const supporting = deduplicateSupporting(
     includedTargets.map(({ target }) => supportingSubjects(store, target.id)),
@@ -1160,11 +1223,84 @@ function buildDriftRecheckContext(
   rawPayload: string,
   options: LibrarianContextOptions,
 ): BuiltPathwayContext {
+  const parsedPayload = parsedPayloadForTask(rawPayload);
+  if (isRecord(parsedPayload) && Array.isArray(parsedPayload.subjects)) {
+    const unit = typeof parsedPayload.unit === "string" && parsedPayload.unit.trim()
+      ? parsedPayload.unit.trim()
+      : null;
+    const unitEntityId = typeof parsedPayload.unit_entity_id === "string"
+      && parsedPayload.unit_entity_id.trim()
+      ? parsedPayload.unit_entity_id.trim()
+      : null;
+    if (unit === null || unitEntityId === null || parsedPayload.subjects.length === 0) {
+      throw new Error("batched drift_recheck payload must name a unit and subjects");
+    }
+    const unitEntity = store.db.query<EntityRow, [string]>(`
+      SELECT id, kind, locator FROM entity WHERE id = ?
+    `).get(unitEntityId);
+    if (!unitEntity || unitEntity.kind !== "translation_unit") {
+      throw new Error(`Translation unit not found: ${unitEntityId}`);
+    }
+    const entries = parsedPayload.subjects.map((value) => {
+      if (!isRecord(value)) throw new Error("batched drift_recheck subject is malformed");
+      return buildDriftSubjectContext(store, driftSubject(store, JSON.stringify(value)), options);
+    });
+    const touched = entries
+      .map(({ touched }) => touched)
+      .sort((left, right) => left.kind === right.kind ? 0 : left.kind === "entity" ? -1 : 1);
+    return finalizeSubjects(touched, [{
+      kind: "translation_unit",
+      entity_locator: unitEntity.locator,
+      record: knowledgeRecord(store, { entityId: unitEntity.id }),
+      material: buildUnitContext(store, unitEntity.id),
+    }], {
+      unit,
+      unit_entity_id: unitEntity.id,
+      reason: typeof parsedPayload.reason === "string" ? parsedPayload.reason : "drift",
+      subjects: entries.map(({ object }) => object),
+    });
+  }
+
   const subject = driftSubject(store, rawPayload);
+  const rename = isRecord(parsedPayload)
+    ? {
+      ...(typeof parsedPayload.renamed_from === "string"
+        ? { renamed_from: parsedPayload.renamed_from }
+        : {}),
+      ...(typeof parsedPayload.previous_target_id === "string"
+        ? { previous_target_id: parsedPayload.previous_target_id }
+        : {}),
+    }
+    : {};
+  const built = buildDriftSubjectContext(store, subject, options);
+  const supporting = subject.target === undefined
+    ? []
+    : supportingSubjects(store, subject.target.id);
+  return finalizeSubjects([built.touched], supporting, {
+    ...built.object,
+    ...rename,
+  });
+}
+
+function buildDriftSubjectContext(
+  store: KnowledgeStoreHandle,
+  subject: { target: TargetRow; entity?: never } | { target?: never; entity: EntityRow },
+  options: LibrarianContextOptions,
+): { touched: LibrarianTouchedSubject; object: Record<string, unknown> } {
   const record = subject.target === undefined
     ? knowledgeRecord(store, { entityId: subject.entity.id })
     : knowledgeRecord(store, { targetId: subject.target.id });
   if (record.subject === null) throw new Error("Drift subject not found");
+  const drift = subjectDrift(
+    store,
+    subject.target === undefined
+      ? { entityId: subject.entity.id }
+      : { targetId: subject.target.id },
+    options,
+  );
+  const driftByEvidenceId = new Map<string, DriftEvidenceEntry>(
+    drift.evidence.map((entry) => [entry.evidence_id, entry]),
+  );
   const resolverOptions = {
     checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout")),
     prsRoot: options.prsRoot ?? resolve(pastPrsRoot(), "prs"),
@@ -1174,31 +1310,46 @@ function buildDriftRecheckContext(
     value: fact.value,
     confidence: fact.confidence,
     updated_at: fact.updatedAt,
-    evidence: fact.evidence.map((evidence) => ({
-      kind: evidence.kind,
-      locator: evidence.locator,
-      why: evidence.why,
-      digest: evidence.digest,
-      resolver_verdict: resolveCitation(store, {
-        kind: evidence.kind as SourceKind,
+    evidence: fact.evidence.map((evidence) => {
+      const driftEntry = driftByEvidenceId.get(evidence.id);
+      return {
+        kind: evidence.kind,
         locator: evidence.locator,
-      }, resolverOptions),
-    })),
+        why: evidence.why,
+        digest: evidence.digest,
+        resolver_verdict: resolveCitation(store, {
+          kind: evidence.kind as SourceKind,
+          locator: evidence.locator,
+        }, resolverOptions),
+        ...(driftEntry === undefined
+          ? {}
+          : {
+            drift_status: driftEntry.status,
+            ...(driftEntry.head_digest === undefined
+              ? {}
+              : { head_digest: driftEntry.head_digest }),
+            ...(driftEntry.head_locator === undefined
+              ? {}
+              : { head_locator: driftEntry.head_locator }),
+          }),
+      };
+    }),
   }]);
   const touched = subject.target === undefined
-    ? [entitySubject(
+    ? entitySubject(
       store,
       subject.entity,
       subject.entity.kind === "translation_unit",
-    )]
-    : [targetSubject(store, subject.target, options, true)];
-  const supporting = subject.target === undefined
-    ? []
-    : supportingSubjects(store, subject.target.id);
-  return finalizeSubjects(touched, supporting, {
-    subject: record.subject,
-    flagged_facts: flaggedFacts,
-  });
+    )
+    : targetSubject(store, subject.target, options, true);
+  return {
+    touched,
+    object: {
+      subject: record.subject,
+      drift,
+      flagged_facts: flaggedFacts,
+    },
+  };
 }
 
 export function buildTaskContext(
@@ -1207,23 +1358,24 @@ export function buildTaskContext(
   options: LibrarianContextOptions = {},
 ): LibrarianTaskContext {
   const instruction = instructionFor(task.pathway);
+  const payload = unwrapRetryPayload(task.payload);
   let built: BuiltPathwayContext;
   try {
     switch (task.pathway) {
       case "run_closed":
-        built = buildRunClosedContext(store, task.payload, options);
+        built = buildRunClosedContext(store, payload, options);
         break;
       case "pr_imported":
-        built = buildPrImportedContext(store, task.payload, options);
+        built = buildPrImportedContext(store, payload, options);
         break;
       case "regression":
-        built = buildRegressionContext(store, task.payload, options);
+        built = buildRegressionContext(store, payload, options);
         break;
       case "archival_ingest":
-        built = buildArchivalIngestContext(store, task.payload, options);
+        built = buildArchivalIngestContext(store, payload, options);
         break;
       case "drift_recheck":
-        built = buildDriftRecheckContext(store, task.payload, options);
+        built = buildDriftRecheckContext(store, payload, options);
         break;
       default:
         throw new TypeError(`Unknown librarian pathway: ${String(task.pathway)}`);
@@ -1235,7 +1387,7 @@ export function buildTaskContext(
     task: {
       id: task.id,
       pathway: task.pathway,
-      payload: parsedPayloadForTask(task.payload),
+      payload: parsedPayloadForTask(payload),
       instruction,
     },
     ...built,

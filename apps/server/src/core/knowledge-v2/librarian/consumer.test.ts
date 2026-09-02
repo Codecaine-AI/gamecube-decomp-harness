@@ -7,6 +7,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createSharedGate } from "../apply/index.js";
 import type { LibrarianPassEnvelope } from "../backfill/runner.js";
+import type { DriftReport } from "../drift/flagger.js";
 import { enqueueIndexTask } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { parseLibrarianArgs } from "./cli.js";
@@ -191,6 +192,19 @@ function taskRow(store: KnowledgeStore, id: string): LibrarianTaskRow {
   return row;
 }
 
+function driftReport(
+  subject: DriftReport["subject"],
+  counts: { drifted: number; unresolvable: number },
+): DriftReport {
+  return {
+    subject,
+    head_revision: "fixture-head",
+    evidence: [],
+    drifted_count: counts.drifted,
+    unresolvable_count: counts.unresolvable,
+  };
+}
+
 afterEach(() => {
   for (const item of fixtures.splice(0)) {
     item.store.close();
@@ -288,6 +302,103 @@ describe("claimNextLibrarianTask", () => {
 });
 
 describe("runLibrarianPass", () => {
+  test("releases the first unresolved drift pass, then completes the retry with a warning", async () => {
+    const f = fixture("drift-retry", 1);
+    const id = enqueueRunClosed(f, 1);
+    const flagCodeDrift = (_store: unknown, options: { subject: DriftReport["subject"] }): DriftReport =>
+      driftReport(options.subject, options.subject.targetId === "target-1"
+        ? { drifted: 1, unresolvable: 0 }
+        : { drifted: 0, unresolvable: 0 });
+
+    const firstTask = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const first = await runLibrarianPass(f.store, firstTask, {
+      runId: "drift-retry-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift,
+      now: () => FIXED_NOW,
+    });
+
+    expect(taskState(f.store, id)).toMatchObject({ started_at: null, done_at: null });
+    expect(JSON.parse(taskRow(f.store, id).payload)).toEqual({
+      task_payload: "attempt://run/attempt-1",
+      drift_attempts: 1,
+    });
+    expect(indexedAt(f.store, "target-1")).toBeNull();
+    expect(JSON.parse(readFileSync(first.artifactPath, "utf8"))).toMatchObject({
+      drift_attempts: 1,
+      remaining_drift: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
+    });
+
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    const retryTask = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const retry = await runLibrarianPass(f.store, retryTask, {
+      runId: "drift-retry-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift,
+      now: () => FIXED_NOW,
+    });
+
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(JSON.parse(taskRow(f.store, id).payload)).toEqual({
+      task_payload: "attempt://run/attempt-1",
+      drift_attempts: 2,
+    });
+    expect(indexedAt(f.store, "target-1")).toBe(FIXED_NOW);
+    expect(warn).toHaveBeenCalledWith("drift left unresolved after retry");
+    warn.mockRestore();
+    expect(JSON.parse(readFileSync(retry.artifactPath, "utf8"))).toMatchObject({
+      drift_attempts: 2,
+      warning: "drift left unresolved after retry",
+      remaining_drift: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
+    });
+    expect(logEntries(f, "drift-retry-run")).toEqual([
+      expect.objectContaining({
+        task_id: id,
+        status: "drift_remaining",
+        claim: "released",
+        drift_attempts: 1,
+        remaining_drift: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
+      }),
+      expect.objectContaining({
+        task_id: id,
+        status: "completed",
+        claim: "completed",
+        drift_attempts: 2,
+        warning: "drift left unresolved after retry",
+      }),
+    ]);
+  });
+
+  test("completes a clean pass after checking every touched target and entity", async () => {
+    const f = fixture("drift-clean", 1);
+    const id = enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const checked: DriftReport["subject"][] = [];
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "drift-clean-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift: (_store, options) => {
+        checked.push(options.subject);
+        return driftReport(options.subject, { drifted: 0, unresolvable: 0 });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(checked).toEqual([{ entityId: "unit-main" }, { targetId: "target-1" }]);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).not.toHaveProperty("remaining_drift");
+    expect(logEntries(f, "drift-clean-run")).toEqual([
+      expect.objectContaining({ task_id: id, status: "completed", claim: "completed" }),
+    ]);
+  });
+
   test("applies the proposal, stamps the touched target, completes the task, and writes the artifact", async () => {
     const f = fixture("happy", 1);
     const id = enqueueRunClosed(f, 1);

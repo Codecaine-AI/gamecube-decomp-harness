@@ -67,6 +67,7 @@ describe("reconcileReport", () => {
       statusesUpserted: 2,
       skippedMalformed: 0,
       skippedMalformedSample: [],
+      renames: { applied: 0, ambiguous: [], pairs: [] },
     });
     expect(store.db.query("SELECT id, kind, locator FROM entity").all()).toEqual([{
       id: "translation_unit:src/melee/lb/lblanguage.c",

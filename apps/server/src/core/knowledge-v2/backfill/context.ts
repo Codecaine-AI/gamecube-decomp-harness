@@ -61,6 +61,7 @@ export interface BackfillPassTarget {
   stable_key: string;
   address: string | null;
   identity_status: TargetIdentityStatus;
+  moved_to_id: string | null;
   report_revision: string;
   target_status: BackfillTargetStatus | null;
   match_pct: number | null;
@@ -213,6 +214,7 @@ export interface TargetRow {
   stable_key: string;
   address: string | null;
   identity_status: TargetIdentityStatus;
+  moved_to_id: string | null;
   report_revision: string;
 }
 

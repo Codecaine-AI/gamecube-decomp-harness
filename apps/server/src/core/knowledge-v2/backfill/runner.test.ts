@@ -251,6 +251,7 @@ describe("runPass happy path", () => {
           updated_at: "2026-08-30T00:00:00.000Z",
         },
         match_pct: 99,
+        moved_to_id: null,
         linked: true,
         named_symbol: true,
         unit_named_ratio: 1,

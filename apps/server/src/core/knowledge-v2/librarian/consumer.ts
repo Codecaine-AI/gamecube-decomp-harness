@@ -17,12 +17,18 @@ import {
 } from "../apply/index.js";
 import { librarianStandardsView, type LibrarianPassEnvelope } from "../backfill/runner.js";
 import {
+  flagCodeDrift,
+  type DriftReport,
+  type FlagCodeDriftOptions,
+} from "../drift/flagger.js";
+import {
   claimIndexTask,
   completeIndexTask,
   enqueueIndexTask,
   releaseIndexTask,
   stampSubjectIndexed,
   type KnowledgeStoreHandle,
+  type SubjectRef,
 } from "../records/index.js";
 import { immediateTransaction } from "../storage/transaction.js";
 import {
@@ -77,7 +83,18 @@ export interface LibrarianPassArtifact {
   timings: LibrarianPassTimings;
   model: string;
   dry_run: boolean;
+  remaining_drift?: LibrarianRemainingDrift[];
+  drift_attempts?: number;
+  warning?: string;
 }
+
+export type LibrarianRemainingDrift = (
+  | { target_id: string }
+  | { entity_id: string }
+) & {
+  drifted: number;
+  unresolvable: number;
+};
 
 export interface LibrarianPassResult {
   task: LibrarianTaskRow;
@@ -102,6 +119,10 @@ export interface LibrarianPassDeps {
   prsRoot?: string;
   timeoutMs?: number;
   runPiAgent?: typeof runPiAgent;
+  flagCodeDrift?: (
+    store: KnowledgeStoreHandle,
+    options: FlagCodeDriftOptions,
+  ) => DriftReport;
   runLog?: LibrarianRunLog;
   now?: () => string;
   clockMs?: () => number;
@@ -124,6 +145,7 @@ export interface LibrarianRunOptions {
   prsRoot?: string;
   timeoutMs?: number;
   runPiAgent?: typeof runPiAgent;
+  flagCodeDrift?: LibrarianPassDeps["flagCodeDrift"];
   now?: () => string;
   clockMs?: () => number;
 }
@@ -367,6 +389,69 @@ function stampTouchedSubjects(
   return { targetIds, entityIds };
 }
 
+function touchedSubjectRef(subject: LibrarianTaskContext["touched"][number]): SubjectRef {
+  if (subject.kind === "target") return { targetId: subject.detail.id };
+  const identity = subject.record.subject;
+  if (identity?.subjectKind !== "entity") {
+    throw new Error(`Touched entity record is missing its identity: ${subject.entity_locator}`);
+  }
+  return { entityId: identity.id };
+}
+
+function remainingDriftAfterPass(
+  store: KnowledgeStoreHandle,
+  context: LibrarianTaskContext,
+  checkoutRoot: string,
+  driftFlagger: NonNullable<LibrarianPassDeps["flagCodeDrift"]>,
+): LibrarianRemainingDrift[] {
+  return context.touched.flatMap((subject) => {
+    const subjectRef = touchedSubjectRef(subject);
+    const report = driftFlagger(store, { subject: subjectRef, checkoutRoot });
+    if (report.drifted_count + report.unresolvable_count === 0) return [];
+    return [{
+      ...(subjectRef.targetId !== undefined
+        ? { target_id: subjectRef.targetId }
+        : { entity_id: subjectRef.entityId }),
+      drifted: report.drifted_count,
+      unresolvable: report.unresolvable_count,
+    }];
+  });
+}
+
+function retryPayloadState(payload: string): { taskPayload: unknown; driftAttempts: number } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload) as unknown;
+  } catch {
+    return { taskPayload: payload, driftAttempts: 0 };
+  }
+  if (record(parsed) && Object.hasOwn(parsed, "task_payload")) {
+    return {
+      taskPayload: parsed.task_payload,
+      driftAttempts: Number.isSafeInteger(parsed.drift_attempts)
+        && (parsed.drift_attempts as number) >= 0
+        ? parsed.drift_attempts as number
+        : 0,
+    };
+  }
+  return { taskPayload: parsed, driftAttempts: 0 };
+}
+
+function persistDriftAttempt(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+): number {
+  const state = retryPayloadState(task.payload);
+  const driftAttempts = state.driftAttempts + 1;
+  store.db.query(`UPDATE index_task
+    SET payload = ?
+    WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL`).run(
+    JSON.stringify({ task_payload: state.taskPayload, drift_attempts: driftAttempts }),
+    task.id,
+  );
+  return driftAttempts;
+}
+
 export async function runLibrarianPass(
   store: KnowledgeStoreHandle,
   task: LibrarianTaskRow,
@@ -425,11 +510,35 @@ export async function runLibrarianPass(
       ...(requiredCitation === undefined ? {} : { requiredCitation }),
     });
     let stamped = { targetIds: [] as string[], entityIds: [] as string[] };
+    let remainingDrift: LibrarianRemainingDrift[] | undefined;
+    let driftAttempts: number | undefined;
+    let warning: string | undefined;
+    let claim: "released" | "completed";
     if (dryRun) {
       releaseIndexTask(store, task.id);
+      claim = "released";
     } else {
-      stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
-      completeIndexTask(store, task.id, indexedAt);
+      remainingDrift = remainingDriftAfterPass(
+        store,
+        context,
+        deps.checkoutRoot ?? deps.globals.repoRoot,
+        deps.flagCodeDrift ?? flagCodeDrift,
+      );
+      if (remainingDrift.length > 0) {
+        driftAttempts = persistDriftAttempt(store, task);
+      }
+      if (remainingDrift.length > 0 && driftAttempts === 1) {
+        releaseIndexTask(store, task.id);
+        claim = "released";
+      } else {
+        stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
+        completeIndexTask(store, task.id, indexedAt);
+        claim = "completed";
+        if (remainingDrift.length > 0) {
+          warning = "drift left unresolved after retry";
+          console.warn(warning);
+        }
+      }
     }
     applyMs = clockMs() - applyStarted;
 
@@ -451,6 +560,11 @@ export async function runLibrarianPass(
       timings,
       model: deps.globals.model,
       dry_run: dryRun,
+      ...(remainingDrift === undefined || remainingDrift.length === 0
+        ? {}
+        : { remaining_drift: remainingDrift }),
+      ...(driftAttempts === undefined ? {} : { drift_attempts: driftAttempts }),
+      ...(warning === undefined ? {} : { warning }),
     };
     await mkdir(directory, { recursive: true });
     await writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
@@ -458,11 +572,18 @@ export async function runLibrarianPass(
       run_id: deps.runId,
       task_id: task.id,
       pathway: task.pathway,
-      status: "completed",
+      status: claim === "released" && remainingDrift !== undefined && remainingDrift.length > 0
+        ? "drift_remaining"
+        : "completed",
       dry_run: dryRun,
-      claim: dryRun ? "released" : "completed",
+      claim,
       stamped,
       apply_report: applyReport,
+      ...(remainingDrift === undefined || remainingDrift.length === 0
+        ? {}
+        : { remaining_drift: remainingDrift }),
+      ...(driftAttempts === undefined ? {} : { drift_attempts: driftAttempts }),
+      ...(warning === undefined ? {} : { warning }),
       timings,
       artifact_path: artifactPath,
     });
@@ -764,6 +885,7 @@ export async function runLibrarianConsumer(
           prsRoot: options.prsRoot,
           timeoutMs: options.timeoutMs,
           runPiAgent: options.runPiAgent,
+          flagCodeDrift: options.flagCodeDrift,
           runLog,
           now: options.now,
           clockMs: options.clockMs,

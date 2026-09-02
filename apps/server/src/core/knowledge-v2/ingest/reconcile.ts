@@ -48,7 +48,128 @@ interface StoredTarget {
   id: string;
   kind: "data" | "function";
   stable_key: string;
+  unit: string;
+  address: string;
   identity_status: "current" | "moved" | "unresolved" | "retired";
+}
+
+interface RenameCandidate {
+  id: string;
+  kind: "data" | "function";
+  unit: string;
+  stableKey: string;
+  address: string;
+}
+
+type RenamePair = ReconcileResult["renames"]["pairs"][number] & {
+  fromId: string;
+  toId: string;
+};
+
+function pairRenames(
+  unresolved: readonly StoredTarget[],
+  inserted: readonly TargetRowInput[],
+): { pairs: RenamePair[]; ambiguous: ReconcileResult["renames"]["ambiguous"] } {
+  const groups = new Map<string, { unit: string; address: string; unresolved: RenameCandidate[]; inserted: RenameCandidate[] }>();
+  const add = (side: "unresolved" | "inserted", row: RenameCandidate): void => {
+    const key = `${row.unit}\u0000${row.kind}\u0000${row.address}`;
+    const group = groups.get(key) ?? { unit: row.unit, address: row.address, unresolved: [], inserted: [] };
+    group[side].push(row);
+    groups.set(key, group);
+  };
+  for (const row of unresolved) add("unresolved", {
+    id: row.id, kind: row.kind, unit: row.unit, stableKey: row.stable_key, address: row.address,
+  });
+  for (const row of inserted) add("inserted", {
+    id: row.id, kind: row.kind, unit: row.unit, stableKey: row.stableKey, address: row.address,
+  });
+
+  const pairs: RenamePair[] = [];
+  const ambiguous: ReconcileResult["renames"]["ambiguous"] = [];
+  for (const [, group] of [...groups].sort(([left], [right]) => left.localeCompare(right))) {
+    if (group.unresolved.length === 0) continue;
+    group.unresolved.sort((left, right) => left.stableKey.localeCompare(right.stableKey));
+    group.inserted.sort((left, right) => left.stableKey.localeCompare(right.stableKey));
+    if (group.unresolved.length === 1 && group.inserted.length === 1) {
+      const from = group.unresolved[0]!;
+      const to = group.inserted[0]!;
+      pairs.push({
+        fromId: from.id,
+        toId: to.id,
+        from_stable_key: from.stableKey,
+        to_stable_key: to.stableKey,
+        address: group.address,
+        moved_rows: { fact: 0, link: 0, worker_run: 0, pull_request: 0, event: 0, subject_index_state: 0 },
+        fact_collisions: 0,
+      });
+    } else {
+      ambiguous.push({
+        unit: group.unit,
+        address: group.address,
+        unresolved: group.unresolved.map((row) => row.stableKey),
+        inserted: group.inserted.map((row) => row.stableKey),
+      });
+    }
+  }
+  return { pairs, ambiguous };
+}
+
+function applyRename(store: KnowledgeStoreHandle, pair: RenamePair, reportRevision: string): void {
+  const oldFacts = store.db.query<{ id: string; type: string; updated_at: string }, [string]>(
+    "SELECT id, type, updated_at FROM fact WHERE target_id = ? ORDER BY type, id",
+  ).all(pair.fromId);
+  const newFacts = new Map(store.db.query<{ id: string; type: string; updated_at: string }, [string]>(
+    "SELECT id, type, updated_at FROM fact WHERE target_id = ? ORDER BY type, id",
+  ).all(pair.toId).map((row) => [row.type, row]));
+
+  for (const oldFact of oldFacts) {
+    const newFact = newFacts.get(oldFact.type);
+    if (newFact === undefined) {
+      pair.moved_rows.fact += store.db.query("UPDATE fact SET target_id = ? WHERE id = ?").run(pair.toId, oldFact.id).changes;
+      continue;
+    }
+    pair.fact_collisions += 1;
+    if (oldFact.updated_at > newFact.updated_at) {
+      store.db.query("DELETE FROM fact WHERE id = ?").run(newFact.id);
+      pair.moved_rows.fact += store.db.query("UPDATE fact SET target_id = ? WHERE id = ?").run(pair.toId, oldFact.id).changes;
+    } else {
+      store.db.query("DELETE FROM fact WHERE id = ?").run(oldFact.id);
+    }
+  }
+
+  pair.moved_rows.link = store.db.query(`UPDATE link SET
+    from_target_id = CASE WHEN from_target_id = ? THEN ? ELSE from_target_id END,
+    to_target_id = CASE WHEN to_target_id = ? THEN ? ELSE to_target_id END
+    WHERE from_target_id = ? OR to_target_id = ?`).run(
+    pair.fromId, pair.toId, pair.fromId, pair.toId, pair.fromId, pair.fromId,
+  ).changes;
+  for (const table of ["worker_run", "pull_request", "event"] as const) {
+    pair.moved_rows[table] = store.db.query(`UPDATE ${table} SET target_id = ? WHERE target_id = ?`).run(pair.toId, pair.fromId).changes;
+  }
+
+  const oldStamp = store.db.query<{ indexed_at: string }, [string]>(
+    "SELECT indexed_at FROM subject_index_state WHERE target_id = ?",
+  ).get(pair.fromId);
+  if (oldStamp !== null) {
+    const newStamp = store.db.query<{ indexed_at: string }, [string]>(
+      "SELECT indexed_at FROM subject_index_state WHERE target_id = ?",
+    ).get(pair.toId);
+    if (newStamp === null) {
+      pair.moved_rows.subject_index_state = store.db.query(
+        "UPDATE subject_index_state SET target_id = ? WHERE target_id = ?",
+      ).run(pair.toId, pair.fromId).changes;
+    } else {
+      if (oldStamp.indexed_at > newStamp.indexed_at) {
+        store.db.query("UPDATE subject_index_state SET indexed_at = ? WHERE target_id = ?").run(oldStamp.indexed_at, pair.toId);
+      }
+      pair.moved_rows.subject_index_state = store.db.query(
+        "DELETE FROM subject_index_state WHERE target_id = ?",
+      ).run(pair.fromId).changes;
+    }
+  }
+
+  store.db.query("UPDATE target SET identity_status = 'moved', moved_to_id = ?, report_revision = ? WHERE id = ?")
+    .run(pair.toId, reportRevision, pair.fromId);
 }
 
 type ReconcileTargetRow = Omit<TargetRowInput, "unitEntityId" | "symbol" | "address"> & {
@@ -191,7 +312,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
   }
 
   const stored = store.db.query<StoredTarget, []>(
-    "SELECT id, kind, stable_key, identity_status FROM target WHERE kind IN ('function', 'data')",
+    "SELECT id, kind, stable_key, unit, address, identity_status FROM target WHERE kind IN ('function', 'data')",
   ).all();
   const storedByKey = new Map(stored.map((row) => [`${row.kind}:${row.stable_key}`, row]));
   const seenKeys = new Set([...desired.map((row) => `${row.kind}:${row.stableKey}`), ...refusedKeys]);
@@ -210,6 +331,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
   const unitEntitiesInserted = [...desiredUnitEntities.values()].filter(
     ({ locator }) => !existingUnitLocators.has(locator),
   );
+  const renames = pairRenames(unresolved, inserted);
 
   const applyMutations = (): void => {
     insertEntitiesIfMissing(store, unitEntitiesInserted);
@@ -234,6 +356,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
       let mutationError: unknown;
       try {
         applyMutations();
+        for (const pair of renames.pairs) applyRename(store, pair, reportRevision);
       } catch (error) {
         mutationFailed = true;
         mutationError = error;
@@ -247,6 +370,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
     });
   } else {
     immediateTransaction(store.db, applyMutations);
+    for (const pair of renames.pairs) immediateTransaction(store.db, () => applyRename(store, pair, reportRevision));
   }
 
   return {
@@ -259,5 +383,10 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
     statusesUpserted: statuses.length,
     skippedMalformed,
     skippedMalformedSample,
+    renames: {
+      applied: renames.pairs.length,
+      ambiguous: renames.ambiguous,
+      pairs: renames.pairs.map(({ fromId: _fromId, toId: _toId, ...pair }) => pair),
+    },
   };
 }
