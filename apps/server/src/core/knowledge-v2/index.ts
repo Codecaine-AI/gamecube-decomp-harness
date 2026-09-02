@@ -11,6 +11,7 @@ export {
   insertPullRequestEntries,
   insertWikiSections,
   insertWorkerRun,
+  updateWorkerRunIntegration,
   stampSubjectIndexed,
   writeFactWithEvidence,
 } from "./records/index.js";
@@ -28,6 +29,7 @@ export type {
   WikiSectionInput,
   WorkerRunInput,
 } from "./records/index.js";
+export type { IntegrationDetail } from "./storage/schema.js";
 export * from "./storage/ddl.js";
 export * from "./storage/migrations/index.js";
 export * from "./storage/schema.js";

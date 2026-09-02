@@ -84,6 +84,18 @@ export async function kg2Librarian(globals: GlobalArgs, args: Map<string, string
     return;
   }
 
+  if (
+    !parsed.status
+    && parsed.knowledgeRoot === undefined
+    && (
+      process.env.NODE_ENV === "test"
+      || process.env.BUN_TEST !== undefined
+      || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+    )
+  ) {
+    throw new Error("kg2-librarian refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  }
+
   const gameId = globals.game?.gameId ?? globals.gameId ?? "melee";
   const knowledgeRoot = parsed.knowledgeRoot === undefined
     ? gameKnowledgeRoot(gameId)

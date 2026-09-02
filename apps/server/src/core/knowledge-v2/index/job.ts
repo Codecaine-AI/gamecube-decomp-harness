@@ -38,6 +38,17 @@ export async function kg2Index(
   const embeddingModel = optionalStringArg(args, "--embedding-model");
   const gameId = globals.gameId ?? "melee";
 
+  if (
+    knowledgeRoot === undefined
+    && (
+      process.env.NODE_ENV === "test"
+      || process.env.BUN_TEST !== undefined
+      || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+    )
+  ) {
+    throw new Error("kg2-index refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  }
+
   let store: KnowledgeStore | undefined;
   let indexDb: KnowledgeIndexDb | undefined;
   try {

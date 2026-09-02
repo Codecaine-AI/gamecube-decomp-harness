@@ -15,7 +15,20 @@ export async function kg2Renarrate(globals: GlobalArgs, args: Map<string, string
   const stopFileArg = optionalString(args, "--stop-file");
   const outcome = optionalOutcome(args, "--outcome");
   const workerStateId = optionalString(args, "--worker-state-id");
-  const knowledge = openKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? "melee" });
+  const knowledgeRoot = optionalString(args, "--knowledge-root");
+  if (
+    knowledgeRoot === undefined
+    && (
+      process.env.NODE_ENV === "test"
+      || process.env.BUN_TEST !== undefined
+      || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+    )
+  ) {
+    throw new Error("kg2-renarrate refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  }
+  const knowledge = knowledgeRoot === undefined
+    ? openKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? "melee" })
+    : openKnowledgeStore({ knowledgeRoot: resolve(knowledgeRoot) });
   const orchestrator = openState(globals.stateDir);
   try {
     await runRenarrate(knowledge, {

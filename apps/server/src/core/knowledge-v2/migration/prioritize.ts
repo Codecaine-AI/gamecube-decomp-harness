@@ -415,6 +415,16 @@ function unitNamedRatioBucket(ratio: number): typeof UNIT_NAMED_RATIO_HISTOGRAM_
 export async function kg2Prioritize(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const limit = integerArg(args, "--limit", 30);
   const explicitRoot = optionalStringArg(args, "--knowledge-root");
+  if (
+    explicitRoot === undefined
+    && (
+      process.env.NODE_ENV === "test"
+      || process.env.BUN_TEST !== undefined
+      || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+    )
+  ) {
+    throw new Error("kg2-prioritize refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  }
   const gameId = globals.gameId ?? "melee";
   const knowledgeRoot = explicitRoot ?? gameKnowledgeRoot(gameId);
   let store: KnowledgeStore | undefined;

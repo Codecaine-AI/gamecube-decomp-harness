@@ -14,6 +14,12 @@ function temporaryRoot(): string {
   return root;
 }
 
+function createEmptyWikiMirror(knowledgeRoot: string): void {
+  const wikiDataRoot = join(knowledgeRoot, "sources/rag_search/smashwiki/data");
+  mkdirSync(join(wikiDataRoot, "pages"), { recursive: true });
+  writeFileSync(join(wikiDataRoot, "index.jsonl"), "");
+}
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
@@ -36,12 +42,77 @@ describe("resolveIngestPaths", () => {
 });
 
 describe("kg2Ingest", () => {
+  test("refuses the default knowledge root under a test runner", async () => {
+    await expect(kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map()))
+      .rejects.toThrow("kg2-ingest refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  });
+
+  test("defaults to sync and does not import wiki", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
+    createEmptyWikiMirror(knowledgeRoot);
+    const output: string[] = [];
+    const errors: string[] = [];
+    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+    const error = spyOn(console, "error").mockImplementation((value) => errors.push(String(value)));
+
+    try {
+      await kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
+        ["--knowledge-root", knowledgeRoot],
+      ]));
+    } finally {
+      log.mockRestore();
+      error.mockRestore();
+    }
+
+    expect(JSON.parse(output[0]!)).toMatchObject({ lane: "sync", results: {} });
+    expect(JSON.parse(output[0]!).results).not.toHaveProperty("wiki");
+    expect(errors).toContain("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
+  });
+
+  test("all does not import wiki", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
+    createEmptyWikiMirror(knowledgeRoot);
+    const output: string[] = [];
+    const errors: string[] = [];
+    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+    const error = spyOn(console, "error").mockImplementation((value) => errors.push(String(value)));
+
+    try {
+      await kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
+        ["--lane", "all"],
+        ["--knowledge-root", knowledgeRoot],
+      ]));
+    } finally {
+      log.mockRestore();
+      error.mockRestore();
+    }
+
+    expect(JSON.parse(output[0]!).results).not.toHaveProperty("wiki");
+    expect(errors).toContain("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
+  });
+
+  test("imports wiki only with the wiki lane", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
+    createEmptyWikiMirror(knowledgeRoot);
+    const output: string[] = [];
+    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+
+    try {
+      await kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
+        ["--lane", "wiki"],
+        ["--knowledge-root", knowledgeRoot],
+      ]));
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(JSON.parse(output[0]!).results).toHaveProperty("wiki");
+  });
+
   test("resets only wiki archival ingest data before importing wiki", async () => {
     const gameRoot = temporaryRoot();
     const knowledgeRoot = join(gameRoot, "knowledge");
-    const wikiDataRoot = join(knowledgeRoot, "sources/rag_search/smashwiki/data");
-    mkdirSync(join(wikiDataRoot, "pages"), { recursive: true });
-    writeFileSync(join(wikiDataRoot, "index.jsonl"), "");
+    createEmptyWikiMirror(knowledgeRoot);
     const store = openKnowledgeStore({ knowledgeRoot });
     store.db.run("INSERT INTO wiki_section VALUES (?, ?, ?, ?, ?, ?)", ["old#intro@r1", "Old", "__intro__", "r1", "body", "2026-01-01"]);
     store.db.run("INSERT INTO source_watermark VALUES ('wiki', 'old', '2026-01-01')");
@@ -74,32 +145,36 @@ describe("kg2Ingest", () => {
   });
 
   test("rejects unsupported reset sources", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
     await expect(kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
       ["--lane", "all"],
       ["--reset-source", "discord"],
+      ["--knowledge-root", knowledgeRoot],
     ]))).rejects.toThrow("--reset-source must be one of: wiki");
   });
 
   test("rejects a wiki reset when the wiki lane is not selected", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
     await expect(kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
-      ["--lane", "discord"],
+      ["--lane", "all"],
       ["--reset-source", "wiki"],
-    ]))).rejects.toThrow("--reset-source wiki requires --lane wiki or --lane all");
+      ["--knowledge-root", knowledgeRoot],
+    ]))).rejects.toThrow("--reset-source wiki requires --lane wiki");
   });
 
   test("rejects PR reattribution when the PR lane is not selected", async () => {
+    const knowledgeRoot = join(temporaryRoot(), "knowledge");
     await expect(kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map<string, string | true>([
       ["--lane", "wiki"],
       ["--reattribute", true],
-    ]))).rejects.toThrow("--reattribute requires --lane prs or --lane all");
+      ["--knowledge-root", knowledgeRoot],
+    ]))).rejects.toThrow("--reattribute requires --lane prs, --lane sync, or --lane all");
   });
 
   test("reports a dry-run wiki reset without deleting rows", async () => {
     const gameRoot = temporaryRoot();
     const knowledgeRoot = join(gameRoot, "knowledge");
-    const wikiDataRoot = join(knowledgeRoot, "sources/rag_search/smashwiki/data");
-    mkdirSync(join(wikiDataRoot, "pages"), { recursive: true });
-    writeFileSync(join(wikiDataRoot, "index.jsonl"), "");
+    createEmptyWikiMirror(knowledgeRoot);
     const store = openKnowledgeStore({ knowledgeRoot });
     store.db.run("INSERT INTO wiki_section VALUES (?, ?, ?, ?, ?, ?)", ["old#intro@r1", "Old", "__intro__", "r1", "body", "2026-01-01"]);
     store.db.run("INSERT INTO source_watermark VALUES ('wiki', 'old', '2026-01-01')");

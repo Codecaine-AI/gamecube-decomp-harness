@@ -52,12 +52,18 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
     return;
   }
 
+  const dryRun = args.get("--dry-run") === true;
+  if (explicitRoot === undefined && !dryRun && isTestRunner()) {
+    throw new Error(
+      "kg2-backfill refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>",
+    );
+  }
+
   const limit = optionalNonNegativeIntegerArg(args, "--limit");
   const shard = optionalShardArg(args, "--shard");
   const concurrency = positiveIntegerArg(args, "--concurrency", 4);
   const maxConsecutiveFailures = positiveIntegerArg(args, "--max-consecutive-failures", 5);
   const minDirectScore = optionalNonNegativeNumberArg(args, "--min-direct-score");
-  const dryRun = args.get("--dry-run") === true;
   let store: KnowledgeStore | undefined;
   let indexDb: KnowledgeIndexDb | undefined;
   const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
@@ -88,6 +94,12 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
     indexDb?.close();
     store?.close();
   }
+}
+
+function isTestRunner(): boolean {
+  return process.env.NODE_ENV === "test"
+    || process.env.BUN_TEST !== undefined
+    || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test");
 }
 
 function readStatus(store: KnowledgeStore, stateDir: string, runId: string): BackfillStatus {

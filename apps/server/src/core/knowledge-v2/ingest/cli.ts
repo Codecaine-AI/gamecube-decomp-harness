@@ -13,8 +13,10 @@ import { importPrs } from "./prs.js";
 import { reconcileReport } from "./reconcile.js";
 import { importWiki } from "./wiki.js";
 
-const INGEST_LANES = ["discord", "wiki", "prs", "attempts", "reconcile", "entities", "all"] as const;
+const INGEST_LANES = ["discord", "wiki", "prs", "attempts", "reconcile", "entities", "sync", "all"] as const;
 type IngestLane = (typeof INGEST_LANES)[number];
+type IndividualIngestLane = Exclude<IngestLane, "sync" | "all">;
+const SYNC_LANES: readonly IndividualIngestLane[] = ["prs", "discord", "attempts"];
 const RESET_SOURCES = ["wiki"] as const;
 type ResetSource = (typeof RESET_SOURCES)[number];
 
@@ -51,7 +53,7 @@ export function resolveIngestPaths(knowledgeRoot: string): IngestPaths {
 }
 
 function parseLane(args: Map<string, string | true>): IngestLane {
-  const lane = stringArg(args, "--lane", "all");
+  const lane = stringArg(args, "--lane", "sync");
   if (!INGEST_LANES.includes(lane as IngestLane)) {
     throw new Error(`--lane must be one of: ${INGEST_LANES.join(", ")}`);
   }
@@ -64,8 +66,8 @@ function parseResetSource(args: Map<string, string | true>, lane: IngestLane): R
   if (!RESET_SOURCES.includes(source as ResetSource)) {
     throw new Error(`--reset-source must be one of: ${RESET_SOURCES.join(", ")}`);
   }
-  if (lane !== "wiki" && lane !== "all") {
-    throw new Error("--reset-source wiki requires --lane wiki or --lane all");
+  if (lane !== "wiki") {
+    throw new Error("--reset-source wiki requires --lane wiki");
   }
   return source as ResetSource;
 }
@@ -90,11 +92,21 @@ function resetWikiSource(store: ReturnType<typeof openKnowledgeStore>, dryRun: b
 }
 
 export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+  if (
+    !args.has("--knowledge-root")
+    && (
+      process.env.NODE_ENV === "test"
+      || process.env.BUN_TEST !== undefined
+      || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+    )
+  ) {
+    throw new Error("kg2-ingest refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
+  }
   const lane = parseLane(args);
   const resetSource = parseResetSource(args, lane);
   const reattribute = args.has("--reattribute");
-  if (reattribute && lane !== "prs" && lane !== "all") {
-    throw new Error("--reattribute requires --lane prs or --lane all");
+  if (reattribute && lane !== "prs" && lane !== "sync" && lane !== "all") {
+    throw new Error("--reattribute requires --lane prs, --lane sync, or --lane all");
   }
   const dryRun = args.has("--dry-run");
   const gameId = globals.gameId ?? "melee";
@@ -115,12 +127,18 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     ? (temporaryRoot = mkdtempSync(resolve(tmpdir(), "kg2-ingest-")))
     : knowledgeRoot;
   const results: Record<string, unknown> = {};
-  const selected = (candidate: Exclude<IngestLane, "all">) => lane === "all" || lane === candidate;
+  const selected = (candidate: IndividualIngestLane) =>
+    lane === candidate
+    || (lane === "sync" && SYNC_LANES.includes(candidate))
+    || (lane === "all" && candidate !== "wiki");
   const skip = (candidate: string, input: string) => console.error(`[kg2-ingest] skipping ${candidate}: input not found: ${input}`);
   let store: ReturnType<typeof openKnowledgeStore> | undefined;
 
   try {
     store = openKnowledgeStore({ knowledgeRoot: storeRoot });
+    if (lane === "all" || lane === "sync") {
+      console.error("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
+    }
     if (selected("reconcile")) {
       if (existsSync(paths.reportPath)) results.reconcile = reconcileReport(store, { reportPath: paths.reportPath, dryRun });
       else skip("reconcile", paths.reportPath);
