@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { KnowledgeStoreHandle } from "../records/index.js";
-import { advanceWatermark, getWatermark, insertWorkerRun } from "../records/index.js";
+import { advanceWatermark, getWatermark, insertWorkerRun, updateWorkerRunIntegration } from "../records/index.js";
+import type { IntegrationDetail } from "../storage/schema.js";
 import type { AttemptsImportResult, LaneOptions } from "./types.js";
 
 export interface AttemptsImportOptions extends LaneOptions {
@@ -36,6 +37,24 @@ export interface AttemptSourceCheckpointItem {
   item_status: string | null;
 }
 
+export interface AttemptSourceIntegration {
+  id: string;
+  status: string;
+  disposition: string | null;
+  conflict_paths_json: string | null;
+  failure_reasons_json: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+}
+
+export type WorkerRunIntegrationDetail = IntegrationDetail;
+
+export interface WorkerRunIntegrationDerivation {
+  integration: "integrated" | "conflicted" | null;
+  detail: WorkerRunIntegrationDetail | null;
+}
+
 function hasTable(db: Database, name: string): boolean {
   return db.query<{ present: number }, [string]>(
     "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?",
@@ -56,6 +75,56 @@ function parseNote(metadata: string | null): string | null {
   return null;
 }
 
+function parseStringArray(value: string | null): string[] {
+  if (value === null || value.trim() === "") return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Collapses checkpoint-level integration outcomes into one worker-run outcome.
+ * Input order is ignored so callers cannot change the result accidentally.
+ */
+export function deriveWorkerRunIntegration(
+  rows: readonly AttemptSourceIntegration[],
+): WorkerRunIntegrationDerivation {
+  const ordered = rows.map((row) => ({
+    row,
+    detail: {
+      status: row.status,
+      disposition: row.disposition,
+      conflict_paths: parseStringArray(row.conflict_paths_json),
+      failure_reasons: parseStringArray(row.failure_reasons_json),
+      resolved_at: row.resolved_at,
+    } satisfies WorkerRunIntegrationDetail,
+  })).sort((left, right) =>
+    right.row.updated_at.localeCompare(left.row.updated_at)
+      || right.row.created_at.localeCompare(left.row.created_at)
+      || right.row.id.localeCompare(left.row.id)
+  );
+  if (ordered.length === 0) return { integration: null, detail: null };
+
+  const conflicted = ordered.find(({ detail }) =>
+    detail.conflict_paths.length > 0
+      || detail.status === "resolved"
+      || detail.status === "dropped"
+      || detail.failure_reasons.length > 0
+  );
+  if (conflicted !== undefined) return { integration: "conflicted", detail: conflicted.detail };
+
+  const integrated = ordered.find(({ detail }) =>
+    detail.status === "applied" && detail.conflict_paths.length === 0
+  );
+  if (integrated !== undefined) return { integration: "integrated", detail: integrated.detail };
+  return { integration: null, detail: ordered[0]!.detail };
+}
+
 export function hasAttemptErrorSignal(state: AttemptSourceWorkerState): boolean {
   return state.timeout_summary !== null
     || state.error_summary !== null
@@ -66,7 +135,12 @@ export function buildAttemptMechanicalRows(
   state: AttemptSourceWorkerState,
   checkpoints: readonly AttemptSourceCheckpoint[],
   items: readonly AttemptSourceCheckpointItem[],
-  options: { targetId: string; closedAt: string },
+  options: {
+    targetId: string;
+    closedAt: string;
+    integration?: WorkerRunIntegrationDerivation;
+    useLegacyIntegrationHeuristic?: boolean;
+  },
 ) {
   const last = checkpoints.at(-1);
   const finalOutcome = last === undefined ? "error" as const
@@ -79,9 +153,12 @@ export function buildAttemptMechanicalRows(
     : /tool/i.test(state.error_summary ?? "") ? "tool_failure" as const
     : "worker_crash" as const;
   const itemSignals = items.map((item) => `${item.disposition ?? ""} ${item.item_status ?? ""}`);
-  const integration = itemSignals.some((value) => /conflict/i.test(value)) ? "conflicted" as const
-    : itemSignals.some((value) => /integrat|merged/i.test(value)) ? "integrated" as const
+  const legacyIntegration = options.useLegacyIntegrationHeuristic === true
+    ? itemSignals.some((value) => /conflict/i.test(value)) ? "conflicted" as const
+      : itemSignals.some((value) => /integrat|merged/i.test(value)) ? "integrated" as const
+      : null
     : null;
+  const integration = options.integration?.integration ?? legacyIntegration;
   const id = `run:${state.id}`;
   return {
     run: {
@@ -94,6 +171,7 @@ export function buildAttemptMechanicalRows(
       finalOutcome,
       errorType,
       integration,
+      integrationDetail: options.integration?.detail ?? null,
       startedAt: state.started_at,
       endedAt: state.ended_at,
       closedAt: state.ended_at ?? options.closedAt,
@@ -144,12 +222,27 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
       : [];
     const checkpointsByWorker = hasTable(source, "worker_checkpoints");
     const itemsExist = hasTable(source, "checkpoint_items");
+    const integrationTable = hasTable(source, "worker_output_integrations")
+      ? "worker_output_integrations" as const
+      : hasTable(source, "integration_outcomes") ? "integration_outcomes" as const : null;
     const clock = options.now ?? (() => new Date().toISOString());
 
     for (const state of states) {
-      if (store.db.query<{ present: number }, [string]>(
-        "SELECT 1 AS present FROM worker_run WHERE worker_state_id = ?",
-      ).get(state.id) !== null) {
+      const integrationRows = integrationTable === null
+        ? []
+        : source.query<AttemptSourceIntegration, [string]>(`SELECT id, status, disposition,
+            conflict_paths_json, failure_reasons_json, created_at, updated_at, resolved_at
+          FROM ${integrationTable}
+          WHERE worker_state_id = ?
+          ORDER BY updated_at DESC, created_at DESC, id DESC`).all(state.id);
+      const integration = deriveWorkerRunIntegration(integrationRows);
+      const existing = store.db.query<{ id: string }, [string]>(
+        "SELECT id FROM worker_run WHERE worker_state_id = ?",
+      ).get(state.id);
+      if (existing !== null) {
+        if (!options.dryRun && integrationTable !== null) {
+          updateWorkerRunIntegration(store, existing.id, integration.integration, integration.detail);
+        }
         skippedExisting++;
         continue;
       }
@@ -188,6 +281,8 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
       const mechanical = buildAttemptMechanicalRows(state, checkpoints, items, {
         targetId: target.id,
         closedAt: clock(),
+        integration,
+        useLegacyIntegrationHeuristic: integrationTable === null,
       });
 
       if (!options.dryRun) {

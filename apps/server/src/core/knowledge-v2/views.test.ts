@@ -163,4 +163,20 @@ describe("knowledge-v2 derived views", () => {
 
     expect(submission).toMatchObject({ workerRun: { summary: null } });
   });
+
+  test("returns parsed integration detail on worker-run submissions", () => {
+    const store = openFixture();
+    const detail = {
+      status: "resolved",
+      disposition: "conflict",
+      conflict_paths: ["src/a.c"],
+      failure_reasons: [],
+      resolved_at: "2026-01-03T00:45:00.000Z",
+    };
+    store.db.query("UPDATE worker_run SET integration_detail = ? WHERE id = 'run-1'").run(JSON.stringify(detail));
+
+    const submission = targetLedger(store, "fn-a1").find((entry) => entry.type === "submission");
+
+    expect(submission).toMatchObject({ workerRun: { integrationDetail: detail } });
+  });
 });

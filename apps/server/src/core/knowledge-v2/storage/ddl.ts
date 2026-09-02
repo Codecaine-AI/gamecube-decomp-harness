@@ -103,6 +103,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     final_outcome TEXT NOT NULL CHECK (final_outcome IN ('match', 'improvement', 'no_change', 'error')),
     error_type TEXT CHECK (error_type IN ('build_failure', 'tool_failure', 'timeout', 'worker_crash')),
     integration TEXT CHECK (integration IN ('integrated', 'conflicted')),
+    integration_detail TEXT,
     started_at TEXT NOT NULL,
     ended_at TEXT,
     closed_at TEXT NOT NULL,

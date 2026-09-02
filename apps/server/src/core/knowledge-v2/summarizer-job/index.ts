@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { Database } from "bun:sqlite";
 
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -24,9 +25,11 @@ import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   buildAttemptMechanicalRows,
+  deriveWorkerRunIntegration,
   hasAttemptErrorSignal,
   type AttemptSourceCheckpoint,
   type AttemptSourceCheckpointItem,
+  type AttemptSourceIntegration,
   type AttemptSourceWorkerState,
 } from "../ingest/attempts.js";
 import { taskId } from "../ingest/common.js";
@@ -56,6 +59,12 @@ interface NarrativeSubmission {
   submission_id: string;
   approach: string;
   outcome_reasoning: string;
+}
+
+function hasTable(db: Database, name: string): boolean {
+  return db.query<{ present: number }, [string]>(
+    "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ?",
+  ).get(name) !== null;
 }
 
 export interface WorkerSummaryNarrative {
@@ -191,6 +200,13 @@ function sourceCheckpoint(row: LibrarianCheckpointRow): AttemptSourceCheckpoint 
 }
 
 function defaultStore(globals: GlobalArgs): KnowledgeStore {
+  if (
+    process.env.NODE_ENV === "test"
+    || process.env.BUN_TEST !== undefined
+    || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test")
+  ) {
+    throw new Error("worker summarizer refuses to touch the default knowledge root under a test runner; inject a temporary knowledge store");
+  }
   return realOpenKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? "melee" });
 }
 
@@ -225,9 +241,22 @@ export async function handleWorkerSummaryJob(
       FROM checkpoint_items
       WHERE worker_checkpoint_id IN (SELECT id FROM worker_checkpoints WHERE worker_state_id = ?)
          OR (? IS NOT NULL AND target_claim_id = ?)`).all(workerStateId, state.target_claim_id, state.target_claim_id);
+    const integrationTable = hasTable(orchestratorStore.db, "worker_output_integrations")
+      ? "worker_output_integrations" as const
+      : hasTable(orchestratorStore.db, "integration_outcomes") ? "integration_outcomes" as const : null;
+    const integrationRows = integrationTable === null
+      ? []
+      : orchestratorStore.db.query<AttemptSourceIntegration, [string]>(`SELECT id, status, disposition,
+          conflict_paths_json, failure_reasons_json, created_at, updated_at, resolved_at
+        FROM ${integrationTable}
+        WHERE worker_state_id = ?
+        ORDER BY updated_at DESC, created_at DESC, id DESC`).all(workerStateId);
+    const integration = deriveWorkerRunIntegration(integrationRows);
     const mechanical = buildAttemptMechanicalRows(state, checkpoints, items, {
       targetId: target.id,
       closedAt: new Date().toISOString(),
+      integration,
+      useLegacyIntegrationHeuristic: integrationTable === null,
     });
     const timeoutMs = (deps.globals.agentTimeoutSeconds || DEFAULT_TIMEOUT_SECONDS) * 1_000;
     const outputDir = resolve(deps.globals.stateDir, "knowledge_v2", "summarizer-output", new Date().toISOString().replace(/[:.]/g, "-"));
@@ -238,7 +267,12 @@ export async function handleWorkerSummaryJob(
       cwd: deps.globals.repoRoot,
       prompt: workerSummarizerPrompt({
         transcript: await buildTranscriptPacket(input.transcripts),
-        checkpointSubmissionDigest: { checkpoints: input.checkpoints, submissions: mechanical.submissions },
+        checkpointSubmissionDigest: {
+          checkpoints: input.checkpoints,
+          submissions: mechanical.submissions,
+          integration: mechanical.run.integration,
+          conflict_paths: mechanical.run.integrationDetail?.conflict_paths ?? [],
+        },
         targetCardReference: { id: target.id, stable_key: target.stable_key },
         repoRoot: deps.globals.repoRoot,
         stateDir: deps.globals.stateDir,

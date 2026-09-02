@@ -1,5 +1,5 @@
 import type { KnowledgeStoreHandle } from "../records/index.js";
-import type { EventCause, EventKind, EventRefKind, Outcome, WorkerErrorType, Integration } from "../storage/schema.js";
+import type { EventCause, EventKind, EventRefKind, Outcome, WorkerErrorType, Integration, IntegrationDetail } from "../storage/schema.js";
 
 export interface LedgerWorkerRun {
   id: string;
@@ -11,6 +11,7 @@ export interface LedgerWorkerRun {
   finalOutcome: Outcome;
   errorType: WorkerErrorType | null;
   integration: Integration | null;
+  integrationDetail: IntegrationDetail | null;
   startedAt: string;
   endedAt: string | null;
   closedAt: string;
@@ -25,7 +26,8 @@ interface SubmissionRow {
   submission_id: string; seq: number; description: string; hypothesis: string | null; score: number;
   submitted_at: string; runtime_ref: string | null; worker_run_id: string; goal: string; baseline: string;
   run_id: string | null; worker_state_id: string | null; final_outcome: Outcome; error_type: WorkerErrorType | null;
-  integration: Integration | null; started_at: string; ended_at: string | null; closed_at: string;
+  integration: Integration | null; integration_detail: string | null;
+  started_at: string; ended_at: string | null; closed_at: string;
   narrative_summary: string | null;
 }
 
@@ -43,7 +45,7 @@ export function targetLedger(store: KnowledgeStoreHandle, targetId: string): Tar
   const submissionEntries: TargetLedgerEntry[] = store.db.query<SubmissionRow, [string]>(`
     SELECT s.id AS submission_id, s.seq, s.description, s.hypothesis, s.score, s.submitted_at, s.runtime_ref,
       w.id AS worker_run_id, w.goal, w.baseline, w.run_id, w.worker_state_id, w.final_outcome,
-      w.error_type, w.integration, w.started_at, w.ended_at, w.closed_at,
+      w.error_type, w.integration, w.integration_detail, w.started_at, w.ended_at, w.closed_at,
       n.summary AS narrative_summary
     FROM submission s JOIN worker_run w ON w.id = s.worker_run_id
     LEFT JOIN run_narrative n ON n.worker_run_id = w.id
@@ -54,7 +56,8 @@ export function targetLedger(store: KnowledgeStoreHandle, targetId: string): Tar
     workerRun: { id: row.worker_run_id, goal: row.goal, baseline: parseBaseline(row.baseline), runId: row.run_id,
       summary: row.narrative_summary,
       workerStateId: row.worker_state_id, finalOutcome: row.final_outcome, errorType: row.error_type,
-      integration: row.integration, startedAt: row.started_at, endedAt: row.ended_at, closedAt: row.closed_at },
+      integration: row.integration, integrationDetail: parseIntegrationDetail(row.integration_detail),
+      startedAt: row.started_at, endedAt: row.ended_at, closedAt: row.closed_at },
     isRegression: false,
   }));
   const prEntries: TargetLedgerEntry[] = store.db.query<PullRequestRow, [string]>(`
@@ -88,4 +91,8 @@ export function targetLedger(store: KnowledgeStoreHandle, targetId: string): Tar
 
 function parseBaseline(value: string | Record<string, unknown>): Record<string, unknown> {
   return typeof value === "string" ? JSON.parse(value) as Record<string, unknown> : value;
+}
+
+function parseIntegrationDetail(value: string | null): IntegrationDetail | null {
+  return value === null ? null : JSON.parse(value) as IntegrationDetail;
 }

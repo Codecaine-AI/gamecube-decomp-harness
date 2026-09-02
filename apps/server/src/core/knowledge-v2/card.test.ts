@@ -132,6 +132,31 @@ describe("knowledge-v2 target cards", () => {
     expect(card.ledger.runs).toEqual([{ final_outcome: "improvement", integration: "integrated", submission_count: 1, best_score: 1 }]);
   });
 
+  test("includes at most ten conflict paths for conflicted submissions", () => {
+    const store = fixture();
+    addRun(store, 1);
+    const conflictPaths = Array.from({ length: 12 }, (_, index) => `src/conflict-${index}.c`);
+    store.db.query("UPDATE worker_run SET integration = 'conflicted', integration_detail = ? WHERE id = 'run-1'").run(JSON.stringify({
+      status: "resolved",
+      disposition: "conflict",
+      conflict_paths: conflictPaths,
+      failure_reasons: [],
+      resolved_at: "2026-01-01T00:02:00.000Z",
+    }));
+
+    const card = buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!;
+
+    expect(card.ledger.entries).toContainEqual({
+      type: "submission",
+      seq: 1,
+      description: "Try 1",
+      score: 1,
+      run_outcome: "improvement",
+      integration: "conflicted",
+      conflict_paths: conflictPaths.slice(0, 10),
+    });
+  });
+
   test("labels translation-unit pull requests as unit-attributed", () => {
     const store = fixture();
     store.db.query(`INSERT INTO pull_request

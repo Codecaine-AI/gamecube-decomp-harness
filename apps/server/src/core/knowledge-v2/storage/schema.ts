@@ -10,6 +10,13 @@ export type FactType = "purpose" | "inferred_name" | "inferred_type" | "data_flo
 export type Outcome = "match" | "improvement" | "no_change" | "error";
 export type WorkerErrorType = "build_failure" | "tool_failure" | "timeout" | "worker_crash";
 export type Integration = "integrated" | "conflicted";
+export interface IntegrationDetail {
+  status: string;
+  disposition: string | null;
+  conflict_paths: string[];
+  failure_reasons: string[];
+  resolved_at: string | null;
+}
 export type EventKind = "regression" | "note";
 export type EventCause = "merge_conflict" | "upstream_change";
 export type EventRefKind = "worker_run" | "epoch" | "pr" | "commit";
@@ -98,7 +105,7 @@ export const evidence = sqliteTable("evidence", {
 }, (table) => [check("evidence_kind_check", sql`${table.kind} IN ('pr', 'discord', 'attempt', 'wiki', 'code')`), check("evidence_code_digest_check", sql`(${table.kind} = 'code') = (${table.digest} IS NOT NULL)`), index("evidence_kind_locator").on(table.kind, table.locator)]);
 
 export const workerRuns = sqliteTable("worker_run", {
-  id: text("id").primaryKey(), targetId: text("target_id").notNull().references(() => targets.id), goal: text("goal").notNull(), baseline: text("baseline", { mode: "json" }).$type<Record<string, unknown>>().notNull(), runId: text("run_id"), workerStateId: text("worker_state_id"), finalOutcome: text("final_outcome").$type<Outcome>().notNull(), errorType: text("error_type").$type<WorkerErrorType>(), integration: text("integration").$type<Integration>(), startedAt: text("started_at").notNull(), endedAt: text("ended_at"), closedAt: text("closed_at").notNull(),
+  id: text("id").primaryKey(), targetId: text("target_id").notNull().references(() => targets.id), goal: text("goal").notNull(), baseline: text("baseline", { mode: "json" }).$type<Record<string, unknown>>().notNull(), runId: text("run_id"), workerStateId: text("worker_state_id"), finalOutcome: text("final_outcome").$type<Outcome>().notNull(), errorType: text("error_type").$type<WorkerErrorType>(), integration: text("integration").$type<Integration>(), integrationDetail: text("integration_detail", { mode: "json" }).$type<IntegrationDetail>(), startedAt: text("started_at").notNull(), endedAt: text("ended_at"), closedAt: text("closed_at").notNull(),
 }, (table) => [check("worker_run_outcome_check", sql`${table.finalOutcome} IN ('match', 'improvement', 'no_change', 'error')`), check("worker_run_error_type_check", sql`${table.errorType} IN ('build_failure', 'tool_failure', 'timeout', 'worker_crash')`), check("worker_run_error_shape_check", sql`(${table.finalOutcome} = 'error') = (${table.errorType} IS NOT NULL)`), check("worker_run_integration_check", sql`${table.integration} IN ('integrated', 'conflicted')`), index("worker_run_target_id").on(table.targetId)]);
 
 export const submissions = sqliteTable("submission", { id: text("id").primaryKey(), workerRunId: text("worker_run_id").notNull().references(() => workerRuns.id), seq: integer("seq").notNull(), description: text("description").notNull(), hypothesis: text("hypothesis"), score: real("score").notNull(), submittedAt: text("submitted_at").notNull(), runtimeRef: text("runtime_ref") }, (table) => [unique("submission_worker_run_seq").on(table.workerRunId, table.seq)]);

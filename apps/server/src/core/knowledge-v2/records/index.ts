@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { immediateTransaction } from "../storage/transaction.js";
+import type { IntegrationDetail } from "../storage/schema.js";
 
 export interface KnowledgeStoreHandle {
   db: Database;
@@ -40,6 +41,7 @@ export interface WorkerRunInput {
   finalOutcome: "match" | "improvement" | "no_change" | "error";
   errorType?: "build_failure" | "tool_failure" | "timeout" | "worker_crash" | null;
   integration?: "integrated" | "conflicted" | null;
+  integrationDetail?: IntegrationDetail | null;
   startedAt: string;
   endedAt?: string | null;
   closedAt: string;
@@ -167,10 +169,11 @@ export function clearFact(store: KnowledgeStoreHandle, subject: SubjectRef, type
 export function insertWorkerRun(store: KnowledgeStoreHandle, run: WorkerRunInput, submissions: readonly SubmissionInput[]): void {
   immediateTransaction(store.db, () => {
     store.db.query(`INSERT INTO worker_run
-      (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type, integration, started_at, ended_at, closed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type, integration, integration_detail, started_at, ended_at, closed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       run.id, run.targetId, run.goal, run.baseline, run.runId ?? null, run.workerStateId ?? null, run.finalOutcome,
-      run.errorType ?? null, run.integration ?? null, run.startedAt, run.endedAt ?? null, run.closedAt,
+      run.errorType ?? null, run.integration ?? null, run.integrationDetail == null ? null : JSON.stringify(run.integrationDetail),
+      run.startedAt, run.endedAt ?? null, run.closedAt,
     );
     const insertSubmission = store.db.query(`INSERT INTO submission
       (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -179,6 +182,19 @@ export function insertWorkerRun(store: KnowledgeStoreHandle, run: WorkerRunInput
         submission.score, submission.submittedAt, submission.runtimeRef ?? null);
     }
   });
+}
+
+export function updateWorkerRunIntegration(
+  store: KnowledgeStoreHandle,
+  id: string,
+  integration: "integrated" | "conflicted" | null,
+  detail: IntegrationDetail | null,
+): boolean {
+  return store.db.query("UPDATE worker_run SET integration = ?, integration_detail = ? WHERE id = ?").run(
+    integration,
+    detail == null ? null : JSON.stringify(detail),
+    id,
+  ).changes > 0;
 }
 
 export function insertRunNarrative(store: KnowledgeStoreHandle, narrative: RunNarrativeInput): void {

@@ -45,6 +45,7 @@ type V2LedgerEntry =
       score: number;
       run_outcome: "match" | "improvement" | "no_change" | "error";
       integration: "integrated" | "conflicted" | null;
+      conflict_paths?: string[];
     }
   | {
       type: "pull_request";
@@ -264,6 +265,9 @@ function toLedgerEntry(entry: TargetLedgerEntry): V2LedgerEntry {
       score: entry.score,
       run_outcome: entry.workerRun.finalOutcome,
       integration: entry.workerRun.integration,
+      ...(entry.workerRun.integration === "conflicted"
+        ? { conflict_paths: entry.workerRun.integrationDetail?.conflict_paths.slice(0, 10) ?? [] }
+        : {}),
     };
   }
   return {

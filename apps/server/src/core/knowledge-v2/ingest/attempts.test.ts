@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { formatLocator, parseLocator, type AttemptLocator } from "../locator.js";
 import { insertEntitiesIfMissing, insertTargets } from "../records/index.js";
 import { openKnowledgeStore } from "../storage/store.js";
-import { importAttempts } from "./attempts.js";
+import { deriveWorkerRunIntegration, importAttempts, type AttemptSourceIntegration } from "./attempts.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -51,6 +51,90 @@ function seedTargets(store: ReturnType<typeof openKnowledgeStore>): void {
     { id: "target:function:unit:Exact", kind: "function", unit: "unit", unitEntityId: "translation_unit:src/unit.c", symbol: "Exact", stableKey: "unit:Exact", address: "0x80000004", identityStatus: "current", reportRevision: "r1" },
   ]);
 }
+
+function integrationRow(
+  overrides: Partial<AttemptSourceIntegration> = {},
+): AttemptSourceIntegration {
+  return {
+    id: "integration-a",
+    status: "applied",
+    disposition: "landed",
+    conflict_paths_json: "[]",
+    failure_reasons_json: "[]",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    resolved_at: null,
+    ...overrides,
+  };
+}
+
+describe("deriveWorkerRunIntegration", () => {
+  test("returns null detail when no integration row exists", () => {
+    expect(deriveWorkerRunIntegration([])).toEqual({ integration: null, detail: null });
+  });
+
+  test("classifies a clean applied row as integrated and parses its detail", () => {
+    expect(deriveWorkerRunIntegration([integrationRow()])).toEqual({
+      integration: "integrated",
+      detail: {
+        status: "applied",
+        disposition: "landed",
+        conflict_paths: [],
+        failure_reasons: [],
+        resolved_at: null,
+      },
+    });
+  });
+
+  test("classifies conflict paths, resolved or dropped status, and failures as conflicted", () => {
+    expect(deriveWorkerRunIntegration([
+      integrationRow({ conflict_paths_json: '["src/a.c"]' }),
+    ])).toMatchObject({ integration: "conflicted", detail: { conflict_paths: ["src/a.c"] } });
+    expect(deriveWorkerRunIntegration([
+      integrationRow({ status: "resolved", resolved_at: "2026-01-02T00:00:00Z" }),
+    ])).toMatchObject({ integration: "conflicted", detail: { status: "resolved" } });
+    expect(deriveWorkerRunIntegration([
+      integrationRow({ status: "dropped" }),
+    ])).toMatchObject({ integration: "conflicted", detail: { status: "dropped" } });
+    expect(deriveWorkerRunIntegration([
+      integrationRow({ failure_reasons_json: '["apply failed"]' }),
+    ])).toMatchObject({ integration: "conflicted", detail: { failure_reasons: ["apply failed"] } });
+  });
+
+  test("keeps neutral row detail and treats invalid array JSON as empty", () => {
+    expect(deriveWorkerRunIntegration([
+      integrationRow({ status: "skipped", conflict_paths_json: "bad", failure_reasons_json: '{}' }),
+    ])).toEqual({
+      integration: null,
+      detail: {
+        status: "skipped",
+        disposition: "landed",
+        conflict_paths: [],
+        failure_reasons: [],
+        resolved_at: null,
+      },
+    });
+  });
+
+  test("chooses by conflict precedence, then updated_at, created_at, and id descending", () => {
+    const rows = [
+      integrationRow({ id: "neutral-newest", status: "skipped", updated_at: "2026-01-05T00:00:00Z" }),
+      integrationRow({ id: "older-update", status: "resolved", disposition: "wrong-updated", updated_at: "2026-01-03T00:00:00Z", created_at: "2026-01-09T00:00:00Z" }),
+      integrationRow({ id: "older-created", status: "resolved", disposition: "wrong-created", updated_at: "2026-01-04T00:00:00Z", created_at: "2026-01-02T00:00:00Z" }),
+      integrationRow({ id: "a", status: "resolved", disposition: "wrong-id", updated_at: "2026-01-04T00:00:00Z", created_at: "2026-01-03T00:00:00Z" }),
+      integrationRow({ id: "z", status: "resolved", disposition: "chosen", updated_at: "2026-01-04T00:00:00Z", created_at: "2026-01-03T00:00:00Z" }),
+    ];
+
+    expect(deriveWorkerRunIntegration(rows)).toMatchObject({
+      integration: "conflicted",
+      detail: { disposition: "chosen" },
+    });
+    expect(deriveWorkerRunIntegration([...rows].reverse())).toMatchObject({
+      integration: "conflicted",
+      detail: { disposition: "chosen" },
+    });
+  });
+});
 
 describe("importAttempts", () => {
   test("generates ids that round-trip through attempt locators", () => {
@@ -111,6 +195,54 @@ describe("importAttempts", () => {
     expect(importAttempts(store, { orchestratorDbPath: sourcePath, dryRun: true })).toMatchObject({ inserted: 6, runs: 3, submissions: 3 });
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM worker_run").get()?.count).toBe(0);
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM source_watermark").get()?.count).toBe(0);
+    store.close();
+  });
+
+  test("backfills integration columns on an existing worker run", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-backfill-"));
+    dirs.push(dir);
+    const sourcePath = fixture(dir);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedTargets(store);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    store.db.run("UPDATE worker_run SET integration = NULL, integration_detail = NULL WHERE worker_state_id = 'improve'");
+
+    const source = new Database(sourcePath);
+    source.run(`CREATE TABLE worker_output_integrations (
+      id TEXT PRIMARY KEY, worker_state_id TEXT NOT NULL, status TEXT NOT NULL,
+      disposition TEXT, conflict_paths_json TEXT, failure_reasons_json TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, resolved_at TEXT)`);
+    source.run(`CREATE TABLE integration_outcomes (
+      id TEXT PRIMARY KEY, worker_state_id TEXT NOT NULL, status TEXT NOT NULL,
+      disposition TEXT, conflict_paths_json TEXT, failure_reasons_json TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, resolved_at TEXT)`);
+    source.run(`INSERT INTO integration_outcomes VALUES
+      ('legacy-outcome', 'improve', 'applied', 'landed', '[]', '[]',
+       '2026-01-01T00:04:00Z', '2026-01-01T00:04:00Z', NULL)`);
+    source.query(`INSERT INTO worker_output_integrations
+      (id, worker_state_id, status, disposition, conflict_paths_json, failure_reasons_json, created_at, updated_at, resolved_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "outcome-improve", "improve", "resolved", "resolver-applied", '["src/unit.c"]', "[]",
+      "2026-01-01T00:02:00Z", "2026-01-01T00:03:00Z", "2026-01-01T00:03:00Z",
+    );
+    source.close();
+
+    expect(importAttempts(store, { orchestratorDbPath: sourcePath })).toMatchObject({
+      inserted: 0,
+      runs: 0,
+      submissions: 0,
+    });
+    const row = store.db.query<{ integration: string | null; integration_detail: string | null }, []>(
+      "SELECT integration, integration_detail FROM worker_run WHERE worker_state_id = 'improve'",
+    ).get();
+    expect(row?.integration).toBe("conflicted");
+    expect(JSON.parse(row?.integration_detail ?? "null")).toEqual({
+      status: "resolved",
+      disposition: "resolver-applied",
+      conflict_paths: ["src/unit.c"],
+      failure_reasons: [],
+      resolved_at: "2026-01-01T00:03:00Z",
+    });
     store.close();
   });
 });

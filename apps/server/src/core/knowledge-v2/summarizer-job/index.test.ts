@@ -95,6 +95,17 @@ afterEach(() => {
 });
 
 describe("worker summary handler", () => {
+  test("refuses the default knowledge root under a test runner", async () => {
+    const f = fixture();
+    seedWorker(f.state);
+    seedCheckpoint(f.state, "worker-1", 1, 12);
+    await expect(handleWorkerSummaryJob(f.state, enqueueWorkerSummaryForWorker(f.state, "worker-1"), {
+      globals: f.globals,
+    })).rejects.toThrow(
+      "worker summarizer refuses to touch the default knowledge root under a test runner; inject a temporary knowledge store",
+    );
+  });
+
   test("validates the narrative schema strictly", () => {
     const narrative = {
       run: { summary: "s" },
@@ -149,7 +160,7 @@ describe("worker summary handler", () => {
     expect(knowledge.db.query(`SELECT worker_state_id, run_id, final_outcome, error_type, integration, baseline
       FROM worker_run`).get()).toEqual({
       worker_state_id: "worker-1", run_id: "source-run", final_outcome: "improvement",
-      error_type: null, integration: "integrated", baseline: '{"score":10}',
+      error_type: null, integration: null, baseline: '{"score":10}',
     });
     expect(knowledge.db.query(`SELECT seq, score, runtime_ref, hypothesis, description
       FROM submission ORDER BY seq`).all()).toEqual([
@@ -192,6 +203,49 @@ describe("worker summary handler", () => {
       approach: " first approach ",
       outcome_reasoning: " first reasoning ",
     });
+  });
+
+  test("uses integration outcomes for the run and narrative digest", async () => {
+    const f = fixture();
+    seedWorker(f.state);
+    seedCheckpoint(f.state, "worker-1", 1, 12);
+    f.state.db.query(`INSERT INTO integration_outcomes
+      (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_state_id,
+       worker_checkpoint_id, status, disposition, conflict_paths_json,
+       failure_reasons_json, metadata_json, created_at, updated_at, resolved_at)
+      VALUES ('integration-1', 'source-run', 'epoch-1', 'epoch-target-1',
+       'claim-worker-1', 'worker-1', 'cp-worker-1-1', 'resolved', 'conflicted',
+       '["src/a.c", "src/b.c"]', '[]', '{}',
+       '2026-08-20T00:01:00Z', '2026-08-20T00:02:00Z', '2026-08-20T00:03:00Z')`).run();
+    seedTarget(f.knowledgeRoot);
+    let renderedContext = "";
+    await handleWorkerSummaryJob(f.state, enqueueWorkerSummaryForWorker(f.state, "worker-1"), {
+      globals: f.globals,
+      openKnowledgeStore: injectedStore(f.knowledgeRoot),
+      runPiAgent: (options) => {
+        renderedContext = options.prompt.kernelContext?.renderedContext ?? "";
+        return modelResult({
+          run: { summary: "s" },
+          submissions: [{ submission_id: "run:worker-1:sub:1", approach: "a", outcome_reasoning: "r" }],
+          notable_observations: [],
+        });
+      },
+    });
+
+    const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    expect(knowledge.db.query("SELECT integration, integration_detail FROM worker_run").get()).toEqual({
+      integration: "conflicted",
+      integration_detail: JSON.stringify({
+        status: "resolved",
+        disposition: "conflicted",
+        conflict_paths: ["src/a.c", "src/b.c"],
+        failure_reasons: [],
+        resolved_at: "2026-08-20T00:03:00Z",
+      }),
+    });
+    knowledge.close();
+    expect(renderedContext).toContain('"integration": "conflicted"');
+    expect(renderedContext).toContain('"conflict_paths": [\n    "src/a.c",\n    "src/b.c"\n  ]');
   });
 
   test.each([

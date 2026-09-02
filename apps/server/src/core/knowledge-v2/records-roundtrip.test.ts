@@ -13,6 +13,7 @@ import {
   insertPullRequestEntries,
   insertWikiSections,
   insertWorkerRun,
+  updateWorkerRunIntegration,
   openKnowledgeStore,
   parseLocator,
   stampSubjectIndexed,
@@ -134,6 +135,9 @@ describe("record helpers", () => {
     insertWorkerRun(store, {
       id: "worker-1", targetId: "function-1", goal: "Match function", baseline: JSON.stringify({ score: 71 }),
       runId: "runtime-1", workerStateId: "state-1", finalOutcome: "improvement", integration: "integrated",
+      integrationDetail: {
+        status: "applied", disposition: "applied", conflict_paths: [], failure_reasons: [], resolved_at: null,
+      },
       startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:10:00.000Z", closedAt: "2026-01-01T00:11:00.000Z",
     }, [
       { id: "submission-1", seq: 1, description: "First try", hypothesis: "Swap branch", score: 75, submittedAt: "2026-01-01T00:05:00.000Z", runtimeRef: "attempt://run/runtime-1/submission/1" },
@@ -158,7 +162,17 @@ describe("record helpers", () => {
     expect(store.db.query("SELECT * FROM worker_run WHERE id = 'worker-1'").get()).toMatchObject({
       id: "worker-1", target_id: "function-1", goal: "Match function", baseline: '{"score":71}',
       final_outcome: "improvement", integration: "integrated",
+      integration_detail: '{"status":"applied","disposition":"applied","conflict_paths":[],"failure_reasons":[],"resolved_at":null}',
     });
+    expect(updateWorkerRunIntegration(store, "worker-1", "conflicted", {
+      status: "resolved", disposition: "conflicted", conflict_paths: ["src/main.c"], failure_reasons: ["apply failed"],
+      resolved_at: "2026-01-01T00:12:30.000Z",
+    })).toBe(true);
+    expect(store.db.query("SELECT integration, integration_detail FROM worker_run WHERE id = 'worker-1'").get()).toEqual({
+      integration: "conflicted",
+      integration_detail: '{"status":"resolved","disposition":"conflicted","conflict_paths":["src/main.c"],"failure_reasons":["apply failed"],"resolved_at":"2026-01-01T00:12:30.000Z"}',
+    });
+    expect(updateWorkerRunIntegration(store, "missing-worker", null, null)).toBe(false);
     expect(store.db.query("SELECT id, worker_run_id, seq, hypothesis, score, runtime_ref FROM submission ORDER BY seq").all()).toEqual([
       { id: "submission-1", worker_run_id: "worker-1", seq: 1, hypothesis: "Swap branch", score: 75, runtime_ref: "attempt://run/runtime-1/submission/1" },
       { id: "submission-2", worker_run_id: "worker-1", seq: 2, hypothesis: null, score: 80, runtime_ref: null },

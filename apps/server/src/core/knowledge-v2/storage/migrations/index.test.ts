@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { openKnowledgeStore, type KnowledgeStore } from "../store.js";
 import { runKnowledgeStorageMigrations } from "./index.js";
+import { workerRunIntegrationDetailMigration } from "./004-worker-run-integration-detail.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -37,8 +38,24 @@ describe("knowledge-v2 storage migrations", () => {
       db.exec("DROP INDEX IF EXISTS evidence_fact_id");
       db.exec("CREATE INDEX evidence_fact_id ON evidence(fact_id)");
       db.exec("DELETE FROM schema_migrations WHERE version = 3");
+      db.exec("DELETE FROM schema_migrations WHERE version = 4");
 
       expect(() => runKnowledgeStorageMigrations(db)).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  test("adds worker run integration detail idempotently", () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec("CREATE TABLE worker_run (id TEXT PRIMARY KEY)");
+
+      workerRunIntegrationDetailMigration.up(db);
+      workerRunIntegrationDetailMigration.up(db);
+
+      const columns = db.query<{ name: string }, []>("PRAGMA table_info('worker_run')").all();
+      expect(columns.filter(({ name }) => name === "integration_detail")).toHaveLength(1);
     } finally {
       db.close();
     }
