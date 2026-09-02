@@ -24,7 +24,7 @@ function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav
     return <TracePage form={props.form} view={props.view} />;
   }
   if (props.route.section === "knowledge") {
-    return <KnowledgePage busy={props.busy} form={props.form} onAction={props.onAction} harnessState={props.view.harnessState} />;
+    return <KnowledgePage busy={props.busy} form={props.form} gameName={gameName} onAction={props.onAction} onNavigate={props.onNavigate} route={props.route} harnessState={props.view.harnessState} />;
   }
   if (props.route.section === "style") {
     return <StylePage grainSettings={props.grainSettings} onGrainSettingsChange={props.onGrainSettingsChange} view={props.view} />;

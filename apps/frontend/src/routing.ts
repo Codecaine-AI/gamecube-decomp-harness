@@ -9,6 +9,8 @@
 //   /overview
 //   /standards
 //   /standards/rendered
+//   /knowledge
+//   /knowledge/legacy
 //   /cycles
 //   /cycles/active/run
 //   /cycles/active/sync
@@ -27,6 +29,7 @@
 
 export type WorkspaceSection = "overview" | "standards" | "cycles" | "agents" | "trace" | "knowledge" | "settings" | "style";
 export type StandardsView = "edit" | "rendered";
+export type KnowledgeView = "explorer" | "legacy";
 export type CycleTab = "run" | "sync" | "pr";
 export type CycleStage = "run" | "pr" | "done";
 export type CycleSubPage = CycleTab | "done" | "summary" | "review" | "artifacts";
@@ -37,7 +40,7 @@ export type CycleFocus = "active" | "new" | string;
 
 export type AppRoute =
   | { kind: "dashboard" }
-  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; cycle?: CycleFocus; cycleSub?: CycleSubPage; cycleDetail?: CycleDetail; agent?: string };
+  | { kind: "workspace"; section: WorkspaceSection; gameId?: string; standardsView?: StandardsView; knowledgeView?: KnowledgeView; cycle?: CycleFocus; cycleSub?: CycleSubPage; cycleDetail?: CycleDetail; agent?: string };
 
 export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: string; description: string }> = [
   { id: "overview", label: "Overview", description: "Active cycle, PR gate, readiness, and next action." },
@@ -53,6 +56,11 @@ export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: st
 export const STANDARDS_VIEWS: ReadonlyArray<{ id: StandardsView; label: string }> = [
   { id: "edit", label: "Editor" },
   { id: "rendered", label: "Rendered" },
+];
+
+export const KNOWLEDGE_VIEWS: ReadonlyArray<{ id: KnowledgeView; label: string }> = [
+  { id: "explorer", label: "Explorer" },
+  { id: "legacy", label: "Legacy ledger" },
 ];
 
 export const CYCLE_TABS: ReadonlyArray<{ id: CycleTab; label: string }> = [
@@ -88,6 +96,10 @@ function isWorkspaceSection(value: string | null): value is WorkspaceSection {
 
 export function isStandardsView(value: string | null): value is StandardsView {
   return STANDARDS_VIEWS.some((view) => view.id === value);
+}
+
+export function isKnowledgeView(value: string | null): value is KnowledgeView {
+  return KNOWLEDGE_VIEWS.some((view) => view.id === value);
 }
 
 export function isCycleSubPage(value: string | null): value is CycleSubPage {
@@ -173,6 +185,12 @@ function workspaceRouteFromSearchParams(params: URLSearchParams): AppRoute | nul
       standardsView: isStandardsView(params.get("std")) ? (params.get("std") as StandardsView) : "edit",
     };
   }
+  if (section === "knowledge") {
+    return {
+      ...base,
+      knowledgeView: isKnowledgeView(params.get("kb")) ? (params.get("kb") as KnowledgeView) : "explorer",
+    };
+  }
   if (section === "cycles") {
     const sub = normalizeLegacyCycleSub(params.get("sub"));
     return {
@@ -212,6 +230,13 @@ function routeFromPathname(pathname: string, params: URLSearchParams): AppRoute 
     return {
       ...base,
       standardsView: isStandardsView(second ?? null) ? second as StandardsView : "edit",
+    };
+  }
+
+  if (section === "knowledge") {
+    return {
+      ...base,
+      knowledgeView: isKnowledgeView(second ?? null) ? second as KnowledgeView : "explorer",
     };
   }
 
@@ -257,6 +282,8 @@ export function routeToUrl(route: AppRoute): string {
     setGameId(url, route.gameId);
     if (route.section === "standards") {
       url.pathname = route.standardsView === "rendered" ? "/standards/rendered" : "/standards";
+    } else if (route.section === "knowledge") {
+      url.pathname = route.knowledgeView === "legacy" ? "/knowledge/legacy" : "/knowledge";
     } else if (route.section === "cycles") {
       const segments = ["cycles"];
       if (route.cycle) {

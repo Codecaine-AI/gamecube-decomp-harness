@@ -21,6 +21,7 @@ import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
 import { handleKnowledgeLearningsApiRoute } from "@server/api/routes/knowledge-learnings";
+import { handleKnowledgeV2ApiRoute } from "@server/api/routes/knowledge-v2";
 import { handleEventsApiRoute } from "@server/api/routes/events";
 import { createStandardsService } from "@server/core/knowledge/standards";
 import { sourceRoot } from "@server/core/knowledge";
@@ -867,6 +868,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     },
   });
   if (knowledge) return knowledge;
+
+  const knowledgeV2 = await handleKnowledgeV2ApiRoute(req, url, { json });
+  if (knowledgeV2) return knowledgeV2;
 
   const knowledgeLearnings = await handleKnowledgeLearningsApiRoute(req, url, { json });
   if (knowledgeLearnings) return knowledgeLearnings;
