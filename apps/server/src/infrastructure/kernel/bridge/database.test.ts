@@ -31,6 +31,19 @@ afterEach(() => {
 });
 
 describe("Melee Agent Kernel SQLite database", () => {
+  test("sets a 30-second busy timeout on the returned connection", async () => {
+    const databasePath = join(tempDir(), "agent-kernel.sqlite");
+    const handle = await openMeleeKernelDatabase({ databasePath, env: {} });
+
+    try {
+      expect(handle.db.all<{ timeout: number }>("PRAGMA busy_timeout")).toEqual([
+        { timeout: 30_000 },
+      ]);
+    } finally {
+      await handle.close();
+    }
+  });
+
   test("opens a file, bootstraps the schema, and round-trips a container", async () => {
     const root = tempDir();
     const databasePath = join(root, "nested", "agent-kernel.sqlite");

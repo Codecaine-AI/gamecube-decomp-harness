@@ -91,6 +91,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     CHECK ((kind = 'code') = (digest IS NOT NULL))
   );
   CREATE INDEX evidence_kind_locator ON evidence(kind, locator);
+  CREATE INDEX evidence_fact_id ON evidence(fact_id);
 
   CREATE TABLE worker_run (
     id TEXT PRIMARY KEY,

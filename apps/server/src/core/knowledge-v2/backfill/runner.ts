@@ -106,7 +106,9 @@ export interface BackfillRunOptions {
   globals: GlobalArgs;
   indexDb?: Pick<KnowledgeIndexDb, "db">;
   limit?: number;
+  shard?: { index: number; count: number };
   concurrency?: number;
+  maxConsecutiveFailures?: number;
   minDirectScore?: number;
   dryRun?: boolean;
   stopFile?: string;
@@ -128,6 +130,7 @@ export interface BackfillDurationSummary {
 export interface BackfillSummary {
   runId: string;
   dryRun: boolean;
+  shard: { index: number; count: number } | null;
   passesRun: number;
   passesApplied: number;
   itemsApplied: number;
@@ -426,12 +429,27 @@ function validateRunOptions(options: BackfillRunOptions): void {
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
     throw new Error("concurrency must be a positive integer");
   }
+  if (options.maxConsecutiveFailures !== undefined
+    && (!Number.isSafeInteger(options.maxConsecutiveFailures) || options.maxConsecutiveFailures < 1)) {
+    throw new Error("maxConsecutiveFailures must be a positive integer");
+  }
   if (options.limit !== undefined && (!Number.isSafeInteger(options.limit) || options.limit < 0)) {
     throw new Error("limit must be a non-negative integer");
   }
   if (options.minDirectScore !== undefined
     && (!Number.isFinite(options.minDirectScore) || options.minDirectScore < 0)) {
     throw new Error("minDirectScore must be a non-negative number");
+  }
+  if (options.shard !== undefined) {
+    if (!Number.isSafeInteger(options.shard.index) || options.shard.index < 0) {
+      throw new Error("shard index must be a non-negative integer");
+    }
+    if (!Number.isSafeInteger(options.shard.count) || options.shard.count < 1) {
+      throw new Error("shard count must be a positive integer");
+    }
+    if (options.shard.index >= options.shard.count) {
+      throw new Error("shard index must be less than shard count");
+    }
   }
 }
 
@@ -455,16 +473,22 @@ export async function runBackfill(
   const clockMs = options.clockMs ?? Date.now;
   const startedMs = clockMs();
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  const maxConsecutiveFailures = options.maxConsecutiveFailures ?? 5;
   const stopFile = options.stopFile
     ?? resolve(options.globals.stateDir, "knowledge_v2", "backfill", `${options.runId}.stop`);
   const allTargets = prioritizeTargets(store, options.indexDb, {
     limit: undefined,
-    includeZeroMaterial: false,
+    includeZeroMaterial: true,
   }).rows;
-  const eligibleTargets = allTargets.filter((target) => target.direct_score > 0
-    && target.indexed_at === null
+  const eligibleTargets = allTargets.filter((target) => target.indexed_at === null
     && (options.minDirectScore === undefined || target.direct_score >= options.minDirectScore));
-  const targets = options.limit === undefined ? eligibleTargets : eligibleTargets.slice(0, options.limit);
+  const limitedTargets = options.limit === undefined
+    ? eligibleTargets
+    : eligibleTargets.slice(0, options.limit);
+  const shard = options.shard;
+  const targets = shard === undefined
+    ? limitedTargets
+    : limitedTargets.filter((_, position) => position % shard.count === shard.index);
   const sharedWriteGate = createSharedGate();
   const runLog = createBackfillRunLog(resolve(runDirectory(options.globals.stateDir, options.runId), "run-log.jsonl"));
 
@@ -522,7 +546,7 @@ export async function runBackfill(
       } catch {
         passesFailed += 1;
         consecutiveFailures += 1;
-        if (consecutiveFailures > 5) aborted = true;
+        if (consecutiveFailures > maxConsecutiveFailures) aborted = true;
       } finally {
         passDurations.push(clockMs() - passStarted);
       }
@@ -533,6 +557,7 @@ export async function runBackfill(
   const summary: BackfillSummary = {
     runId: options.runId,
     dryRun: options.dryRun === true,
+    shard: shard ?? null,
     passesRun,
     passesApplied,
     itemsApplied,

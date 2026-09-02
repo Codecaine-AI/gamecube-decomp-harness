@@ -340,7 +340,107 @@ describe("runPass scope isolation", () => {
   });
 });
 
+describe("runBackfill sharding", () => {
+  test("splits one ordered target list into disjoint shards", async () => {
+    const f = fixture("shards", 7);
+    const eligibleTargetIds = prioritizeTargets(f.store, undefined, {
+      includeZeroMaterial: true,
+    }).rows.map((target) => target.target_id);
+    const claimsByShard: [string[], string[]] = [[], []];
+    const summaries = [];
+
+    for (const shardIndex of [0, 1] as const) {
+      summaries.push(await runBackfill(f.store, {
+        runId: `shard-${shardIndex}-run`,
+        globals: f.globals,
+        concurrency: 2,
+        dryRun: true,
+        shard: { index: shardIndex, count: 2 },
+        runPiAgent: (options) => {
+          claimsByShard[shardIndex].push(requestedTargetId(options));
+          return modelResult({ facts: [], links: [], entities: [], merges: [] });
+        },
+        now: () => FIXED_NOW,
+      }));
+    }
+
+    expect(claimsByShard[0]).toEqual(eligibleTargetIds.filter((_, index) => index % 2 === 0));
+    expect(claimsByShard[1]).toEqual(eligibleTargetIds.filter((_, index) => index % 2 === 1));
+    expect(claimsByShard[0].filter((targetId) => claimsByShard[1].includes(targetId))).toEqual([]);
+    expect(new Set([...claimsByShard[0], ...claimsByShard[1]])).toEqual(new Set(eligibleTargetIds));
+    expect(summaries.map((summary) => summary.shard)).toEqual([
+      { index: 0, count: 2 },
+      { index: 1, count: 2 },
+    ]);
+  });
+
+  test("rejects invalid shard indexes and counts", async () => {
+    const f = fixture("invalid-shards", 1);
+    const invalidShards = [
+      { shard: { index: -1, count: 2 }, error: "shard index must be a non-negative integer" },
+      { shard: { index: 0.5, count: 2 }, error: "shard index must be a non-negative integer" },
+      { shard: { index: 0, count: 0 }, error: "shard count must be a positive integer" },
+      { shard: { index: 0, count: 1.5 }, error: "shard count must be a positive integer" },
+      { shard: { index: 2, count: 2 }, error: "shard index must be less than shard count" },
+    ];
+
+    for (const { shard, error } of invalidShards) {
+      await expect(runBackfill(f.store, {
+        runId: "invalid-shard-run",
+        globals: f.globals,
+        shard,
+        runPiAgent: fakeProposalAgent(),
+      })).rejects.toThrow(error);
+    }
+  });
+});
+
 describe("runBackfill parallel pool", () => {
+  test("runs zero-direct-material targets last unless minDirectScore excludes them", async () => {
+    const runFixture = fixture("zero-direct", 3);
+    runFixture.store.db.query("DELETE FROM submission WHERE worker_run_id = 'attempt-3'").run();
+    runFixture.store.db.query("DELETE FROM worker_run WHERE target_id = 'target-3'").run();
+    runFixture.store.db.query("DELETE FROM pull_request WHERE target_id = 'target-3'").run();
+    const claimed: string[] = [];
+
+    const summary = await runBackfill(runFixture.store, {
+      runId: "zero-direct-run",
+      globals: runFixture.globals,
+      concurrency: 1,
+      runPiAgent: (options) => {
+        claimed.push(requestedTargetId(options));
+        return modelResult({ facts: [], links: [], entities: [], merges: [] });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(claimed).toEqual(["target-1", "target-2", "target-3"]);
+    expect(summary.passesRun).toBe(3);
+    expect(indexedAt(runFixture.store, "target-3")).toBe(FIXED_NOW);
+
+    const filteredFixture = fixture("zero-direct-filtered", 3);
+    filteredFixture.store.db.query("DELETE FROM submission WHERE worker_run_id = 'attempt-3'").run();
+    filteredFixture.store.db.query("DELETE FROM worker_run WHERE target_id = 'target-3'").run();
+    filteredFixture.store.db.query("DELETE FROM pull_request WHERE target_id = 'target-3'").run();
+    const filteredClaims: string[] = [];
+
+    const filteredSummary = await runBackfill(filteredFixture.store, {
+      runId: "zero-direct-filtered-run",
+      globals: filteredFixture.globals,
+      concurrency: 1,
+      minDirectScore: 1,
+      runPiAgent: (options) => {
+        filteredClaims.push(requestedTargetId(options));
+        return modelResult({ facts: [], links: [], entities: [], merges: [] });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(filteredClaims).toEqual(["target-1", "target-2"]);
+    expect(filteredSummary.passesRun).toBe(2);
+    expect(indexedAt(filteredFixture.store, "target-3")).toBeNull();
+  });
+
   test("runs six targets in two lanes and admits one shared curated entity", async () => {
     const f = fixture("parallel", 6);
     const delays = [35, 5, 25, 10, 20, 1];
@@ -429,6 +529,76 @@ describe("runBackfill stop file", () => {
 });
 
 describe("runBackfill failure handling", () => {
+  test("aborts after the configured consecutive failure threshold and stops claiming", async () => {
+    const f = fixture("failure-configured-abort", 5);
+    let calls = 0;
+    const fakeAgent: FakeRunPiAgent = (options) => {
+      calls += 1;
+      if (calls <= 3) return Promise.reject(new Error(`fixture failure ${calls}`));
+      return modelResult(proposal(targetNumber(requestedTargetId(options))));
+    };
+
+    const summary = await runBackfill(f.store, {
+      runId: "failure-configured-abort-run",
+      globals: f.globals,
+      concurrency: 1,
+      maxConsecutiveFailures: 2,
+      runPiAgent: fakeAgent,
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(3);
+    expect(summary).toMatchObject({
+      passesRun: 3,
+      passesApplied: 0,
+      passesFailed: 3,
+      targetsSkipped: 2,
+      aborted: true,
+    });
+    expect(indexedAt(f.store, "target-4")).toBeNull();
+  });
+
+  test("continues when failures stay within the configured threshold", async () => {
+    const f = fixture("failure-configured-continue", 4);
+    let calls = 0;
+    const fakeAgent: FakeRunPiAgent = (options) => {
+      calls += 1;
+      if (calls <= 3) return Promise.reject(new Error(`fixture failure ${calls}`));
+      return modelResult(proposal(targetNumber(requestedTargetId(options))));
+    };
+
+    const summary = await runBackfill(f.store, {
+      runId: "failure-configured-continue-run",
+      globals: f.globals,
+      concurrency: 1,
+      maxConsecutiveFailures: 10,
+      runPiAgent: fakeAgent,
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(4);
+    expect(summary).toMatchObject({
+      passesRun: 4,
+      passesApplied: 1,
+      passesFailed: 3,
+      aborted: false,
+    });
+    expect(indexedAt(f.store, "target-4")).toBe(FIXED_NOW);
+  });
+
+  test("rejects invalid consecutive failure thresholds", async () => {
+    const f = fixture("failure-invalid-threshold", 1);
+
+    for (const maxConsecutiveFailures of [0, -1, 1.5]) {
+      await expect(runBackfill(f.store, {
+        runId: "failure-invalid-threshold-run",
+        globals: f.globals,
+        maxConsecutiveFailures,
+        runPiAgent: fakeProposalAgent(),
+      })).rejects.toThrow("maxConsecutiveFailures must be a positive integer");
+    }
+  });
+
   test("logs one model failure without stamping it, then continues", async () => {
     const f = fixture("failure-continue", 2);
     const fakeAgent: FakeRunPiAgent = (options) => {

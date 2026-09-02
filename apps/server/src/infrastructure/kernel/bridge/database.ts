@@ -239,6 +239,7 @@ export async function openMeleeKernelDatabase(
 ): Promise<MeleeKernelDatabaseHandle> {
   const databasePath = resolveMeleeKernelDatabasePath(options);
   const handle = openKernelDatabase({ path: databasePath });
+  handle.db.run("PRAGMA busy_timeout = 30000");
   return {
     db: handle.db,
     databasePath: handle.path,

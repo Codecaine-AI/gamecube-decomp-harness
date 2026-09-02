@@ -53,7 +53,9 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
   }
 
   const limit = optionalNonNegativeIntegerArg(args, "--limit");
+  const shard = optionalShardArg(args, "--shard");
   const concurrency = positiveIntegerArg(args, "--concurrency", 4);
+  const maxConsecutiveFailures = positiveIntegerArg(args, "--max-consecutive-failures", 5);
   const minDirectScore = optionalNonNegativeNumberArg(args, "--min-direct-score");
   const dryRun = args.get("--dry-run") === true;
   let store: KnowledgeStore | undefined;
@@ -68,7 +70,9 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
     await runBackfill(store, {
       runId,
       limit,
+      shard,
       concurrency,
+      maxConsecutiveFailures,
       minDirectScore,
       dryRun,
       stopFile,
@@ -155,6 +159,24 @@ function optionalNonNegativeIntegerArg(args: Map<string, string | true>, name: s
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !/^\d+$/.test(value)) throw new Error(`${name} requires a non-negative integer`);
   return Number(value);
+}
+
+function optionalShardArg(
+  args: Map<string, string | true>,
+  name: string,
+): { index: number; count: number } | undefined {
+  const value = args.get(name);
+  if (value === undefined) return undefined;
+  const match = typeof value === "string" ? /^(\d+)\/([1-9]\d*)$/.exec(value) : null;
+  if (match === null) {
+    throw new Error(`${name} requires i/n with integers satisfying 0 <= i < n and n >= 1`);
+  }
+  const index = Number(match[1]);
+  const count = Number(match[2]);
+  if (!Number.isSafeInteger(index) || !Number.isSafeInteger(count) || index >= count) {
+    throw new Error(`${name} requires i/n with integers satisfying 0 <= i < n and n >= 1`);
+  }
+  return { index, count };
 }
 
 function positiveIntegerArg(args: Map<string, string | true>, name: string, fallback: number): number {
