@@ -29,6 +29,14 @@ export interface KnowledgeSummary {
   };
   evidence: { total: number; by_kind: Record<string, number> };
   links: { total: number; by_role: Record<string, number> };
+  drift: { warned_tasks: number; released_pending: number };
+}
+
+export interface KnowledgeDriftWarning {
+  task_id: string;
+  pathway: string;
+  done_at: string;
+  subject: SubjectIdentity;
 }
 
 export interface KnowledgeTreeNode {
@@ -136,6 +144,10 @@ async function get<T>(path: string, game?: string, query?: Record<string, string
 
 export function fetchKnowledgeSummary(game?: string): Promise<KnowledgeSummary> {
   return get<KnowledgeSummary>("/summary", game);
+}
+
+export function fetchKnowledgeDriftWarnings(game?: string, limit = 50): Promise<{ warnings: KnowledgeDriftWarning[] }> {
+  return get<{ warnings: KnowledgeDriftWarning[] }>("/drift-warnings", game, { limit });
 }
 
 export function fetchKnowledgeTree(game?: string): Promise<{ root: KnowledgeTreeNode }> {

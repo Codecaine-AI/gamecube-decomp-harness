@@ -267,11 +267,9 @@ async function modelProposal(
     role: "librarian",
     catalogAgentId: "librarian-v2",
     // The consumer pass reads and proposes; it never edits code and must cite only V2 locators.
-    // Same trim as the backfill pass: legacy search tools return uncitable material, standards are
-    // injected in context, and lint has nothing to lint.
+    // Same trim as the backfill pass: standards are injected in context, and lint has nothing to lint.
     toolProfile: {
       disable: [
-        "ledger_search",
         "past_prs_search",
         "review_lint_scan",
       ],
@@ -455,6 +453,27 @@ function persistDriftAttempt(
   return driftAttempts;
 }
 
+function persistFinalDriftGate(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+  driftGate: "warned" | "clean" | "skipped",
+): void {
+  const current = store.db.query<{ payload: string }, [string]>(
+    "SELECT payload FROM index_task WHERE id = ?",
+  ).get(task.id)?.payload ?? task.payload;
+  const state = retryPayloadState(current);
+  store.db.query(`UPDATE index_task
+    SET payload = ?
+    WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL`).run(
+    JSON.stringify({
+      task_payload: state.taskPayload,
+      ...(state.driftAttempts > 0 ? { drift_attempts: state.driftAttempts } : {}),
+      drift_gate: driftGate,
+    }),
+    task.id,
+  );
+}
+
 export async function runLibrarianPass(
   store: KnowledgeStoreHandle,
   task: LibrarianTaskRow,
@@ -523,6 +542,7 @@ export async function runLibrarianPass(
       claim = "released";
     } else if (!context.drift_gate) {
       stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
+      persistFinalDriftGate(store, task, "skipped");
       completeIndexTask(store, task.id, indexedAt);
       claim = "completed";
     } else {
@@ -541,7 +561,6 @@ export async function runLibrarianPass(
         driftGate = "released";
       } else {
         stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
-        completeIndexTask(store, task.id, indexedAt);
         claim = "completed";
         if (remainingDrift.length > 0) {
           warning = "drift left unresolved after retry";
@@ -550,6 +569,8 @@ export async function runLibrarianPass(
         } else {
           driftGate = "clean";
         }
+        persistFinalDriftGate(store, task, driftGate);
+        completeIndexTask(store, task.id, indexedAt);
       }
     }
     applyMs = clockMs() - applyStarted;

@@ -101,6 +101,26 @@ describe("deriveWorkerRunIntegration", () => {
     ])).toMatchObject({ integration: "conflicted", detail: { failure_reasons: ["apply failed"] } });
   });
 
+  test("extracts and deduplicates file paths from git apply failures", () => {
+    const failureReasons = [
+      "git apply --check exited 1: error: patch failed: src/melee/ft/ftcoll.c:163\nerror: src/melee/ft/ftcoll.c: patch does not apply",
+      "error: src/melee/ft/ftcommon.c: patch does not apply",
+    ];
+
+    expect(deriveWorkerRunIntegration([
+      integrationRow({
+        conflict_paths_json: '["patch failed","src/melee/ft/ftcoll.c"]',
+        failure_reasons_json: JSON.stringify(failureReasons),
+      }),
+    ])).toMatchObject({
+      integration: "conflicted",
+      detail: {
+        conflict_paths: ["src/melee/ft/ftcoll.c", "src/melee/ft/ftcommon.c"],
+        failure_reasons: failureReasons,
+      },
+    });
+  });
+
   test("keeps neutral row detail and treats invalid array JSON as empty", () => {
     expect(deriveWorkerRunIntegration([
       integrationRow({ status: "skipped", conflict_paths_json: "bad", failure_reasons_json: '{}' }),

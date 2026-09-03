@@ -14,6 +14,18 @@ interface ParsedStruct {
   fields: string[];
 }
 
+interface ReportUnit {
+  name?: string;
+  metadata?: { source_path?: string };
+  functions?: Array<{ name?: string }>;
+}
+
+interface ParsedParameter {
+  name: string;
+  declaredType: string;
+  abiSlot: string;
+}
+
 function headerPaths(root: string): string[] {
   const paths: string[] = [];
   const visit = (directory: string): void => {
@@ -35,6 +47,96 @@ function matchingBrace(source: string, opening: number): number | null {
       depth -= 1;
       if (depth === 0) return index;
     }
+  }
+  return null;
+}
+
+function matchingDelimiter(source: string, opening: number, open: string, close: string): number | null {
+  let depth = 0;
+  for (let index = opening; index < source.length; index += 1) {
+    if (source[index] === open) depth += 1;
+    else if (source[index] === close) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return null;
+}
+
+function splitParameters(source: string): string[] | null {
+  const parameters: string[] = [];
+  let start = 0;
+  let parentheses = 0;
+  let brackets = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "(") parentheses += 1;
+    else if (character === ")") parentheses -= 1;
+    else if (character === "[") brackets += 1;
+    else if (character === "]") brackets -= 1;
+    else if (character === "," && parentheses === 0 && brackets === 0) {
+      parameters.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+    if (parentheses < 0 || brackets < 0) return null;
+  }
+  if (parentheses !== 0 || brackets !== 0) return null;
+  parameters.push(source.slice(start).trim());
+  return parameters;
+}
+
+function parseParameters(source: string): { parameters: ParsedParameter[]; skipped: number } {
+  const declarations = splitParameters(source);
+  if (declarations === null) return { parameters: [], skipped: 1 };
+  if (declarations.length === 1 && declarations[0] === "void") return { parameters: [], skipped: 0 };
+
+  const parameters: ParsedParameter[] = [];
+  let skipped = 0;
+  let gpr = 3;
+  for (const declaration of declarations) {
+    if (!declaration || declaration === "void" || declaration === "...") {
+      skipped += declaration === "void" ? 0 : 1;
+      continue;
+    }
+    if (/\(\s*\*\s*(?:const\s+|volatile\s+)*[A-Za-z_]\w*\s*\)/.test(declaration)) {
+      skipped += 1;
+      gpr += 1;
+      continue;
+    }
+
+    const withoutArrays = declaration.replace(/(?:\s*\[[^\]]*\]\s*)+$/, "").trim();
+    const nameMatch = /([A-Za-z_]\w*)$/.exec(withoutArrays);
+    const declaredType = nameMatch === null ? "" : withoutArrays.slice(0, nameMatch.index).trim();
+    if (nameMatch === null || !declaredType || /[()]/.test(declaredType)) {
+      skipped += 1;
+      gpr += 1;
+      continue;
+    }
+
+    parameters.push({ name: nameMatch[1], declaredType, abiSlot: `r${gpr}` });
+    gpr += 1;
+  }
+  return { parameters, skipped };
+}
+
+function escapePattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findDefinitionParameters(source: string, symbol: string): { parameters: ParsedParameter[]; skipped: number } | null {
+  const withoutComments = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+  const pattern = new RegExp(`\\b${escapePattern(symbol)}\\s*\\(`, "g");
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(withoutComments)) !== null) {
+    const opening = withoutComments.indexOf("(", match.index + symbol.length);
+    const closing = matchingDelimiter(withoutComments, opening, "(", ")");
+    if (closing === null) return null;
+    const following = withoutComments.slice(closing + 1);
+    const definition = /^\s*(?:__attribute__\s*\(\([\s\S]*?\)\)\s*)*\{/.exec(following);
+    if (definition !== null) return parseParameters(withoutComments.slice(opening + 1, closing));
+    pattern.lastIndex = closing + 1;
   }
   return null;
 }
@@ -119,10 +221,36 @@ export function extractEntities(store: KnowledgeStoreHandle, options: EntityExtr
     }
   }
 
-  // Parameter entities are deferred in v1 because reports and headers do not provide reliable signatures.
+  const report = JSON.parse(readFileSync(options.reportPath, "utf8")) as { units?: ReportUnit[] };
+  let parameters = 0;
+  let skippedParameters = 0;
+  for (const unit of report.units ?? []) {
+    const sourcePath = unit.metadata?.source_path;
+    if (!unit.name || !sourcePath) continue;
+    let source: string;
+    try {
+      source = readFileSync(join(options.checkoutRoot, sourcePath), "utf8");
+    } catch {
+      continue;
+    }
+    for (const fn of unit.functions ?? []) {
+      if (!fn.name) continue;
+      const parsed = findDefinitionParameters(source, fn.name);
+      if (parsed === null) continue;
+      skippedParameters += parsed.skipped;
+      for (const parameter of parsed.parameters) {
+        const locator = `${unit.name}:${fn.name}#${parameter.abiSlot}`;
+        rows.push({ id: `parameter:${locator}`, kind: "parameter", locator });
+        parameters += 1;
+      }
+    }
+  }
+
   const result = {
     structs: parsedByName.size,
     fields,
+    parameters,
+    skippedParameters,
     skippedConstructs,
     inserted: 0,
   };

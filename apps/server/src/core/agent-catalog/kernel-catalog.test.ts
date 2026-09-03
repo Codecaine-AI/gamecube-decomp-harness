@@ -38,6 +38,14 @@ const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
 const sampleStateDir = resolve(repoRoot, ".decomp-orchestrator-state");
 const unresolvedPlaceholderPattern = /\{\{[A-Z0-9_]+\}\}/;
+const workerKnowledgeV2ToolIds = [
+  "kv2_subject_record",
+  "kv2_pr_search",
+  "kv2_discord_search",
+  "kv2_wiki_search",
+  "kv2_attempt_search",
+  "kv2_resolve_locator",
+] as const;
 
 function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
   switch (agentId) {
@@ -204,10 +212,15 @@ describe("meleeKernelAgentCatalog", () => {
     }
 
     expect(meleeKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
-    expect(defaultWorkerToolProfile).toContain("ledger_search");
-    expect(
-      agentToolProfileSummary("worker").map((tool) => tool.id),
-    ).toContain("ledger_search");
+    expect(defaultWorkerToolProfile).not.toContain("ledger_search");
+    expect(defaultWorkerToolProfile).toEqual(
+      expect.arrayContaining([...workerKnowledgeV2ToolIds]),
+    );
+    const workerToolSummary = agentToolProfileSummary("worker").map((tool) => tool.id);
+    expect(workerToolSummary).not.toContain("ledger_search");
+    expect(workerToolSummary).toEqual(
+      expect.arrayContaining([...workerKnowledgeV2ToolIds]),
+    );
     expect(defaultLibrarianToolProfile).toEqual([
       "code_graph_search",
       "graph_related_functions",
@@ -223,6 +236,15 @@ describe("meleeKernelAgentCatalog", () => {
     expect(meleeKernelAgent("worker-summarizer").tools).toEqual([]);
     expect(meleeKernelAgent("librarian-v2").tools).toEqual([...defaultLibrarianToolProfile]);
     expect(meleeKernelAgent("backfill-librarian").tools).toEqual([...defaultLibrarianToolProfile]);
+  });
+
+  test("registers the worker summarizer as a tool-free knowledge agent", () => {
+    const summarizer = meleeKernelAgent("worker-summarizer");
+
+    expect(summarizer.role).toBe("summarizer");
+    expect(summarizer.toolProfile).toBe("summarizer");
+    expect(summarizer.group).toBe("knowledge");
+    expect(summarizer.tools).toEqual([]);
   });
 
   test("describes worker output as a runner validation handoff in the catalog", () => {
@@ -367,6 +389,12 @@ describe("meleeKernelAgentCatalog", () => {
     expect(payload.warnings).toEqual([]);
     expect(worker?.renderedTools).toContain("<available_tools>");
     expect(worker?.renderedTools).toContain('tool name="asm_window_search"');
+    expect(worker?.tools).toEqual(expect.arrayContaining([...workerKnowledgeV2ToolIds]));
+    for (const toolId of workerKnowledgeV2ToolIds) {
+      expect(worker?.renderedTools).toContain(`tool name="${toolId}"`);
+    }
+    expect(worker?.tools).not.toContain("ledger_search");
+    expect(worker?.renderedTools).not.toContain("ledger_search");
     expect(worker).toBeDefined();
     expect(rendered).toContain("return a handoff JSON");
     expect(rendered).toContain("Do not treat non-100% progress as failure");
@@ -377,8 +405,10 @@ describe("meleeKernelAgentCatalog", () => {
     expect(rendered).toContain('provider="asm_window_search" type="exploration"');
     expect(rendered).toContain('tool name="type_layout_lookup"');
     expect(rendered).toContain('provider="type_layout_lookup" type="diagnostics"');
+    expect(rendered).not.toContain("ledger_search");
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
     expect(workerSummarizer?.tools).toEqual([]);
+    expect(workerSummarizer?.group).toBe("knowledge");
     expect(workerSummarizer?.renderedTools).toBeNull();
     expect(summarizerRendered).toContain("narrative fields only");
     expect(summarizerRendered).toContain("<worker_transcript>");

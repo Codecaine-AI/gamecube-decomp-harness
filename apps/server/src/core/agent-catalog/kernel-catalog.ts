@@ -278,7 +278,7 @@ export const meleeKernelAgentCatalog = [
     ),
   }),
   catalogEntry("worker-summarizer", {
-    group: "running",
+    group: "knowledge",
     phase: "worker-summary",
     promptPaths: promptPaths(
       "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/agent.ts",

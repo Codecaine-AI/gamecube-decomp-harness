@@ -281,6 +281,18 @@ function seedStore(store: KnowledgeStore): void {
 describe("knowledge-v2 summary and tree", () => {
   test("returns every summary aggregate and honors the game query", async () => {
     const f = fixture("summary");
+    const store = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    store.db.query(`INSERT INTO index_task
+      (id, pathway, payload, enqueued_at, started_at, done_at)
+      VALUES (?, 'run_closed', ?, ?, ?, ?)`)
+      .run("warned-task", JSON.stringify({ task_payload: { target_id: "target-jump-alpha" }, drift_attempts: 2, drift_gate: "warned" }),
+        "2026-08-31T00:00:00.000Z", "2026-08-31T00:01:00.000Z", "2026-08-31T00:02:00.000Z");
+    store.db.query(`INSERT INTO index_task
+      (id, pathway, payload, enqueued_at, started_at, done_at)
+      VALUES (?, 'run_closed', ?, ?, ?, NULL)`)
+      .run("released-task", JSON.stringify({ task_payload: { entity_id: "concept-shield" }, drift_attempts: 1 }),
+        "2026-08-31T00:03:00.000Z", null);
+    store.close();
 
     const response = await f.request("/api/knowledge/v2/summary?game=fixture-game");
 
@@ -299,10 +311,58 @@ describe("knowledge-v2 summary and tree", () => {
       },
       evidence: { total: 3, by_kind: { code: 1, discord: 1, pr: 1 } },
       links: { total: 3, by_role: { implements: 1, instance_of: 1, references: 1 } },
+      drift: { warned_tasks: 1, released_pending: 1 },
     });
     expect(f.openedGames).toEqual(["fixture-game"]);
     expect(f.openCount()).toBe(1);
     expect(f.closeCount()).toBe(1);
+  });
+
+  test("returns warned tasks with resolvable target and entity subjects", async () => {
+    const f = fixture("drift-warnings");
+    const store = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    const insert = store.db.query(`INSERT INTO index_task
+      (id, pathway, payload, enqueued_at, started_at, done_at)
+      VALUES (?, 'run_closed', ?, '2026-08-31T00:00:00.000Z', '2026-08-31T00:01:00.000Z', ?)`);
+    insert.run("warned-target", JSON.stringify({ task_payload: { target_id: "target-jump-alpha" }, drift_attempts: 2, drift_gate: "warned" }), "2026-08-31T00:03:00.000Z");
+    insert.run("warned-entity", JSON.stringify({ task_payload: { entity_id: "concept-shield" }, drift_attempts: 2, drift_gate: "warned" }), "2026-08-31T00:02:00.000Z");
+    insert.run("clean-target", JSON.stringify({ task_payload: { target_id: "target-catch" }, drift_gate: "clean" }), "2026-08-31T00:04:00.000Z");
+    store.close();
+
+    const response = await f.request("/api/knowledge/v2/drift-warnings?limit=2");
+
+    expect(response?.status).toBe(200);
+    expect(await response?.json()).toEqual({
+      warnings: [
+        {
+          task_id: "warned-target",
+          pathway: "run_closed",
+          done_at: "2026-08-31T00:03:00.000Z",
+          subject: {
+            subjectKind: "target",
+            id: "target-jump-alpha",
+            kind: "function",
+            stableKey: "target://alpha-needle",
+            unit: UNIT_JUMP,
+            symbol: "ftCo_CliffJump_Alpha",
+            address: "0x80001000",
+            identityStatus: "current",
+          },
+        },
+        {
+          task_id: "warned-entity",
+          pathway: "run_closed",
+          done_at: "2026-08-31T00:02:00.000Z",
+          subject: {
+            subjectKind: "entity",
+            id: "concept-shield",
+            kind: "game_concept",
+            locator: "concept://shield-needle",
+            identityStatus: "active",
+          },
+        },
+      ],
+    });
   });
 
   test("folds units into a counted tree and sorts directories before unit leaves", async () => {

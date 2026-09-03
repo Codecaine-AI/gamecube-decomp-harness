@@ -87,6 +87,20 @@ function parseStringArray(value: string | null): string[] {
   }
 }
 
+function deriveConflictPaths(conflictPaths: readonly string[], failureReasons: readonly string[]): string[] {
+  const paths = conflictPaths
+    .map((path) => path.trim())
+    .filter((path) => path !== "" && path !== "patch failed");
+  const gitApplyError = /error:\s+(?:patch failed:\s+(.+?):\d+|(.+?):\s+patch does not apply)(?=\r?$)/gm;
+  for (const failureReason of failureReasons) {
+    for (const match of failureReason.matchAll(gitApplyError)) {
+      const path = (match[1] ?? match[2])?.trim();
+      if (path) paths.push(path);
+    }
+  }
+  return [...new Set(paths)];
+}
+
 /**
  * Collapses checkpoint-level integration outcomes into one worker-run outcome.
  * Input order is ignored so callers cannot change the result accidentally.
@@ -94,16 +108,19 @@ function parseStringArray(value: string | null): string[] {
 export function deriveWorkerRunIntegration(
   rows: readonly AttemptSourceIntegration[],
 ): WorkerRunIntegrationDerivation {
-  const ordered = rows.map((row) => ({
-    row,
-    detail: {
-      status: row.status,
-      disposition: row.disposition,
-      conflict_paths: parseStringArray(row.conflict_paths_json),
-      failure_reasons: parseStringArray(row.failure_reasons_json),
-      resolved_at: row.resolved_at,
-    } satisfies WorkerRunIntegrationDetail,
-  })).sort((left, right) =>
+  const ordered = rows.map((row) => {
+    const failureReasons = parseStringArray(row.failure_reasons_json);
+    return {
+      row,
+      detail: {
+        status: row.status,
+        disposition: row.disposition,
+        conflict_paths: deriveConflictPaths(parseStringArray(row.conflict_paths_json), failureReasons),
+        failure_reasons: failureReasons,
+        resolved_at: row.resolved_at,
+      } satisfies WorkerRunIntegrationDetail,
+    };
+  }).sort((left, right) =>
     right.row.updated_at.localeCompare(left.row.updated_at)
       || right.row.created_at.localeCompare(left.row.created_at)
       || right.row.id.localeCompare(left.row.id)

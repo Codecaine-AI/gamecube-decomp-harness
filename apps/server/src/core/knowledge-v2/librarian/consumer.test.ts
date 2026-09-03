@@ -458,6 +458,7 @@ describe("runLibrarianPass", () => {
     expect(JSON.parse(taskRow(f.store, id).payload)).toEqual({
       task_payload: "attempt://run/attempt-1",
       drift_attempts: 2,
+      drift_gate: "warned",
     });
     expect(indexedAt(f.store, "target-1")).toBe(FIXED_NOW);
     expect(warn).toHaveBeenCalledWith("drift left unresolved after retry");

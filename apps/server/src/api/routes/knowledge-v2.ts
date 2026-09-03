@@ -127,7 +127,58 @@ function summary(store: KnowledgeStore) {
       total: scalar("SELECT COUNT(*) AS count FROM link"),
       by_role: grouped("SELECT role AS value, COUNT(*) AS count FROM link GROUP BY role ORDER BY role"),
     },
+    drift: {
+      warned_tasks: scalar(`SELECT COUNT(*) AS count FROM index_task
+        WHERE json_extract(CASE WHEN json_valid(payload) THEN payload ELSE '{}' END, '$.drift_gate') = 'warned'
+          AND done_at IS NOT NULL`),
+      released_pending: scalar(`SELECT COUNT(*) AS count FROM index_task
+        WHERE json_extract(CASE WHEN json_valid(payload) THEN payload ELSE '{}' END, '$.drift_attempts') = 1
+          AND done_at IS NULL`),
+    },
   };
+}
+
+function driftWarnings(store: KnowledgeStore, url: URL, json: JsonResponder): Response {
+  const limit = parseLimit(url.searchParams.get("limit"), 50, 100);
+  if (limit === null) return badRequest(json);
+  const rows = store.db.query<any, [number]>(`
+    SELECT task.id AS task_id, task.pathway, task.done_at,
+      target.id AS target_id, target.kind AS target_kind, target.stable_key,
+      target.unit, target.symbol, target.address, target.identity_status AS target_identity_status,
+      entity.id AS entity_id, entity.kind AS entity_kind, entity.locator,
+      entity.identity_status AS entity_identity_status
+    FROM index_task task
+    LEFT JOIN target ON target.id = COALESCE(
+      json_extract(CASE WHEN json_valid(task.payload) THEN task.payload ELSE '{}' END, '$.target_id'),
+      json_extract(CASE WHEN json_valid(task.payload) THEN task.payload ELSE '{}' END, '$.task_payload.target_id')
+    )
+    LEFT JOIN entity ON entity.id = COALESCE(
+      json_extract(CASE WHEN json_valid(task.payload) THEN task.payload ELSE '{}' END, '$.entity_id'),
+      json_extract(CASE WHEN json_valid(task.payload) THEN task.payload ELSE '{}' END, '$.task_payload.entity_id')
+    )
+    WHERE json_extract(CASE WHEN json_valid(task.payload) THEN task.payload ELSE '{}' END, '$.drift_gate') = 'warned'
+      AND task.done_at IS NOT NULL
+      AND (target.id IS NOT NULL OR entity.id IS NOT NULL)
+    ORDER BY task.done_at DESC, task.id
+    LIMIT ?
+  `).all(limit);
+  return json({
+    warnings: rows.map((row) => ({
+      task_id: row.task_id,
+      pathway: row.pathway,
+      done_at: row.done_at,
+      subject: row.target_id !== null
+        ? {
+            subjectKind: "target", id: row.target_id, kind: row.target_kind,
+            stableKey: row.stable_key, unit: row.unit, symbol: row.symbol,
+            address: row.address, identityStatus: row.target_identity_status,
+          }
+        : {
+            subjectKind: "entity", id: row.entity_id, kind: row.entity_kind,
+            locator: row.locator, identityStatus: row.entity_identity_status,
+          },
+    })),
+  });
 }
 
 function tree(store: KnowledgeStore): { root: TreeNode } {
@@ -299,9 +350,10 @@ export async function handleKnowledgeV2ApiRoute(
   const gameId = url.searchParams.get("game") ?? "melee";
   if (!gameId.trim()) return badRequest(deps.json);
 
-  let route: "summary" | "tree" | "unit" | "record" | "entities" | "search" | null = null;
+  let route: "summary" | "drift-warnings" | "tree" | "unit" | "record" | "entities" | "search" | null = null;
   let unit = "";
   if (url.pathname === `${prefix}/summary`) route = "summary";
+  else if (url.pathname === `${prefix}/drift-warnings`) route = "drift-warnings";
   else if (url.pathname === `${prefix}/tree`) route = "tree";
   else if (url.pathname.startsWith(`${prefix}/units/`) && url.pathname.endsWith("/targets")) {
     route = "unit";
@@ -319,6 +371,7 @@ export async function handleKnowledgeV2ApiRoute(
   const store = deps.openStore?.(gameId) ?? openKnowledgeStore({ gameId });
   try {
     if (route === "summary") return deps.json(summary(store));
+    if (route === "drift-warnings") return driftWarnings(store, url, deps.json);
     if (route === "tree") return deps.json(tree(store));
     if (route === "unit") return deps.json(unitTargets(store, unit));
     if (route === "record") return record(store, url, deps.json);

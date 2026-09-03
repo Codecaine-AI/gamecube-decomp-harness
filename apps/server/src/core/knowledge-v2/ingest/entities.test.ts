@@ -17,11 +17,26 @@ function fixtureRoot(): string {
   mkdirSync(join(root, "checkout", "src", "melee", "game"), { recursive: true });
   writeFileSync(join(root, "report.json"), JSON.stringify({
     units: [
-      { metadata: { source_path: "src/melee/game/player.c" } },
-      { metadata: { source_path: "src/melee/game/player.c" } },
-      { metadata: { source_path: "src/melee/game/item.c" } },
+      {
+        name: "main/melee/game/player",
+        metadata: { source_path: "src/melee/game/player.c" },
+        functions: [{ name: "Player_Init" }, { name: "Player_Tick" }],
+      },
+      { name: "main/melee/game/item", metadata: { source_path: "src/melee/game/item.c" } },
     ],
   }));
+  writeFileSync(join(root, "checkout", "src", "melee", "game", "player.c"), `
+    void Player_Init(struct Player* player, unsigned int flags, void (*callback)(struct Player*))
+    {
+      player->action = flags;
+      callback(player);
+    }
+
+    int Player_Tick(void)
+    {
+      return 0;
+    }
+  `);
   writeFileSync(join(root, "checkout", "src", "melee", "game", "types.h"), `
     typedef struct PlayerState {
       int action;
@@ -50,12 +65,16 @@ describe("extractEntities", () => {
       expect(extractEntities(store, options)).toEqual({
         structs: 2,
         fields: 5,
+        parameters: 2,
+        skippedParameters: 1,
         skippedConstructs: 1,
-        inserted: 7,
+        inserted: 9,
       });
 
       expect(store.db.query(`SELECT id, kind, locator, parent_entity_id AS parentEntityId
         FROM entity ORDER BY id`).all()).toEqual([
+        { id: "parameter:main/melee/game/player:Player_Init#r3", kind: "parameter", locator: "main/melee/game/player:Player_Init#r3", parentEntityId: null },
+        { id: "parameter:main/melee/game/player:Player_Init#r4", kind: "parameter", locator: "main/melee/game/player:Player_Init#r4", parentEntityId: null },
         { id: "struct:Item", kind: "struct", locator: "struct:Item", parentEntityId: null },
         { id: "struct:Item#kind", kind: "struct_field", locator: "struct:Item#kind", parentEntityId: "struct:Item" },
         { id: "struct:Item#owner", kind: "struct_field", locator: "struct:Item#owner", parentEntityId: "struct:Item" },
@@ -65,7 +84,7 @@ describe("extractEntities", () => {
         { id: "struct:Player#user_data", kind: "struct_field", locator: "struct:Player#user_data", parentEntityId: "struct:Player" },
       ]);
 
-      expect(extractEntities(store, options).inserted).toBe(0);
+      expect(extractEntities(store, options)).toMatchObject({ parameters: 2, skippedParameters: 1, inserted: 0 });
     } finally {
       store.close();
     }
@@ -79,7 +98,7 @@ describe("extractEntities", () => {
         reportPath: join(root, "report.json"),
         checkoutRoot: join(root, "checkout"),
         dryRun: true,
-      })).toEqual({ structs: 2, fields: 5, skippedConstructs: 1, inserted: 0 });
+      })).toEqual({ structs: 2, fields: 5, parameters: 2, skippedParameters: 1, skippedConstructs: 1, inserted: 0 });
       expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM entity").get()?.count).toBe(0);
     } finally {
       store.close();

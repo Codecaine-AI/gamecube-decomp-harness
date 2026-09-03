@@ -3,6 +3,7 @@ export type AgentRole =
   | "pr-reviewer"
   | "pr-splitter"
   | "librarian"
+  | "summarizer"
   | "reconcile"
   | "qa-repair";
 export type RuntimeAgentRole = AgentRole;

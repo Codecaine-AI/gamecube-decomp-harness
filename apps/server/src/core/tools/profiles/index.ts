@@ -43,6 +43,7 @@ export const defaultAgentToolProfiles: Record<RuntimeAgentRole, string[]> = {
   "pr-reviewer": [],
   "pr-splitter": [...defaultPrSplitterToolProfile],
   librarian: [...defaultLibrarianToolProfile],
+  summarizer: [],
   reconcile: [...defaultReconcileToolProfile],
   "qa-repair": [...defaultQaRepairToolProfile],
 };
