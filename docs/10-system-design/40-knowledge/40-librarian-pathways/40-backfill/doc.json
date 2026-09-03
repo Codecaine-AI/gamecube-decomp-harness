@@ -15,6 +15,7 @@
         "pm-mtis6qgq-18-xc97xx",
         "b-ks2-bfp-outline-h",
         "b-ks2-bfp-outline",
+        "b-ks2-bfp-flags",
         "b-ks2-bfp-ex-h",
         "b-ks2-bfp-ex-intro",
         "b-ks2-bfp-ex-input",
@@ -26,6 +27,7 @@
         "b-ks2-bfp-ex-apply",
         "b-ks2-bfp-ex-after",
         "b-ks2-bfp-ex-note",
+        "b-ks2-bfp-phase3",
         "b-ks2-bfp-related-h",
         "b-ks2-bfp-rel-pathways",
         "b-ks2-bfp-rel-migration",
@@ -90,7 +92,7 @@
           }
         },
         {
-          "insert": " writes serialize through one shared gate, so parallel passes cannot clobber each other. Measured cost: about one minute of model time per pass."
+          "insert": " writes serialize through one shared gate, so parallel passes cannot clobber each other. Measured cost: about 3.5 minutes of model time per pass at 130 concurrent lanes (about 1 minute when a single lane runs alone); one runner process is CPU-bound near 30 passes a minute, so throughput scales by sharding across processes."
         }
       ],
       "children": []
@@ -114,7 +116,7 @@
       "props": {
         "steps": [
           {
-            "text": "Select — the runner takes the next target off the knowledge-first funnel (never-indexed, then 100% matched, then linked, then real-named symbol, then unit named-density, then direct material as tiebreak) and skips anything already stamped in subject_index_state."
+            "text": "Select — the runner takes the next target off the knowledge-first funnel (never-indexed, then 100% matched, then linked, then real-named symbol, then unit named-density, then direct material, then inherited material) and skips anything already stamped in subject_index_state. Every target is covered in that order — there is no direct-material filter and no cut."
           },
           {
             "text": "Assemble the given context — mechanical, no model:",
@@ -481,7 +483,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways"
+              "path": "10-system-design/40-knowledge/40-librarian-pathways"
             }
           }
         },
@@ -501,12 +503,12 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild"
+              "path": "10-system-design/40-knowledge/80-migration-and-rebuild"
             }
           }
         },
         {
-          "insert": " — the initial-build phases this pass executes phase 3 of, and the prioritized target order."
+          "insert": " — the initial-build phases this pass executed phase 3 of (completed 2026-09-02), and the prioritized target order."
         }
       ],
       "children": []
@@ -521,7 +523,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact"
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact"
             }
           }
         },
@@ -541,12 +543,123 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence"
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/30-evidence"
             }
           }
         },
         {
           "insert": " — the fact-owned citation rows the apply layer resolves before any write."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-flags": {
+      "id": "b-ks2-bfp-flags",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Runner flags",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "Everyday: "
+        },
+        {
+          "insert": "--run-id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "--limit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "--concurrency",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "--dry-run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "--stop",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "--status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Optional: "
+        },
+        {
+          "insert": "--min-direct-score",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (a cut on direct material; off by default, so the runner covers every target), "
+        },
+        {
+          "insert": "--shard i/n",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (split one run across processes — every shard must start from the same snapshot), "
+        },
+        {
+          "insert": "--max-consecutive-failures",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (default 5)."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-bfp-phase3": {
+      "id": "b-ks2-bfp-phase3",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Phase 3 completed 2026-09-02",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "Run backfill-01-20260901 stamped 22237/22237 targets and 1070 unit entities. Store: 119611 facts, 264410 evidence, 30574 links, 8297 entities (1872 game_concept, 109 pattern admitted by the librarian). 22158 targets carry facts; 79 were stamped with empty or fully rejected proposals. 22592 passes, 272 failed (241 relay outages, 11 malformed envelopes, 5 timeouts, 2 garbled outputs, 2 kernel-lock collisions), all retried to completion."
         }
       ],
       "children": []

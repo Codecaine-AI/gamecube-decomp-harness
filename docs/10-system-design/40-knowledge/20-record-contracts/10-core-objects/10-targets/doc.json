@@ -257,7 +257,7 @@
       "props": {
         "name": "target",
         "description": "One row per workable GALE01 report item. Identity only: no match %, no size, no meaning, no embedded rows.",
-        "example": "{\n  \"id\": \"tgt-ftCo_800BFFD0\",\n  \"kind\": \"function\",\n  \"unit\": \"main/melee/ft/chara/ftCommon/ftCo_09C4\",\n  \"unit_entity_id\": \"ent-tu-ftCo_09C4\",\n  \"symbol\": \"ftCo_8009C4F8\",\n  \"stable_key\": \"main/melee/ft/chara/ftCommon/ftCo_09C4:ftCo_8009C4F8\",\n  \"address\": \"0x8009C4F8\",\n  \"identity_status\": \"current\",\n  \"report_revision\": \"rev-2026-08-27\"\n}",
+        "example": "{\n  \"id\": \"tgt-ftCo_800BFFD0\",\n  \"kind\": \"function\",\n  \"unit\": \"main/melee/ft/chara/ftCommon/ftCo_09C4\",\n  \"unit_entity_id\": \"ent-tu-ftCo_09C4\",\n  \"symbol\": \"ftCo_8009C4F8\",\n  \"stable_key\": \"main/melee/ft/chara/ftCommon/ftCo_09C4:ftCo_8009C4F8\",\n  \"address\": \"0x8009C4F8\",\n  \"identity_status\": \"current\",\n  \"moved_to_id\": null,\n  \"report_revision\": \"rev-2026-08-27\"\n}",
         "fields": [
           {
             "name": "id",
@@ -298,6 +298,12 @@
             "name": "identity_status",
             "type": "current | moved | unresolved | retired",
             "description": "Whether the item still resolves in the current report"
+          },
+          {
+            "name": "moved_to_id",
+            "type": "target id",
+            "required": false,
+            "description": "FK → target; the successor row when `identity_status` is `moved`, written by reconciliation's rename-continuity pairing; null otherwise"
           },
           {
             "name": "report_revision",
@@ -830,7 +836,7 @@
           }
         },
         {
-          "insert": " is still the same row; an item the maintainers renamed or moved, with an explicit mapping, becomes "
+          "insert": " is still the same row; an item the maintainers renamed in place — one newly unresolved key and one newly inserted key at the same address and kind within the same unit, paired 1:1 — becomes "
         },
         {
           "insert": "moved",
@@ -839,7 +845,16 @@
           }
         },
         {
-          "insert": "; a key that is gone becomes "
+          "insert": ", with "
+        },
+        {
+          "insert": "target.moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " naming the successor row; a key that is gone becomes "
         },
         {
           "insert": "retired",
@@ -848,7 +863,7 @@
           }
         },
         {
-          "insert": "; a key that cannot be resolved and has no mapping becomes "
+          "insert": "; a key that cannot be resolved and has no 1:1 pairing becomes "
         },
         {
           "insert": "unresolved",
@@ -919,8 +934,18 @@
                 }
               }
             ],
-            "The maintainers renamed or moved the item and an explicit mapping names the new key",
-            "The mapping to the successor row; where it is stored is open"
+            "The maintainers renamed the item: reconciliation paired its vanished key 1:1 with a new key at the same address and kind in the same unit",
+            [
+              {
+                "insert": "target.moved_to_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " — the successor row, written by reconciliation; facts, evidence, links, runs, PRs, events, and the index stamp are re-pointed at the successor"
+              }
+            ]
           ],
           [
             [
@@ -981,10 +1006,11 @@
             "text": "Record identity changes as explicit `moved`, `unresolved`, or `retired` values; never reattach to a guessed symbol."
           },
           {
-            "text": "Recheck the target's live facts: flag `evidence` rows whose `locator` or `digest` no longer resolves, so the next revision drops or re-cites the facts whose citations relied on them."
+            "text": "Pair renames within a unit: one newly `unresolved` symbol and one newly inserted symbol at the same `address` and `kind` pair 1:1 only. The old row gets `identity_status` `moved` and `moved_to_id` naming the successor; its facts, evidence, links, worker runs, pull requests, events, and index stamp are re-pointed at the successor in one transaction, a fact type collision keeping the newer `updated_at`. An address with more than one candidate on either side is reported in the reconcile result and left alone."
           },
           {
-            "text": "Insert an `event` row (`kind` `regression`) with an `event_ref` (`ref_kind` `commit`) when an upstream change breaks a formerly good state, so the next worker sees it before anything else."
+            "text": "Reconciliation records nothing in `event` and enqueues no index tasks. Code drift is not its job: the deterministic flagger re-resolves each `code://` citation at the checkout head inside the librarian's next `pr_imported` or `run_closed` pass, and that pass reads `renamed_from` off `moved_to_id` — see Drift Gate.",
+            "kind": "note"
           },
           {
             "text": "Rebuild the target card and search projections from the tables, and the code graph from the checkout.",
@@ -1147,43 +1173,19 @@
           }
         },
         {
-          "insert": " transition graph; where the "
+          "insert": " transition graph, and who approves a mapping. Decided: the successor mapping is "
         },
         {
-          "insert": "moved",
+          "insert": "target.moved_to_id",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " and "
+          "insert": ", written only by reconciliation's rename-continuity pairing; there is no separate reconciliation table."
         },
         {
-          "insert": "retired",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " successor mapping is stored (a "
-        },
-        {
-          "insert": "successor_id",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " column on "
-        },
-        {
-          "insert": "target",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", or a reconciliation table); and who approves a mapping.\n- Whether a future report that enumerates individual data symbols within a section should split a "
+          "insert": "\n- Whether a future report that enumerates individual data symbols within a section should split a "
         },
         {
           "insert": "data",
@@ -1222,7 +1224,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects",
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects",
               "label": "Core Objects"
             }
           }
@@ -1272,7 +1274,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts",
+              "path": "10-system-design/40-knowledge/20-record-contracts",
               "label": "Record Contracts"
             }
           }
@@ -1295,7 +1297,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/20-entities",
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects/20-entities",
               "label": "Entities"
             }
           }
@@ -1318,7 +1320,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/30-links",
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects/30-links",
               "label": "Links"
             }
           }
@@ -1350,7 +1352,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/20-knowledge-record",
               "label": "Knowledge Record"
             }
           }
@@ -1382,22 +1384,22 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger",
               "label": "Target Ledger"
             }
           }
         },
         {
-          "insert": " — everything that has happened on a target; "
+          "insert": " — everything that has happened on a target; integration outcomes live on the "
         },
         {
-          "insert": "regression",
+          "insert": "worker_run",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " events record external breaks, including those reconciliation finds."
+          "insert": " row, and reconciliation writes nothing to the ledger."
         }
       ],
       "id": "b-sks-rc-targets-related-history",
@@ -1414,7 +1416,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/40-evidence-confidence-and-lifecycle",
+              "path": "10-system-design/40-knowledge/30-evidence-confidence-and-lifecycle",
               "label": "Evidence, Confidence, and Lifecycle"
             }
           }

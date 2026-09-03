@@ -93,7 +93,7 @@
           }
         },
         {
-          "insert": ". The librarian is the only writer of facts and evidence; a changed claim overwrites its live row in place, replacing its evidence rows wholesale. This page covers how confidence is assigned and revised, the gates every fact write passes, and what happens to facts and evidence as the target underneath them drifts, is reconciled, or regresses."
+          "insert": ". The librarian is the only writer of facts and evidence; a changed claim overwrites its live row in place, replacing its evidence rows wholesale. This page covers how confidence is assigned and revised, the gates every fact write passes, and what happens to facts and evidence as the target underneath them drifts, is reconciled, or fails to integrate."
         }
       ],
       "children": []
@@ -180,7 +180,7 @@
           }
         },
         {
-          "insert": " row's digest must match the span — and reconciliation re-resolves "
+          "insert": " row's digest must match the span — and the drift flagger re-resolves "
         },
         {
           "insert": "code://",
@@ -801,7 +801,7 @@
       },
       "text": [
         {
-          "insert": "Drift, Reconciliation, and Regressions"
+          "insert": "Drift, Reconciliation, and Integration Outcomes"
         }
       ],
       "children": []
@@ -884,7 +884,25 @@
           }
         },
         {
-          "insert": ". A vanished item is never deleted and never reattached to a guessed symbol. A changed "
+          "insert": ". A rename within a unit — one vanished key and one new key at the same address and kind, paired 1:1 — is continuity, not loss: the old row becomes "
+        },
+        {
+          "insert": "moved",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with "
+        },
+        {
+          "insert": "moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " naming the successor, and its facts, evidence, and links are re-pointed at the successor in the same transaction. A vanished item is never deleted and never reattached to a guessed symbol. A changed "
         },
         {
           "insert": "target_status.content_hash",
@@ -902,7 +920,7 @@
           }
         },
         {
-          "insert": ", but it is reconciliation's cue to recheck what was pinned against the old content."
+          "insert": "."
         }
       ],
       "children": []
@@ -913,16 +931,7 @@
       "props": {},
       "text": [
         {
-          "insert": "That recheck runs over the target's live facts, and only their "
-        },
-        {
-          "insert": "code",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " evidence: archival sources and attempt rows are immutable once ingested, so their locators cannot drift, and reconciliation re-resolves "
+          "insert": "Code drift is caught by the deterministic flagger, not by reconciliation: at the checkout head it re-resolves each "
         },
         {
           "insert": "code://",
@@ -931,34 +940,56 @@
           }
         },
         {
-          "insert": " locators alone. A row whose span no longer exists at its path or whose "
+          "insert": " citation's path and span, recomputes the digest, and classifies it unchanged, drifted, or unresolvable — read-only, no model involved. Archival sources and attempt rows are immutable once ingested, so their locators cannot drift. The flagger runs inside the librarian's "
         },
         {
-          "insert": "digest",
+          "insert": "pr_imported",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " no longer matches the span text is flagged, so the next revision drops or re-cites the facts standing on it. The flag never silently edits a fact — a drop or a re-cite is an ordinary librarian overwrite (which replaces the fact's evidence rows wholesale) or a clear (which deletes the fact and its evidence rows together). Drift itself never deletes knowledge: facts on a "
+          "insert": " and "
         },
         {
-          "insert": "retired",
+          "insert": "run_closed",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " or "
+          "insert": " contexts, which carry per touched subject the compact drift report and "
         },
         {
-          "insert": "unresolved",
+          "insert": "renamed_from",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " target stay stored."
+          "insert": " — the stable keys of rows whose "
+        },
+        {
+          "insert": "moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " points at it, so a fact re-pointed by rename continuity keeps its lineage. The consumer gate then re-runs the flagger after apply: clean completes the pass; drift left on the first attempt releases the task for one bounded retry; drift left after the retry completes with the warning recorded in the pass artifact — see "
+        },
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": ". The flag never silently edits a fact — a drop or a re-cite is an ordinary librarian overwrite (which replaces the fact's evidence rows wholesale) or a clear (which deletes the fact and its evidence rows together). Drift itself never deletes knowledge: facts on a retired or unresolved target stay stored."
         }
       ],
       "children": []
@@ -969,19 +1000,10 @@
       "props": {},
       "text": [
         {
-          "insert": "Regressions are ledger entries, not knowledge. When an upstream change or a boundary merge conflict breaks a formerly good state, the run loop or checkout reconciliation inserts an "
+          "insert": "Integration outcomes live on the run row, not in knowledge. When a run's diff fails to integrate at the boundary, the run-closed writer records "
         },
         {
-          "insert": "event",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " row ("
-        },
-        {
-          "insert": "kind",
+          "insert": "integration",
           "attributes": {
             "code": true
           }
@@ -990,40 +1012,49 @@
           "insert": " "
         },
         {
+          "insert": "conflicted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (status, disposition, conflict paths, failure reasons, resolved_at) on the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row, derived deterministically from run state; the next worker sees the conflicted run, with its conflict paths, on the card. No "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row is written — the "
+        },
+        {
           "insert": "regression",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": ") with "
-        },
-        {
-          "insert": "event_ref",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " rows naming the commit, epoch, PR, or worker run involved; its summary is addressed to the next worker, who sees it first in the derived ledger view. The facts on the target do not change because the score did — the librarian revises a fact only when the claim about meaning changes. The event row itself is never citable; a later fact leans on the regression by citing the records its "
-        },
-        {
-          "insert": "event_ref",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " rows name — "
-        },
-        {
-          "insert": "pr://",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " or "
+          "insert": " kind is retired — and reconciliation records nothing in the ledger. The facts on the target do not change because the score did — the librarian revises a fact only when the claim about meaning changes. A later fact leans on a failed integration by citing the run through an "
         },
         {
           "insert": "attempt://",
@@ -1032,7 +1063,7 @@
           }
         },
         {
-          "insert": " locators — and the regression never speaks as a fact."
+          "insert": " locator; the outcome never speaks as a fact."
         }
       ],
       "children": []
@@ -1062,7 +1093,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact"
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact"
             }
           }
         },
@@ -1084,7 +1115,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence"
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/30-evidence"
             }
           }
         },
@@ -1106,7 +1137,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record"
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/20-knowledge-record"
             }
           }
         },
@@ -1128,7 +1159,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/10-targets"
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects/10-targets"
             }
           }
         },
@@ -1150,12 +1181,12 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger"
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger"
             }
           }
         },
         {
-          "insert": " — where regressions, worker runs, and imported PRs live."
+          "insert": " — where worker runs (with their integration outcomes) and imported PRs live."
         }
       ],
       "children": []

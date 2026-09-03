@@ -272,9 +272,44 @@
           },
           {
             "name": "integration",
-            "type": "integrated | conflicted",
+            "type": "integrated | conflicted | null",
             "required": false,
-            "description": "Whether the run's diff landed in the tree after close; joined mechanically like the scores — the summary agent never emits it; absent when an `error` run left nothing to integrate"
+            "description": "Whether the run's diff landed in the tree: derived deterministically at run close from run state's integration results — `conflicted` when conflict paths or failure reasons exist or the outcome was resolved or dropped, `integrated` when it applied cleanly; null when nothing was integrated. Joined mechanically like the scores — the summary agent never emits it; the attempts importer backfills it on existing runs"
+          },
+          {
+            "name": "integration_detail",
+            "type": "object",
+            "required": false,
+            "description": "The integration record behind `integration`, derived by the same rule from the run-state `worker_output_integrations` / `integration_outcomes` rows; null when run state holds no integration result for the run",
+            "fields": [
+              {
+                "name": "status",
+                "type": "string",
+                "description": "The run-state integration status (`applied`, `resolved`, `dropped`, …)"
+              },
+              {
+                "name": "disposition",
+                "type": "string",
+                "required": false,
+                "description": "The run-state disposition, when one was recorded"
+              },
+              {
+                "name": "conflict_paths",
+                "type": "sequence",
+                "description": "Files whose hunks conflicted; the target card shows up to 10"
+              },
+              {
+                "name": "failure_reasons",
+                "type": "sequence",
+                "description": "Why the integration failed, when it did"
+              },
+              {
+                "name": "resolved_at",
+                "type": "timestamp",
+                "required": false,
+                "description": "When the conflict was resolved or dropped"
+              }
+            ]
           },
           {
             "name": "started_at",
@@ -293,7 +328,7 @@
             "description": "When the run closed and the row was captured; the row is written once, here"
           }
         ],
-        "example": "{\n  \"id\": \"wr-ftCo_800BFFD0-0008\",\n  \"target_id\": \"tgt-ftCo_800BFFD0\",\n  \"goal\": \"Push ftCo_800BFFD0 (main/melee/ft/ftcommon) from 91.2 fuzzy to a full match\",\n  \"baseline\": {\n    \"score\": 91.2,\n    \"validation_refs\": [\n      \"val_ftCo_800BFFD0_e10r12\"\n    ]\n  },\n  \"run_id\": \"run-epoch10-2026-08-28\",\n  \"worker_state_id\": \"ws_7f3a9c\",\n  \"final_outcome\": \"improvement\",\n  \"error_type\": null,\n  \"integration\": \"integrated\",\n  \"started_at\": \"2026-08-28T14:02:11Z\",\n  \"ended_at\": \"2026-08-28T14:31:47Z\",\n  \"closed_at\": \"2026-08-28T14:31:47Z\"\n}"
+        "example": "{\n  \"id\": \"wr-ftCo_800BFFD0-0008\",\n  \"target_id\": \"tgt-ftCo_800BFFD0\",\n  \"goal\": \"Push ftCo_800BFFD0 (main/melee/ft/ftcommon) from 91.2 fuzzy to a full match\",\n  \"baseline\": {\n    \"score\": 91.2,\n    \"validation_refs\": [\n      \"val_ftCo_800BFFD0_e10r12\"\n    ]\n  },\n  \"run_id\": \"run-epoch10-2026-08-28\",\n  \"worker_state_id\": \"ws_7f3a9c\",\n  \"final_outcome\": \"improvement\",\n  \"error_type\": null,\n  \"integration\": \"integrated\",\n  \"integration_detail\": {\n    \"status\": \"applied\",\n    \"disposition\": null,\n    \"conflict_paths\": [],\n    \"failure_reasons\": [],\n    \"resolved_at\": null\n  },\n  \"started_at\": \"2026-08-28T14:02:11Z\",\n  \"ended_at\": \"2026-08-28T14:31:47Z\",\n  \"closed_at\": \"2026-08-28T14:31:47Z\"\n}"
       },
       "children": []
     },
@@ -360,16 +395,7 @@
           }
         },
         {
-          "insert": ": a run can close at "
-        },
-        {
-          "insert": "match",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " and still lose the merge race. A "
+          "insert": ": a run can close at match and still lose the merge race. A "
         },
         {
           "insert": "conflicted",
@@ -378,7 +404,25 @@
           }
         },
         {
-          "insert": " run stays a full run object — the regression event references the run; the row itself carries only the flag."
+          "insert": " run stays a full run object; the row carries the flag and "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " (status, disposition, conflict paths, failure reasons, resolved_at), and the target card shows a conflicted run with up to 10 of its conflict paths. No "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row is written for it."
         }
       ],
       "children": []
@@ -872,6 +916,27 @@
                 "attributes": {
                   "code": true
                 }
+              },
+              {
+                "insert": ", and the integration results that "
+              },
+              {
+                "insert": "integration",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "integration_detail",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " are derived from at close"
               }
             ],
             "Interprets; these are read-only inputs the summary cannot contradict"
@@ -1173,7 +1238,16 @@
                 }
               },
               {
-                "insert": " comes from the run-loop's integration result, never from the summary prompt; a "
+                "insert": " and "
+              },
+              {
+                "insert": "integration_detail",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " are derived from the run-state integration results, never from the summary prompt; a "
               },
               {
                 "insert": "conflicted",
@@ -1182,7 +1256,7 @@
                 }
               },
               {
-                "insert": " run stays a full run object, referenced by its "
+                "insert": " run stays a full run object the next worker sees on the card, with its conflict paths — no "
               },
               {
                 "insert": "regression",
@@ -1191,7 +1265,7 @@
                 }
               },
               {
-                "insert": " event"
+                "insert": " event is written"
               }
             ]
           ],
@@ -1543,16 +1617,16 @@
             ],
             [
               {
-                "insert": "A ledger event — typically a "
+                "insert": "A ledger event that names this run; only "
               },
               {
-                "insert": "regression",
+                "insert": "note",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": " — that names this run"
+                "insert": " events are written today, so such refs are rare"
               }
             ]
           ],
@@ -1629,7 +1703,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger",
               "label": "Target Ledger"
             }
           }
@@ -1652,7 +1726,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/20-pull-requests",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger/20-pull-requests",
               "label": "Pull Requests"
             }
           }
@@ -1675,7 +1749,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/30-events",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger/30-events",
               "label": "Events"
             }
           }
@@ -1684,13 +1758,13 @@
           "insert": " — the "
         },
         {
-          "insert": "regression",
+          "insert": "note",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " row a boundary or upstream break may add about a run's result."
+          "insert": " rows a human may add; integration outcomes live on the run row, not on an event."
         }
       ],
       "children": []
@@ -1707,7 +1781,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact",
               "label": "Fact"
             }
           }
@@ -1730,7 +1804,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/20-knowledge-record",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/20-knowledge-record",
               "label": "Knowledge Record"
             }
           }
@@ -1753,7 +1827,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/40-evidence-confidence-and-lifecycle",
+              "path": "10-system-design/40-knowledge/30-evidence-confidence-and-lifecycle",
               "label": "Evidence, Confidence, and Lifecycle"
             }
           }

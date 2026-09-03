@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-0f24e25343e475eb176b70a895e9ef6f",
+  "title": "Retired Concepts",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ret-intro",
+        "b-ret-v2-h",
+        "b-ret-v2",
+        "b-ret-pre-h",
+        "b-ret-pre-p",
+        "b-ret-pre",
+        "b-ret-parked",
+        "b-ret-rel-h",
+        "b-ret-rel-dl",
+        "b-ret-rel-dep"
+      ]
+    },
+    "b-ret-intro": {
+      "id": "b-ret-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every concept the knowledge docs once described and no longer do, with what replaced it. A concept lands here when its code is gone or when it survives only as a legacy exception with a named exit. Current contract pages do not mention these names."
+        }
+      ],
+      "children": []
+    },
+    "b-ret-v2-h": {
+      "id": "b-ret-v2-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Retired With V2"
+        }
+      ],
+      "children": []
+    },
+    "b-ret-v2": {
+      "id": "b-ret-v2",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Concept",
+          "What it was",
+          "Replaced by",
+          "Retired"
+        ],
+        "rows": [
+          [
+            "Learnings ledger",
+            "learnings.jsonl plus learnings-fts.sqlite: one free-form LearningRecord per statement, mixing beliefs, attempts, findings, and boundary events",
+            "fact and evidence rows, the knowledge-record view, worker_run and submission rows, event rows. ledger_search still reads the old file as a documented legacy exception until the worker profile moves",
+            "2026-08-30"
+          ],
+          [
+            "knowledge_record revisioning",
+            "A stored table with one revisioned row per subject, edited by humans and the librarian",
+            "A query that assembles facts, links, and the ledger for a subject at read time. Nothing is stored; a wrong fact is overwritten on the next pass",
+            "2026-08-28"
+          ],
+          [
+            "Librarian doors",
+            "One librarian agent with three entry doors (condense, curation, pr_indexing) and the librarian_v1 contract",
+            "librarian-v2 over the index_task queue and backfill-librarian over one target, both emitting librarian_pass_v1 into the apply layer",
+            "2026-08-30"
+          ],
+          [
+            "related_target and entity_target tables",
+            "Join tables that attached targets and entities to each other",
+            "The link table, and the unit_entity_id foreign key from target to its translation_unit entity",
+            "2026-08-29"
+          ],
+          [
+            "file entity kind",
+            "An entity row per source file",
+            "The translation_unit entity, one per report unit, with the source path as its locator",
+            "2026-08-29"
+          ],
+          [
+            "unit targets",
+            "target.kind = unit rows for translation units",
+            "Targets are workable items only, function or data. Units are entities",
+            "2026-08-29"
+          ],
+          [
+            "Attempt ledger and attempt view",
+            "A ledger of attempts derived from run-state tables with librarian tactic overlays",
+            "worker_run, submission, and run_narrative rows written by the summarizer job, read through the target-ledger view",
+            "2026-08-30"
+          ],
+          [
+            "background_knowledge_jobs",
+            "Durable knowledge jobs with fenced, expiring leases, a serialized materializer, and a manual knowledge.process drain",
+            "The index_task queue: producers enqueue, the librarian consumer claims by pathway priority, status is read off started_at and done_at",
+            "2026-08-30"
+          ],
+          [
+            "knowledge_absorption job",
+            "The job the worker close enqueued so the librarian could condense the transcript",
+            "The worker_summary job and the run_closed index task",
+            "2026-08-30"
+          ],
+          [
+            "Corroboration records",
+            "Separate ledger records counting agreeing evidence",
+            "The confidence and rationale on a fact, judged by the librarian against the evidence it cites",
+            "2026-08-30"
+          ],
+          [
+            "Integration resolver",
+            "An agent that hand-merged worker-output conflicts in the cycle checkout",
+            "A deterministic re-queue for the next epoch; the outcome is recorded on worker_run.integration (the regression event it first used was retired 2026-09-02)",
+            "2026-08-29"
+          ],
+          [
+            "Crosswalk index",
+            "Mechanical wiki-title mappings for the ft, gr, and it families",
+            "wiki_section rows as an archival source, and game-concept entities the librarian curates from them",
+            "2026-08-30"
+          ],
+          [
+            "Connection map canvas",
+            "A hand-drawn map of graph edges and query paths",
+            "The record-linkage canvas on Record Contracts, generated from the DDL",
+            "2026-09-01"
+          ],
+          [
+            "kg-librarian-backfill",
+            "The CLI that ran librarian doors over source batches",
+            "kg2-backfill, kg2-librarian, kg2-ingest, kg2-index, kg2-prioritize, kg2-renarrate",
+            "2026-08-30"
+          ],
+          [
+            "Regression pathway",
+            "An index_task pathway plus event rows written when a worker's output failed integration, claimed by the librarian ahead of other work",
+            "worker_run.integration and integration_detail, derived deterministically at run close from run-state integration results and shown on the V2 card; the event table keeps note events only",
+            "2026-09-02"
+          ],
+          [
+            "drift_recheck epoch pathway",
+            "An epoch-boundary pathway that flagged facts whose code span digest no longer matched and enqueued a recheck per subject",
+            "The Drift Gate: rename continuity in reconciliation, the deterministic flagger feeding the pr_imported and run_closed contexts, and the consumer's one-retry gate. drift_recheck survives only as the manual kg2-drift-scan",
+            "2026-09-02"
+          ],
+          [
+            "V1 ledger",
+            "learnings.jsonl (22,114 records) and learnings-fts.sqlite at the game knowledge root, read by ledger.ts, the learnings graph builder, and the dashboard",
+            "Nothing: the full semantic reset. Frozen 2026-08-31 at games/melee/knowledge/deprecated/ledger-v1/ with a README; legacy readers point there until the Legacy graph and ledger exit item retires them",
+            "2026-09-02"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ret-pre-h": {
+      "id": "b-ret-pre-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Retired Before V2"
+        }
+      ],
+      "children": []
+    },
+    "b-ret-pre-p": {
+      "id": "b-ret-pre-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Inputs the earlier design already kept outside the worker-facing graph. They have no rows in the V2 store and no search surface."
+        }
+      ],
+      "children": []
+    },
+    "b-ret-pre": {
+      "id": "b-ret-pre",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Source",
+          "Former role",
+          "Reason"
+        ],
+        "rows": [
+          [
+            "Tree guide",
+            "Human-authored semantic guide to source areas",
+            "Its blurbs carry no evidence references"
+          ],
+          [
+            "Path facts",
+            "Path-matched prompt snippets",
+            "Ownerless authored facts drift; durable claims are facts with evidence"
+          ],
+          [
+            "PowerPC docs",
+            "ISA reference corpus",
+            "Not a useful worker retrieval surface"
+          ],
+          [
+            "Parked archives",
+            "Deprecated source collections",
+            "No extraction or worker-access contract"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ret-parked": {
+      "id": "b-ret-parked",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "games/melee/knowledge/tree_guide/",
+            "note": "Human documentation only"
+          },
+          {
+            "path": "games/melee/knowledge/sources/injectable/path_facts/",
+            "note": "Retired path-matched facts"
+          },
+          {
+            "path": "games/melee/knowledge/sources/rag_search/powerpc_docs/",
+            "note": "Retired ISA corpus"
+          },
+          {
+            "path": "games/melee/knowledge/sources/deprecated/ssbm_data_sheet/",
+            "note": "Parked archive"
+          },
+          {
+            "path": "games/melee/knowledge/sources/deprecated/external_mirrors/",
+            "note": "Parked archive"
+          },
+          {
+            "path": "games/melee/knowledge/sources/deprecated/legacy_index_roots/",
+            "note": "Parked archive"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-ret-rel-h": {
+      "id": "b-ret-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ret-rel-dl": {
+      "id": "b-ret-rel-dl",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Decision log",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/90-record/20-decision-log",
+              "label": "Decision log"
+            }
+          }
+        },
+        {
+          "insert": ": the decisions behind each retirement, dated."
+        }
+      ],
+      "children": []
+    },
+    "b-ret-rel-dep": {
+      "id": "b-ret-rel-dep",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Deprecated",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/90-record/80-deprecated",
+              "label": "Deprecated"
+            }
+          }
+        },
+        {
+          "insert": ": legacy code that still runs, as opposed to concepts that are gone."
+        }
+      ],
+      "children": []
+    }
+  }
+}

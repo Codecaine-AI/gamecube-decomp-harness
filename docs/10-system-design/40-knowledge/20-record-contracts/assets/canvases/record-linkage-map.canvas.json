@@ -1,1520 +1,778 @@
 {
   "schemaVersion": 1,
-  "id": "record-linkage-map",
-  "title": "Semantic knowledge — one target and what feeds it",
-  "description": "One target as a hub with its knowledge record, its attempts and its events. Pills name records and tools; stickies say what each is. Solid arrows are stored id references, dashed arrows are feeds. The code graph is a search surface, not a record.",
+  "id": "40-knowledge-record-linkage-map",
+  "title": "Record linkage map",
+  "description": "Every table in knowledge.sqlite as of migration 003, every foreign key, and the locator kinds that resolve into rows. Generated from storage/ddl.ts on 2026-09-01.",
   "mode": "diagram",
   "size": {
-    "width": 5660,
-    "height": 2860
+    "width": 3400,
+    "height": 2200
   },
-  "annotations": [],
   "objects": [
     {
       "id": "frame",
       "type": "section",
-      "text": "Semantic knowledge — what lives on one target, and what feeds it",
-      "label": "Semantic knowledge — what lives on one target, and what feeds it",
+      "text": "Record linkage map: every table in knowledge.sqlite and every foreign key between them",
       "color": "white",
       "parentId": null,
       "geometry": {
         "x": 40,
         "y": 40,
-        "width": 5580,
-        "height": 2760
-      },
-      "title": "Semantic knowledge — what lives on one target, and what feeds it",
-      "tint": "white",
-      "style": {
-        "shape": "section"
+        "width": 3320,
+        "height": 2120
       },
       "locked": "background"
     },
     {
-      "id": "sec-interp",
+      "id": "sec-core",
       "type": "section",
-      "text": "Interpretation — who writes what",
-      "label": "Interpretation — who writes what",
-      "color": "green",
+      "text": "Core objects",
+      "color": "blue",
       "parentId": "frame",
       "geometry": {
-        "x": 120,
+        "x": 80,
         "y": 120,
-        "width": 880,
-        "height": 1420
+        "width": 1080,
+        "height": 620
       },
-      "title": "Interpretation — who writes what",
-      "tint": "green",
-      "style": {
-        "shape": "section"
+      "layout": {
+        "mode": "free"
       }
     },
     {
-      "id": "node-librarian",
-      "type": "process",
-      "text": "LIBRARIAN",
-      "label": "LIBRARIAN",
-      "color": "yellow",
-      "parentId": "sec-interp",
+      "id": "t-target",
+      "type": "rectangle",
+      "text": "target\nid PK\nkind: function | data\nunit\nunit_entity_id -> entity\nsymbol\nstable_key (unique while current)\naddress\nidentity_status: current | moved | unresolved | retired\nreport_revision",
+      "color": "blue",
+      "parentId": "sec-core",
       "geometry": {
-        "x": 380,
-        "y": 260,
+        "x": 110,
+        "y": 170,
         "width": 360,
-        "height": 90
+        "height": 254
       }
     },
     {
-      "id": "st-librarian",
-      "type": "sticky",
-      "text": "LIBRARIAN\n• reads attempts, sources, the wiki, patterns; searches the graph\n• writes the next revision of the knowledge record\n• every fact carries its sources and a confidence",
-      "label": "LIBRARIAN\n• reads attempts, sources, the wiki, patterns; searches the graph\n• writes the next revision of the knowledge record\n• every fact carries its sources and a confidence",
-      "color": "yellow",
-      "parentId": "sec-interp",
+      "id": "t-target-status",
+      "type": "rectangle",
+      "text": "target_status\ntarget_id PK -> target\nmatch_pct 0..100\nlinked\nsize\ncontent_hash\nreport_revision\nupdated_at",
+      "color": "blue",
+      "parentId": "sec-core",
       "geometry": {
-        "x": 320,
-        "y": 420,
-        "width": 480,
-        "height": 300
+        "x": 110,
+        "y": 470,
+        "width": 360,
+        "height": 210
       }
     },
     {
-      "id": "node-review",
-      "type": "process",
-      "text": "HUMAN EDIT",
-      "label": "HUMAN EDIT",
+      "id": "t-entity",
+      "type": "rectangle",
+      "text": "entity\nid PK\nkind: translation_unit | struct | struct_field | parameter | game_concept | pattern\nlocator (unique per kind)\nparent_entity_id -> entity\nidentity_status: active | merged | retired\nmerged_into_id -> entity",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 520,
+        "y": 170,
+        "width": 380,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-link",
+      "type": "rectangle",
+      "text": "link\nid PK\nfrom_target_id XOR from_entity_id\nto_target_id XOR to_entity_id\nrole\nwhy\nkind: pr | discord | attempt | wiki | code\nlocator\ndigest (code only)",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 520,
+        "y": 440,
+        "width": 380,
+        "height": 232
+      }
+    },
+    {
+      "id": "s-core",
+      "type": "sticky",
+      "text": "Targets come from the build report by reconciliation. Mechanical entities come from the extractor. Curated entities (game_concept, pattern) and every link are written by the librarian through the apply layer.",
+      "color": "yellow",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 930,
+        "y": 170,
+        "width": 210,
+        "height": 260
+      }
+    },
+    {
+      "id": "sec-know",
+      "type": "section",
+      "text": "Knowledge system",
       "color": "green",
-      "parentId": "sec-interp",
-      "geometry": {
-        "x": 380,
-        "y": 1000,
-        "width": 360,
-        "height": 90
-      }
-    },
-    {
-      "id": "st-review",
-      "type": "sticky",
-      "text": "HUMAN EDIT\n• a person edits the page directly → new revision\n• there is no promotion step\n• STANDARDS gate PR merges, not knowledge",
-      "label": "HUMAN EDIT\n• a person edits the page directly → new revision\n• there is no promotion step\n• STANDARDS gate PR merges, not knowledge",
-      "color": "yellow",
-      "parentId": "sec-interp",
-      "geometry": {
-        "x": 320,
-        "y": 1160,
-        "width": 480,
-        "height": 228
-      }
-    },
-    {
-      "id": "st-legend",
-      "type": "sticky",
-      "text": "Legend\n• pill = a record or a tool, named only\n• sticky = what it is, in plain words\n• solid arrow = stored id reference\n• dashed arrow = feed or gate\n• the hub in the middle is ONE target",
-      "label": "Legend\n• pill = a record or a tool, named only\n• sticky = what it is, in plain words\n• solid arrow = stored id reference\n• dashed arrow = feed or gate\n• the hub in the middle is ONE target",
-      "color": "gray",
       "parentId": "frame",
       "geometry": {
-        "x": 160,
-        "y": 1700,
-        "width": 700,
-        "height": 264
+        "x": 1200,
+        "y": 120,
+        "width": 760,
+        "height": 620
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-fact",
+      "type": "rectangle",
+      "text": "fact\nid PK\ntarget_id XOR entity_id\ntype: purpose | inferred_name | inferred_type | data_flow | state_behavior | game_mapping\nvalue\nrationale\nconfidence 0..1 (apply caps at 0.99)\nupdated_at\nunique (subject, type)",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1230,
+        "y": 170,
+        "width": 340,
+        "height": 232
+      }
+    },
+    {
+      "id": "t-evidence",
+      "type": "rectangle",
+      "text": "evidence\nid PK\nfact_id -> fact (cascade delete)\nkind: pr | discord | attempt | wiki | code\nlocator\ndigest (code only)\nwhy\ncaptured_at",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1600,
+        "y": 170,
+        "width": 340,
+        "height": 210
+      }
+    },
+    {
+      "id": "s-know",
+      "type": "sticky",
+      "text": "One live fact per subject and type; a write overwrites in place and replaces the fact's evidence set. The knowledge record is a query over fact, evidence, link, and the target ledger; it is not a table.",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1230,
+        "y": 470,
+        "width": 710,
+        "height": 110
+      }
+    },
+    {
+      "id": "sec-ledger",
+      "type": "section",
+      "text": "Target ledger",
+      "color": "orange",
+      "parentId": "frame",
+      "geometry": {
+        "x": 80,
+        "y": 790,
+        "width": 1880,
+        "height": 640
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-worker-run",
+      "type": "rectangle",
+      "text": "worker_run\nid PK\ntarget_id -> target\ngoal\nbaseline (json)\nrun_id\nworker_state_id\nfinal_outcome: match | improvement | no_change | error\nerror_type (error only)\nintegration: integrated | conflicted\nstarted_at, ended_at, closed_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 110,
+        "y": 840,
+        "width": 380,
+        "height": 276
+      }
+    },
+    {
+      "id": "t-submission",
+      "type": "rectangle",
+      "text": "submission\nid PK\nworker_run_id -> worker_run\nseq (unique per run)\ndescription\nhypothesis\nscore\nsubmitted_at\nruntime_ref",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 530,
+        "y": 840,
+        "width": 320,
+        "height": 232
+      }
+    },
+    {
+      "id": "t-narrative",
+      "type": "rectangle",
+      "text": "run_narrative\nworker_run_id PK -> worker_run\nsummary\nnotable_observations (json)\nnarrative (json)\nproduced_by: live | backfill\ncreated_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 530,
+        "y": 1090,
+        "width": 320,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-pr",
+      "type": "rectangle",
+      "text": "pull_request\nid PK\ntarget_id XOR entity_id\npr_ref\nsummary\noutcome: match | improvement | no_change | error\nmerged_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 890,
+        "y": 840,
+        "width": 340,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-event",
+      "type": "rectangle",
+      "text": "event\nid PK\ntarget_id -> target\nkind: regression | note\ncause: merge_conflict | upstream_change (regression only)\nsummary\ncreated_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 1270,
+        "y": 840,
+        "width": 340,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-event-ref",
+      "type": "rectangle",
+      "text": "event_ref\nevent_id -> event\nref_kind: worker_run | epoch | pr | commit\nref_id\nPK (event_id, ref_kind, ref_id)",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 1650,
+        "y": 840,
+        "width": 280,
+        "height": 144
+      }
+    },
+    {
+      "id": "s-ledger",
+      "type": "sticky",
+      "text": "Operational, not knowledge. The summarizer writes worker_run, submission, and run_narrative; the PR importer writes pull_request; the run-loop writes event. Facts cite attempt:// and pr:// into these rows; events are never citable.",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 890,
+        "y": 1090,
+        "width": 1040,
+        "height": 100
       }
     },
     {
       "id": "sec-sources",
       "type": "section",
-      "text": "Sources — what evidence points at",
-      "label": "Sources — what evidence points at",
-      "color": "teal",
-      "parentId": "frame",
-      "geometry": {
-        "x": 1200,
-        "y": 120,
-        "width": 560,
-        "height": 1000
-      },
-      "title": "Sources — what evidence points at",
-      "tint": "teal",
-      "style": {
-        "shape": "section"
-      }
-    },
-    {
-      "id": "ic-checkout",
-      "type": "icon",
-      "text": "code checkout",
-      "label": "code checkout",
-      "color": "orange",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1250,
-        "y": 220,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "document"
-    },
-    {
-      "id": "ic-wiki",
-      "type": "icon",
-      "text": "SmashWiki",
-      "label": "SmashWiki",
-      "color": "orange",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1500,
-        "y": 220,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "knowledge"
-    },
-    {
-      "id": "ic-discord",
-      "type": "icon",
-      "text": "Discord",
-      "label": "Discord",
-      "color": "orange",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1250,
-        "y": 420,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "message"
-    },
-    {
-      "id": "ic-prs",
-      "type": "icon",
-      "text": "past PRs",
-      "label": "past PRs",
-      "color": "orange",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1500,
-        "y": 420,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "package"
-    },
-    {
-      "id": "ic-runs",
-      "type": "icon",
-      "text": "worker runs",
-      "label": "worker runs",
-      "color": "orange",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1250,
-        "y": 620,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "activity"
-    },
-    {
-      "id": "st-src-note",
-      "type": "sticky",
-      "text": "EVERYTHING A SOURCE CAN POINT AT\n• captured with a locator + digest\n• never a claim on its own",
-      "label": "EVERYTHING A SOURCE CAN POINT AT\n• captured with a locator + digest\n• never a claim on its own",
-      "color": "yellow",
-      "parentId": "sec-sources",
-      "geometry": {
-        "x": 1250,
-        "y": 800,
-        "width": 460,
-        "height": 156
-      }
-    },
-    {
-      "id": "sec-graph",
-      "type": "section",
-      "text": "Code graph — a search surface, not records",
-      "label": "Code graph — a search surface, not records",
-      "color": "teal",
-      "parentId": "frame",
-      "geometry": {
-        "x": 1200,
-        "y": 1300,
-        "width": 560,
-        "height": 1200
-      },
-      "title": "Code graph — a search surface, not records",
-      "tint": "teal",
-      "style": {
-        "shape": "section"
-      }
-    },
-    {
-      "id": "node-callgraph",
-      "type": "rectangle",
-      "text": "call_graph",
-      "label": "call_graph",
-      "color": "white",
-      "parentId": "sec-graph",
-      "geometry": {
-        "x": 1330,
-        "y": 1400,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "node-ghidra",
-      "type": "rectangle",
-      "text": "ghidra_xrefs",
-      "label": "ghidra_xrefs",
-      "color": "white",
-      "parentId": "sec-graph",
-      "geometry": {
-        "x": 1330,
-        "y": 1530,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "node-opseq",
-      "type": "rectangle",
-      "text": "opseq_similarity",
-      "label": "opseq_similarity",
-      "color": "white",
-      "parentId": "sec-graph",
-      "geometry": {
-        "x": 1330,
-        "y": 1660,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "node-siblings",
-      "type": "rectangle",
-      "text": "siblings",
-      "label": "siblings",
-      "color": "white",
-      "parentId": "sec-graph",
-      "geometry": {
-        "x": 1330,
-        "y": 1790,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "st-graph",
-      "type": "sticky",
-      "text": "SEARCH, NOT RECORDS\n• calls · xrefs · opcode-sequence analogs · siblings\n• rebuilt mechanically; nothing here is seeded into a record\n• crawl it to find similar targets that could help infer a match\n• what proved useful lands in related_targets[]",
-      "label": "SEARCH, NOT RECORDS\n• calls · xrefs · opcode-sequence analogs · siblings\n• rebuilt mechanically; nothing here is seeded into a record\n• crawl it to find similar targets that could help infer a match\n• what proved useful lands in related_targets[]",
-      "color": "yellow",
-      "parentId": "sec-graph",
-      "geometry": {
-        "x": 1250,
-        "y": 1960,
-        "width": 460,
-        "height": 372
-      }
-    },
-    {
-      "id": "sec-target",
-      "type": "section",
-      "text": "ONE TARGET — its card",
-      "label": "ONE TARGET — its card",
+      "text": "Archival sources",
       "color": "violet",
       "parentId": "frame",
       "geometry": {
         "x": 2000,
         "y": 120,
-        "width": 2340,
-        "height": 2600
+        "width": 1300,
+        "height": 400
       },
-      "title": "ONE TARGET — its card",
-      "tint": "purple",
-      "style": {
-        "shape": "section"
+      "layout": {
+        "mode": "free"
       }
     },
     {
-      "id": "node-target",
+      "id": "t-discord",
       "type": "rectangle",
-      "text": "TargetEntity",
-      "label": "TargetEntity",
-      "color": "white",
-      "parentId": "sec-target",
+      "text": "discord_message\nid PK\nchannel\nauthor\nposted_at\ncontent\nthread_id\ningested_at",
+      "color": "violet",
+      "parentId": "sec-sources",
       "geometry": {
-        "x": 2950,
-        "y": 1400,
+        "x": 2030,
+        "y": 170,
         "width": 300,
-        "height": 90
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "height": 210
       }
     },
     {
-      "id": "node-status",
+      "id": "t-wiki",
       "type": "rectangle",
-      "text": "status row",
-      "label": "status row",
-      "color": "gray",
-      "parentId": "sec-target",
+      "text": "wiki_section\nid PK\npage\nsection\nmirror_revision\ncontent\ningested_at\nunique (page, section, mirror_revision)",
+      "color": "violet",
+      "parentId": "sec-sources",
       "geometry": {
-        "x": 2950,
-        "y": 1560,
-        "width": 300,
-        "height": 90
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "x": 2360,
+        "y": 170,
+        "width": 320,
+        "height": 210
       }
     },
     {
-      "id": "st-core",
+      "id": "s-sources",
       "type": "sticky",
-      "text": "TARGET — one entry of the build report\n• unit · function · data symbol (+ file as the grouping)\n• fixed count: whatever report.json lists, no more\n• symbol + address + content hash; never a guess\n• fields, parameters, concepts are NOT targets — they are facts, or members of a concept group\n• everything else hangs off its id",
-      "label": "TARGET — one entry of the build report\n• unit · function · data symbol (+ file as the grouping)\n• fixed count: whatever report.json lists, no more\n• symbol + address + content hash; never a guess\n• fields, parameters, concepts are NOT targets — they are facts, or members of a concept group\n• everything else hangs off its id",
-      "color": "yellow",
-      "parentId": "sec-target",
+      "text": "Frozen once ingested; new rows append past the watermark. discord:// and wiki:// locators resolve here. pr:// resolves to pull_request; attempt:// to worker_run and submission; code:// to the checkout at a revision, with a digest.",
+      "color": "violet",
+      "parentId": "sec-sources",
       "geometry": {
-        "x": 2440,
-        "y": 1240,
-        "width": 420,
-        "height": 480
+        "x": 2710,
+        "y": 170,
+        "width": 560,
+        "height": 140
       }
     },
     {
-      "id": "st-status",
-      "type": "sticky",
-      "text": "Status row\n• match % · linked · last attempt · last score\n• written by the latest scored report\n• shown on the card, not a field of the target",
-      "label": "Status row\n• match % · linked · last attempt · last score\n• written by the latest scored report\n• shown on the card, not a field of the target",
-      "color": "gray",
-      "parentId": "sec-target",
-      "geometry": {
-        "x": 3360,
-        "y": 1180,
-        "width": 400,
-        "height": 300
-      }
-    },
-    {
-      "id": "card-know",
+      "id": "sec-state",
       "type": "section",
-      "text": "What we think it is — the knowledge record",
-      "label": "What we think it is — the knowledge record",
-      "color": "blue",
-      "parentId": "sec-target",
+      "text": "Indexing state",
+      "color": "gray",
+      "parentId": "frame",
       "geometry": {
-        "x": 2060,
-        "y": 200,
-        "width": 2220,
-        "height": 700
+        "x": 2000,
+        "y": 560,
+        "width": 1300,
+        "height": 400
       },
-      "title": "What we think it is — the knowledge record",
-      "tint": "blue",
-      "style": {
-        "shape": "section"
+      "layout": {
+        "mode": "free"
       }
     },
     {
-      "id": "node-knowledge",
+      "id": "t-watermark",
       "type": "rectangle",
-      "text": "KnowledgeRecord",
-      "label": "KnowledgeRecord",
-      "color": "white",
-      "parentId": "card-know",
+      "text": "source_watermark\nsource PK: pr | discord | wiki | attempt\nposition (opaque to all but the writer)\nupdated_at",
+      "color": "gray",
+      "parentId": "sec-state",
       "geometry": {
-        "x": 2950,
-        "y": 740,
+        "x": 2030,
+        "y": 610,
         "width": 340,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "height": 122
       }
     },
     {
-      "id": "st-knowledge",
-      "type": "sticky",
-      "text": "KNOWLEDGE RECORD — one per target, versioned like a page\n• summary: what we think this is\n• confidence 0..1\n• facts[]: claim · kind · confidence · basis observed | inferred\n• no candidate / accepted / promotion — a wrong fact is removed in the next revision",
-      "label": "KNOWLEDGE RECORD — one per target, versioned like a page\n• summary: what we think this is\n• confidence 0..1\n• facts[]: claim · kind · confidence · basis observed | inferred\n• no candidate / accepted / promotion — a wrong fact is removed in the next revision",
-      "color": "yellow",
-      "parentId": "card-know",
-      "geometry": {
-        "x": 2120,
-        "y": 280,
-        "width": 500,
-        "height": 336
-      }
-    },
-    {
-      "id": "st-sources",
-      "type": "sticky",
-      "text": "SOURCES — how we got there\n• sources[]: PR · Discord · attempt · wiki · code\n• content-addressed: two facts cite one message once\n• locator + digest, so it can be re-checked",
-      "label": "SOURCES — how we got there\n• sources[]: PR · Discord · attempt · wiki · code\n• content-addressed: two facts cite one message once\n• locator + digest, so it can be re-checked",
-      "color": "yellow",
-      "parentId": "card-know",
-      "geometry": {
-        "x": 2680,
-        "y": 280,
-        "width": 420,
-        "height": 300
-      }
-    },
-    {
-      "id": "st-tactics",
-      "type": "sticky",
-      "text": "TACTICS — what was tried here\n• tactics[] → attempt_id\n• what worked, what did not\n• written from the summary agent's output",
-      "label": "TACTICS — what was tried here\n• tactics[] → attempt_id\n• what worked, what did not\n• written from the summary agent's output",
-      "color": "yellow",
-      "parentId": "card-know",
-      "geometry": {
-        "x": 3160,
-        "y": 280,
-        "width": 420,
-        "height": 228
-      }
-    },
-    {
-      "id": "st-related",
-      "type": "sticky",
-      "text": "PATTERNS + RELATED TARGETS\n• patterns[] → pattern_id, why it applies\n• related_targets[] → a target found by searching the graph that helped solve the match, with why\n• found by search, never seeded",
-      "label": "PATTERNS + RELATED TARGETS\n• patterns[] → pattern_id, why it applies\n• related_targets[] → a target found by searching the graph that helped solve the match, with why\n• found by search, never seeded",
-      "color": "yellow",
-      "parentId": "card-know",
-      "geometry": {
-        "x": 3640,
-        "y": 280,
-        "width": 560,
-        "height": 264
-      }
-    },
-    {
-      "id": "card-attempts",
-      "type": "section",
-      "text": "Attempts — the ledger",
-      "label": "Attempts — the ledger",
-      "color": "orange",
-      "parentId": "sec-target",
-      "geometry": {
-        "x": 3300,
-        "y": 1900,
-        "width": 980,
-        "height": 720
-      },
-      "title": "Attempts — the ledger",
-      "tint": "orange",
-      "style": {
-        "shape": "section"
-      }
-    },
-    {
-      "id": "node-attempt",
+      "id": "t-task",
       "type": "rectangle",
-      "text": "AttemptRecord",
-      "label": "AttemptRecord",
-      "color": "white",
-      "parentId": "card-attempts",
+      "text": "index_task\nid PK\npathway: run_closed | pr_imported | regression | archival_ingest | drift_recheck\npayload\nenqueued_at\nstarted_at\ndone_at",
+      "color": "gray",
+      "parentId": "sec-state",
       "geometry": {
-        "x": 3360,
-        "y": 1980,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "x": 2400,
+        "y": 610,
+        "width": 380,
+        "height": 188
       }
     },
     {
-      "id": "st-attempt",
-      "type": "sticky",
-      "text": "ATTEMPT — what we made and tried, and how it ended\n• worker run · PR · Discord try\n• goal · tactics · checkpoints · outcome\n• can propose facts; the librarian folds them into the page\n• written by the worker summary agent",
-      "label": "ATTEMPT — what we made and tried, and how it ended\n• worker run · PR · Discord try\n• goal · tactics · checkpoints · outcome\n• can propose facts; the librarian folds them into the page\n• written by the worker summary agent",
-      "color": "yellow",
-      "parentId": "card-attempts",
-      "geometry": {
-        "x": 3340,
-        "y": 2140,
-        "width": 440,
-        "height": 336
-      }
-    },
-    {
-      "id": "st-ledger",
-      "type": "sticky",
-      "text": "Every run on this target lands here\n• the history the next worker reads first\n• ordered by time, tied to checkpoints",
-      "label": "Every run on this target lands here\n• the history the next worker reads first\n• ordered by time, tied to checkpoints",
-      "color": "white",
-      "parentId": "card-attempts",
-      "geometry": {
-        "x": 3820,
-        "y": 2140,
-        "width": 420,
-        "height": 228
-      }
-    },
-    {
-      "id": "card-events",
-      "type": "section",
-      "text": "History — the target's lifecycle ledger",
-      "label": "History — the target's lifecycle ledger",
-      "color": "red",
-      "parentId": "sec-target",
-      "geometry": {
-        "x": 2060,
-        "y": 1900,
-        "width": 1100,
-        "height": 720
-      },
-      "title": "History — the target's lifecycle ledger",
-      "tint": "red",
-      "style": {
-        "shape": "section"
-      }
-    },
-    {
-      "id": "node-event",
+      "id": "t-sis",
       "type": "rectangle",
-      "text": "TargetHistory",
-      "label": "TargetHistory",
-      "color": "white",
-      "parentId": "card-events",
+      "text": "subject_index_state\ntarget_id XOR entity_id\nindexed_at\nunique per target, unique per entity",
+      "color": "gray",
+      "parentId": "sec-state",
       "geometry": {
-        "x": 2800,
-        "y": 1980,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "x": 2810,
+        "y": 610,
+        "width": 340,
+        "height": 122
       }
     },
     {
-      "id": "st-event",
+      "id": "s-state",
       "type": "sticky",
-      "text": "HISTORY — what was done to this target, in order\n• one entry per attempt: improved · unchanged · regressed · matched\n• special entries an attempt cannot tell on its own: invalidated at the epoch boundary · merged · upstream rename\n• the next worker reads this FIRST, newest at the top",
-      "label": "HISTORY — what was done to this target, in order\n• one entry per attempt: improved · unchanged · regressed · matched\n• special entries an attempt cannot tell on its own: invalidated at the epoch boundary · merged · upstream rename\n• the next worker reads this FIRST, newest at the top",
-      "color": "yellow",
-      "parentId": "card-events",
+      "text": "Producers (importers, summarizer, run-loop, reconciliation) enqueue; the librarian claims by pathway priority and stamps subject_index_state at pass completion. Status is read off the timestamps.",
+      "color": "gray",
+      "parentId": "sec-state",
       "geometry": {
-        "x": 2100,
-        "y": 2140,
-        "width": 480,
-        "height": 372
-      }
-    },
-    {
-      "id": "st-event-example",
-      "type": "sticky",
-      "text": "Example\nAttempt reached 100 % → entry: matched. Then the epoch boundary merge conflicted → entry: invalidated, pointing at the attempt and the epoch.\n\nThe next worker sees: the code worked, and it has to be blended into the current tree.",
-      "label": "Example\nAttempt reached 100 % → entry: matched. Then the epoch boundary merge conflicted → entry: invalidated, pointing at the attempt and the epoch.\n\nThe next worker sees: the code worked, and it has to be blended into the current tree.",
-      "color": "orange",
-      "parentId": "card-events",
-      "geometry": {
-        "x": 2640,
-        "y": 2140,
-        "width": 480,
-        "height": 372
-      }
-    },
-    {
-      "id": "sec-runtime",
-      "type": "section",
-      "text": "Runtime — facts about runs",
-      "label": "Runtime — facts about runs",
-      "color": "orange",
-      "parentId": "frame",
-      "geometry": {
-        "x": 4540,
-        "y": 120,
-        "width": 560,
-        "height": 1380
-      },
-      "title": "Runtime — facts about runs",
-      "tint": "orange",
-      "style": {
-        "shape": "section"
-      }
-    },
-    {
-      "id": "ic-state",
-      "type": "icon",
-      "text": "run / worker state",
-      "label": "run / worker state",
-      "color": "orange",
-      "parentId": "sec-runtime",
-      "geometry": {
-        "x": 4600,
-        "y": 220,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "server"
-    },
-    {
-      "id": "ic-checkpoint",
-      "type": "icon",
-      "text": "worker checkpoint",
-      "label": "worker checkpoint",
-      "color": "orange",
-      "parentId": "sec-runtime",
-      "geometry": {
-        "x": 4860,
-        "y": 220,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "eval"
-    },
-    {
-      "id": "ic-report",
-      "type": "icon",
-      "text": "latest scored report",
-      "label": "latest scored report",
-      "color": "orange",
-      "parentId": "sec-runtime",
-      "geometry": {
-        "x": 4600,
-        "y": 440,
-        "width": 220,
-        "height": 130
-      },
-      "icon": "judge"
-    },
-    {
-      "id": "node-summary",
-      "type": "process",
-      "text": "WORKER SUMMARY AGENT",
-      "label": "WORKER SUMMARY AGENT",
-      "color": "yellow",
-      "parentId": "sec-runtime",
-      "geometry": {
-        "x": 4640,
-        "y": 780,
-        "width": 400,
+        "x": 2030,
+        "y": 800,
+        "width": 1240,
         "height": 90
       }
     },
     {
-      "id": "st-summary",
-      "type": "sticky",
-      "text": "WORKER SUMMARY AGENT\n• runs once at the end of an attempt, from one prompt\n• reads checkpoints + transcript\n• writes the ATTEMPT record and appends the HISTORY entry\n• the worker never sees the report; the librarian never reads raw tool traffic",
-      "label": "WORKER SUMMARY AGENT\n• runs once at the end of an attempt, from one prompt\n• reads checkpoints + transcript\n• writes the ATTEMPT record and appends the HISTORY entry\n• the worker never sees the report; the librarian never reads raw tool traffic",
-      "color": "yellow",
-      "parentId": "sec-runtime",
-      "geometry": {
-        "x": 4600,
-        "y": 960,
-        "width": 460,
-        "height": 336
-      }
-    },
-    {
-      "id": "sec-global",
+      "id": "sec-index",
       "type": "section",
-      "text": "Global records — reusable across targets",
-      "label": "Global records — reusable across targets",
-      "color": "gray",
+      "text": "knowledge-index.sqlite (derived)",
+      "color": "teal",
       "parentId": "frame",
       "geometry": {
-        "x": 4540,
-        "y": 1660,
-        "width": 1020,
-        "height": 1100
+        "x": 2000,
+        "y": 1000,
+        "width": 1300,
+        "height": 430
       },
-      "title": "Global records — reusable across targets",
-      "tint": "gray",
-      "style": {
-        "shape": "section"
+      "layout": {
+        "mode": "free"
       }
     },
     {
-      "id": "node-pattern",
+      "id": "t-fts",
       "type": "rectangle",
-      "text": "Pattern",
-      "label": "Pattern",
-      "color": "white",
-      "parentId": "sec-global",
+      "text": "discord_fts, wiki_fts, pr_fts, attempt_fts\nid = a locator\ncontent columns per source\nrebuilt wholesale by kg2-index",
+      "color": "teal",
+      "parentId": "sec-index",
       "geometry": {
-        "x": 4600,
-        "y": 1740,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
+        "x": 2030,
+        "y": 1050,
+        "width": 460,
+        "height": 122
       }
     },
     {
-      "id": "node-tactic",
+      "id": "t-emb",
       "type": "rectangle",
-      "text": "Tactic",
-      "label": "Tactic",
+      "text": "embedding_chunk\nkind: discord | wiki | pr\nlocator, chunk_seq\ntext, text_hash\nmodel, dim, vector\nPK (kind, locator, chunk_seq, model)",
+      "color": "teal",
+      "parentId": "sec-index",
+      "geometry": {
+        "x": 2520,
+        "y": 1050,
+        "width": 380,
+        "height": 166
+      }
+    },
+    {
+      "id": "s-index",
+      "type": "sticky",
+      "text": "Never canonical. Deleted and regenerated from the store and the past-PRs archive.",
+      "color": "teal",
+      "parentId": "sec-index",
+      "geometry": {
+        "x": 2930,
+        "y": 1050,
+        "width": 340,
+        "height": 100
+      }
+    },
+    {
+      "id": "s-legend",
+      "type": "sticky",
+      "text": "Legend: a box is one table with its columns; an arrow is a foreign key, labeled with the column; a dashed arrow is a locator that resolves to a row rather than a foreign key. XOR means exactly one of the two columns is set.",
       "color": "white",
-      "parentId": "sec-global",
+      "parentId": "frame",
       "geometry": {
-        "x": 4600,
-        "y": 1870,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "node-standards",
-      "type": "rectangle",
-      "text": "standards (gate)",
-      "label": "standards (gate)",
-      "color": "white",
-      "parentId": "sec-global",
-      "geometry": {
-        "x": 4600,
-        "y": 2000,
-        "width": 300,
-        "height": 80
-      },
-      "style": {
-        "shape": "rounded-rect"
-      }
-    },
-    {
-      "id": "st-tactic",
-      "type": "sticky",
-      "text": "TACTIC — a reusable move: mismatch → match\n• when: what the diff looks like · do: the steps\n• origin → the attempt that minted it\n• uses[] → attempts on other targets; success_rate derived\n• an attempt is NOT a tactic: it uses one, or mints one",
-      "label": "TACTIC — a reusable move: mismatch → match\n• when: what the diff looks like · do: the steps\n• origin → the attempt that minted it\n• uses[] → attempts on other targets; success_rate derived\n• an attempt is NOT a tactic: it uses one, or mints one",
-      "color": "yellow",
-      "parentId": "sec-global",
-      "geometry": {
-        "x": 5080,
-        "y": 1740,
-        "width": 440,
-        "height": 372
-      }
-    },
-    {
-      "id": "st-pattern",
-      "type": "sticky",
-      "text": "PATTERN — how the original developers wrote it\n• recognizer: opcode fingerprint or mismatch signature\n• recipe: the C shape that produces it\n• examples[] → targets where it was confirmed\n• seeded by builders, written by librarian + humans",
-      "label": "PATTERN — how the original developers wrote it\n• recognizer: opcode fingerprint or mismatch signature\n• recipe: the C shape that produces it\n• examples[] → targets where it was confirmed\n• seeded by builders, written by librarian + humans",
-      "color": "yellow",
-      "parentId": "sec-global",
-      "geometry": {
-        "x": 4600,
-        "y": 2160,
-        "width": 440,
-        "height": 408
-      }
-    },
-    {
-      "id": "st-standards",
-      "type": "sticky",
-      "text": "STANDARDS — a gate, not a record\n• maintainer merge rules\n• injected into worker context, never searched",
-      "label": "STANDARDS — a gate, not a record\n• maintainer merge rules\n• injected into worker context, never searched",
-      "color": "yellow",
-      "parentId": "sec-global",
-      "geometry": {
-        "x": 5080,
-        "y": 2160,
-        "width": 440,
-        "height": 192
+        "x": 80,
+        "y": 1480,
+        "width": 1880,
+        "height": 90
       }
     }
   ],
   "connections": [
     {
-      "id": "c-knowledge-target",
+      "id": "c-target-unit",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "bottom",
-        "position": [
-          0.5,
-          1
-        ]
+        "objectId": "t-target",
+        "anchor": "right"
       },
       "to": {
-        "objectId": "node-target",
-        "anchor": "top",
-        "position": [
-          0.5,
-          0
-        ]
+        "objectId": "t-entity",
+        "anchor": "left"
       },
       "style": "solid",
       "arrow": "forward",
       "color": "blue",
-      "label": "target_entity_id",
-      "labelPosition": {
-        "along": 0.35,
-        "offset": 12
-      }
+      "label": "unit_entity_id"
     },
     {
-      "id": "c-knowledge-related",
+      "id": "c-status-target",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-target-status",
+        "anchor": "top"
       },
       "to": {
-        "objectId": "node-target",
-        "anchor": "top",
-        "position": [
-          0.85,
-          0
-        ]
+        "objectId": "t-target",
+        "anchor": "bottom"
       },
       "style": "solid",
       "arrow": "forward",
       "color": "blue",
-      "label": "related_targets[] → other targets",
-      "labelPosition": {
-        "along": 0.45,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          3900,
-          780
-        ],
-        [
-          3900,
-          1100
-        ],
-        [
-          3205,
-          1100
-        ]
-      ]
+      "label": "target_id"
     },
     {
-      "id": "c-knowledge-supersedes",
+      "id": "c-entity-parent",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "top",
-        "position": [
-          0.2,
-          0
-        ]
+        "objectId": "t-entity",
+        "anchor": "top"
       },
       "to": {
-        "objectId": "node-knowledge",
-        "anchor": "top",
-        "position": [
-          0.8,
-          0
-        ]
+        "objectId": "t-entity",
+        "anchor": "top"
       },
       "style": "solid",
       "arrow": "forward",
       "color": "blue",
-      "label": "supersedes",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          3018,
-          700
-        ],
-        [
-          3222,
-          700
-        ]
-      ]
+      "label": "parent_entity_id, merged_into_id"
     },
     {
-      "id": "c-knowledge-attempt",
+      "id": "c-link-target",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-link",
+        "anchor": "left"
       },
       "to": {
-        "objectId": "node-attempt",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-target",
+        "anchor": "bottom"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "orange",
-      "label": "tactics[].attempt_id",
-      "labelPosition": {
-        "along": 0.55,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          2300,
-          780
-        ],
-        [
-          2300,
-          1860
-        ],
-        [
-          3230,
-          1860
-        ],
-        [
-          3230,
-          2020
-        ]
-      ]
+      "color": "blue",
+      "label": "from/to target"
     },
     {
-      "id": "c-knowledge-patterns",
+      "id": "c-link-entity",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "right",
-        "position": [
-          1,
-          0.8
-        ]
+        "objectId": "t-link",
+        "anchor": "top"
       },
       "to": {
-        "objectId": "node-pattern",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-entity",
+        "anchor": "bottom"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "gray",
-      "label": "patterns[].pattern_id",
-      "labelPosition": {
-        "along": 0.8,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4400,
-          804
-        ],
-        [
-          4400,
-          1780
-        ]
-      ]
+      "color": "blue",
+      "label": "from/to entity"
     },
     {
-      "id": "c-knowledge-tactics",
+      "id": "c-fact-target",
       "from": {
-        "objectId": "node-knowledge",
-        "anchor": "right",
-        "position": [
-          1,
-          0.3
-        ]
+        "objectId": "t-fact",
+        "anchor": "left"
       },
       "to": {
-        "objectId": "node-tactic",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-target",
+        "anchor": "right"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "gray",
-      "label": "tactics[].tactic_id",
-      "labelPosition": {
-        "along": 0.72,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4430,
-          764
-        ],
-        [
-          4430,
-          1910
-        ]
-      ]
+      "color": "blue",
+      "label": "target_id"
     },
     {
-      "id": "c-tactic-pattern",
+      "id": "c-fact-entity",
       "from": {
-        "objectId": "node-tactic",
-        "anchor": "top",
-        "position": [
-          0.5,
-          0
-        ]
+        "objectId": "t-fact",
+        "anchor": "left"
       },
       "to": {
-        "objectId": "node-pattern",
-        "anchor": "bottom",
-        "position": [
-          0.5,
-          1
-        ]
+        "objectId": "t-entity",
+        "anchor": "right"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "gray",
-      "label": "applies_to_patterns[]",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      }
+      "color": "blue",
+      "label": "entity_id"
     },
     {
-      "id": "c-attempt-tactic",
+      "id": "c-evidence-fact",
       "from": {
-        "objectId": "node-attempt",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-evidence",
+        "anchor": "right"
       },
       "to": {
-        "objectId": "node-tactic",
-        "anchor": "left",
-        "position": [
-          0,
-          0.8
-        ]
-      },
-      "style": "dashed",
-      "arrow": "forward",
-      "color": "orange",
-      "label": "uses · mints",
-      "labelPosition": {
-        "along": 0.3,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4360,
-          2020
-        ],
-        [
-          4360,
-          1934
-        ]
-      ]
-    },
-    {
-      "id": "c-attempt-target",
-      "from": {
-        "objectId": "node-attempt",
-        "anchor": "top",
-        "position": [
-          0.3,
-          0
-        ]
-      },
-      "to": {
-        "objectId": "node-target",
-        "anchor": "bottom",
-        "position": [
-          0.8,
-          1
-        ]
+        "objectId": "t-fact",
+        "anchor": "left"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "orange",
-      "label": "target_entity_ids[]",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
+      "color": "blue",
+      "label": "fact_id"
+    },
+    {
+      "id": "c-run-target",
+      "from": {
+        "objectId": "t-worker-run",
+        "anchor": "top"
       },
-      "waypoints": [
-        [
-          3450,
-          1820
-        ],
-        [
-          3190,
-          1820
-        ]
-      ]
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-sub-run",
+      "from": {
+        "objectId": "t-submission",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-worker-run",
+        "anchor": "left"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "worker_run_id"
+    },
+    {
+      "id": "c-narr-run",
+      "from": {
+        "objectId": "t-narrative",
+        "anchor": "left"
+      },
+      "to": {
+        "objectId": "t-worker-run",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "worker_run_id"
+    },
+    {
+      "id": "c-pr-target",
+      "from": {
+        "objectId": "t-pr",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-pr-entity",
+      "from": {
+        "objectId": "t-pr",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "entity_id"
     },
     {
       "id": "c-event-target",
       "from": {
-        "objectId": "node-event",
-        "anchor": "top",
-        "position": [
-          0.5,
-          0
-        ]
+        "objectId": "t-event",
+        "anchor": "top"
       },
       "to": {
-        "objectId": "node-target",
-        "anchor": "bottom",
-        "position": [
-          0.3,
-          1
-        ]
+        "objectId": "t-target",
+        "anchor": "bottom"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "red",
-      "label": "target_entity_id",
-      "labelPosition": {
-        "along": 0.4,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          2950,
-          1760
-        ],
-        [
-          3040,
-          1760
-        ]
-      ]
+      "color": "blue",
+      "label": "target_id"
     },
     {
-      "id": "c-event-attempt",
+      "id": "c-eref-event",
       "from": {
-        "objectId": "node-event",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-event-ref",
+        "anchor": "right"
       },
       "to": {
-        "objectId": "node-attempt",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-event",
+        "anchor": "left"
       },
       "style": "solid",
       "arrow": "forward",
-      "color": "red",
-      "label": "entries[].attempt_id",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      }
+      "color": "blue",
+      "label": "event_id"
     },
     {
-      "id": "c-sources-know",
+      "id": "c-sis-target",
       "from": {
-        "objectId": "sec-sources",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-sis",
+        "anchor": "bottom"
       },
       "to": {
-        "objectId": "card-know",
-        "anchor": "left",
-        "position": [
-          0,
-          0.35
-        ]
+        "objectId": "t-target",
+        "anchor": "bottom"
       },
-      "style": "dashed",
+      "style": "solid",
       "arrow": "forward",
-      "color": "teal",
-      "label": "cited as SOURCES",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      }
+      "color": "blue",
+      "label": "target_id"
     },
     {
-      "id": "c-graph-know",
+      "id": "c-sis-entity",
       "from": {
-        "objectId": "sec-graph",
-        "anchor": "right",
-        "position": [
-          1,
-          0.15
-        ]
+        "objectId": "t-sis",
+        "anchor": "bottom"
       },
       "to": {
-        "objectId": "card-know",
-        "anchor": "left",
-        "position": [
-          0,
-          0.75
-        ]
+        "objectId": "t-entity",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "entity_id"
+    },
+    {
+      "id": "c-ev-discord",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-discord",
+        "anchor": "left"
       },
       "style": "dashed",
       "arrow": "forward",
       "color": "violet",
-      "label": "search → related targets",
-      "labelPosition": {
-        "along": 0.12,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          1880,
-          1480
-        ],
-        [
-          1880,
-          725
-        ]
-      ]
+      "label": "discord://"
     },
     {
-      "id": "c-librarian-know",
+      "id": "c-ev-wiki",
       "from": {
-        "objectId": "node-librarian",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-evidence",
+        "anchor": "right"
       },
       "to": {
-        "objectId": "card-know",
-        "anchor": "left",
-        "position": [
-          0,
-          0.55
-        ]
+        "objectId": "t-wiki",
+        "anchor": "bottom"
       },
       "style": "dashed",
       "arrow": "forward",
-      "color": "green",
-      "label": "writes the next revision",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          1100,
-          305
-        ],
-        [
-          1100,
-          1160
-        ],
-        [
-          1940,
-          1160
-        ],
-        [
-          1940,
-          585
-        ]
-      ]
+      "color": "violet",
+      "label": "wiki://"
     },
     {
-      "id": "c-review-know",
+      "id": "c-ev-pr",
       "from": {
-        "objectId": "node-review",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
+        "objectId": "t-evidence",
+        "anchor": "bottom"
       },
       "to": {
-        "objectId": "card-know",
-        "anchor": "left",
-        "position": [
-          0,
-          0.95
-        ]
-      },
-      "style": "dashed",
-      "arrow": "forward",
-      "color": "green",
-      "label": "edits directly",
-      "labelPosition": {
-        "along": 0.55,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          1060,
-          1045
-        ],
-        [
-          1060,
-          1250
-        ],
-        [
-          1910,
-          1250
-        ],
-        [
-          1910,
-          865
-        ]
-      ]
-    },
-    {
-      "id": "c-report-status",
-      "from": {
-        "objectId": "ic-report",
-        "anchor": "bottom",
-        "position": [
-          0.5,
-          1
-        ]
-      },
-      "to": {
-        "objectId": "node-status",
-        "anchor": "right",
-        "position": [
-          1,
-          0.5
-        ]
-      },
-      "style": "dashed",
-      "arrow": "forward",
-      "color": "gray",
-      "label": "writes",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4710,
-          1605
-        ]
-      ]
-    },
-    {
-      "id": "c-checkpoint-summary",
-      "from": {
-        "objectId": "ic-checkpoint",
-        "anchor": "bottom",
-        "position": [
-          0.5,
-          1
-        ]
-      },
-      "to": {
-        "objectId": "node-summary",
-        "anchor": "top",
-        "position": [
-          0.8,
-          0
-        ]
+        "objectId": "t-pr",
+        "anchor": "top"
       },
       "style": "dashed",
       "arrow": "forward",
       "color": "orange",
-      "label": "checkpoints · transcript",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      }
+      "label": "pr://"
     },
     {
-      "id": "c-summary-attempt",
+      "id": "c-ev-attempt",
       "from": {
-        "objectId": "node-summary",
-        "anchor": "left",
-        "position": [
-          0,
-          0.5
-        ]
+        "objectId": "t-evidence",
+        "anchor": "bottom"
       },
       "to": {
-        "objectId": "card-attempts",
-        "anchor": "right",
-        "position": [
-          1,
-          0.2
-        ]
+        "objectId": "t-submission",
+        "anchor": "top"
       },
       "style": "dashed",
       "arrow": "forward",
       "color": "orange",
-      "label": "writes the ATTEMPT",
-      "labelPosition": {
-        "along": 0.5,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4500,
-          825
-        ],
-        [
-          4500,
-          2080
-        ]
-      ]
-    },
-    {
-      "id": "c-runtime-events",
-      "from": {
-        "objectId": "ic-state",
-        "anchor": "left",
-        "position": [
-          0,
-          0.4
-        ]
-      },
-      "to": {
-        "objectId": "card-events",
-        "anchor": "bottom",
-        "position": [
-          0.5,
-          1
-        ]
-      },
-      "style": "dashed",
-      "arrow": "forward",
-      "color": "red",
-      "label": "boundary result → entry: invalidated",
-      "labelPosition": {
-        "along": 0.6,
-        "offset": 12
-      },
-      "waypoints": [
-        [
-          4470,
-          272
-        ],
-        [
-          4470,
-          2700
-        ],
-        [
-          2610,
-          2700
-        ]
-      ]
+      "label": "attempt://"
     }
   ]
 }

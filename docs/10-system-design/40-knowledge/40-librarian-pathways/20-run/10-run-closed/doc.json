@@ -13,6 +13,7 @@
         "b-ks2-path-run-agents-heading",
         "b-ks2-path-run-agents-table",
         "b-ks2-path-run-conflict",
+        "b-ks2-path-run-drift",
         "b-ks2-path-run-librarian-heading",
         "b-ks2-path-run-librarian-reads",
         "b-ks2-path-run-librarian-writes",
@@ -22,7 +23,7 @@
         "b-ks2-path-run-related-overview",
         "b-ks2-path-run-related-worker-runs",
         "b-ks2-path-run-related-attempts",
-        "b-ks2-path-run-related-regression",
+        "b-ks2-path-run-related-drift-gate",
         "b-ks2-path-run-related-fact",
         "b-ks2-path-run-related-evidence"
       ]
@@ -188,19 +189,10 @@
           }
         },
         {
-          "insert": " — or conflicts: upstream moved, or another worker's merge landed first on the file. No agent resolves the conflict: the run-loop deterministically inserts a "
+          "insert": " — or conflicts: upstream moved, or another worker's merge landed first on the file. No agent resolves the conflict: the run-loop records it deterministically on the run row — "
         },
         {
-          "insert": "regression",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " event with "
-        },
-        {
-          "insert": "cause",
+          "insert": "integration",
           "attributes": {
             "code": true
           }
@@ -209,13 +201,31 @@
           "insert": " "
         },
         {
-          "insert": "merge_conflict",
+          "insert": "conflicted",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " and re-queues the target for the next epoch, and the next worker picks up from the ledger. The summary agent runs in both cases — the knowledge is not wasted — and the librarian needs no extra pathway: the event flows through the regression pathway."
+          "insert": ", "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "{ status, disposition, conflict_paths[], failure_reasons[], resolved_at }",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " derived from run state's integration rows — and re-queues the target for the next epoch; the next worker sees the conflicted run with its conflict paths (capped at 10) on its card. The summary agent runs in both cases — the knowledge is not wasted — and the integration record feeds its narrative input. There is no regression event and no extra pathway; what the run learned reaches the graph through this pass."
         }
       ],
       "children": []
@@ -511,7 +521,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways",
               "label": "Librarian Pathways"
             }
           }
@@ -543,7 +553,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger/10-worker-runs",
               "label": "Worker Runs"
             }
           }
@@ -584,7 +594,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources/20-operational/10-attempts",
+              "path": "10-system-design/40-knowledge/10-knowledge-sources/20-operational/10-attempts",
               "label": "Attempts"
             }
           }
@@ -604,38 +614,6 @@
       ],
       "children": []
     },
-    "b-ks2-path-run-related-regression": {
-      "id": "b-ks2-path-run-related-regression",
-      "type": "list-item",
-      "props": {
-        "ordered": false
-      },
-      "text": [
-        {
-          "insert": "Regression",
-          "attributes": {
-            "reference": {
-              "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/10-regression",
-              "label": "Regression"
-            }
-          }
-        },
-        {
-          "insert": " — the event pathway a conflicted integration's "
-        },
-        {
-          "insert": "regression",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " event flows through."
-        }
-      ],
-      "children": []
-    },
     "b-ks2-path-run-related-fact": {
       "id": "b-ks2-path-run-related-fact",
       "type": "list-item",
@@ -648,7 +626,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact",
               "label": "Fact"
             }
           }
@@ -671,13 +649,96 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/30-evidence",
               "label": "Evidence"
             }
           }
         },
         {
           "insert": " — the fact-owned citation rows replaced wholesale on every overwrite."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-drift": {
+      "id": "b-ks2-path-run-drift",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " context carries, per touched subject, "
+        },
+        {
+          "insert": "renamed_from",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " — the stable keys of rows whose "
+        },
+        {
+          "insert": "moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " points at it, written by report reconciliation when the checkout head moved — and the flagger's compact drift report over its "
+        },
+        {
+          "insert": "code://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " citations (unchanged | drifted | unresolvable). The pass is drift-gated: after apply the flagger re-runs on the touched subjects — clean completes; drift left releases the task once for a retry; drift left again completes with the warning recorded in the pass artifact. See "
+        },
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-run-related-drift-gate": {
+      "id": "b-ks2-path-run-related-drift-gate",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": " — rename continuity, the citation flagger, and the bounded definition of done this pass runs under."
         }
       ],
       "children": []

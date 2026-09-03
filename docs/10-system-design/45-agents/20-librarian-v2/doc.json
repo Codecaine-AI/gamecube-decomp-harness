@@ -1,0 +1,638 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-3bc25f0c78013081663e970215ab6871",
+  "title": "Librarian V2",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-lv2-intro",
+        "b-lv2-sources",
+        "b-lv2-ctx-h",
+        "b-lv2-ctx-p",
+        "b-lv2-ctx",
+        "b-lv2-pathways",
+        "b-lv2-tools-h",
+        "b-lv2-tools-p",
+        "b-lv2-out-h",
+        "b-lv2-envelope",
+        "b-lv2-out-p",
+        "b-lv2-runs-h",
+        "b-lv2-runs-po",
+        "b-lv2-entries",
+        "b-lv2-writes-h",
+        "b-lv2-writes",
+        "b-lv2-gov-h",
+        "b-lv2-g-p",
+        "b-lv2-g-f",
+        "b-lv2-g-l",
+        "b-lv2-dec-h",
+        "b-lv2-d1",
+        "b-lv2-d2",
+        "b-lv2-d3"
+      ]
+    },
+    "b-lv2-intro": {
+      "id": "b-lv2-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The event-driven librarian. It consumes one index_task, judges every touched subject against the material the task carries, and returns one librarian_pass_v1 proposal. It never writes the store: the apply layer validates every item and performs the writes. Model codex-lb/gpt-5.6-sol, thinking medium, runs in the background, no subagents."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-sources": {
+      "id": "b-lv2-sources",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sources: "
+        },
+        {
+          "insert": "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2",
+              "label": "apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/librarian",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/librarian",
+              "label": "apps/server/src/core/knowledge-v2/librarian"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/apply",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/apply",
+              "label": "apps/server/src/core/knowledge-v2/apply"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-ctx-h": {
+      "id": "b-lv2-ctx-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Context Inputs"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-ctx-p": {
+      "id": "b-lv2-ctx-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The rendered packet has six sections in this order. The consumer assembles them per pathway from the store; the prompt template only names the slots."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-ctx": {
+      "id": "b-lv2-ctx",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Section",
+          "Contents"
+        ],
+        "rows": [
+          [
+            "task",
+            "The index_task id, pathway, payload, and a per-pathway instruction"
+          ],
+          [
+            "object",
+            "The triggering object: the run, the PR, the archival slice, the event, or the drifted subject"
+          ],
+          [
+            "touched_subjects",
+            "The subjects owed a decision, linked entities first and targets last, each with its knowledge record and, where the pathway grants it, material"
+          ],
+          [
+            "supporting_subjects",
+            "Game concepts and patterns linked to the touched targets: context to read, not owed facts"
+          ],
+          [
+            "decomp_standards",
+            "Recognition only: id, title, summary of accepted standards"
+          ],
+          [
+            "output_contract",
+            "schema.json inlined"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-lv2-pathways": {
+      "id": "b-lv2-pathways",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Pathway",
+          "Object",
+          "Caps"
+        ],
+        "rows": [
+          [
+            "run_closed",
+            "worker_run header, submissions with attempt:// locators, the run narrative, integration",
+            "None"
+          ],
+          [
+            "pr_imported",
+            "pr_ref, number, title, body, discussion, CI rows with before/after/delta, unit rows",
+            "40 comments kept (the PR body always, then longest first); each diff hunk tail-truncated to 1,500 chars; 12 targets by absolute delta, overflow reported as omitted"
+          ],
+          [
+            "archival_ingest",
+            "The slice's records, a truncated flag, and the mention map from symbol, unit basename, and hex-address tokens",
+            "40 Discord messages or 20 wiki sections per slice (larger slices split into children); 12 targets by mention count; material only for subjects mentioned twice or more"
+          ],
+          [
+            "regression",
+            "The event and its resolved refs (worker runs, pull requests)",
+            "None. No producer enqueues this pathway yet"
+          ],
+          [
+            "drift_recheck",
+            "The subject and its flagged facts, each evidence item with the resolver's verdict",
+            "None. No producer enqueues this pathway yet"
+          ]
+        ],
+        "title": "Object by pathway"
+      },
+      "children": []
+    },
+    "b-lv2-tools-h": {
+      "id": "b-lv2-tools-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Tools"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-tools-p": {
+      "id": "b-lv2-tools-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The librarian profile: code_graph_search, graph_related_functions, and the eight kv2 tools (discord, wiki, pr, and attempt search; subject_record, entity_lookup, resolve_locator, unit_context). The prompt requires kv2_resolve_locator on every locator before it is cited; search snippets are never evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-out-h": {
+      "id": "b-lv2-out-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Output"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-envelope": {
+      "id": "b-lv2-envelope",
+      "type": "code",
+      "props": {
+        "language": "json",
+        "annotations": [
+          {
+            "lines": "2",
+            "label": "facts",
+            "note": "One item per (subject, type). op write overwrites the live fact and replaces its evidence set; op clear removes it."
+          },
+          {
+            "lines": "4",
+            "label": "subject",
+            "note": "Exactly one of target_stable_key or entity_locator."
+          },
+          {
+            "lines": "8",
+            "label": "confidence",
+            "note": "0 to 1 as a judgment; the apply layer clamps anything above 0.99."
+          },
+          {
+            "lines": "9",
+            "label": "evidence",
+            "note": "Every item resolves through the locator grammar before the fact is written; a code:// item gets its digest here."
+          },
+          {
+            "lines": "11",
+            "label": "links",
+            "note": "Rejected as duplicate when an identical (from, to, role, locator) row exists."
+          },
+          {
+            "lines": "12",
+            "label": "entities",
+            "note": "Only game_concept and pattern may be admitted; the mechanical kinds come from the extractor."
+          },
+          {
+            "lines": "13",
+            "label": "merges",
+            "note": "Both sides must be curated kinds; a mechanical merge is rejected."
+          }
+        ]
+      },
+      "text": [
+        {
+          "insert": "{\n  \"facts\": [{\n    \"subject\": {\"target_stable_key\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\"},\n    \"type\": \"purpose\", \"op\": \"write\",\n    \"value\": \"...\", \"rationale\": \"...\",\n    \"confidence\": 0.7,\n    \"evidence\": [{\"kind\": \"pr\", \"locator\": \"pr://1234/comment/2\", \"why\": \"...\"}]\n  }],\n  \"links\": [{\"from\": {}, \"to\": {}, \"role\": \"...\", \"why\": \"...\", \"kind\": \"code\", \"locator\": \"code://<rev>/<path>#L10-L20\"}],\n  \"entities\": [{\"kind\": \"game_concept\", \"locator\": \"...\", \"note\": \"...\"}],\n  \"merges\": [{\"loser_locator\": \"...\", \"winner_locator\": \"...\", \"why\": \"...\"}]\n}"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-out-p": {
+      "id": "b-lv2-out-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The prompt frames every task as new, confirmed, or nothing: new material writes or overwrites facts; confirmed material re-cites the standing fact; nothing means no facts, and the task still completes. Run outcomes and scores never become facts; events are never cited; inferred_name facts are guesses, never rename instructions."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-runs-h": {
+      "id": "b-lv2-runs-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When It Runs"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-runs-po": {
+      "id": "b-lv2-runs-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "A consumer lane claims the next queued index_task by pathway rank: run_closed and regression first, then pr_imported, archival_ingest, drift_recheck; FIFO within a rank; 64 candidates per scan"
+          },
+          {
+            "text": "The context is built for the pathway; a builder failure fails the pass and releases the claim"
+          },
+          {
+            "text": "For pr_imported the apply layer requires a pr://<n>/comment/<i> citation on every item, and the cited comment must mention the subject"
+          },
+          {
+            "text": "The model returns the envelope within the timeout (900 s by default); a malformed envelope fails the pass"
+          },
+          {
+            "text": "applyLibrarianPass runs entities, then facts, then links, then merges; every touched target is stamped in subject_index_state, a touched entity only when a fact or link landed on it; the task's done_at is set"
+          },
+          {
+            "text": "The artifact goes to <stateDir>/knowledge_v2/librarian/<runId>/<task>.json and a line to run-log.jsonl"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-lv2-entries": {
+      "id": "b-lv2-entries",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Entry point",
+          "Behavior"
+        ],
+        "rows": [
+          [
+            "kg2-librarian --run-id <id>",
+            "Drains the queue with --concurrency (default 4), optional --pathway, --task, --limit, --dry-run, --knowledge-root; --stop writes the stop file; --status reports queue and pass counts"
+          ],
+          [
+            "--librarian-consumer on the run loop",
+            "A long-lived lane polling every 5 s at concurrency 4, paused while a sync workflow is active. Default off"
+          ],
+          [
+            "Stop and safety",
+            "A stop file at <stateDir>/knowledge_v2/librarian/<runId>.stop, an abort signal, and a circuit breaker after five consecutive failures"
+          ],
+          [
+            "Dry run",
+            "The model runs and the apply layer simulates; the claim is released, nothing is stamped, the artifact records dry_run: true"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-lv2-writes-h": {
+      "id": "b-lv2-writes-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Writes"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-writes": {
+      "id": "b-lv2-writes",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Row",
+          "Through",
+          "Rule"
+        ],
+        "rows": [
+          [
+            "fact and its evidence",
+            "apply layer",
+            "One live fact per subject and type; overwrite replaces the evidence set; curated subjects skip when a newer fact landed during the pass"
+          ],
+          [
+            "link",
+            "apply layer",
+            "Both ends in scope; duplicates skipped"
+          ],
+          [
+            "entity (game_concept, pattern)",
+            "apply layer under the shared gate",
+            "Admit if missing; mechanical kinds rejected"
+          ],
+          [
+            "entity merge",
+            "apply layer under the shared gate",
+            "Curated kinds only"
+          ],
+          [
+            "subject_index_state",
+            "consumer",
+            "Stamped at pass completion with the pass timestamp"
+          ],
+          [
+            "index_task",
+            "consumer",
+            "started_at at claim, done_at at completion, released on failure or dry run"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-lv2-gov-h": {
+      "id": "b-lv2-gov-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed By"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-g-p": {
+      "id": "b-lv2-g-p",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": ": the pathways and the queue."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-g-f": {
+      "id": "b-lv2-g-f",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/30-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": ": the rows a proposal becomes."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-g-l": {
+      "id": "b-lv2-g-l",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence, Confidence, and Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/30-evidence-confidence-and-lifecycle",
+              "label": "Evidence, Confidence, and Lifecycle"
+            }
+          }
+        },
+        {
+          "insert": ": the write gates the apply layer enforces."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-dec-h": {
+      "id": "b-lv2-dec-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-d1": {
+      "id": "b-lv2-d1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the agent proposes and never writes. Every item passes shape validation, subject resolution, scope, citation resolution, and the pathway's citation rule before a row changes. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the legacy librarian wrote the ledger directly from model output and the ledger filled with run history; one mechanical gate makes every knowledge path parseable and auditable. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": this agent, the backfill librarian, and any future knowledge writer."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-d2": {
+      "id": "b-lv2-d2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": a librarian pass is scoped to the subjects its context named; a fact on a subject outside scope is rejected as out_of_scope, except on curated entities, which are always in scope under the shared gate. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": parallel lanes partition the store by scope; without it two passes could clobber each other's facts. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the consumer's lanes and the backfill runner's lanes."
+        }
+      ],
+      "children": []
+    },
+    "b-lv2-d3": {
+      "id": "b-lv2-d3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the two librarian agents share one schema shape, duplicated in two schema.json files. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the apply layer is the only consumer and validates by field, not by file; the duplication is tolerated, and a drift between the two files is a worklist item, not a design choice. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": both schema files."
+        }
+      ],
+      "children": []
+    }
+  }
+}

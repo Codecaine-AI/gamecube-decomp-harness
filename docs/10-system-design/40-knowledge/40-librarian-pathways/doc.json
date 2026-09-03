@@ -12,6 +12,7 @@
         "b-ks2-path-intro",
         "b-ks2-path-table-heading",
         "b-ks2-path-table",
+        "b-ks2-path-producers-note",
         "b-ks2-path-roster-heading",
         "b-ks2-path-roster-importers",
         "b-ks2-path-roster-summary",
@@ -45,6 +46,7 @@
         "b-ks2-path-related-regression",
         "b-ks2-path-related-drift",
         "b-ks2-path-related-backfill",
+        "b-ks2-path-related-drift-gate",
         "b-ks2-path-related-sources",
         "b-ks2-path-related-fact",
         "b-ks2-path-related-evidence"
@@ -56,7 +58,7 @@
       "props": {},
       "text": [
         {
-          "insert": "LIBRARIAN PATHWAYS — New material reaches the knowledge graph along inbound pathways grouped into three phases: sync — pull requests, Discord exports, wiki mirror syncs, material flowing in between runs; run — a worker run closes; and epoch boundary — the epoch merges and the report rebuilds. Each pathway names the agents that run and in what order, and each ends the same way: an "
+          "insert": "LIBRARIAN PATHWAYS — New material reaches the knowledge graph along inbound pathways grouped into three phases: sync — pull requests, Discord exports, wiki mirror syncs, material flowing in between runs; run — a worker run closes; and manual — the operator runs kg2-drift-scan after a large upstream jump. Each pathway names the agents that run and in what order, and each ends the same way: an "
         },
         {
           "insert": "index_task",
@@ -156,8 +158,8 @@
                 }
               }
             ],
-            "The Discord or wiki importer appends rows past its watermark — one enum value, two pathways; the task payload names the source",
-            "Discord or wiki importer, then the librarian",
+            "The Discord importer appends rows past its watermark — one enum value, two pathways; the task payload names the source. The wiki importer enqueues the same task only on an explicit --lane wiki; it never fires implicitly",
+            "Discord importer (or the wiki importer, --lane wiki only), then the librarian",
             [
               {
                 "insert": "Facts attached to the subjects the new material mentions; a curated "
@@ -197,47 +199,14 @@
               },
               {
                 "insert": "; pattern facts for recurring resolution moves"
+              },
+              {
+                "insert": "; drift-gated — the context carries renamed_from and the drift report per touched subject"
               }
             ]
           ],
           [
-            "Epoch boundary",
-            [
-              {
-                "insert": "regression",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
-            "A regression event is inserted — by the run-loop at an integration failure, or by report reconciliation on an upstream break",
-            "Run-loop or report reconciliation, then the librarian",
-            [
-              {
-                "insert": "Re-examined live facts on the affected targets — overwritten or re-cited, citing the records behind the event's refs ("
-              },
-              {
-                "insert": "pr://",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " / "
-              },
-              {
-                "insert": "attempt://",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": "); events themselves are not citable"
-              }
-            ]
-          ],
-          [
-            "Epoch boundary",
+            "Manual",
             [
               {
                 "insert": "drift_recheck",
@@ -246,8 +215,8 @@
                 }
               }
             ],
-            "A new report revision",
-            "Report reconciliation and the entity extractor, then the librarian",
+            "The operator runs kg2-drift-scan after a large upstream jump: the flagger runs over the whole store and one task per unit lists the drifted subjects, deduplicated against pending tasks",
+            "kg2-drift-scan (deterministic flagger), then the librarian",
             [
               {
                 "insert": "Re-cited or rewritten facts whose "
@@ -259,7 +228,7 @@
                 }
               },
               {
-                "insert": " evidence no longer resolves"
+                "insert": " evidence drifted or no longer resolves; drift-gated"
               }
             ]
           ]
@@ -344,43 +313,43 @@
       "props": {},
       "text": [
         {
-          "insert": "The run-loop inserts "
+          "insert": "The run-loop records the integration outcome on the "
         },
         {
-          "insert": "event",
+          "insert": "worker_run",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " rows ("
+          "insert": " row at run close — "
         },
         {
-          "insert": "regression",
+          "insert": "integration",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": ", "
+          "insert": " "
         },
         {
-          "insert": "note",
+          "insert": "integrated | conflicted | null",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": ") at integration failures and boundaries and enqueues an event index task. There is no integration-resolver in this model: an integration conflict is a deterministic "
+          "insert": " and "
         },
         {
-          "insert": "regression",
+          "insert": "integration_detail",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " insert plus a re-queue for the next epoch, never an agent — the legacy integration-resolver retires with the migration. Report reconciliation runs on a new report revision and writes "
+          "insert": " with the conflict paths — derived deterministically from run state; no event row and no index task. There is no integration-resolver in this model: a conflict is a deterministic record plus a re-queue for the next epoch, never an agent — the legacy integration-resolver retires with the migration. Report reconciliation runs whenever the checkout head moves, writes "
         },
         {
           "insert": "target",
@@ -398,7 +367,52 @@
           }
         },
         {
-          "insert": "; it is never an LLM."
+          "insert": ", carries renames forward ("
+        },
+        {
+          "insert": "identity_status",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "moved",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "target.moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and enqueues nothing; it is never an LLM. The "
+        },
+        {
+          "insert": "event",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " table remains for "
+        },
+        {
+          "insert": "note",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " events only."
         }
       ],
       "children": []
@@ -634,25 +648,25 @@
           ],
           [
             "Run-loop",
-            "Integration failures and boundaries",
+            "Run close",
             [
               {
-                "insert": "event",
+                "insert": "worker_run.integration",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": " rows ("
+                "insert": " and "
               },
               {
-                "insert": "regression",
+                "insert": "integration_detail",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": ", "
+                "insert": " (deterministic, from run state); "
               },
               {
                 "insert": "note",
@@ -661,24 +675,14 @@
                 }
               },
               {
-                "insert": ")"
+                "insert": " event rows"
               }
             ],
-            [
-              {
-                "insert": "regression",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " index tasks"
-              }
-            ]
+            "—"
           ],
           [
             "Report reconciliation",
-            "New report revision",
+            "Whenever the checkout head moves (boundary sync, epoch boundary)",
             [
               {
                 "insert": "target",
@@ -694,8 +698,44 @@
                 "attributes": {
                   "code": true
                 }
+              },
+              {
+                "insert": "; rename continuity — "
+              },
+              {
+                "insert": "identity_status",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " "
+              },
+              {
+                "insert": "moved",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and "
+              },
+              {
+                "insert": "target.moved_to_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", with facts, evidence, links, and ledger rows re-pointed"
               }
             ],
+            "—"
+          ],
+          [
+            "kg2-drift-scan (manual)",
+            "Operator, after a large upstream jump",
+            "— (runs the flagger over the whole store)",
             [
               {
                 "insert": "drift_recheck",
@@ -704,16 +744,7 @@
                 }
               },
               {
-                "insert": " index tasks for facts whose "
-              },
-              {
-                "insert": "code://",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " evidence no longer resolves"
+                "insert": " index tasks, one per unit, deduplicated against pending tasks"
               }
             ]
           ],
@@ -804,7 +835,7 @@
                 "insert": " at pass completion"
               }
             ],
-            "— (claims and completes tasks)"
+            "— (claims and completes tasks; the drift gate on pr_imported, run_closed, and drift_recheck releases a pass with drift left once, then completes it with a warning)"
           ],
           [
             "Backfill librarian",
@@ -930,7 +961,7 @@
       "type": "state-shape",
       "props": {
         "name": "source_watermark",
-        "description": "Draft for review — the shape is proposed, not settled. One row per source; written by that source's importer, or the worker summary agent for `attempt`.",
+        "description": "One row per source; written by that source's importer, or the summarizer job for attempt.",
         "example": "{\n  \"source\": \"discord\",\n  \"position\": \"1123581321\",\n  \"updated_at\": \"2026-08-11T03:00:00Z\"\n}",
         "fields": [
           {
@@ -948,7 +979,10 @@
             "type": "timestamp",
             "description": "When the watermark last advanced"
           }
-        ]
+        ],
+        "source": {
+          "path": "apps/server/src/core/knowledge-v2/storage/ddl.ts"
+        }
       },
       "children": []
     },
@@ -985,7 +1019,7 @@
       "type": "state-shape",
       "props": {
         "name": "index_task",
-        "description": "Draft for review — the shape is proposed, not settled. The queue between the enqueuing agents and the librarian: written by the enqueuing agent, claimed and completed by the librarian. Status is derived from the timestamps — no status column.",
+        "description": "The queue between the enqueuing agents and the librarian: written by the enqueuing agent, claimed and completed by the librarian. Status is derived from the timestamps; there is no status column.",
         "example": "{\n  \"id\": \"task-000482\",\n  \"pathway\": \"run_closed\",\n  \"payload\": \"attempt://run/rn-20260830-0114\",\n  \"enqueued_at\": \"2026-08-30T01:14:22Z\",\n  \"started_at\": \"2026-08-30T01:15:03Z\",\n  \"done_at\": null\n}",
         "fields": [
           {
@@ -995,7 +1029,7 @@
           },
           {
             "name": "pathway",
-            "type": "enum: run_closed | pr_imported | regression | archival_ingest | drift_recheck",
+            "type": "enum: run_closed | pr_imported | regression (retired 2026-09-02 — still in the DDL check, nothing produces it) | archival_ingest | drift_recheck",
             "description": "Which pathway the task belongs to"
           },
           {
@@ -1020,7 +1054,10 @@
             "description": "Set when the librarian completes the task",
             "required": false
           }
-        ]
+        ],
+        "source": {
+          "path": "apps/server/src/core/knowledge-v2/storage/ddl.ts"
+        }
       },
       "children": []
     },
@@ -1085,7 +1122,7 @@
       "type": "state-shape",
       "props": {
         "name": "subject_index_state",
-        "description": "Draft for review — the shape is proposed, not settled. The per-subject cursor: when the librarian last completed a pass over this subject. Written by the librarian at pass completion. Exactly one of `target_id` and `entity_id` is set.",
+        "description": "The per-subject cursor: when the librarian last completed a pass over this subject. Written by the librarian at pass completion. Exactly one of target_id and entity_id is set.",
         "example": "{\n  \"target_id\": \"main/melee/ft/ftcommon:ftCo_800BFFD0\",\n  \"entity_id\": null,\n  \"indexed_at\": \"2026-08-30T01:16:40Z\"\n}",
         "fields": [
           {
@@ -1105,7 +1142,10 @@
             "type": "timestamp",
             "description": "When the librarian last completed a pass over this subject"
           }
-        ]
+        ],
+        "source": {
+          "path": "apps/server/src/core/knowledge-v2/storage/ddl.ts"
+        }
       },
       "children": []
     },
@@ -1199,7 +1239,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/20-run/10-run-closed",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/20-run/10-run-closed",
               "label": "Run Closed"
             }
           }
@@ -1222,7 +1262,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/10-pull-requests",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/10-sync/10-pull-requests",
               "label": "PR Imported"
             }
           }
@@ -1254,13 +1294,13 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/10-regression",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/30-epoch-boundary/10-regression",
               "label": "Regression"
             }
           }
         },
         {
-          "insert": " — the event pathway: facts are never auto-invalidated; the librarian re-examines the affected targets."
+          "insert": " — retired 2026-09-02; integration outcomes now live on the run row."
         }
       ],
       "children": []
@@ -1277,7 +1317,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/10-sync",
               "label": "Sync"
             }
           }
@@ -1300,7 +1340,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/20-discord",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/10-sync/20-discord",
               "label": "Discord Sync"
             }
           }
@@ -1323,7 +1363,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/10-sync/30-wiki",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/10-sync/30-wiki",
               "label": "Wiki Sync"
             }
           }
@@ -1346,7 +1386,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/20-run",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/20-run",
               "label": "Run"
             }
           }
@@ -1369,13 +1409,13 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/30-epoch-boundary",
               "label": "Epoch Boundary"
             }
           }
         },
         {
-          "insert": " — the boundary phase: fires when the epoch merges and the report rebuilds."
+          "insert": " — retired 2026-09-02; the page records what replaced the boundary phase."
         }
       ],
       "children": []
@@ -1392,13 +1432,13 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/30-epoch-boundary/20-drift-recheck",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/30-epoch-boundary/20-drift-recheck",
               "label": "Drift Recheck"
             }
           }
         },
         {
-          "insert": " — the code pathway: only code drifts; flagged facts are re-cited or rewritten."
+          "insert": " — retired as an epoch-boundary pathway 2026-09-02; survives only as the manual kg2-drift-scan job."
         }
       ],
       "children": []
@@ -1415,7 +1455,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources",
+              "path": "10-system-design/40-knowledge/10-knowledge-sources",
               "label": "Knowledge Sources"
             }
           }
@@ -1438,7 +1478,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/10-fact",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/10-fact",
               "label": "Fact"
             }
           }
@@ -1461,7 +1501,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system/30-evidence",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/30-evidence",
               "label": "Evidence"
             }
           }
@@ -1482,13 +1522,34 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways/40-backfill",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/40-backfill",
               "label": "Backfill Pass"
             }
           }
         },
         {
           "insert": " — one pass over one target, end to end: the funnel, the given context, the tooled agent, the apply gates, coverage stamping, and the parallel-isolation model."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-related-drift-gate": {
+      "id": "b-ks2-path-related-drift-gate",
+      "type": "list-item",
+      "props": {},
+      "text": [
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": " — rename continuity, the citation flagger, and the librarian's bounded definition of done."
         }
       ],
       "children": []
@@ -1521,7 +1582,7 @@
           }
         },
         {
-          "insert": ": every producer seam — importers, the worker summarizer, the run-loop, reconciliation — enqueues; one consumer drains. A pass is one task; parallel lanes share the same curated-entity gate as the backfill, and the same apply layer validates every write."
+          "insert": ": every producer seam — importers, the worker summarizer, the manual drift scan — enqueues; the run-loop and reconciliation write rows and enqueue nothing; one consumer drains. A pass is one task; parallel lanes share the same curated-entity gate as the backfill, and the same apply layer validates every write."
         }
       ],
       "children": []
@@ -1532,14 +1593,14 @@
       "props": {
         "steps": [
           {
-            "text": "Claim — the next queued task by pathway priority: run_closed and regression first (a target's ledger is waiting), then pr_imported, then archival_ingest, then drift_recheck; FIFO within a pathway; claiming sets started_at."
+            "text": "Claim — the next queued task by pathway priority: run_closed first (a target's ledger is waiting), then pr_imported, then archival_ingest, then drift_recheck; FIFO within a pathway; claiming sets started_at."
           },
           {
             "text": "Bound the slice — an archival_ingest task larger than 40 messages or 20 wiki sections is split at claim time into child tasks that inherit the parent's queue position; the parent completes with a split note and never runs a model pass.",
             "kind": "note"
           },
           {
-            "text": "Assemble — the pathway's context: the triggering object (run with its narrative, PR with its discussion and CI rows, source slice with a mechanical mention map, event with its refs, flagged facts with the resolver's verdicts) plus the touched subjects — entities first, targets last — each with its record and material (source span, analogs, grouped ledger)."
+            "text": "Assemble — the pathway's context: the triggering object (run with its narrative, PR with its discussion and CI rows, source slice with a mechanical mention map, the drift scan's flagged subjects with the flagger's verdicts; on pr_imported and run_closed, renamed_from and the drift report per touched subject) plus the touched subjects — entities first, targets last — each with its record and material (source span, analogs, grouped ledger)."
           },
           {
             "text": "Propose — librarian-v2 decides per touched subject: new, confirmed, or nothing; returns one machine-processable JSON object."
@@ -1548,11 +1609,65 @@
             "text": "Apply — the same validation and write gates as the backfill pass; subjects written are stamped in subject_index_state; the task's done_at is set."
           },
           {
+            "text": "Gate — on pr_imported, run_closed, and drift_recheck the flagger re-runs on the touched subjects after apply: clean completes; drift left releases the task once (drift_attempts=1); drift left again completes with the warning 'drift left unresolved after retry' in the pass artifact. The artifact records drift_gate as skipped | clean | released | warned."
+          },
+          {
             "text": "A failed pass or a dry run releases the claim (started_at back to null) so the task is retried later; more than five consecutive failures abort the run; a stop file halts new claims and lets in-flight passes finish.",
             "kind": "note"
           }
         ]
       },
+      "children": []
+    },
+    "b-ks2-path-producers-note": {
+      "id": "b-ks2-path-producers-note",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Regression retired; drift moved into the passes",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "As of 2026-09-02 regression is no longer a pathway: the run loop records each integration outcome deterministically on the "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row ("
+        },
+        {
+          "insert": "integration",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with the conflict paths), the next worker sees it on its card, and no event row or index task is produced. Drift moved into the pr_imported and run_closed passes: report reconciliation carries renames forward ("
+        },
+        {
+          "insert": "target.moved_to_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") and enqueues nothing, the flagger's report rides in the pass context, and the consumer's drift gate bounds the librarian to one retry. drift_recheck survives only as the manual kg2-drift-scan job."
+        }
+      ],
       "children": []
     }
   }

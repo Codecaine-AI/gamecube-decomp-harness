@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-48aeac10bc849b454d284c345a123977",
+  "title": "Worker Summarizer",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-wsum-intro",
+        "b-wsum-sources",
+        "b-wsum-ctx-h",
+        "b-wsum-ctx",
+        "b-wsum-tools-h",
+        "b-wsum-tools-p",
+        "b-wsum-out-h",
+        "b-wsum-shape",
+        "b-wsum-rules-p",
+        "b-wsum-runs-h",
+        "b-wsum-runs-po",
+        "b-wsum-writes-h",
+        "b-wsum-writes",
+        "b-wsum-gov-h",
+        "b-wsum-g-w",
+        "b-wsum-g-r",
+        "b-wsum-g-l",
+        "b-wsum-dec-h",
+        "b-wsum-d1",
+        "b-wsum-d2"
+      ]
+    },
+    "b-wsum-intro": {
+      "id": "b-wsum-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run-close agent. From one closed worker's transcript and its deterministic checkpoint digest it writes the narrative half of the run object: a run summary, one approach and outcome reasoning per submission, and reusable observations. It never writes facts. A single prompt with no tools; model codex-lb/gpt-5.6-sol, thinking medium, background."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-sources": {
+      "id": "b-wsum-sources",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sources: "
+        },
+        {
+          "insert": "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer",
+              "label": "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/summarizer-job",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/summarizer-job",
+              "label": "apps/server/src/core/knowledge-v2/summarizer-job"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/renarrate",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/renarrate",
+              "label": "apps/server/src/core/knowledge-v2/renarrate"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-ctx-h": {
+      "id": "b-wsum-ctx-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Context Inputs"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-ctx": {
+      "id": "b-wsum-ctx",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Section",
+          "Contents"
+        ],
+        "rows": [
+          [
+            "task",
+            "Summarize this closed worker run from its digest and transcript"
+          ],
+          [
+            "target_reference",
+            "The V2 target id and stable key"
+          ],
+          [
+            "checkpoint_submission_digest",
+            "The scored checkpoints and the mechanical submissions; renarration adds the existing worker_run row"
+          ],
+          [
+            "worker_transcript",
+            "The condensed transcript: 400,000 bytes total, tool results cut to 300 chars, user text and custom messages to 2,000, elisions marked inline"
+          ],
+          [
+            "output_contract",
+            "schema.json inlined"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-wsum-tools-h": {
+      "id": "b-wsum-tools-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Tools"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-tools-p": {
+      "id": "b-wsum-tools-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "None. The registry binds it to the pr-reviewer role, whose tool profile is empty, and the kernel catalog groups it under running with phase worker-summary. Its source lives under agents/knowledge because its output is knowledge-system rows."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-out-h": {
+      "id": "b-wsum-out-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Output"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-shape": {
+      "id": "b-wsum-shape",
+      "type": "state-shape",
+      "props": {
+        "name": "worker_summary",
+        "fields": [
+          {
+            "name": "run",
+            "type": "object",
+            "required": true,
+            "fields": [
+              {
+                "name": "summary",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "submissions",
+            "type": "object[]",
+            "required": true,
+            "description": "Exactly one per digest submission, joined by submission_id",
+            "fields": [
+              {
+                "name": "submission_id",
+                "type": "string",
+                "required": true,
+                "description": "Echoed verbatim; the only runtime field allowed"
+              },
+              {
+                "name": "approach",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "outcome_reasoning",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "notable_observations",
+            "type": "object[]",
+            "required": true,
+            "fields": [
+              {
+                "name": "observation",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "reusable_when",
+                "type": "string",
+                "required": true
+              }
+            ]
+          }
+        ],
+        "description": "Validated by the summarizer job, not the apply layer: any extra key at any level, a count mismatch, a duplicate, unknown, or omitted submission_id rejects the output.",
+        "source": {
+          "path": "apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/schema.json"
+        }
+      },
+      "children": []
+    },
+    "b-wsum-rules-p": {
+      "id": "b-wsum-rules-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Rules the prompt enforces: narrative fields only, no scores or runtime references; when the worker's claim and the checkpoint verdict disagree, the checkpoint verdict wins; an empty submissions array is correct for a run that closed without one; a failed path is recorded only when a scored checkpoint shows it failed."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-runs-h": {
+      "id": "b-wsum-runs-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When It Runs"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-runs-po": {
+      "id": "b-wsum-runs-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The run loop starts the worker_summary processor only with --worker-summary; default off. At start it enqueues a job for every closed worker state that lacks one"
+          },
+          {
+            "text": "A job runs inline at concurrency 16 with a 60 s lease and five attempts; it skips when a worker_run already exists, when the target has no current V2 row, or when there is neither a scored checkpoint nor an error signal"
+          },
+          {
+            "text": "The digest and condensed transcript go to the model; the response is validated"
+          },
+          {
+            "text": "In one transaction: worker_run and submission rows (description = approach plus outcome reasoning), the run_narrative sidecar with produced_by live, the attempt watermark, and a run_closed index task with payload attempt://run/<id>"
+          },
+          {
+            "text": "kg2-renarrate re-runs the same prompt over historical worker_run rows that have no narrative, match outcomes first, writing run_narrative with produced_by backfill and updating submission descriptions; it enqueues nothing"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-wsum-writes-h": {
+      "id": "b-wsum-writes-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Writes"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-writes": {
+      "id": "b-wsum-writes",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Row",
+          "Through",
+          "Rule"
+        ],
+        "rows": [
+          [
+            "worker_run, submission",
+            "summarizer job",
+            "Once per worker state; the digest is mechanical, the narrative is the model's"
+          ],
+          [
+            "run_narrative",
+            "summarizer job or renarrate",
+            "One per run; renarration loses a race to a live narrative"
+          ],
+          [
+            "source_watermark attempt",
+            "summarizer job",
+            "last_worker_state_id"
+          ],
+          [
+            "index_task run_closed",
+            "summarizer job",
+            "Deduplicated by payload; renarration never enqueues"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-wsum-gov-h": {
+      "id": "b-wsum-gov-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed By"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-g-w": {
+      "id": "b-wsum-g-w",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger/10-worker-runs",
+              "label": "Worker Runs"
+            }
+          }
+        },
+        {
+          "insert": ": the rows it writes."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-g-r": {
+      "id": "b-wsum-g-r",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run Closed",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/20-run/10-run-closed",
+              "label": "Run Closed"
+            }
+          }
+        },
+        {
+          "insert": ": the pathway it opens for the librarian."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-g-l": {
+      "id": "b-wsum-g-l",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/40-workers/10-lifecycle",
+              "label": "Worker lifecycle"
+            }
+          }
+        },
+        {
+          "insert": ": when a worker state closes."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-dec-h": {
+      "id": "b-wsum-dec-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-d1": {
+      "id": "b-wsum-d1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the summarizer narrates; it does not judge. Outcomes, scores, and sequence numbers come from the checkpoint digest, and the narrative may only explain them. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the legacy condense door let the model restate outcomes and the ledger filled with claims no checkpoint supported. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": this agent, renarration, and any future run-close summary."
+        }
+      ],
+      "children": []
+    },
+    "b-wsum-d2": {
+      "id": "b-wsum-d2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the summary lane is opt-in per run through --worker-summary. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the seam is new and its cost is one model call per closed worker; the operator turns it on for a run deliberately. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the run loop's start-up wiring."
+        }
+      ],
+      "children": []
+    }
+  }
+}

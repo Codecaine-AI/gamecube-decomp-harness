@@ -1,274 +1,505 @@
 {
-	"schemaVersion": 1,
-	"id": "10-system-design-40-knowledge-50-worker-surfaces",
-	"title": "Worker Knowledge Surfaces",
-	"root": "b-60-worker-surfaces-root-3",
-	"blocks": {
-		"b-60-worker-surfaces-root-3": {
-			"id": "b-60-worker-surfaces-root-3",
-			"type": "paragraph",
-			"props": {},
-			"children": [
-				"b-60-worker-surfaces-worker-surfaces-expose-k-1",
-				"b-worker-surfaces-boot-heading",
-				"b-worker-surfaces-boot-prose",
-				"b-60-worker-surfaces-structured-table-block-2",
-				"b-worker-surfaces-ops-heading",
-				"b-worker-surfaces-ops-prose",
-				"b-worker-surfaces-ops",
-				"b-worker-surfaces-gate-heading",
-				"b-worker-surfaces-gate-prose",
-				"b-worker-surfaces-ship-sequence",
-				"b-worker-surfaces-payoff-heading",
-				"b-worker-surfaces-payoff"
-			]
-		},
-		"b-60-worker-surfaces-worker-surfaces-expose-k-1": {
-			"id": "b-60-worker-surfaces-worker-surfaces-expose-k-1",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "Workers receive a bounded projection of the knowledge system at boot, then query deeper evidence only when the task requires it. The ship gate closes the loop by turning QA outcomes into durable attempts, standards evidence, and reviewed learnings."
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-boot-heading": {
-			"id": "b-worker-surfaces-boot-heading",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Boot Context"
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-boot-prose": {
-			"id": "b-worker-surfaces-boot-prose",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "Boot context is a compact working set for one target. It supplies enough local structure and evidence pointers to begin work without copying raw PR archives, wiki pages, or full ledger records into the prompt."
-				}
-			],
-			"children": []
-		},
-		"b-60-worker-surfaces-structured-table-block-2": {
-			"id": "b-60-worker-surfaces-structured-table-block-2",
-			"type": "state-shape",
-			"props": {
-				"name": "WorkerBootContext",
-				"description": "The bounded target projection assembled before a worker starts.",
-				"fields": [
-					{
-						"name": "target",
-						"type": "TargetFileCard",
-						"required": true,
-						"description": "Target path, functions, current match state, and editability."
-					},
-					{
-						"name": "neighbors",
-						"type": "CodeGraphDigest",
-						"required": true,
-						"description": "One-hop call and data-reference neighborhood around the target."
-					},
-					{
-						"name": "analogs",
-						"type": "TargetPeer[]",
-						"required": true,
-						"description": "Ranked analog and sibling targets with their current match status."
-					},
-					{
-						"name": "attempts",
-						"type": "AttemptDigest",
-						"required": true,
-						"description": "Recent attempts for the target and its immediate neighbors, with pointers to deep evidence."
-					},
-					{
-						"name": "learnings",
-						"type": "LearningDigest",
-						"required": true,
-						"description": "Relevant statements with confidence, review status, and evidence pointers."
-					},
-					{
-						"name": "corpus",
-						"type": "CorpusPointers",
-						"required": true,
-						"description": "Resolved wiki page titles and the commands used to search or fetch sections."
-					},
-					{
-						"name": "standards",
-						"type": "Standard[]",
-						"required": true,
-						"description": "The global authored rules enforced again at the ship gate."
-					}
-				],
-				"example": "{\n  \"target\": {\n    \"path\": \"src/melee/ft/chara/ftKirby/ftKirby_SpecialHi.c\",\n    \"functions\": 6,\n    \"match\": \"92.4%\",\n    \"editable\": true\n  },\n  \"neighbors\": {\n    \"one_hop\": 14\n  },\n  \"analogs\": [\n    {\n      \"target\": \"ftFox_SpecialHi\",\n      \"match\": \"100%\"\n    }\n  ],\n  \"attempts\": {\n    \"relevant\": 5\n  },\n  \"learnings\": {\n    \"relevant\": 3\n  },\n  \"corpus\": {\n    \"pages\": [\n      \"Kirby (SSBM)/Up special\"\n    ]\n  },\n  \"standards\": {\n    \"injected\": 18\n  }\n}"
-			},
-			"children": []
-		},
-		"b-worker-surfaces-ops-heading": {
-			"id": "b-worker-surfaces-ops-heading",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Worker Operations"
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-ops-prose": {
-			"id": "b-worker-surfaces-ops-prose",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "Queries expand one evidence slice at a time. Symptom lookup starts from a concrete failure signature; on-demand operations retrieve the source material behind a boot pointer or walk beyond the one-hop graph digest."
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-ops": {
-			"id": "b-worker-surfaces-ops",
-			"type": "interaction-surface",
-			"props": {
-				"title": "Knowledge queries available to a worker",
-				"operations": [
-					{
-						"name": "tacticLookup",
-						"kind": "query",
-						"params": [
-							{
-								"name": "failureClass",
-								"type": "string"
-							},
-							{
-								"name": "signature",
-								"type": "string"
-							}
-						],
-						"returns": "Tactic[] ranked by relevant evidence and observed efficacy"
-					},
-					{
-						"name": "fetchSection",
-						"kind": "query",
-						"params": [
-							{
-								"name": "page",
-								"type": "string"
-							},
-							{
-								"name": "section",
-								"type": "string"
-							}
-						],
-						"returns": "CorpusSection with stable source metadata"
-					},
-					{
-						"name": "deepAttemptEvidence",
-						"kind": "query",
-						"params": [
-							{
-								"name": "attemptId",
-								"type": "AttemptId"
-							}
-						],
-						"returns": "PR descriptions, comments, transcripts, and diffs referenced by the attempt"
-					},
-					{
-						"name": "learningEvidence",
-						"kind": "query",
-						"params": [
-							{
-								"name": "learningId",
-								"type": "LearningId"
-							}
-						],
-						"returns": "Evidence chain and review history for one learning"
-					},
-					{
-						"name": "walkTargetGraph",
-						"kind": "query",
-						"params": [
-							{
-								"name": "targetId",
-								"type": "TargetId"
-							},
-							{
-								"name": "depth",
-								"type": "integer"
-							}
-						],
-						"returns": "Related targets and typed edges beyond the boot digest"
-					}
-				]
-			},
-			"children": []
-		},
-		"b-worker-surfaces-gate-heading": {
-			"id": "b-worker-surfaces-gate-heading",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Ship Gate"
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-gate-prose": {
-			"id": "b-worker-surfaces-gate-prose",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "A worker submits its candidate change to QA before shipment. Acceptance permits the change to ship; rejection records the failed attempt and attaches a VIOLATES example to the applicable authored standard. Learning candidates enter the knowledge ledger through review, so neither a successful patch nor a recurring tactic publishes a new standard automatically."
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-ship-sequence": {
-			"id": "b-worker-surfaces-ship-sequence",
-			"type": "sequence",
-			"props": {
-				"src": "./assets/sequences/worker-ship-gate.sequence.json",
-				"title": "Worker ship gate and ledger feedback"
-			},
-			"children": []
-		},
-		"b-worker-surfaces-payoff-heading": {
-			"id": "b-worker-surfaces-payoff-heading",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Layer Payoff"
-				}
-			],
-			"children": []
-		},
-		"b-worker-surfaces-payoff": {
-			"id": "b-worker-surfaces-payoff",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "The surfaces keep each knowledge layer in its proper role: derived graph and index data orient the worker, ledgers supply evidence and reviewed beliefs, the corpus supplies source text on demand, and authored standards govern shipment. The worker gets a small prompt, can trace every claim to deeper evidence, and leaves durable feedback for the next worker."
-				}
-			],
-			"children": []
-		}
-	}
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-50-worker-surfaces",
+  "title": "Worker Knowledge Surfaces",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ws-intro",
+        "b-ws-boot-h",
+        "b-ws-boot-p",
+        "b-ws-blocks",
+        "b-ws-budgets",
+        "b-ws-boot-refs",
+        "b-ws-boot-librarian-fields",
+        "b-ws-tools-h",
+        "b-ws-tools-p",
+        "b-ws-tools",
+        "b-ws-gate-h",
+        "b-ws-gate-p",
+        "b-ws-seq",
+        "b-ws-fb-h",
+        "b-ws-fb-p",
+        "b-ws-fb-po",
+        "b-ws-rel-h",
+        "b-ws-rel-w",
+        "b-ws-rel-s",
+        "b-ws-rel-r"
+      ]
+    },
+    "b-ws-intro": {
+      "id": "b-ws-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A worker receives a bounded projection of the knowledge system at boot, queries deeper evidence through its tool profile only when the task needs it, and never writes knowledge. Its feedback reaches the store after the run closes, through the summarizer job and the librarian. Code: "
+        },
+        {
+          "insert": "worker/context.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/agent-catalog/agents/running/worker/context.ts",
+              "label": "worker/context.ts"
+            }
+          }
+        },
+        {
+          "insert": " assembles the boot context; "
+        },
+        {
+          "insert": "profiles/defaults.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/tools/profiles/defaults.ts",
+              "label": "profiles/defaults.ts"
+            }
+          }
+        },
+        {
+          "insert": " names the tools."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-h": {
+      "id": "b-ws-boot-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Boot Context"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-p": {
+      "id": "b-ws-boot-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The rendered context is three blocks in order: the packet context, the legacy graph file card, and the V2 target card. The last two appear only when their data exists."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-blocks": {
+      "id": "b-ws-blocks",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Block",
+          "Contents",
+          "Source"
+        ],
+        "rows": [
+          [
+            "context_budget",
+            "The budget mode and the inline source limit",
+            "Chosen by the worker cycle; degrades across retries"
+          ],
+          [
+            "Worker packet",
+            "Repair request when one exists, the target with its source inlined at the budget's limit, baseline evidence, the available-tools listing, canonical tool paths, decomp standards",
+            "The claimed target packet and the standards files"
+          ],
+          [
+            "Graph file card",
+            "Structural neighbors from the legacy code graph",
+            "code_graph_file_card over the deprecated graph store"
+          ],
+          [
+            "Target card",
+            "Ledger (integration outcomes on runs: a conflicted run lists up to 10 conflict paths), facts by type, links, from V2 records",
+            "card.ts, gated on data presence"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ws-budgets": {
+      "id": "b-ws-budgets",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Budget",
+          "Inline source limit",
+          "Tools",
+          "Standards",
+          "Graph card",
+          "Target card"
+        ],
+        "rows": [
+          [
+            "full",
+            "32,000 chars",
+            "Full tool XML",
+            "Every accepted, worker-facing standard",
+            "Full",
+            "20 ledger entries, 8 links, 3 facts per link"
+          ],
+          [
+            "compact",
+            "12,000 chars",
+            "Tool names only",
+            "Five-rule condensation",
+            "Compacted",
+            "8 entries, 4 links, 1 fact per link"
+          ],
+          [
+            "minimal",
+            "3,000 chars",
+            "Tool names only",
+            "Two-rule condensation",
+            "Minimal",
+            "3 entries, 2 links, no facts per link"
+          ]
+        ],
+        "title": "Context budgets"
+      },
+      "children": []
+    },
+    "b-ws-boot-refs": {
+      "id": "b-ws-boot-refs",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Target Card",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/50-search-and-cards/20-target-card",
+              "label": "Target Card"
+            }
+          }
+        },
+        {
+          "insert": " has the card shape and its gates. The graph file card is documented under "
+        },
+        {
+          "insert": "Deprecated",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/90-record/80-deprecated",
+              "label": "Deprecated"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools-h": {
+      "id": "b-ws-tools-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Tools"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools-p": {
+      "id": "b-ws-tools-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Six of the worker's 26 tools read knowledge. None of them read the V2 store directly; the V2 knowledge arrives pre-rendered as the target card."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools": {
+      "id": "b-ws-tools",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Tool",
+          "Reads",
+          "Status"
+        ],
+        "rows": [
+          [
+            "code_graph_file_card",
+            "The legacy code graph: files, units, functions, match state, one-hop edges",
+            "Deprecated store, live tool"
+          ],
+          [
+            "code_graph_search",
+            "Legacy graph search chunks",
+            "Deprecated store, live tool"
+          ],
+          [
+            "knowledge_graph_search",
+            "Legacy graph learning projections",
+            "Deprecated store, live tool"
+          ],
+          [
+            "graph_related_functions",
+            "Callers, callees, opseq analogs from the legacy graph",
+            "Deprecated store, live tool"
+          ],
+          [
+            "past_prs_search",
+            "The past-PRs archive",
+            "Live"
+          ],
+          [
+            "ledger_search",
+            "The V1 ledger, retired to games/melee/knowledge/deprecated/ledger-v1/ (frozen 2026-08-31)",
+            "Legacy exception; slated for removal by the 'Legacy graph and ledger exit' item"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ws-gate-h": {
+      "id": "b-ws-gate-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ship Gate"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-gate-p": {
+      "id": "b-ws-gate-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Standards are enforced, not consulted, at the gate. The deterministic layer is the review_lint diff scan: every finding cites the standard it violates, the scan fails closed when the scanner cannot run, and the QA verdict is combined into the handoff verdict. The worker-side check and the regression-check gate both go through the same scanner. Code: "
+        },
+        {
+          "insert": "scan-diff.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/qa/scan-diff.ts",
+              "label": "scan-diff.ts"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "qa-gate.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/jobs/qa-gate.ts",
+              "label": "qa-gate.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-seq": {
+      "id": "b-ws-seq",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/worker-knowledge-loop.sequence.json",
+        "title": "Worker boot, ship gate, and the feedback path"
+      },
+      "children": []
+    },
+    "b-ws-fb-h": {
+      "id": "b-ws-fb-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Feedback"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-fb-p": {
+      "id": "b-ws-fb-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The worker leaves no knowledge behind by itself. What it did becomes knowledge in three steps after the run closes."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-fb-po": {
+      "id": "b-ws-fb-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The runner closes the worker state; with --worker-summary on, a worker_summary job is enqueued for it (default off; a catch-up pass enqueues any closed state that lacks one)"
+          },
+          {
+            "text": "The summarizer turns the transcript and checkpoint digest into a worker_run, its submissions, and a run_narrative, then enqueues a run_closed index task"
+          },
+          {
+            "text": "The librarian consumes the task and decides, per touched target and entity, whether any fact changes; the apply layer writes"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-ws-rel-h": {
+      "id": "b-ws-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-w": {
+      "id": "b-ws-rel-w",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/45-agents/10-worker",
+              "label": "Worker"
+            }
+          }
+        },
+        {
+          "insert": ": the agent page: context inputs, tools, when it runs."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-s": {
+      "id": "b-ws-rel-s",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Standards",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/70-standards",
+              "label": "Standards"
+            }
+          }
+        },
+        {
+          "insert": ": what the gate enforces."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-r": {
+      "id": "b-ws-rel-r",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run Closed",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/20-run/10-run-closed",
+              "label": "Run Closed"
+            }
+          }
+        },
+        {
+          "insert": ": the pathway the feedback takes."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-librarian-fields": {
+      "id": "b-ws-boot-librarian-fields",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "renamed_from",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and the drift report are librarian-context fields, carried by the "
+        },
+        {
+          "insert": "pr_imported",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " contexts, not worker-card fields: the worker sees a rename only as the target it was handed, and drift only through the facts the librarian re-cited — see "
+        },
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
 }

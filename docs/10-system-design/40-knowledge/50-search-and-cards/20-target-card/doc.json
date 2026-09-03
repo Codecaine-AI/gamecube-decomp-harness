@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-e4d5a5d3f3d0061dd7c694325d449edf",
+  "title": "Target Card",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-tc-intro",
+        "b-tc-shape-h",
+        "b-tc-shape",
+        "b-tc-budget-h",
+        "b-tc-budgets",
+        "b-tc-naming",
+        "b-tc-gates-h",
+        "b-tc-gates-p",
+        "b-tc-gates-po",
+        "b-tc-readers-h",
+        "b-tc-readers",
+        "b-tc-rel-h",
+        "b-tc-rel-ws",
+        "b-tc-rel-kr"
+      ]
+    },
+    "b-tc-intro": {
+      "id": "b-tc-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The target card is the knowledge a worker gets at boot: the target's ledger, its live facts by type, and its links, built from V2 records by "
+        },
+        {
+          "insert": "card.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/card.ts",
+              "label": "card.ts"
+            }
+          }
+        },
+        {
+          "insert": " and appended to the worker prompt as a "
+        },
+        {
+          "insert": "<target_knowledge_card_v2>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " block. It is read-only, built per boot, and never stored."
+        }
+      ],
+      "children": []
+    },
+    "b-tc-shape-h": {
+      "id": "b-tc-shape-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Shape"
+        }
+      ],
+      "children": []
+    },
+    "b-tc-shape": {
+      "id": "b-tc-shape",
+      "type": "state-shape",
+      "props": {
+        "name": "V2TargetCard",
+        "fields": [
+          {
+            "name": "stable_key",
+            "type": "string",
+            "required": true,
+            "description": "unit:symbol, or the bare unit for a data target"
+          },
+          {
+            "name": "target",
+            "type": "object",
+            "required": true,
+            "description": "kind, unit, symbol, source_path, identity_status",
+            "fields": [
+              {
+                "name": "kind",
+                "type": "function | data"
+              },
+              {
+                "name": "unit",
+                "type": "string"
+              },
+              {
+                "name": "symbol",
+                "type": "string"
+              },
+              {
+                "name": "source_path",
+                "type": "string"
+              },
+              {
+                "name": "identity_status",
+                "type": "current | moved | unresolved | retired"
+              }
+            ]
+          },
+          {
+            "name": "context_budget",
+            "type": "full | compact | minimal",
+            "required": true,
+            "description": "The worker prompt budget the card was built for"
+          },
+          {
+            "name": "ledger",
+            "type": "object",
+            "required": true,
+            "description": "regression_count, runs collapsed to final_outcome, integration, submission_count, best_score, and the newest ledger entries",
+            "fields": [
+              {
+                "name": "regression_count",
+                "type": "integer",
+                "required": false
+              },
+              {
+                "name": "runs",
+                "type": "RunSummary[]"
+              },
+              {
+                "name": "entries",
+                "type": "LedgerEntry[]",
+                "description": "event, submission, or pull_request entries, newest first"
+              }
+            ]
+          },
+          {
+            "name": "status",
+            "type": "object",
+            "required": false,
+            "description": "match_pct, linked, size from target_status"
+          },
+          {
+            "name": "facts",
+            "type": "object",
+            "required": true,
+            "description": "Keyed by fact type; inferred_name values render as guess: <value> (confidence <n>)"
+          },
+          {
+            "name": "links",
+            "type": "Link[]",
+            "required": true,
+            "description": "role, why, the other subject, and up to linkedFacts facts on that subject"
+          }
+        ],
+        "description": "The card as serialized into the worker prompt, in field order.",
+        "source": {
+          "path": "apps/server/src/core/knowledge-v2/card.ts",
+          "symbol": "V2TargetCard"
+        }
+      },
+      "children": []
+    },
+    "b-tc-budget-h": {
+      "id": "b-tc-budget-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Budgets"
+        }
+      ],
+      "children": []
+    },
+    "b-tc-budgets": {
+      "id": "b-tc-budgets",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Budget",
+          "Ledger entries",
+          "Links",
+          "Facts per link",
+          "When"
+        ],
+        "rows": [
+          [
+            "full",
+            "20",
+            "8",
+            "3",
+            "The normal worker context budget"
+          ],
+          [
+            "compact",
+            "8",
+            "4",
+            "1",
+            "The retry after a context-window rejection"
+          ],
+          [
+            "minimal",
+            "3",
+            "2",
+            "0",
+            "The retry after repeated context-window rejections"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-tc-naming": {
+      "id": "b-tc-naming",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The naming note on every card reads: the target.symbol column is the only name a worker may write into source; inferred_name facts are guesses, not canonical names."
+        }
+      ],
+      "children": []
+    },
+    "b-tc-gates-h": {
+      "id": "b-tc-gates-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Gates"
+        }
+      ],
+      "children": []
+    },
+    "b-tc-gates-p": {
+      "id": "b-tc-gates-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "There is no feature flag. The card is present when the data is present, and absent otherwise."
+        }
+      ],
+      "children": []
+    },
+    "b-tc-gates-po": {
+      "id": "b-tc-gates-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The packet target has a unit; otherwise no card"
+          },
+          {
+            "text": "knowledge.sqlite exists for the game; otherwise no card"
+          },
+          {
+            "text": "A target row with identity_status current matches the stable key, and its unit row exists"
+          },
+          {
+            "text": "The target has at least one ledger entry or one fact; an empty record yields no card"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-tc-readers-h": {
+      "id": "b-tc-readers-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Who Reads It"
+        }
+      ],
+      "children": []
+    },
+    "b-tc-readers": {
+      "id": "b-tc-readers",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Reader",
+          "How"
+        ],
+        "rows": [
+          [
+            "Worker prompt",
+            "workerTargetKnowledgeCardV2Xml appends the card after the packet context and the legacy graph file card, registered as the kernel input target-knowledge-card-v2 only when non-empty"
+          ],
+          [
+            "Worker cycle",
+            "buildWorkerKnowledgeContext embeds the raw object as knowledge_card_v2 at the full budget"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-tc-rel-h": {
+      "id": "b-tc-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-tc-rel-ws": {
+      "id": "b-tc-rel-ws",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Knowledge Surfaces",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/60-worker-surfaces",
+              "label": "Worker Knowledge Surfaces"
+            }
+          }
+        },
+        {
+          "insert": ": where the card sits in the worker's boot context and which tools it pairs with."
+        }
+      ],
+      "children": []
+    },
+    "b-tc-rel-kr": {
+      "id": "b-tc-rel-kr",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Record",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system/20-knowledge-record",
+              "label": "Knowledge Record"
+            }
+          }
+        },
+        {
+          "insert": ": the view the facts and links come from."
+        }
+      ],
+      "children": []
+    }
+  }
+}

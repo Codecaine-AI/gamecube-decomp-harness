@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "id": "worker-knowledge-loop",
+  "title": "Worker boot, ship gate, and the feedback path",
+  "participants": [
+    {
+      "id": "runner",
+      "name": "runner",
+      "kind": "participant"
+    },
+    {
+      "id": "worker",
+      "name": "worker",
+      "kind": "actor"
+    },
+    {
+      "id": "gate",
+      "name": "QA gate",
+      "kind": "participant"
+    },
+    {
+      "id": "summarizer",
+      "name": "summarizer job",
+      "kind": "participant"
+    },
+    {
+      "id": "librarian",
+      "name": "librarian",
+      "kind": "participant"
+    },
+    {
+      "id": "store",
+      "name": "knowledge.sqlite",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "runner",
+      "to": "store",
+      "line": "sync",
+      "text": "load target card (ledger, facts, links)"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "runner",
+      "to": "worker",
+      "line": "sync",
+      "text": "packet + graph card + target card + standards"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "worker",
+      "to": "gate",
+      "line": "sync",
+      "text": "candidate diff"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "no findings",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m4",
+              "from": "gate",
+              "to": "runner",
+              "line": "return",
+              "text": "verdict pass; handoff continues"
+            }
+          ]
+        },
+        {
+          "guard": "findings",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m5",
+              "from": "gate",
+              "to": "worker",
+              "line": "return",
+              "text": "each finding cites its standard_id"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "m6",
+      "from": "runner",
+      "to": "summarizer",
+      "line": "async",
+      "text": "worker state closed (with --worker-summary)"
+    },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "summarizer",
+      "to": "store",
+      "line": "sync",
+      "text": "worker_run, submission, run_narrative; enqueue run_closed"
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "librarian",
+      "to": "store",
+      "line": "sync",
+      "text": "claim run_closed; apply facts, evidence, links"
+    },
+    {
+      "kind": "note",
+      "id": "n1",
+      "anchor": "worker",
+      "side": "over",
+      "text": "The worker never writes knowledge."
+    }
+  ],
+  "style": {}
+}

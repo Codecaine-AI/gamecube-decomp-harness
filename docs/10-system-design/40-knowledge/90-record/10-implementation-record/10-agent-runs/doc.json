@@ -1,260 +1,276 @@
 {
-	"id": "10-system-design-40-knowledge-60-implementation-record-10-agent-runs",
-	"title": "Librarian Agent Runs",
-	"schemaVersion": 1,
-	"root": "b-10-agent-runs-root-23",
-	"blocks": {
-		"b-10-agent-runs-root-23": {
-			"id": "b-10-agent-runs-root-23",
-			"type": "paragraph",
-			"props": {},
-			"children": [
-				"b-10-agent-runs-agent-runs-define-the-li-1",
-				"b-10-agent-runs-the-librarian-s-kernel-c-2",
-				"b-10-agent-runs-there-is-no-separate-obs-3",
-				"b-10-agent-runs-ts-4",
-				"b-10-agent-runs-parallelization-design-6",
-				"b-10-agent-runs-structured-table-block-8",
-				"b-10-agent-runs-round-estimates-9",
-				"b-10-agent-runs-structured-table-block-10",
-				"b-10-agent-runs-run-results-2026-08-11-19",
-				"b-10-agent-runs-structured-table-block-21",
-				"b-10-agent-runs-the-corroboration-job-ga-22"
-			]
-		},
-		"b-10-agent-runs-agent-runs-define-the-li-1": {
-			"id": "b-10-agent-runs-agent-runs-define-the-li-1",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "This execution record captures the librarian configuration, the completed fan-out, and the measured backfill results. Pre-run estimates remain visible beside actuals so later operators can calibrate similar runs."
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-the-librarian-s-kernel-c-2": {
-			"id": "b-10-agent-runs-the-librarian-s-kernel-c-2",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Librarian configuration"
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-there-is-no-separate-obs-3": {
-			"id": "b-10-agent-runs-there-is-no-separate-obs-3",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "The Kernel Agent Viewer (`GET /api/kernel/agents`) is the review surface for the librarian’s model, tools, and hydrated prompts. The catalog exposes one librarian with condense, curation, and PR-indexing doors; deterministic extraction and graph construction remain code."
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-ts-4": {
-			"id": "b-10-agent-runs-ts-4",
-			"type": "state-shape",
-			"props": {
-				"name": "LibrarianKernelConfig",
-				"description": "As-built kernel catalog contract.",
-				"fields": [
-					{
-						"name": "name",
-						"type": "\"librarian\""
-					},
-					{
-						"name": "model",
-						"type": "string",
-						"description": "Judgment-capable configured model; CLI overrides must be intentional."
-					},
-					{
-						"name": "thinking",
-						"type": "string",
-						"description": "Medium for intake; higher reasoning may be selected for corroboration."
-					},
-					{
-						"name": "doors",
-						"type": "array",
-						"fields": [
-							{
-								"name": "kind",
-								"type": "\"condense\" | \"curation\" | \"pr_indexing\""
-							}
-						]
-					},
-					{
-						"name": "tools",
-						"type": "array",
-						"description": "Includes code graph, past PRs, SmashWiki, ledger search, and ledger write surfaces."
-					},
-					{
-						"name": "runInBackground",
-						"type": "boolean"
-					}
-				],
-				"example": "{\n  \"name\": \"librarian\",\n  \"thinking\": \"medium\",\n  \"doors\": [\n    {\n      \"kind\": \"condense\"\n    },\n    {\n      \"kind\": \"curation\"\n    },\n    {\n      \"kind\": \"pr_indexing\"\n    }\n  ],\n  \"runInBackground\": true\n}"
-			},
-			"children": []
-		},
-		"b-10-agent-runs-parallelization-design-6": {
-			"id": "b-10-agent-runs-parallelization-design-6",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Execution contract"
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-structured-table-block-8": {
-			"id": "b-10-agent-runs-structured-table-block-8",
-			"type": "structured-table",
-			"props": {
-				"title": "Fan-out and safety",
-				"columns": [
-					"Concern",
-					"As-built behavior"
-				],
-				"rows": [
-					[
-						"Batching",
-						"PR, worker-target, and Discord ranges are independent manifest items."
-					],
-					[
-						"Writes",
-						"Workers return proposals; controlled apply waves persist ledger changes."
-					],
-					[
-						"Corroboration",
-						"A separate resumable pass deduplicates and judges merged proposals."
-					],
-					[
-						"Recovery",
-						"Content-keyed manifests skip completed batches and retry transient failures."
-					],
-					[
-						"Concurrency",
-						"The run ramped from 16 to 32 to 64 jobs and settled at 64."
-					]
-				]
-			},
-			"children": []
-		},
-		"b-10-agent-runs-round-estimates-9": {
-			"id": "b-10-agent-runs-round-estimates-9",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Plan versus actual"
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-structured-table-block-10": {
-			"id": "b-10-agent-runs-structured-table-block-10",
-			"type": "structured-table",
-			"props": {
-				"title": "Backfill execution",
-				"columns": [
-					"Source",
-					"Pre-run estimate",
-					"Executed batches",
-					"Outcome"
-				],
-				"rows": [
-					[
-						"Past PRs",
-						"600–1,400 calls",
-						"1,168",
-						"Complete"
-					],
-					[
-						"Worker history",
-						"800–1,200 calls",
-						"836",
-						"Complete; 3,460 checkpoint-bearing workers across 836 targets"
-					],
-					[
-						"Discord",
-						"Range-dependent",
-						"1",
-						"Available synced-month range complete"
-					],
-					[
-						"Total",
-						"2,400–4,900 calls and 8–17 hours including uncertain ranges",
-						"2,005 planned batches",
-						"Complete in under two hours, excluding the separate corroboration manifest"
-					]
-				]
-			},
-			"children": []
-		},
-		"b-10-agent-runs-run-results-2026-08-11-19": {
-			"id": "b-10-agent-runs-run-results-2026-08-11-19",
-			"type": "heading",
-			"props": {
-				"level": 2
-			},
-			"text": [
-				{
-					"insert": "Recorded output snapshot"
-				}
-			],
-			"children": []
-		},
-		"b-10-agent-runs-structured-table-block-21": {
-			"id": "b-10-agent-runs-structured-table-block-21",
-			"type": "structured-table",
-			"props": {
-				"title": "Ledger snapshot (2026-08-11)",
-				"columns": [
-					"Measure",
-					"Count"
-				],
-				"rows": [
-					[
-						"Latest records",
-						"8,688"
-					],
-					[
-						"AI-inferred / human-extracted",
-						"8,279 / 409"
-					],
-					[
-						"Corroborated / proposed / refuted",
-						"1,327 / 6,625 / 736"
-					],
-					[
-						"Corroboration manifest at write time",
-						"66 / 187"
-					]
-				]
-			},
-			"children": []
-		},
-		"b-10-agent-runs-the-corroboration-job-ga-22": {
-			"id": "b-10-agent-runs-the-corroboration-job-ga-22",
-			"type": "paragraph",
-			"props": {},
-			"text": [
-				{
-					"insert": "All transient websocket failures recovered through manifest retry. A session interruption during corroboration led to per-wave manifest and apply crash safety; the snapshot does not imply that an unfinished historical manifest is still active."
-				}
-			],
-			"children": []
-		}
-	}
+  "id": "10-system-design-40-knowledge-60-implementation-record-10-agent-runs",
+  "title": "Librarian Agent Runs",
+  "schemaVersion": 1,
+  "root": "b-10-agent-runs-root-23",
+  "blocks": {
+    "b-10-agent-runs-root-23": {
+      "id": "b-10-agent-runs-root-23",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-10-agent-runs-agent-runs-define-the-li-1",
+        "b-10-agent-runs-historical",
+        "b-10-agent-runs-the-librarian-s-kernel-c-2",
+        "b-10-agent-runs-there-is-no-separate-obs-3",
+        "b-10-agent-runs-ts-4",
+        "b-10-agent-runs-parallelization-design-6",
+        "b-10-agent-runs-structured-table-block-8",
+        "b-10-agent-runs-round-estimates-9",
+        "b-10-agent-runs-structured-table-block-10",
+        "b-10-agent-runs-run-results-2026-08-11-19",
+        "b-10-agent-runs-structured-table-block-21",
+        "b-10-agent-runs-the-corroboration-job-ga-22"
+      ]
+    },
+    "b-10-agent-runs-agent-runs-define-the-li-1": {
+      "id": "b-10-agent-runs-agent-runs-define-the-li-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This execution record captures the librarian configuration, the completed fan-out, and the measured backfill results. Pre-run estimates remain visible beside actuals so later operators can calibrate similar runs."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-the-librarian-s-kernel-c-2": {
+      "id": "b-10-agent-runs-the-librarian-s-kernel-c-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Librarian configuration"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-there-is-no-separate-obs-3": {
+      "id": "b-10-agent-runs-there-is-no-separate-obs-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The Kernel Agent Viewer (`GET /api/kernel/agents`) is the review surface for the librarian’s model, tools, and hydrated prompts. The catalog exposes one librarian with condense, curation, and PR-indexing doors; deterministic extraction and graph construction remain code."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-ts-4": {
+      "id": "b-10-agent-runs-ts-4",
+      "type": "state-shape",
+      "props": {
+        "name": "LibrarianKernelConfig",
+        "description": "As-built kernel catalog contract.",
+        "fields": [
+          {
+            "name": "name",
+            "type": "\"librarian\""
+          },
+          {
+            "name": "model",
+            "type": "string",
+            "description": "Judgment-capable configured model; CLI overrides must be intentional."
+          },
+          {
+            "name": "thinking",
+            "type": "string",
+            "description": "Medium for intake; higher reasoning may be selected for corroboration."
+          },
+          {
+            "name": "doors",
+            "type": "array",
+            "fields": [
+              {
+                "name": "kind",
+                "type": "\"condense\" | \"curation\" | \"pr_indexing\""
+              }
+            ]
+          },
+          {
+            "name": "tools",
+            "type": "array",
+            "description": "Includes code graph, past PRs, SmashWiki, ledger search, and ledger write surfaces."
+          },
+          {
+            "name": "runInBackground",
+            "type": "boolean"
+          }
+        ],
+        "example": "{\n  \"name\": \"librarian\",\n  \"thinking\": \"medium\",\n  \"doors\": [\n    {\n      \"kind\": \"condense\"\n    },\n    {\n      \"kind\": \"curation\"\n    },\n    {\n      \"kind\": \"pr_indexing\"\n    }\n  ],\n  \"runInBackground\": true\n}"
+      },
+      "children": []
+    },
+    "b-10-agent-runs-parallelization-design-6": {
+      "id": "b-10-agent-runs-parallelization-design-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Execution contract"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-8": {
+      "id": "b-10-agent-runs-structured-table-block-8",
+      "type": "structured-table",
+      "props": {
+        "title": "Fan-out and safety",
+        "columns": [
+          "Concern",
+          "As-built behavior"
+        ],
+        "rows": [
+          [
+            "Batching",
+            "PR, worker-target, and Discord ranges are independent manifest items."
+          ],
+          [
+            "Writes",
+            "Workers return proposals; controlled apply waves persist ledger changes."
+          ],
+          [
+            "Corroboration",
+            "A separate resumable pass deduplicates and judges merged proposals."
+          ],
+          [
+            "Recovery",
+            "Content-keyed manifests skip completed batches and retry transient failures."
+          ],
+          [
+            "Concurrency",
+            "The run ramped from 16 to 32 to 64 jobs and settled at 64."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-10-agent-runs-round-estimates-9": {
+      "id": "b-10-agent-runs-round-estimates-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Plan versus actual"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-10": {
+      "id": "b-10-agent-runs-structured-table-block-10",
+      "type": "structured-table",
+      "props": {
+        "title": "Backfill execution",
+        "columns": [
+          "Source",
+          "Pre-run estimate",
+          "Executed batches",
+          "Outcome"
+        ],
+        "rows": [
+          [
+            "Past PRs",
+            "600–1,400 calls",
+            "1,168",
+            "Complete"
+          ],
+          [
+            "Worker history",
+            "800–1,200 calls",
+            "836",
+            "Complete; 3,460 checkpoint-bearing workers across 836 targets"
+          ],
+          [
+            "Discord",
+            "Range-dependent",
+            "1",
+            "Available synced-month range complete"
+          ],
+          [
+            "Total",
+            "2,400–4,900 calls and 8–17 hours including uncertain ranges",
+            "2,005 planned batches",
+            "Complete in under two hours, excluding the separate corroboration manifest"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-10-agent-runs-run-results-2026-08-11-19": {
+      "id": "b-10-agent-runs-run-results-2026-08-11-19",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recorded output snapshot"
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-structured-table-block-21": {
+      "id": "b-10-agent-runs-structured-table-block-21",
+      "type": "structured-table",
+      "props": {
+        "title": "Ledger snapshot (2026-08-11)",
+        "columns": [
+          "Measure",
+          "Count"
+        ],
+        "rows": [
+          [
+            "Latest records",
+            "8,688"
+          ],
+          [
+            "AI-inferred / human-extracted",
+            "8,279 / 409"
+          ],
+          [
+            "Corroborated / proposed / refuted",
+            "1,327 / 6,625 / 736"
+          ],
+          [
+            "Corroboration manifest at write time",
+            "66 / 187"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-10-agent-runs-the-corroboration-job-ga-22": {
+      "id": "b-10-agent-runs-the-corroboration-job-ga-22",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "All transient websocket failures recovered through manifest retry. A session interruption during corroboration led to per-wave manifest and apply crash safety; the snapshot does not imply that an unfinished historical manifest is still active."
+        }
+      ],
+      "children": []
+    },
+    "b-10-agent-runs-historical": {
+      "id": "b-10-agent-runs-historical",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Historical, 2026-08",
+        "tone": "warning"
+      },
+      "text": [
+        {
+          "insert": "This page records the pre-V2 librarian and backfill as they ran in August 2026. The agent, the doors, the ledger it wrote, and the CLI it used are retired. Kept for the run evidence and the source dispositions."
+        }
+      ],
+      "children": []
+    }
+  }
 }

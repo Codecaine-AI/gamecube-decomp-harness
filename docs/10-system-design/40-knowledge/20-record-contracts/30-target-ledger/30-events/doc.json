@@ -48,16 +48,7 @@
       "props": {},
       "text": [
         {
-          "insert": "EVENT — A target climbs through scored submissions; once it hits 100 % it is good. The stored "
-        },
-        {
-          "insert": "event",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " table exists for the exceptions and nothing else: one row per event, keyed to the target by "
+          "insert": "EVENT — A target climbs through scored submissions; once it hits 100 % it is good. The stored event table exists for the exceptions and nothing else: one row per event, keyed to the target by "
         },
         {
           "insert": "target_id",
@@ -75,7 +66,7 @@
           }
         },
         {
-          "insert": ". Two kinds: "
+          "insert": ". Two kinds are defined — "
         },
         {
           "insert": "regression",
@@ -84,7 +75,7 @@
           }
         },
         {
-          "insert": " — a previously good state was broken by something outside the worker's control — and "
+          "insert": ", a previously good state broken by something outside the worker's control, and "
         },
         {
           "insert": "note",
@@ -93,7 +84,52 @@
           }
         },
         {
-          "insert": " — a freeform human annotation. Good news is never an event: it is visible in "
+          "insert": ", a freeform human annotation — but only "
+        },
+        {
+          "insert": "note",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows are written today: the regression pathway was retired on 2026-09-02. A run whose diff failed to integrate carries that on its own "
+        },
+        {
+          "insert": "worker_run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row ("
+        },
+        {
+          "insert": "integration",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "conflicted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with the conflict paths), where the next worker sees it on the card; reconciliation records nothing here. Good news is never an event: it is visible in "
         },
         {
           "insert": "target_status",
@@ -111,16 +147,7 @@
           }
         },
         {
-          "insert": " rows name the worker run, epoch, PR, or commit involved. Run telemetry (queue, retry, claim, heartbeat, epoch open and close) stays in run state; it is not part of the knowledge system and never becomes a row here. Regressions are written only by deterministic machinery — the run-loop at integration failure, checkout reconciliation on an upstream break — and the "
-        },
-        {
-          "insert": "summary",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " is templated from the event's refs, never model-written."
+          "insert": " rows name the worker run, epoch, PR, or commit involved. Run telemetry (queue, retry, claim, heartbeat, epoch open and close) stays in run state; it is not part of the knowledge system and never becomes a row here."
         }
       ],
       "children": []
@@ -164,7 +191,7 @@
           {
             "name": "kind",
             "type": "regression | note",
-            "description": "What happened; see the enum table below"
+            "description": "What happened; see the enum table below — only `note` is written today"
           },
           {
             "name": "cause",
@@ -201,25 +228,16 @@
           }
         },
         {
-          "insert": ": the "
+          "insert": ": defined for a break outside the worker's control, its summary templated from the event's refs and addressed to the next worker. Retired 2026-09-02: nothing writes it; the example row above shows what such a row looked like, and a conflicted integration now lives on "
         },
         {
-          "insert": "summary",
+          "insert": "worker_run.integration_detail",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " is templated from the event's refs and addressed to the next worker — the code worked, something external broke it, fix that rather than re-deriving the match. The worker run and epoch it points at hang off "
-        },
-        {
-          "insert": "event_ref",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " rows."
+          "insert": "."
         }
       ],
       "children": []
@@ -278,7 +296,7 @@
           }
         },
         {
-          "insert": ": the epoch-9 boundary merge undid the run; an "
+          "insert": ": in the illustrative row, the epoch-9 boundary merge undid the run; an "
         },
         {
           "insert": "upstream_change",
@@ -287,7 +305,7 @@
           }
         },
         {
-          "insert": " regression carries a "
+          "insert": " regression carried a "
         },
         {
           "insert": "commit",
@@ -397,7 +415,7 @@
           }
         },
         {
-          "insert": " names the run whose result the regression undid; the worker follows it into the "
+          "insert": " names the run the event is about; the worker follows it into the "
         },
         {
           "insert": "worker_run",
@@ -507,6 +525,27 @@
               },
               {
                 "insert": " records which; the target is requeued for the next epoch"
+              },
+              {
+                "insert": ". Retired 2026-09-02: no writer inserts it — a failed integration is "
+              },
+              {
+                "insert": "worker_run.integration_detail",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", and an upstream break shows in "
+              },
+              {
+                "insert": "target_status",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " and the drift gate"
               }
             ],
             [
@@ -541,7 +580,7 @@
                 "insert": " ref for an upstream break"
               }
             ],
-            "The code worked; fix what broke it and blend the run's code back into the current tree instead of re-deriving the match. Requeue mechanics stay in run state"
+            "Nothing from this table any more: the conflicted run on the card carries the conflict paths, and the worker blends that run's code back in instead of re-deriving the match"
           ],
           [
             [
@@ -620,7 +659,17 @@
               }
             ],
             "The run's diff failed to integrate: upstream moved, or another worker's merge landed first on the file",
-            "Run-loop, at integration failure",
+            [
+              {
+                "insert": "Nothing today; formerly the run-loop at integration failure — now "
+              },
+              {
+                "insert": "worker_run.integration_detail",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
             [
               {
                 "insert": "An "
@@ -646,7 +695,17 @@
               }
             ],
             "An upstream change broke a formerly matched target",
-            "Checkout reconciliation, on a new report revision",
+            [
+              {
+                "insert": "Nothing today; formerly checkout reconciliation — reconciliation records nothing in "
+              },
+              {
+                "insert": "event",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
             [
               {
                 "insert": "A "
@@ -672,16 +731,7 @@
       "props": {},
       "text": [
         {
-          "insert": "An enum, not prose: both writers are deterministic — no model sits in the failure path — so the cause is known mechanically at insert, and the templated "
-        },
-        {
-          "insert": "summary",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " restates it for the reader."
+          "insert": "An enum, not prose: both former writers were deterministic — no model sat in the failure path — so the cause was known mechanically at insert and the templated summary restated it. Neither writer inserts rows any more."
         }
       ],
       "children": []
@@ -823,7 +873,12 @@
         "rows": [
           [
             "Run-loop",
+            "Nothing",
+            "—",
             [
+              {
+                "insert": "A "
+              },
               {
                 "insert": "regression",
                 "attributes": {
@@ -831,28 +886,10 @@
                 }
               },
               {
-                "insert": " with "
+                "insert": " row (retired 2026-09-02); a conflicted integration lands on "
               },
               {
-                "insert": "cause",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " "
-              },
-              {
-                "insert": "merge_conflict",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " when integration conflicts away a previously good result, with "
-              },
-              {
-                "insert": "worker_run",
+                "insert": "worker_run.integration",
                 "attributes": {
                   "code": true
                 }
@@ -861,40 +898,24 @@
                 "insert": " and "
               },
               {
-                "insert": "epoch",
+                "insert": "integration_detail",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": " refs; the target is requeued for the next epoch"
-              }
-            ],
-            "At integration failure",
-            [
-              {
-                "insert": "worker_run",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " or "
-              },
-              {
-                "insert": "submission",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " rows; run telemetry"
+                "insert": " instead"
               }
             ]
           ],
           [
             "Checkout reconciliation",
+            "Nothing",
+            "—",
             [
+              {
+                "insert": "A "
+              },
               {
                 "insert": "regression",
                 "attributes": {
@@ -902,51 +923,9 @@
                 }
               },
               {
-                "insert": " with "
-              },
-              {
-                "insert": "cause",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " "
-              },
-              {
-                "insert": "upstream_change",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " when an upstream change breaks a formerly matched target, with a "
-              },
-              {
-                "insert": "commit",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " ref"
+                "insert": " row (retired 2026-09-02); guesses a mapping; enqueues a task"
               }
-            ],
-            [
-              {
-                "insert": "When a new report revision is diffed against "
-              },
-              {
-                "insert": "target",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " and a good state no longer stands"
-              }
-            ],
-            "Guesses a mapping"
+            ]
           ],
           [
             "Human",
@@ -1063,7 +1042,7 @@
           }
         },
         {
-          "insert": " rows, newest first, regressions highlighted. The target card shows this view FIRST. An event is one line — "
+          "insert": " rows, newest first, conflicted runs highlighted with their conflict paths (up to 10). The target card shows this view FIRST. An event is one line — "
         },
         {
           "insert": "created_at",
@@ -1099,7 +1078,7 @@
           }
         },
         {
-          "insert": " ids — and the worker follows a regression's "
+          "insert": " ids — and the worker follows an event's "
         },
         {
           "insert": "worker_run",
@@ -1126,7 +1105,7 @@
           }
         },
         {
-          "insert": " rows when it needs the scored tries. Storing an event does not make it knowledge: what the break taught becomes a live "
+          "insert": " rows when it needs the scored tries. Storing an event does not make it knowledge: what a break taught becomes a live "
         },
         {
           "insert": "fact",
@@ -1162,7 +1141,7 @@
           }
         },
         {
-          "insert": " locators into the runs and PRs the event's refs name, never the event row itself."
+          "insert": " locators into the runs and PRs, never the event row itself."
         }
       ],
       "children": []
@@ -1175,7 +1154,7 @@
       },
       "text": [
         {
-          "insert": "Example — 100 % match, then a regression at the boundary"
+          "insert": "Example — 100 % match, then a conflicted integration at the boundary"
         }
       ],
       "children": []
@@ -1201,7 +1180,7 @@
             "text": "The boundary merge conflicts on X's file",
             "steps": [
               {
-                "text": "The run-loop inserts `event` H (`target_id` X, `kind` `regression`, `cause` `merge_conflict`, `summary` \"you got 100 % in A, then the epoch-9 boundary merge conflicted on ftcommon.c and undid it; blend A's code back into the current tree\") and `event_ref` rows (H, `worker_run`, A) and (H, `epoch`, epoch-9), and requeues X for the next epoch."
+                "text": "The run-closed writer records the result on A itself: `integration` `conflicted` and `integration_detail` { `status` `resolved`, `disposition`, `conflict_paths` [\"src/melee/ft/ftcommon.c\"], `failure_reasons` [], `resolved_at` }, derived from run state's integration rows. No `event` row is inserted; the run-loop requeues X for the next epoch."
               },
               {
                 "text": "No agent attempts an in-flight fix. The conflicted hunks, the queue state, and the requeue are run state, not rows here.",
@@ -1216,13 +1195,13 @@
             "text": "The next worker reads X's derived ledger first",
             "steps": [
               {
-                "text": "Newest entry: H, `regression`, highlighted. It follows the `worker_run` ref into A's `submission` rows, takes the working code, and blends it into the current tree instead of re-deriving it.",
+                "text": "Newest entry: A, shown conflicted with its conflict paths. It follows A's `submission` rows, takes the working code, and blends it into the current tree instead of re-deriving it.",
                 "kind": "note"
               }
             ]
           },
           {
-            "text": "The librarian reads A and H; if the break revealed reusable knowledge, it overwrites the affected live `fact` rows for X in place. A confident claim about why the match was fragile is a `state_behavior` or `purpose` fact with a rationale and evidence citations. H stays as it is."
+            "text": "The librarian reads A (its `integration_detail` is in the run_closed digest) and X's `note` rows; if the break revealed reusable knowledge, it overwrites the affected live `fact` rows for X in place. A confident claim about why the match was fragile is a `state_behavior` or `purpose` fact with a rationale and evidence citations."
           }
         ]
       },
@@ -1460,7 +1439,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger",
               "label": "Target Ledger"
             }
           }
@@ -1483,7 +1462,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger/10-worker-runs",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger/10-worker-runs",
               "label": "Worker Runs"
             }
           }
@@ -1507,7 +1486,7 @@
           }
         },
         {
-          "insert": " rows a regression's "
+          "insert": " rows an event's "
         },
         {
           "insert": "worker_run",
@@ -1516,7 +1495,25 @@
           }
         },
         {
-          "insert": " ref opens."
+          "insert": " ref opens, and where integration outcomes live ("
+        },
+        {
+          "insert": "integration",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "integration_detail",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ")."
         }
       ],
       "children": []
@@ -1533,7 +1530,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects/10-targets",
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects/10-targets",
               "label": "Targets"
             }
           }
@@ -1565,7 +1562,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts",
+              "path": "10-system-design/40-knowledge/20-record-contracts",
               "label": "Record Contracts"
             }
           }

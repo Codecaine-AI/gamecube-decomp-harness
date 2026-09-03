@@ -14,6 +14,7 @@
         "b-sks-migration-callout",
         "b-sks-migration-routing",
         "b-sks-migration-routing-table",
+        "b-sks-migration-routing-outcome",
         "b-sks-migration-phases",
         "b-sks-migration-process",
         "b-sks-migration-gates",
@@ -21,6 +22,7 @@
         "b-sks-migration-initial-build",
         "b-sks-migration-initial-build-p",
         "b-sks-migration-initial-build-process",
+        "b-sks-migration-status",
         "b-sks-migration-full-reset",
         "b-sks-migration-full-reset-p",
         "b-sks-migration-related",
@@ -87,33 +89,39 @@
         "columns": [
           "Legacy material",
           "Destination",
-          "Rule"
+          "Rule",
+          "Outcome, 2026-09-02"
         ],
         "rows": [
           [
             "Purpose, field, type, state, data-flow, or game-meaning claim",
             "Semantic candidate",
-            "Import only with a current anchor and resolvable evidence"
+            "Import only with a current anchor and resolvable evidence",
+            "481 semantic candidates (166 symbol-scoped, all on targets V2 re-derived with code citations; 61 on retired symbols; 254 area, file, or general notes with no V2 subject): none imported"
           ],
           [
             "Scored submission (formerly checkpoint), score change, mismatch, failure, or negative result",
             "Attempt memory",
-            "Join to the observed worker, PR, or QA attempt; do not rewrite as a belief"
+            "Join to the observed worker, PR, or QA attempt; do not rewrite as a belief",
+            "19,975 attempt records: superseded by the run-state migration and the 4,592 summarizer narratives; not imported from the ledger"
           ],
           [
             "Boundary deferral, run state, queue state, retry, or lifecycle message",
             "Operational event or archive only",
-            "Never import into semantic or attempt search by default"
+            "Never import into semantic or attempt search by default",
+            "487 operational records: never imported"
           ],
           [
             "Duplicate, superseded, or corroboration wrapper",
             "Lineage link",
-            "Merge evidence and preserve evidence ids without copying the statement"
+            "Merge evidence and preserve evidence ids without copying the statement",
+            "1,171 lineage records: never imported"
           ],
           [
             "Unanchored, ambiguous, unsupported, or unresolvable record",
             "Quarantine",
-            "Retain for review; exclude from worker retrieval and graph projection"
+            "Retain for review; exclude from worker retrieval and graph projection",
+            "0 quarantined; the classifier separated every record"
           ]
         ]
       },
@@ -250,16 +258,7 @@
       "props": {},
       "text": [
         {
-          "insert": "The initial build stands the new stores up in four phases. Phases 0–2 are independent of each other where their inputs allow; phase 3 requires all of them. Phase 3 is queue-driven: coverage is tracked via "
-        },
-        {
-          "insert": "indexing_state",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": " until every subject's cursor covers the corpus."
+          "insert": "The initial build stands the new stores up in four phases. Phases 0 to 2 are independent of each other where their inputs allow; phase 3 requires all of them. Phase 3 is queue-driven: coverage is tracked in subject_index_state until every subject's cursor covers the corpus."
         }
       ],
       "children": []
@@ -284,7 +283,7 @@
             "text": "Phase 1 — build targets",
             "steps": [
               {
-                "text": "Report reconciliation runs over the current report revision and writes the target rows and their statuses"
+                "text": "Report reconciliation runs over the current report revision and writes the target rows and their statuses; on every later revision it also carries rename continuity — one newly unresolved and one newly inserted symbol in the same unit at the same address and kind are paired 1:1, the old row becomes identity_status moved with target.moved_to_id, and its facts, evidence, links, ledger rows, and index stamp are re-pointed in one transaction"
               }
             ]
           },
@@ -292,7 +291,7 @@
             "text": "Phase 2 — extract mechanical entities",
             "steps": [
               {
-                "text": "The entity extractor runs over the checkout at the same revision and inserts file, struct, struct-field, and parameter rows"
+                "text": "The entity extractor runs over the checkout at the same revision and inserts translation_unit, struct, and struct_field rows; parameter extraction is deferred"
               }
             ]
           },
@@ -300,7 +299,7 @@
             "text": "Phase 3 — backfill librarian",
             "steps": [
               {
-                "text": "The sync ingest pathways — Discord and wiki — run over the whole corpus"
+                "text": "The sync ingest pathways ran over the corpus: Discord through kg2-ingest; the wiki importer runs only on an explicit --lane wiki and never implicitly"
               },
               {
                 "text": "The backfill librarian makes a per-target pass over every target, against the current library and codebase state — never from scratch"
@@ -325,7 +324,7 @@
       },
       "text": [
         {
-          "insert": "When to Use a Full Semantic Reset"
+          "insert": "The Full Semantic Reset"
         }
       ],
       "children": []
@@ -336,7 +335,7 @@
       "props": {},
       "text": [
         {
-          "insert": "Choose the full semantic reset when legacy records cannot be classified reproducibly, evidence references cannot be resolved at useful rates, subject anchors cannot be mapped without guessing, or an evaluation sample shows unsafe semantic imports. The reset still preserves the raw ledger and source archives. It starts the new semantic store empty, retains observed attempt history from run state, and rebuilds semantic memory through targeted curation of high-value files and functions."
+          "insert": "The reset was chosen on 2026-09-02. The rule was: choose it when legacy records cannot be classified reproducibly, evidence references cannot be resolved at useful rates, subject anchors cannot be mapped without guessing, or an evaluation sample shows unsafe semantic imports. The classification did separate the records (19,975 attempt, 1,171 lineage, 487 operational, 481 semantic candidates, 0 quarantine), but every symbol-scoped semantic candidate had already been re-derived by the backfill with code citations, and the rest had no V2 subject, so no legacy record was imported. The raw ledger and source archives are preserved: the V1 ledger lives at games/melee/knowledge/deprecated/ledger-v1/, attempt history came from run state through the migration and the summarizer, and semantic memory was rebuilt by the backfill pass over every target."
         }
       ],
       "children": []
@@ -366,7 +365,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways",
               "label": "Librarian Pathways"
             }
           }
@@ -389,13 +388,64 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources",
+              "path": "10-system-design/40-knowledge/10-knowledge-sources",
               "label": "Knowledge Sources"
             }
           }
         },
         {
           "insert": " — the archival and operational corpora phase 0 ingests."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-migration-status": {
+      "id": "b-sks-migration-status",
+      "type": "structured-table",
+      "props": {
+        "title": "Build status, 2026-09-02",
+        "columns": [
+          "Phase",
+          "Status",
+          "Evidence in the store"
+        ],
+        "rows": [
+          [
+            "0. Ingest the sources",
+            "Executed 2026-08-30 on the restructured schema",
+            "76,452 discord_message; 12,995 wiki_section; 22,275 pull_request rows across the target/entity subject XOR; 5,378 worker_run and 14,791 submission rows migrated from the old ledger"
+          ],
+          [
+            "1. Build targets",
+            "Executed",
+            "22,237 target rows: 19,828 function, 2,409 data; 22,210 target_status rows"
+          ],
+          [
+            "2. Extract mechanical entities",
+            "Executed",
+            "6,316 entity rows: 1,075 translation_unit, 628 struct, 4,613 struct_field"
+          ],
+          [
+            "Search index",
+            "Executed",
+            "FTS per source and 110,860 embedding chunks in knowledge-index.sqlite"
+          ],
+          [
+            "3. Backfill librarian",
+            "Complete 2026-09-02 (run backfill-01-20260901)",
+            "22,237/22,237 targets and 1,070 unit entities stamped in subject_index_state; 119,611 fact, 264,410 evidence, 30,574 link, 8,297 entity rows (1,872 game_concept and 109 pattern admitted by the librarian); 22,158 targets carry facts, 79 stamped with empty or fully rejected proposals; 22,592 passes, 272 failed and retried to completion"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-migration-routing-outcome": {
+      "id": "b-sks-migration-routing-outcome",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Outcome: the read-only classification of the 22,114 V1 records ran on 2026-09-02 and the full semantic reset was chosen. Nothing was imported from the ledger. The V1 ledger (learnings.jsonl and learnings-fts.sqlite) is frozen at games/melee/knowledge/deprecated/ledger-v1/ with a README; legacy readers point there until the Legacy graph and ledger exit item retires them."
         }
       ],
       "children": []

@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-c9b445f61ebbbdce92e8d207c15636b1",
+  "title": "Knowledge Index",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ki-intro",
+        "b-ki-tables-h",
+        "b-ki-tables",
+        "b-ki-id-note",
+        "b-ki-chunk-h",
+        "b-ki-chunks",
+        "b-ki-emb-h",
+        "b-ki-emb-p",
+        "b-ki-emb-fallback",
+        "b-ki-rebuild-h",
+        "b-ki-rebuild-p",
+        "b-ki-rebuild-po",
+        "b-ki-snap-h",
+        "b-ki-snap-p",
+        "b-ki-rel-h",
+        "b-ki-rel-src",
+        "b-ki-rel-path"
+      ]
+    },
+    "b-ki-intro": {
+      "id": "b-ki-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The knowledge index is a second SQLite file beside the store, "
+        },
+        {
+          "insert": "knowledge-index.sqlite",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", holding full-text and vector indexes over the archival and attempt sources. The librarian tools search it; workers never touch it. It is derived from "
+        },
+        {
+          "insert": "knowledge.sqlite",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and the past-PRs archive, so it can be deleted and regenerated. Code: "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/index",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/index",
+              "label": "apps/server/src/core/knowledge-v2/index"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-tables-h": {
+      "id": "b-ki-tables-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Tables"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-tables": {
+      "id": "b-ki-tables",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Table",
+          "Columns",
+          "Source rows"
+        ],
+        "rows": [
+          [
+            "discord_fts",
+            "id (unindexed locator), content",
+            "discord_message; content is the message text"
+          ],
+          [
+            "wiki_fts",
+            "id, content",
+            "wiki_section, latest mirror revision per (page, section) unless --all-wiki-revisions"
+          ],
+          [
+            "pr_fts",
+            "id, title, body, discussion",
+            "pull_request plus the archived PR discussion"
+          ],
+          [
+            "attempt_fts",
+            "id, hypotheses, transcript",
+            "worker_run and submission; the transcript column is written empty until run-state artifacts join the store"
+          ],
+          [
+            "embedding_chunk",
+            "kind, locator, chunk_seq, text, text_hash, model, dim, vector; primary key (kind, locator, chunk_seq, model)",
+            "discord, wiki, and pr chunks; attempts are never embedded"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ki-id-note": {
+      "id": "b-ki-id-note",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The id column of every FTS table holds a formatted locator, not a row id, so a search hit is already citable once the librarian resolves it."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-chunk-h": {
+      "id": "b-ki-chunk-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Chunking"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-chunks": {
+      "id": "b-ki-chunks",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Source",
+          "Chunk"
+        ],
+        "rows": [
+          [
+            "discord",
+            "One chunk per message whose text is the message plus five messages either side in the same thread (or channel when there is no thread). Sequence is always 0."
+          ],
+          [
+            "wiki",
+            "Sections over 6,000 characters split on the last newline, else the last space, else a hard cut. No overlap. Sequence increments."
+          ],
+          [
+            "pr",
+            "One body chunk (title and body, or summary) at sequence 0, then discussion chunks: a comment of 200 characters or more stands alone, shorter comments accumulate until the buffer reaches 200. Each discussion chunk carries a pr://<id>/comment/<i> locator."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ki-emb-h": {
+      "id": "b-ki-emb-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Embeddings"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-emb-p": {
+      "id": "b-ki-emb-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The provider is an interface with two implementations. The OpenAI provider uses text-embedding-3-small, batches of 64, eight concurrent requests, five retries with jittered backoff capped at eight seconds, and reads its key from OPENAI_API_KEY or local.env. The fake provider returns deterministic hashed unit vectors and is what the tests use. Indexing is incremental by text hash: a chunk whose hash matches the stored row is skipped. Vector search is a brute-force cosine scan over every row for a kind and model, in process."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-emb-fallback": {
+      "id": "b-ki-emb-fallback",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When no provider is available the librarian tools fall back to keyword search and report degraded: embedding_provider_unavailable in the search coverage they return."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rebuild-h": {
+      "id": "b-ki-rebuild-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Rebuild"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rebuild-p": {
+      "id": "b-ki-rebuild-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every FTS build starts by deleting its table, so an FTS build is always a full replacement. An embedding rebuild clears the chunks for a kind before re-chunking; an incremental build leaves stale locators in place until the next rebuild."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rebuild-po": {
+      "id": "b-ki-rebuild-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "kg2-index --all rebuilds FTS for every source and embeds discord, wiki, and pr incrementally"
+          },
+          {
+            "text": "kg2-index --source <discord|wiki|pr|attempt> limits the build to one source; --fts or --embeddings limits it to one index kind"
+          },
+          {
+            "text": "kg2-index --rebuild clears embedding chunks per kind before re-chunking; FTS is replaced either way"
+          },
+          {
+            "text": "--no-embeddings, --all-wiki-revisions, --embedding-model, and --knowledge-root adjust the run; the result JSON reports per-source FTS counts and embedded, skipped, and skippedEmpty chunk counts"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-ki-snap-h": {
+      "id": "b-ki-snap-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Snapshot"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-snap-p": {
+      "id": "b-ki-snap-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "On 2026-09-01 the index held 110,860 embedding chunks and one FTS table per source over 76,452 Discord messages, 12,995 wiki sections, and 22,275 pull-request rows."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rel-h": {
+      "id": "b-ki-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rel-src": {
+      "id": "b-ki-rel-src",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/10-knowledge-sources",
+              "label": "Knowledge Sources"
+            }
+          }
+        },
+        {
+          "insert": ": the search surface each source exposes through the kv2 tools."
+        }
+      ],
+      "children": []
+    },
+    "b-ki-rel-path": {
+      "id": "b-ki-rel-path",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": ": the passes that call the search tools."
+        }
+      ],
+      "children": []
+    }
+  }
+}

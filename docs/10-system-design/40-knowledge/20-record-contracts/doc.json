@@ -416,7 +416,16 @@
                 }
               },
               {
-                "insert": " row per "
+                "insert": " row per human "
+              },
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ". The "
               },
               {
                 "insert": "regression",
@@ -425,19 +434,19 @@
                 }
               },
               {
-                "insert": " — something outside the worker's control broke a formerly good state, its "
+                "insert": " kind — something outside the worker's control broke a formerly good state — is retired 2026-09-02 and nothing writes it; a failed integration is "
               },
               {
-                "insert": "summary",
+                "insert": "worker_run.integration",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": " addressed to the next worker — or human "
+                "insert": " and "
               },
               {
-                "insert": "note",
+                "insert": "integration_detail",
                 "attributes": {
                   "code": true
                 }
@@ -842,13 +851,25 @@
           [
             [
               {
+                "insert": "run_narrative",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The narrative half of one worker run: summary, notable observations, the full narrative JSON; one row per run, produced_by live at run close or backfill by renarration",
+            "Worker Runs"
+          ],
+          [
+            [
+              {
                 "insert": "pull_request",
                 "attributes": {
                   "code": true
                 }
               }
             ],
-            "One reconstructed external PR entry per target it touched: deduced summary and outcome, no trace; immutable",
+            "One reconstructed external PR entry per target or translation-unit entity it touched: deduced summary and outcome, no trace; immutable",
             "Pull Requests"
           ],
           [
@@ -860,7 +881,7 @@
                 }
               }
             ],
-            "One exception in the target's ledger: a regression that broke a formerly good state, or a human note; append-only",
+            "One exception in the target's ledger: a human note (the regression kind is retired; nothing writes it); append-only",
             "Events"
           ],
           [
@@ -1302,24 +1323,16 @@
             "The worker run the scored try belongs to"
           ],
           [
-            [
-              {
-                "insert": "pull_request.target_id",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
-            [
-              {
-                "insert": "target",
-                "attributes": {
-                  "code": true
-                }
-              }
-            ],
-            "Exactly one; zero or more entries per target",
-            "The target the reconstructed PR entry is about"
+            "run_narrative.worker_run_id",
+            "worker_run",
+            "Exactly one; PK, at most one narrative per run (1:1)",
+            "The run the narrative explains"
+          ],
+          [
+            "pull_request.target_id / pull_request.entity_id",
+            "target / entity",
+            "Exactly one of the two is set; zero or more entries per subject",
+            "The target, or the translation-unit entity, the reconstructed PR entry is about"
           ],
           [
             [
@@ -1563,16 +1576,7 @@
                 }
               },
               {
-                "insert": " resolved), newest first, "
-              },
-              {
-                "insert": "regression",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " rows highlighted"
+                "insert": " resolved), newest first, conflicted runs highlighted with their conflict paths"
               }
             ],
             "The chronological story a worker reads; nothing stores the union, and no per-run echo rows exist"
@@ -1614,16 +1618,7 @@
                 }
               },
               {
-                "insert": " rows for the target and those entities (with confidence, evidence resolved) + the target-ledger view above, newest first with "
-              },
-              {
-                "insert": "regression",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " rows highlighted + pattern entities one hop out via "
+                "insert": " rows for the target and those entities (with confidence, evidence resolved) + the target-ledger view above, newest first with conflicted runs highlighted with their conflict paths + pattern entities one hop out via "
               },
               {
                 "insert": "link",
@@ -1833,22 +1828,22 @@
             ],
             [
               {
-                "insert": "regression",
-                "attributes": {
-                  "code": true
-                }
-              },
-              {
-                "insert": " rows by the run-loop at the boundary and by checkout reconciliation on upstream breaks; "
-              },
-              {
                 "insert": "note",
                 "attributes": {
                   "code": true
                 }
               },
               {
-                "insert": " rows by a human"
+                "insert": " rows by a human; nothing writes "
+              },
+              {
+                "insert": "regression",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows (retired 2026-09-02)"
               }
             ],
             "Not applicable; append-only, a row is never edited or removed"
@@ -1899,7 +1894,7 @@
             "text": "Boundary merge conflicts",
             "steps": [
               {
-                "text": "The run-loop inserts `event` R (`target_id` X, `kind` `regression`, `summary` \"you got 100 % on this one, then the boundary merge conflicted on ftcommon.c and undid the code; blend the run's working version back in\") and two `event_ref` rows: (R, `worker_run`, A) and (R, `epoch`, epoch 9)."
+                "text": "The run-closed writer records the result on A itself: `integration` `conflicted` and `integration_detail` { `status` `resolved`, `conflict_paths` [\"src/melee/ft/ftcommon.c\"], `failure_reasons` [], `resolved_at` }, derived from run state's integration rows; no `event` row is inserted."
               },
               {
                 "text": "The conflicted hunks and the boundary's queue, retry, and claim state stay in run state; no table here holds them.",
@@ -1919,7 +1914,7 @@
             "text": "Next worker loads X's card",
             "steps": [
               {
-                "text": "The target-ledger view merges A's `submission` rows with X's events, newest first: R (`regression`, highlighted) on top, its `summary` telling the worker exactly what happened and what to do. Then `target_status` and X's live `fact` rows grouped by `type`. The worker blends A's working code into the current tree instead of re-deriving it."
+                "text": "The target-ledger view merges A's `submission` rows with X's events, newest first: A on top, shown conflicted with its conflict paths. Then `target_status` and X's live `fact` rows grouped by `type`. The worker blends A's working code into the current tree instead of re-deriving it."
               }
             ]
           },
@@ -1953,7 +1948,7 @@
       },
       "text": [
         {
-          "insert": "{\n  \"fact\": {\n    \"id\": \"fact-x-purpose-01\",\n    \"target_id\": \"tgt-ftCo_800BFFD0\",\n    \"entity_id\": null,\n    \"type\": \"purpose\",\n    \"value\": \"clears the hitbox table on state entry\",\n    \"confidence\": 0.85,\n    \"rationale\": \"the matched submission's diff zeroes the hitbox table in the state-entry block, and the score held at 100 % only once that loop ran before the dispatch\",\n    \"updated_at\": \"2026-08-29T21:14:07Z\"\n  },\n  \"evidence\": [\n    {\n      \"id\": \"ev-000912\",\n      \"fact_id\": \"fact-x-purpose-01\",\n      \"kind\": \"attempt\",\n      \"locator\": \"attempt://run/wr-000441/submission/3\",\n      \"why\": \"the matched submission whose diff zeroes the hitbox table in the state-entry block\",\n      \"captured_at\": \"2026-08-29T21:14:07Z\"\n    }\n  ],\n  \"event\": [\n    {\n      \"id\": \"evt-000358\",\n      \"target_id\": \"tgt-ftCo_800BFFD0\",\n      \"kind\": \"regression\",\n      \"cause\": \"merge_conflict\",\n      \"summary\": \"run wr-000441 matched at 100 %; the epoch boundary merge conflicted on ftcommon.c; target requeued for the next epoch\",\n      \"created_at\": \"2026-08-29T20:41:52Z\"\n    }\n  ]\n}"
+          "insert": "{\n  \"fact\": {\n    \"id\": \"fact-x-purpose-01\",\n    \"target_id\": \"tgt-ftCo_800BFFD0\",\n    \"entity_id\": null,\n    \"type\": \"purpose\",\n    \"value\": \"clears the hitbox table on state entry\",\n    \"confidence\": 0.85,\n    \"rationale\": \"the matched submission's diff zeroes the hitbox table in the state-entry block, and the score held at 100 % only once that loop ran before the dispatch\",\n    \"updated_at\": \"2026-08-29T21:14:07Z\"\n  },\n  \"evidence\": [\n    {\n      \"id\": \"ev-000912\",\n      \"fact_id\": \"fact-x-purpose-01\",\n      \"kind\": \"attempt\",\n      \"locator\": \"attempt://run/wr-000441/submission/3\",\n      \"why\": \"the matched submission whose diff zeroes the hitbox table in the state-entry block\",\n      \"captured_at\": \"2026-08-29T21:14:07Z\"\n    }\n  ],\n  \"worker_run\": {\n    \"id\": \"wr-000441\",\n    \"target_id\": \"tgt-ftCo_800BFFD0\",\n    \"final_outcome\": \"match\",\n    \"integration\": \"conflicted\",\n    \"integration_detail\": {\n      \"status\": \"resolved\",\n      \"disposition\": null,\n      \"conflict_paths\": [\"src/melee/ft/ftcommon.c\"],\n      \"failure_reasons\": [],\n      \"resolved_at\": \"2026-08-29T20:41:52Z\"\n    }\n  }\n}"
         }
       ],
       "id": "b-sks-rc-overview-example-code",
@@ -2358,7 +2353,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/10-core-objects",
+              "path": "10-system-design/40-knowledge/20-record-contracts/10-core-objects",
               "label": "Core Objects"
             }
           }
@@ -2417,7 +2412,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/20-knowledge-system",
+              "path": "10-system-design/40-knowledge/20-record-contracts/20-knowledge-system",
               "label": "Knowledge System"
             }
           }
@@ -2471,7 +2466,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/40-evidence-confidence-and-lifecycle",
+              "path": "10-system-design/40-knowledge/30-evidence-confidence-and-lifecycle",
               "label": "Evidence, Confidence, and Lifecycle"
             }
           }
@@ -2494,7 +2489,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts/30-target-ledger",
+              "path": "10-system-design/40-knowledge/20-record-contracts/30-target-ledger",
               "label": "Target Ledger"
             }
           }
@@ -2539,22 +2534,22 @@
           "insert": " rows ("
         },
         {
-          "insert": "regression",
-          "attributes": {
-            "code": true
-          }
-        },
-        {
-          "insert": ", "
-        },
-        {
           "insert": "note",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": "), and the derived ledger view a worker reads."
+          "insert": "; the "
+        },
+        {
+          "insert": "regression",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " kind is retired), and the derived ledger view a worker reads."
         }
       ],
       "id": "b-sks-rc-overview-section-target-ledger",

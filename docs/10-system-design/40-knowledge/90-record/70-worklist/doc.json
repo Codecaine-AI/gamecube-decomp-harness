@@ -80,8 +80,8 @@
           ],
           [
             "Old-ledger classification: migrate attempts, quarantine the rest",
-            "in flight",
-            "Classification report tool + attempts migration landed (knowledge-v2/ingest); mechanical rules over produced_by/origin/evidence.type; real run pending the migration gate"
+            "done",
+            "Closed 2026-09-02 as the full semantic reset: read-only classification of the 22,114 V1 records gave 19,975 attempt (superseded by the run-state migration + 4,592 summarizer narratives), 1,171 lineage and 487 operational (never imported), 0 quarantine, 481 semantic candidates (166 map to targets V2 re-derived with code citations, 61 to retired symbols, 254 area/file notes with no V2 subject) — none imported. V1 ledger moved to games/melee/knowledge/deprecated/ledger-v1/ with a README; legacy readers repointed until the Legacy exit item retires them."
           ],
           [
             "Search indexes: FTS per source + embedding index",
@@ -311,13 +311,13 @@
           ],
           [
             "Backfill run plan: batches, coverage via subject_index_state, stop condition",
-            "in flight",
-            "Plan + post-restructure addendum + funnel ordering delivered; pilot dry-run artifact captured; execution awaits operator approval of the cut and the go"
+            "done",
+            "Executed as run backfill-01-20260901 (2026-09-01/02) over ALL 22237 targets in funnel order, no direct-material cut (operator decision: completeness order over the whole report population); medium thinking via codex-lb; concurrency ramped 32 -> 64 -> 128, then 5 shard processes x 26 lanes after the runner proved single-thread CPU-bound. Plan assumptions superseded: batches/index_task rows unused (runner claims in-process), coverage = subject_index_state stamp."
           ],
           [
             "Initial-build execution: phases 0–2 then backfill",
-            "in flight",
-            "Phases 0-2 re-executed on the restructured schema: 22237 targets, 6316 entities, 22275 PR rows across the subject XOR, 5378 runs, 76452 discord, 12995 wiki; FTS + embeddings complete (110860 chunks); phase 3 backfill awaits the review gate"
+            "done",
+            "Phase 3 complete: 22237/22237 targets stamped, 1070 unit entities stamped; store holds 119611 facts, 264410 evidence rows, 30574 links, 8297 entities (1872 game_concept, 109 pattern admitted); 22158 targets carry facts, 79 stamped with empty envelopes or rejected-only proposals. 22592 passes, 272 failed (241 relay 403/502/503 outage, 11 malformed envelopes, 5 timeouts, 2 kernel-lock collisions before the busy_timeout fix), all retried to completion by two sweeps. Fixes landed during the run (uncommitted): runner covers zero-direct-material targets; --shard i/n; --max-consecutive-failures; kernel DB busy_timeout; evidence(fact_id) index + migration 003. Prompt evidence collected for the operator: out-of-scope callee links (4531), unit-entity fact churn, inferred_name on already-named symbols, build/ and stale-revision code citations, envelope key drift."
           ]
         ]
       },
@@ -390,13 +390,13 @@
         "rows": [
           [
             "Record-linkage canvas regeneration",
-            "open",
-            "assets/canvases/record-linkage-map.canvas.json predates the current contracts: it still shows related_target and human page-edit revisioning; the doc.json pages are current, the canvas is not"
+            "done",
+            "Regenerated 2026-09-01 from storage/ddl.ts: every table through migration 003, every foreign key, the locator kinds as dashed edges. Validates against the canvas schema."
           ],
           [
             "Style and prose audit across the section",
-            "open",
-            "Round-2 second deliverable"
+            "done",
+            "2026-09-01: draft-for-review language removed from every state-shape; proposal-era pages (audit, validation) moved to the record with dated callouts; retired concepts appear only as 'former' references or in the retired-concepts page; migration phases carry executed/pending status."
           ],
           [
             "Entities doc: extractor-as-writer carve-out for the mechanical kinds",
@@ -412,6 +412,51 @@
             "Done this round: fact/evidence/link contracts, knowledge sources + search surfaces, pathways + diagrams, conflict requeue, summarizer registered, resolver removed",
             "done",
             "Details in the section docs"
+          ],
+          [
+            "Docs merged into system design",
+            "done",
+            "2026-09-01: the V2 tree moved under 10-system-design/40-knowledge; legacy knowledge pages deleted or moved to 90-record/80-deprecated; agents got 10-system-design/45-agents; 20-implementation/10-agents collapsed to the runtime page and 30-knowledge rewritten as a module map. Plan and disposition table in objectives/knowledge-system-v2/docs-merge-plan.md"
+          ],
+          [
+            "Code/contract gap: regression and drift_recheck producers",
+            "done",
+            "Redesigned and closed 2026-09-02. Regression: no pathway — worker_run.integration/integration_detail are set deterministically at run close from run-state integration results (conflicted with paths + failure reasons), shown on the V2 card; backfilled 1677 integrated / 47 conflicted. Drift: reconciliation pairs renames by unit+address (moved + moved_to_id, migration 005) and re-points rows; a deterministic flagger re-digests code citations at head and feeds renamed_from + drift into the pr_imported and run_closed contexts; the consumer re-flags after apply and releases once for retry when drift remains (definition of done). drift_recheck survives only for the manual kg2-drift-scan (one task per unit). Prompt instruction for the librarian to fix flagged drift is the operator's."
+          ],
+          [
+            "Code/contract gap: librarian disable list is a no-op",
+            "open",
+            "Both librarian runners pass toolProfile.disable for ledger_search, past_prs_search, review_lint_scan, none of which are in the librarian profile"
+          ],
+          [
+            "Code/contract gap: drizzle schema lags the DDL",
+            "open",
+            "storage/schema.ts gained integration_detail and moved_to_id on 2026-09-02; it still does not model run_narrative or the evidence_fact_id and other DDL indexes; ddl.ts is the schema of record"
+          ],
+          [
+            "Code/contract gap: parameter entities",
+            "open",
+            "entity.kind allows parameter and the docs list it as a mechanical kind, but the extractor does not write it"
+          ],
+          [
+            "Docs: worker-summarizer registry role",
+            "open",
+            "The summarizer is registered with role and toolProfile pr-reviewer (an empty profile) and grouped under running in the kernel catalog; the agent page states this. A knowledge role would be cleaner"
+          ],
+          [
+            "Docs: implementation tier future",
+            "done",
+            "Keep both tiers, decided 2026-09-02: 10-system-design and 20-implementation both stay"
+          ],
+          [
+            "Explorer summary: count of passes whose drift gate ended warned",
+            "in flight",
+            "Show on the Explorer summary strip how many librarian passes recorded drift_gate = warned (drift left unresolved after retry)"
+          ],
+          [
+            "Legacy graph and ledger exit",
+            "open",
+            "Move the worker profile's graph tools and ledger_search onto V2 surfaces, retire the learnings builder and kg-* jobs, then delete 90-record/80-deprecated"
           ]
         ]
       },
@@ -442,7 +487,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/20-knowledge-sources",
+              "path": "10-system-design/40-knowledge/10-knowledge-sources",
               "label": "Knowledge Sources"
             }
           }
@@ -465,7 +510,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/30-record-contracts",
+              "path": "10-system-design/40-knowledge/20-record-contracts",
               "label": "Record Contracts"
             }
           }
@@ -488,7 +533,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/50-librarian-pathways",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways",
               "label": "Librarian Pathways"
             }
           }
@@ -511,7 +556,7 @@
           "attributes": {
             "reference": {
               "kind": "doc",
-              "path": "40-new-features/40-knowledge-system-v2/60-migration-pruning-and-rebuild",
+              "path": "10-system-design/40-knowledge/80-migration-and-rebuild",
               "label": "Migration, Pruning, and Rebuild"
             }
           }
