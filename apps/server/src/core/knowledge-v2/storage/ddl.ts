@@ -144,7 +144,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     cause TEXT CHECK (cause IN ('merge_conflict', 'upstream_change')),
     summary TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    CHECK ((kind = 'regression') = (cause IS NOT NULL))
+    CHECK (kind != 'regression' OR cause IS NOT NULL)
   );
   CREATE INDEX event_target_id ON event(target_id);
 

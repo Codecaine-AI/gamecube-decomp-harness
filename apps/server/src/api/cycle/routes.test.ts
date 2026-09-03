@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getActiveCycle, recordSavePointAnchor, transitionCycle } from "@server/core/cycle";
@@ -349,6 +349,7 @@ describe("cycle API routes", () => {
   test("uses the same canonical cycle worktree root as the dashboard projection", async () => {
     const stateDir = tempStateDir();
     const canonicalRepoRoot = join(stateDir, "cycles", "cycle-current");
+    mkdirSync(canonicalRepoRoot, { recursive: true });
     await routeJson(stateDir, "/api/cycle/new?gameId=melee", {
       method: "POST",
       body: JSON.stringify({ baseSha: "head-sha" }),

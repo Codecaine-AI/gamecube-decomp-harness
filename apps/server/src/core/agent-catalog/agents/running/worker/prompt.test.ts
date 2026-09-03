@@ -197,10 +197,13 @@ describe("workerPrompt", () => {
     expect(renderedContext).toContain("<target_graph_file_card");
     expect(renderedContext).toContain('"top_opseq_analog"');
     expect(renderedContext).toContain("graph_related_functions");
-    expect(renderedContext).toContain('"tool": "ledger_search"');
-    expect(renderedContext).toContain('"query": "test_symbol GALE01:test"');
+    expect(renderedContext).toContain('"tool": "kv2_subject_record"');
+    expect(renderedContext).toContain(
+      '"target_stable_key": "GALE01:test:test_symbol"',
+    );
+    expect(renderedContext).toContain('"tool": "kv2_attempt_search"');
     expect(renderedContext).toContain('"query": "test_symbol_matched"');
-    expect(renderedContext.split('"tool": "ledger_search"')).toHaveLength(3);
+    expect(renderedContext).not.toContain('"tool": "ledger_search"');
     expect(renderedContext).not.toContain("opseq_similar_functions");
     expect(renderedContext).not.toContain("mismatch_db_search");
     expect(renderedContext).toContain("<canonical_example");
@@ -357,11 +360,10 @@ describe("workerPrompt", () => {
       "Based on that file understanding, look around the codebase for 100% matched functions/files",
     );
     expect(systemPrompt).toContain("Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.");
-    expect(systemPrompt).toContain("Search the communal knowledge ledger (`ledger_search`) for prior-attempt learnings on your target");
-    expect(systemPrompt).toContain("Weigh ledger learnings by status and confidence:");
-    expect(systemPrompt).toContain("Corroborated high-confidence entries are strong leads.");
-    expect(systemPrompt).toContain("Refuted entries are known dead ends; they also warn when a high-percent match sits at a local maximum needing restructuring rather than tweaks.");
-    expect(systemPrompt).toContain("Treat every ledger learning as a hypothesis ranked by confidence, weaker than local source and validation evidence.");
+    expect(systemPrompt).toContain("Use `kv2_subject_record` and `kv2_attempt_search` to inspect prior work");
+    expect(systemPrompt).toContain("Use `kv2_pr_search`, `kv2_discord_search`, and `kv2_wiki_search`");
+    expect(systemPrompt).toContain("Resolve any locator you rely on with `kv2_resolve_locator`");
+    expect(systemPrompt).not.toContain("ledger_search");
     expect(systemPrompt).toContain("Develop a few concrete hypotheses for what could be done");
     expect(systemPrompt).toContain("Test the hypotheses with targeted deeper analysis.");
     expect(systemPrompt).toContain(

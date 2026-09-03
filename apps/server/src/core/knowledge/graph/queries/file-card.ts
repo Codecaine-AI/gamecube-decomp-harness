@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { fileEntityId, functionEntityId } from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
-import { functionRelationshipEvidence, learningProfilesByEntity } from "./related-functions.js";
+import { functionRelationshipEvidence } from "./related-functions.js";
 import { graphEdges, graphEntities, graphFacts, searchChunks } from "../storage/schema.js";
 import type { FileGraphCard } from "../types.js";
 import { arrayValue, objectValue, stringValue } from "../util.js";
@@ -32,7 +32,13 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
       evidenceRef: searchChunks.evidenceRef,
     })
     .from(searchChunks)
-    .where(and(eq(searchChunks.entityId, entityId), ne(searchChunks.sourceId, "mismatch_patterns")))
+    .where(
+      and(
+        eq(searchChunks.entityId, entityId),
+        ne(searchChunks.sourceId, "mismatch_patterns"),
+        ne(searchChunks.sourceId, "knowledge_ledger"),
+      ),
+    )
     .orderBy(searchChunks.sourceId, searchChunks.title)
     .limit(16)
     .all();
@@ -61,7 +67,6 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): F
       title: stringValue(row.title),
       evidence_ref: stringValue(row.evidenceRef),
     })),
-    learnings: learningsForFile(store, entityId, functionIds),
     mismatch_patterns: mismatchPatternsForFile(store, entityId),
     tool_hits: opseqAnalogToolHitsForFile(store, functionRows),
     callers: flattenRelationships(relationships, "callers"),
@@ -82,14 +87,6 @@ function flattenRelationships(
       ...relationship,
     })),
   );
-}
-
-function learningsForFile(store: KnowledgeGraphStore, entityId: string, functionIds: string[]): Array<Record<string, unknown>> {
-  const byEntity = learningProfilesByEntity(store, [entityId, ...functionIds]);
-  return [...byEntity.entries()]
-    .flatMap(([anchorEntityId, entries]) => entries.map((entry): Record<string, unknown> => ({ ...entry, entity_id: anchorEntityId })))
-    .sort((left, right) => Number(right.confidence ?? 0) - Number(left.confidence ?? 0))
-    .slice(0, 10);
 }
 
 function opseqAnalogToolHitsForFile(store: KnowledgeGraphStore, functions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {

@@ -37,17 +37,6 @@ export interface AttemptsImportResult extends LaneCounts {
   watermark: string | null;
 }
 
-export interface LedgerClassificationReport {
-  total: number;
-  counts: {
-    semantic_candidate: number;
-    attempt: number;
-    operational: number;
-    lineage: number;
-    quarantine: number;
-  };
-}
-
 export interface ReconcileResult {
   reportRevision: string;
   unitsInserted: number;
@@ -86,6 +75,8 @@ export interface ReconcileResult {
 export interface EntityExtractResult {
   structs: number;
   fields: number;
+  parameters: number;
+  skippedParameters: number;
   skippedConstructs: number;
   inserted: number;
 }

@@ -1,6 +1,6 @@
 import type { AgentToolPromptMetadata } from "../types.js";
 
-/** Prompt metadata for read-only knowledge-v2 librarian tools. */
+/** Prompt metadata for read-only knowledge-v2 tools. */
 export const knowledgeV2ToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
   kv2_discord_search: {
     provider: "knowledge_v2",

@@ -7,6 +7,7 @@ import { openKnowledgeStore, type KnowledgeStore } from "../store.js";
 import { runKnowledgeStorageMigrations } from "./index.js";
 import { workerRunIntegrationDetailMigration } from "./004-worker-run-integration-detail.js";
 import { targetMovedToIdMigration } from "./005-target-moved-to-id.js";
+import { eventNoteCauseMigration } from "./006-event-note-cause.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -41,6 +42,7 @@ describe("knowledge-v2 storage migrations", () => {
       db.exec("DELETE FROM schema_migrations WHERE version = 3");
       db.exec("DELETE FROM schema_migrations WHERE version = 4");
       db.exec("DELETE FROM schema_migrations WHERE version = 5");
+      db.exec("DELETE FROM schema_migrations WHERE version = 6");
 
       expect(() => runKnowledgeStorageMigrations(db)).not.toThrow();
     } finally {
@@ -80,6 +82,47 @@ describe("knowledge-v2 storage migrations", () => {
       expect(foreignKeys).toContainEqual(
         expect.objectContaining({ from: "moved_to_id", table: "target", to: "id" }),
       );
+    } finally {
+      db.close();
+    }
+  });
+
+  test("allows an upstream cause on note events without losing refs", () => {
+    const db = new Database(":memory:");
+    try {
+      db.exec(`
+        PRAGMA foreign_keys = ON;
+        CREATE TABLE target (id TEXT PRIMARY KEY);
+        INSERT INTO target VALUES ('target-1');
+        CREATE TABLE event (
+          id TEXT PRIMARY KEY,
+          target_id TEXT NOT NULL REFERENCES target(id),
+          kind TEXT NOT NULL CHECK (kind IN ('regression', 'note')),
+          cause TEXT CHECK (cause IN ('merge_conflict', 'upstream_change')),
+          summary TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          CHECK ((kind = 'regression') = (cause IS NOT NULL))
+        );
+        CREATE INDEX event_target_id ON event(target_id);
+        CREATE TABLE event_ref (
+          event_id TEXT NOT NULL REFERENCES event(id),
+          ref_kind TEXT NOT NULL CHECK (ref_kind IN ('worker_run', 'epoch', 'pr', 'commit')),
+          ref_id TEXT NOT NULL,
+          PRIMARY KEY (event_id, ref_kind, ref_id)
+        );
+        INSERT INTO event VALUES ('existing', 'target-1', 'regression', 'upstream_change', 'existing summary', '2026-01-01');
+        INSERT INTO event_ref VALUES ('existing', 'commit', 'abc123');
+      `);
+
+      eventNoteCauseMigration.up(db);
+      eventNoteCauseMigration.up(db);
+
+      db.query("INSERT INTO event VALUES ('note', 'target-1', 'note', 'upstream_change', 'override', '2026-01-02')").run();
+      expect(db.query("SELECT ref_kind, ref_id FROM event_ref WHERE event_id = 'existing'").get()).toEqual({
+        ref_kind: "commit",
+        ref_id: "abc123",
+      });
+      expect(() => db.query("INSERT INTO event VALUES ('bad', 'target-1', 'regression', NULL, 'bad', '2026-01-03')").run()).toThrow();
     } finally {
       db.close();
     }

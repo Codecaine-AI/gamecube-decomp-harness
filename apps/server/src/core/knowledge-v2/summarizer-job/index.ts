@@ -262,7 +262,7 @@ export async function handleWorkerSummaryJob(
     const outputDir = resolve(deps.globals.stateDir, "knowledge_v2", "summarizer-output", new Date().toISOString().replace(/[:.]/g, "-"));
     await mkdir(outputDir, { recursive: true });
     const modelRun = (deps.runPiAgent ?? realRunPiAgent)({
-      role: "pr-reviewer",
+      role: "summarizer",
       catalogAgentId: "worker-summarizer",
       cwd: deps.globals.repoRoot,
       prompt: workerSummarizerPrompt({

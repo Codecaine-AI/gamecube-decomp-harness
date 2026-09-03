@@ -14,6 +14,7 @@ import {
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createCycle, recordSavePointAnchor } from "@server/core/cycle";
+import { openKnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 import { runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
 
 const tempDirs: string[] = [];
@@ -115,6 +116,36 @@ function completedBoundary(value: ReturnType<typeof fixture>) {
     durationMs: 1,
     worktreeDir: value.dir,
   };
+}
+
+function seedKnowledgeTarget(knowledgeRoot: string, options: { id: string; unit: string; symbol: string; sourcePath: string }): void {
+  const store = openKnowledgeStore({ knowledgeRoot });
+  try {
+    const entityId = `translation_unit:${options.sourcePath}`;
+    store.db.query(`INSERT INTO entity (id, kind, locator, identity_status)
+      VALUES (?, 'translation_unit', ?, 'active')`).run(entityId, options.sourcePath);
+    store.db.query(`INSERT INTO target
+      (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+      VALUES (?, 'function', ?, ?, ?, ?, '0x80000000', 'current', 'test-revision')`)
+      .run(options.id, options.unit, entityId, options.symbol, `${options.unit}:${options.symbol}`);
+  } finally {
+    store.close();
+  }
+}
+
+function knowledgeEvents(knowledgeRoot: string): {
+  events: Array<{ target_id: string; kind: string; cause: string | null; summary: string }>;
+  refs: Array<{ ref_kind: string; ref_id: string }>;
+} {
+  const store = openKnowledgeStore({ knowledgeRoot });
+  try {
+    return {
+      events: store.db.query("SELECT target_id, kind, cause, summary FROM event ORDER BY id").all() as Array<{ target_id: string; kind: string; cause: string | null; summary: string }>,
+      refs: store.db.query("SELECT ref_kind, ref_id FROM event_ref ORDER BY event_id, ref_kind, ref_id").all() as Array<{ ref_kind: string; ref_id: string }>,
+    };
+  } finally {
+    store.close();
+  }
 }
 
 function git(repoRoot: string, args: string[]): string {
@@ -295,6 +326,157 @@ describe("runEpochBoundary", () => {
         section_measures: { ".data": { sizeBytes: 4, fuzzyMatchPercent: 72.5, exactRows: 0, totalRows: 1 } },
       });
     } finally { value.store.db.close(); }
+  });
+
+  test("writes an upstream override to the V2 target ledger", async () => {
+    const value = fixture([]);
+    const knowledgeRoot = resolve(value.dir, "knowledge-v2-override");
+    const priorKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+    seedKnowledgeTarget(knowledgeRoot, { id: "target:unit:fn", unit: "unit", symbol: "fn", sourcePath: "src/unit.c" });
+    const cycleUuid = attachCycle(value, "cycle-upstream-override");
+    value.store.db.query(`INSERT INTO game_upstream_anchors
+      (game_id, cycle_uuid, upstream_revision, sync_id, caused_by_event_id, updated_at)
+      VALUES ('test', ?, 'base-test', 'sync-test', 'event-test', '2026-08-26T00:00:00.000Z')`).run(cycleUuid);
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false, gameId: "test" },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => completedBoundary(value) as never,
+          productionRunBoundarySync: async (boundaryInput) => {
+            boundaryInput.hooks?.appendOverrideNote({
+              epochTargetId: "epoch-target-1",
+              targetKey: "unit::fn",
+              sourcePath: "src/unit.c",
+              unit: "unit",
+              symbol: "fn",
+              priorKind: "improvement",
+              priorScore: 82,
+              upstreamLandedSha: "upstream-head",
+              verdict: "overridden_by_upstream_requeued",
+            });
+            return { changed: true, headSha: "epoch-head", plan: {} as never };
+          },
+          closeSchedulerEpochWithEvidence: (() => {}) as never,
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.config.boundarySyncEnabled = true;
+
+      expect((await runEpochBoundary(input)).ok).toBe(true);
+      const rows = knowledgeEvents(knowledgeRoot);
+      expect(rows.events).toEqual([{
+        target_id: "target:unit:fn",
+        kind: "note",
+        cause: "upstream_change",
+        summary: "unit::fn was improvement locally at score 82; upstream upstream-head overrode it. overridden_by_upstream_requeued",
+      }]);
+      expect(rows.refs).toEqual([{ ref_kind: "commit", ref_id: "upstream-head" }]);
+    } finally {
+      if (priorKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = priorKnowledgeRoot;
+      value.store.db.close();
+    }
+  });
+
+  test("writes target-scoped boundary findings with the available upstream revision", async () => {
+    const value = fixture([]);
+    const knowledgeRoot = resolve(value.dir, "knowledge-v2-findings");
+    const priorKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+    seedKnowledgeTarget(knowledgeRoot, { id: "target:unit:fn", unit: "unit", symbol: "fn", sourcePath: "src/unit.c" });
+    const cycleUuid = attachCycle(value, "cycle-boundary-finding");
+    value.store.db.query(`INSERT INTO game_upstream_anchors
+      (game_id, cycle_uuid, upstream_revision, sync_id, caused_by_event_id, updated_at)
+      VALUES ('test', ?, 'upstream-anchor', 'sync-test', 'event-test', '2026-08-26T00:00:00.000Z')`).run(cycleUuid);
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false, gameId: "test" },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async (_store, _runId, _repoRoot, _stateDir, options) => {
+            await options.deferBoundaryFindings?.([
+              { reason: "boundary_regression_deferred", unit: "unit", symbol: "fn", sourcePath: "src/unit.c", detail: "epoch regression repair: 24 bytes at 91.50%" },
+              { reason: "boundary_qa_deferred", sourcePath: "src/unit.c", detail: "file-only QA finding" },
+            ]);
+            return completedBoundary(value) as never;
+          },
+          closeSchedulerEpochWithEvidence: (() => {}) as never,
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+
+      expect((await runEpochBoundary(input)).ok).toBe(true);
+      const rows = knowledgeEvents(knowledgeRoot);
+      expect(rows.events).toEqual([
+        {
+          target_id: "target:unit:fn",
+          kind: "note",
+          cause: null,
+          summary: "boundary_qa_deferred: src/unit.c. file-only QA finding Upstream revision: upstream-anchor. Re-admit through next-epoch admission; do not repair at the boundary.",
+        },
+        {
+          target_id: "target:unit:fn",
+          kind: "note",
+          cause: null,
+          summary: "boundary_regression_deferred: unit::fn. epoch regression repair: 24 bytes at 91.50% Upstream revision: upstream-anchor. Re-admit through next-epoch admission; do not repair at the boundary.",
+        },
+      ]);
+      expect(rows.refs).toEqual([
+        { ref_kind: "commit", ref_id: "upstream-anchor" },
+        { ref_kind: "commit", ref_id: "upstream-anchor" },
+      ]);
+    } finally {
+      if (priorKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = priorKnowledgeRoot;
+      value.store.db.close();
+    }
+  });
+
+  test("writes an upstream breakage deferral to the V2 target ledger", async () => {
+    const value = fixture([]);
+    const knowledgeRoot = resolve(value.dir, "knowledge-v2-breakage");
+    const priorKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;
+    seedKnowledgeTarget(knowledgeRoot, { id: "target:unit:fn", unit: "unit", symbol: "fn", sourcePath: "src/unit.c" });
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false, gameId: "test" },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => completedBoundary(value) as never,
+          runMasterBreakageGate: async () => ({
+            status: "breakage",
+            baselineKind: "upstream_ci",
+            baselineSha: "upstream-baseline",
+            baselineReportPath: resolve(value.dir, "master.json"),
+            oursReportPath: resolve(value.dir, "report.json"),
+            changesPath: resolve(value.dir, "changes.json"),
+            breakages: [{ unitName: "unit", itemName: "fn", kind: "function", fromPercent: 100, toPercent: 96.9, bytesDelta: -3 }],
+            moved: [],
+            reasons: [],
+          }),
+          closeSchedulerEpochWithEvidence: (() => {}) as never,
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.config.breakageGateEnabled = true;
+
+      expect((await runEpochBoundary(input)).ok).toBe(true);
+      const rows = knowledgeEvents(knowledgeRoot);
+      expect(rows.events).toEqual([{
+        target_id: "target:unit:fn",
+        kind: "note",
+        cause: "upstream_change",
+        summary: "unit::fn regressed locally from score 100 to 96.9 against upstream upstream-baseline; outcome: deferred to next-epoch admission (-3 bytes).",
+      }]);
+      expect(rows.refs).toEqual([{ ref_kind: "commit", ref_id: "upstream-baseline" }]);
+    } finally {
+      if (priorKnowledgeRoot === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = priorKnowledgeRoot;
+      value.store.db.close();
+    }
   });
 
   for (const paused of [true, false]) test(`uses the run ID for the ${paused ? "paused" : "successful"} epoch integration record`, async () => {

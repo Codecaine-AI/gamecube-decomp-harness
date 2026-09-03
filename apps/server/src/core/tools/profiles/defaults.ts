@@ -10,10 +10,8 @@
  *
  * Pruned 2026-06-12 per reports/pi-agent-tool-analysis-2026-06-12.html and
  * 2026-06-30 per analysis/reports/fresh-tool-distribution-15-epoch-2026-06-30.html.
- * Low-lift/stale external sources are not advertised to workers. Scoped
- * durable facts are read through graph tools instead of a parallel lookup
- * surface; ledger_search is the deliberate exception (2026-08) so workers can
- * read the communal prior-attempt learnings directly.
+ * Low-lift/stale external sources are not advertised to workers. Knowledge V2
+ * supplies the read-only target history and source-evidence tools.
  */
 export const defaultWorkerToolProfile = [
   "code_graph_file_card",
@@ -21,7 +19,12 @@ export const defaultWorkerToolProfile = [
   "knowledge_graph_search",
   "graph_related_functions",
   "past_prs_search",
-  "ledger_search",
+  "kv2_subject_record",
+  "kv2_pr_search",
+  "kv2_discord_search",
+  "kv2_wiki_search",
+  "kv2_attempt_search",
+  "kv2_resolve_locator",
   "mwcc_debug_lookup",
   "checkdiff_run",
   "checkdiff_summary",

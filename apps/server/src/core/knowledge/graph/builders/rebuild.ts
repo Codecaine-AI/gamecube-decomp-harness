@@ -12,7 +12,6 @@ import { buildKnowledgeCuratorGraphRecords } from "./knowledge-curator.js";
 import { buildMismatchPatternGraphRecords } from "./mismatch-patterns.js";
 import { buildOpseqSimilarityGraphRecords } from "./opseq-similarity.js";
 import { buildPastPrsGraphRecords } from "./past-prs.js";
-import { buildLearningsGraphRecords } from "./learnings.js";
 import { buildSiblingGraphRecords } from "./siblings.js";
 import { readSourceRegistry, readToolRegistry } from "../registry/sources.js";
 
@@ -27,7 +26,6 @@ const STATIC_GRAPH_SOURCES = [
   "call_graph",
   "ghidra_xrefs",
   "siblings",
-  "knowledge_ledger",
 ];
 
 export interface RebuildKnowledgeGraphOptions {
@@ -134,15 +132,6 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
         indexedSources.push("siblings");
       } else {
         skippedSources.push("siblings");
-      }
-    }
-    if (selected.has("knowledge_ledger")) {
-      const records = buildLearningsGraphRecords({ repoRoot: options.repoRoot });
-      if (records) {
-        insertGraphRecords(store, records);
-        indexedSources.push("knowledge_ledger");
-      } else {
-        skippedSources.push("knowledge_ledger");
       }
     }
     for (const source of sourceDescriptors) {

@@ -27,10 +27,4 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
     type: "history",
     useWhen: "Find prior accepted or rejected PR evidence for a file, subsystem, tactic, or review risk.",
   },
-  ledger_search: {
-    provider: "knowledge_ledger",
-    type: "history",
-    useWhen:
-      "Search the communal ledger of prior-attempt learnings for your target, its unit, and opseq-analog symbols; entries carry status (corroborated/proposed/refuted) and confidence — weigh accordingly, and read refuted entries as what already failed.",
-  },
 };

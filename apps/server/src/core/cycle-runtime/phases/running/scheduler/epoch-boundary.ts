@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
-import { appendLearnings, defaultLedgerPath } from "@server/core/knowledge/ledger.js";
+import { insertEvent, type EventRefInput } from "@server/core/knowledge-v2/records/index.js";
+import { openKnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 import { forceReportRun } from "@server/core/validation/report";
 import {
   runCiParityGate as runCiParityGateDefault,
@@ -64,6 +65,20 @@ export interface BoundaryBreakageDeferral {
   gate: MasterBreakageGateResult;
 }
 type WriteBoundaryBreakageDeferrals = (input: BoundaryBreakageDeferral) => void | Promise<void>;
+
+interface BoundaryKnowledgeEvent {
+  id: string;
+  stableKey?: string;
+  sourcePath?: string;
+  symbol?: string;
+  cause?: "upstream_change";
+  summary: string;
+  refs: EventRefInput[];
+}
+
+interface BoundaryKnowledgeTarget {
+  id: string;
+}
 
 export interface EpochBoundaryDependencies {
   reconcilePendingIntegrationAttempt?: ReconcilePendingIntegrationAttempt;
@@ -143,41 +158,97 @@ function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unk
   return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
 }
 
+function boundaryKnowledgeTargets(
+  store: ReturnType<typeof openKnowledgeStore>,
+  event: BoundaryKnowledgeEvent,
+): BoundaryKnowledgeTarget[] {
+  if (event.stableKey) {
+    const target = store.db.query<BoundaryKnowledgeTarget, [string]>(
+      "SELECT id FROM target WHERE stable_key = ? AND identity_status = 'current'",
+    ).get(event.stableKey);
+    if (target) return [target];
+  }
+  if (event.sourcePath && event.symbol) {
+    const target = store.db.query<BoundaryKnowledgeTarget, [string, string]>(`SELECT t.id
+        FROM target t
+        JOIN entity e ON e.id = t.unit_entity_id
+        WHERE e.locator = ? AND t.symbol = ? AND t.identity_status = 'current'`,
+      ).get(event.sourcePath, event.symbol);
+    if (target) return [target];
+  }
+  if (!event.sourcePath) return [];
+  return store.db.query<BoundaryKnowledgeTarget, [string]>(`SELECT t.id
+      FROM target t
+      JOIN entity e ON e.id = t.unit_entity_id
+      WHERE e.locator = ? AND t.identity_status = 'current'
+      ORDER BY t.id`,
+    ).all(event.sourcePath);
+}
+
+function writeBoundaryKnowledgeEvents(gameId: string, events: readonly BoundaryKnowledgeEvent[]): void {
+  if (events.length === 0) return;
+  const store = openKnowledgeStore({ gameId });
+  try {
+    for (const event of events) {
+      const targets = boundaryKnowledgeTargets(store, event);
+      if (targets.length === 0) {
+        console.warn(`[run-loop] boundary knowledge event skipped: no current V2 target for ${event.stableKey ?? `${event.sourcePath ?? "unknown path"}::${event.symbol ?? "unknown symbol"}`}`);
+        continue;
+      }
+      for (const target of targets) {
+        const eventId = targets.length === 1
+          ? event.id
+          : `${event.id}-${createHash("sha256").update(target.id).digest("hex").slice(0, 12)}`;
+        if (store.db.query("SELECT 1 FROM event WHERE id = ?").get(eventId)) continue;
+        insertEvent(store, {
+          id: eventId,
+          targetId: target.id,
+          kind: "note",
+          cause: event.cause ?? null,
+          summary: event.summary,
+        }, event.refs);
+      }
+    }
+  } finally {
+    store.close();
+  }
+}
+
 function writeBoundaryBreakageDeferralsDefault(input: BoundaryBreakageDeferral): void {
-  const records = input.gate.breakages.map((item) => {
+  const events = input.gate.breakages.map((item) => {
     const targetKey = `${item.unitName}::${item.itemName}`;
-    const evidenceRef = input.gate.baselineSha ?? input.gate.changesPath ?? "boundary_breakage_gate";
+    const upstreamSha = input.gate.baselineSha;
     const id = createHash("sha256")
-      .update(`${input.cycleUuid ?? "no-cycle"}:${targetKey}:${evidenceRef}:boundary_breakage_deferred`)
+      .update(`${input.cycleUuid ?? "no-cycle"}:${targetKey}:${upstreamSha ?? "unknown-upstream"}:boundary_breakage_deferred`)
       .digest("hex");
     return {
       id: `boundary-${id}`,
-      origin: "human_extracted" as const,
-      subject: { scope: "symbol" as const, symbol: item.itemName },
-      statement: `boundary_breakage_deferred: ${targetKey} regressed from ${item.fromPercent}% to ${item.toPercent}% (${item.bytesDelta} bytes) at the epoch boundary. Do not repair it at the boundary; re-evaluate it during next-epoch admission.`,
-      evidence: [{ type: "boundary_breakage_deferred", ref: evidenceRef }],
-      confidence: 1,
-      produced_by: "epoch-boundary",
-      status: "corroborated" as const,
+      stableKey: targetKey.replace("::", ":"),
+      cause: "upstream_change" as const,
+      summary: `${targetKey} regressed locally from score ${item.fromPercent} to ${item.toPercent} against upstream ${upstreamSha ?? "unknown"}; outcome: deferred to next-epoch admission (${item.bytesDelta} bytes).`,
+      refs: upstreamSha ? [{ refKind: "commit" as const, refId: upstreamSha }] : [],
     };
   });
-  if (records.length > 0) appendLearnings(defaultLedgerPath(input.gameId), records);
+  writeBoundaryKnowledgeEvents(input.gameId, events);
 }
 
-function writeBoundaryFindingsDefault(gameId: string, cycleUuid: string | null, findings: BoundaryDeferredFinding[]): void {
+function writeBoundaryFindingsDefault(
+  gameId: string,
+  cycleUuid: string | null,
+  upstreamSha: string | null,
+  findings: BoundaryDeferredFinding[],
+): void {
   if (findings.length === 0) return;
-  appendLearnings(defaultLedgerPath(gameId), findings.map((finding) => {
+  writeBoundaryKnowledgeEvents(gameId, findings.map((finding) => {
     const target = [finding.unit, finding.symbol].filter(Boolean).join("::") || finding.sourcePath || "unknown target";
     const id = createHash("sha256").update(`${cycleUuid ?? "no-cycle"}:${finding.reason}:${target}:${finding.detail}`).digest("hex");
     return {
       id: `boundary-${id}`,
-      origin: "human_extracted" as const,
-      subject: { scope: finding.symbol ? "symbol" as const : "file" as const, symbol: finding.symbol, file: finding.sourcePath },
-      statement: `${finding.reason}: ${target}. ${finding.detail} Re-admit through next-epoch admission; do not repair at the boundary.`,
-      evidence: [{ type: finding.reason, ref: cycleUuid ?? gameId }],
-      confidence: 1,
-      produced_by: "epoch-boundary",
-      status: "corroborated" as const,
+      stableKey: finding.unit && finding.symbol ? `${finding.unit}:${finding.symbol}` : undefined,
+      sourcePath: finding.sourcePath,
+      symbol: finding.symbol,
+      summary: `${finding.reason}: ${target}. ${finding.detail}${upstreamSha ? ` Upstream revision: ${upstreamSha}.` : ""} Re-admit through next-epoch admission; do not repair at the boundary.`,
+      refs: upstreamSha ? [{ refKind: "commit" as const, refId: upstreamSha }] : [],
     };
   }));
 }
@@ -276,15 +347,14 @@ async function productionBoundarySync(
       ingestMergedUpstream: async () => {},
       appendOverrideNote: (item) => {
         const id = createHash("sha256").update(`${run.cycle_uuid}:${item.targetKey}:${item.upstreamLandedSha}`).digest("hex");
-        appendLearnings(defaultLedgerPath(gameId), [{
+        writeBoundaryKnowledgeEvents(gameId, [{
           id: `boundary-${id}`,
-          origin: "human_extracted",
-          subject: { scope: item.symbol ? "symbol" : "file", symbol: item.symbol ?? undefined, file: item.sourcePath },
-          statement: `${item.targetKey} was ${item.priorKind} locally at score ${item.priorScore ?? "unknown"}; upstream ${item.upstreamLandedSha} overrode it. ${item.verdict}`,
-          evidence: [{ type: "boundary_sync", ref: item.upstreamLandedSha }],
-          confidence: 1,
-          produced_by: "boundary-sync",
-          status: "corroborated",
+          stableKey: item.targetKey.replace("::", ":"),
+          sourcePath: item.sourcePath,
+          symbol: item.symbol ?? undefined,
+          cause: "upstream_change",
+          summary: `${item.targetKey} was ${item.priorKind} locally at score ${item.priorScore ?? "unknown"}; upstream ${item.upstreamLandedSha} overrode it. ${item.verdict}`,
+          refs: [{ refKind: "commit", refId: item.upstreamLandedSha }],
         }]);
       },
       requeueTarget: (item) => {
@@ -662,6 +732,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         });
       } else {
         console.error(`[run-loop] epoch ${epochOrdinal}: ${trigger}; snapshotting and rebuilding report`);
+        const boundaryGameId = globals.game?.gameId ?? globals.gameId ?? "unknown";
+        const boundaryUpstreamSha = run?.cycle_uuid
+          ? (store.db.query("SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?")
+              .get(boundaryGameId, run.cycle_uuid) as { upstream_revision: string | null } | undefined)?.upstream_revision ?? null
+          : null;
         const result = await runEpochCycle(store, runId, globals.repoRoot, globals.stateDir, {
           baseRef: globals.game?.baseRef,
           configureCommand: config.epochConfigureCommand,
@@ -676,7 +751,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           boundaryBuildFixerEnabled: config.boundaryBuildFixerEnabled,
           runBoundaryBuildFixer: params.dependencies?.runBoundaryBuildFixer,
           deferBoundaryFindings: params.dependencies?.deferBoundaryFindings
-            ?? ((findings) => writeBoundaryFindingsDefault(globals.game?.gameId ?? globals.gameId ?? "unknown", run?.cycle_uuid ?? null, findings)),
+            ?? ((findings) => writeBoundaryFindingsDefault(boundaryGameId, run?.cycle_uuid ?? null, boundaryUpstreamSha, findings)),
           qaScan: {
             orchestratorRoot: packageRoot(),
             addressNamedStaticDataAllowlist: globals.game?.validation.addressNamedStaticDataAllowlist,

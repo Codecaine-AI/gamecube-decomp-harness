@@ -136,7 +136,7 @@ describe("knowledge-v2 schema constraints", () => {
       VALUES ('valid-code', 'fact-1', 'code', 'code://rev/file.c#L1-L1', 'sha256:x', 'reason', '2026-01-01')`).run();
   });
 
-  test("event cause is present exactly for regressions", () => {
+  test("event cause is required for regressions and allowed on notes", () => {
     const store = openStore();
     seedTranslationUnit(store);
     seedFunction(store);
@@ -144,7 +144,7 @@ describe("knowledge-v2 schema constraints", () => {
       (id, target_id, kind, cause, summary, created_at) VALUES (?, 'function-1', ?, ?, 'summary', '2026-01-01')`);
 
     expect(() => insert.run("regression-no-cause", "regression", null)).toThrow();
-    expect(() => insert.run("note-with-cause", "note", "upstream_change")).toThrow();
+    insert.run("note-with-cause", "note", "upstream_change");
     insert.run("regression-valid", "regression", "merge_conflict");
     insert.run("note-valid", "note", null);
   });

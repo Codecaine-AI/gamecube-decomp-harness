@@ -57,7 +57,7 @@ describe("graph query parity", () => {
     }
   });
 
-  test("related functions and file cards expose knowledge-ledger learnings", () => {
+  test("structured graph queries ignore retired knowledge-ledger records", () => {
     const store = fixtureStore();
     try {
       insertGraphRecords(store, codeGraphRecords());
@@ -65,44 +65,27 @@ describe("graph query parity", () => {
       insertGraphRecords(store, learningRecords());
 
       const result = relatedFunctions(store, { unit: "unit/target", symbol: "TargetFn" });
-      expect(result.functions[0]?.learnings).toEqual([
-        expect.objectContaining({ learning_id: "L1", status: "corroborated", confidence: 0.94, evidence_ref: "ledger:L1" }),
-        expect.objectContaining({ learning_id: "L2", status: "refuted", confidence: 0.2, evidence_ref: "ledger:L2" }),
-      ]);
-      expect(result.functions[0]?.opseq_analogs[0]).toMatchObject({
-        symbol: "ReferenceFn",
-        learnings: [expect.objectContaining({ learning_id: "L3", status: "proposed", statement: "Analog uses a shared jump table pattern." })],
-      });
+      expect(result.functions[0]).not.toHaveProperty("learnings");
+      expect(result.functions[0]?.opseq_analogs[0]).not.toHaveProperty("learnings");
 
       const card = fileGraphCard(store, "src/target.c");
-      expect(card.learnings).toEqual([
-        expect.objectContaining({ learning_id: "L1", entity_id: functionEntityId("unit/target", "TargetFn"), status: "corroborated" }),
-        expect.objectContaining({ learning_id: "L4", entity_id: fileEntityId("src/target.c"), status: "corroborated" }),
-        expect.objectContaining({ learning_id: "L2", entity_id: functionEntityId("unit/target", "TargetFn"), status: "refuted" }),
-      ]);
+      expect(card).not.toHaveProperty("learnings");
     } finally {
       store.db.close();
     }
   });
 
-  test("search results carry chunk payload metadata when present and tolerate malformed payloads", () => {
+  test("search and file cards hide retired knowledge-ledger chunks in stale graph databases", () => {
     const store = fixtureStore();
     try {
+      insertGraphRecords(store, codeGraphRecords());
       insertGraphRecords(store, learningChunkRecords());
-      store.db.run("UPDATE search_chunks SET payload_json = 'not-json' WHERE id = 'chunk:learning:broken'");
-
-      const results = searchKnowledgeGraph(store, { query: "LedgerSymbol", limit: 10 });
-      const byId = new Map(results.map((row) => [row.result_id, row]));
-      const rich = byId.get("chunk:learning:rich");
-      expect(rich).toMatchObject({ status: "corroborated", origin: "agent_validated", source_confidence: 0.94 });
-      expect(rich?.confidence).not.toBe(rich?.source_confidence);
-      for (const id of ["chunk:learning:bare", "chunk:learning:broken"]) {
-        const row = byId.get(id);
-        expect(row).toBeDefined();
-        expect(row?.status).toBeUndefined();
-        expect(row?.origin).toBeUndefined();
-        expect(row?.source_confidence).toBeUndefined();
+      for (const hasFts of [true, false]) {
+        store.hasFts = hasFts;
+        expect(searchKnowledgeGraph(store, { query: "LedgerSymbol", limit: 10 })).toEqual([]);
+        expect(searchKnowledgeGraph(store, { query: "LedgerSymbol", sourceId: "knowledge_ledger", limit: 10 })).toEqual([]);
       }
+      expect(fileGraphCard(store, "src/target.c").resource_hits).toEqual([]);
     } finally {
       store.db.close();
     }
@@ -309,6 +292,7 @@ function learningChunkRecords(): GraphRecords {
     id: `chunk:learning:${name}`,
     sourceId: "knowledge_ledger",
     sourceVersionId,
+    entityId: fileEntityId("src/target.c"),
     title: `learning — LedgerSymbol ${name}`,
     text,
     evidenceRef: `ledger:${name}`,

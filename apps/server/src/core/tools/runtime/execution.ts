@@ -9,17 +9,11 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell";
-import {
-  fileGraphCard,
-  graphDbExists,
-  openKnowledgeGraph,
-  packageRoot,
-  readSourceRegistry,
-  resourceGraphDbPath,
-  relatedFunctions,
-  searchKnowledgeGraph,
-  sourceRoot,
-} from "@server/core/knowledge";
+import { fileGraphCard } from "@server/core/knowledge/graph/file-card.js";
+import { graphDbExists, openKnowledgeGraph, searchKnowledgeGraph } from "@server/core/knowledge/graph/db.js";
+import { relatedFunctions } from "@server/core/knowledge/graph/queries/related-functions.js";
+import { readSourceRegistry } from "@server/core/knowledge/graph/registry/sources.js";
+import { packageRoot, resourceGraphDbPath, sourceRoot } from "@server/core/knowledge/paths.js";
 import { registeredToolIdsForContext, runRegisteredToolApi, type ToolRuntimeContext } from "../resolver.js";
 import type { AgentToolRuntimeContext } from "../types.js";
 import { commandToolPayload } from "./results.js";

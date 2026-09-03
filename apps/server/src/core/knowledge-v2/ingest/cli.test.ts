@@ -37,7 +37,6 @@ describe("resolveIngestPaths", () => {
       discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
       wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
       prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-      ledgerPath: resolve(knowledgeRoot, "deprecated/ledger-v1/learnings.jsonl"),
       reportPath: resolve("/fixture/game/checkout/build/GALE01/report.json"),
       checkoutRoot: resolve("/fixture/game/checkout"),
       orchestratorDbPath: resolve("/fixture/game/state/orchestrator.sqlite"),

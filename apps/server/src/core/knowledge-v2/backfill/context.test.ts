@@ -514,7 +514,6 @@ describe("buildPassContext", () => {
             ],
             callees: [{ unit: "main", symbol: "set_state" }],
             data_references: [],
-            learnings: [],
           }],
         };
       },

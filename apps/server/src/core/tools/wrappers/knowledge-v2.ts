@@ -181,7 +181,7 @@ async function withKnowledgeV2Handles<T extends object>(
 export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
   id: "kv2_discord_search",
   purpose: "Search archived Discord messages and return citeable message locators with compact context.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "discord_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
@@ -212,7 +212,7 @@ export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
 export const kv2WikiSearchToolRegistration: AgentToolRegistration = {
   id: "kv2_wiki_search",
   purpose: "Search the latest mirrored wiki revision and return citeable section locators.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "wiki_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
@@ -240,7 +240,7 @@ export const kv2WikiSearchToolRegistration: AgentToolRegistration = {
 export const kv2PrSearchToolRegistration: AgentToolRegistration = {
   id: "kv2_pr_search",
   purpose: "Search archived pull request summaries and discussions with subject and citation locators.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "pull_request_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
@@ -267,7 +267,7 @@ export const kv2PrSearchToolRegistration: AgentToolRegistration = {
 export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
   id: "kv2_attempt_search",
   purpose: "Search prior worker runs and submissions by target, outcome, and optional hypothesis text.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "attempt_search", "worker_history"],
   create(context): PiToolDefinition {
     return {
@@ -295,7 +295,7 @@ export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
 export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
   id: "kv2_subject_record",
   purpose: "Read an assembled target or entity knowledge record, including capped target history when applicable.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "subject_record", "target_history"],
   create(context): PiToolDefinition {
     return {
@@ -348,7 +348,7 @@ export const kv2EntityLookupToolRegistration: AgentToolRegistration = {
 export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
   id: "kv2_resolve_locator",
   purpose: "Read the source material addressed by a Discord, wiki, PR, attempt, or code locator.",
-  allowedRoles: ["librarian"],
+  allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "locator_resolution", "source_evidence"],
   create(context): PiToolDefinition {
     return {

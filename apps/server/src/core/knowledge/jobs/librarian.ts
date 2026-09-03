@@ -2,13 +2,6 @@ import { existsSync } from "node:fs";
 import type { Database } from "bun:sqlite";
 
 import { buildAttemptRecord, type AttemptCheckpointRow, type AttemptWorkerStateRow } from "@server/core/knowledge/attempt-view.js";
-import { shortHash } from "@server/core/knowledge/graph/util";
-import {
-  type LearningEvidence,
-  type LearningOrigin,
-  type LearningRecord,
-  type LearningScope,
-} from "@server/core/knowledge/ledger.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { addPiSession, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
@@ -58,141 +51,9 @@ export interface LibrarianWorkerCondenseInput {
   transcripts: LibrarianTranscript[];
 }
 
-interface LibrarianLearningSubject {
-  symbol?: string;
-  file?: string;
-  area?: string;
-}
-
-export interface ValidLibrarianLearning {
-  statement: string;
-  subject: LibrarianLearningSubject;
-  scope: LearningScope;
-  origin: LearningOrigin;
-  evidence: LearningEvidence[];
-  confidence: number;
-}
-
-export interface LibrarianReportValidation {
-  ok: boolean;
-  errors: string[];
-  learnings: ValidLibrarianLearning[];
-}
-
-const LEARNING_SCOPES = new Set<LearningScope>(["symbol", "file", "area", "general"]);
-const LEARNING_ORIGINS = new Set<LearningOrigin>(["human_extracted", "ai_inferred"]);
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function nonEmptyString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   return value.trim() ? value : undefined;
-}
-
-export function validateLibrarianReport(value: unknown): LibrarianReportValidation {
-  const errors: string[] = [];
-  const learnings: ValidLibrarianLearning[] = [];
-  let ok = true;
-
-  if (!isObject(value)) {
-    return { ok: false, errors: ["report must be a JSON object"], learnings };
-  }
-
-  if (value.schema_version === undefined) {
-    errors.push("warning: missing schema_version; accepting report as librarian_v1");
-  } else if (value.schema_version !== "librarian_v1") {
-    errors.push('schema_version must be "librarian_v1"');
-    ok = false;
-  }
-
-  if (!Array.isArray(value.learnings)) {
-    errors.push("learnings must be an array");
-    return { ok: false, errors, learnings };
-  }
-
-  value.learnings.forEach((candidate, index) => {
-    const prefix = `learnings[${index}]`;
-    if (!isObject(candidate)) {
-      errors.push(`${prefix} must be an object`);
-      ok = false;
-      return;
-    }
-
-    const statement = nonEmptyString(candidate.statement);
-    const scope = candidate.scope;
-    const origin = candidate.origin;
-    const confidence = candidate.confidence;
-    let valid = true;
-
-    if (!statement) {
-      errors.push(`${prefix}.statement must be a non-empty string`);
-      valid = false;
-    }
-    if (typeof scope !== "string" || !LEARNING_SCOPES.has(scope as LearningScope)) {
-      errors.push(`${prefix}.scope must be one of symbol, file, area, or general`);
-      valid = false;
-    }
-    if (typeof origin !== "string" || !LEARNING_ORIGINS.has(origin as LearningOrigin)) {
-      errors.push(`${prefix}.origin must be human_extracted or ai_inferred`);
-      valid = false;
-    }
-    if (typeof confidence !== "number" || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
-      errors.push(`${prefix}.confidence must be a number from 0 through 1`);
-      valid = false;
-    }
-
-    const evidence: LearningEvidence[] = [];
-    if (!Array.isArray(candidate.evidence) || candidate.evidence.length === 0) {
-      errors.push(`${prefix}.evidence must be a non-empty array`);
-      valid = false;
-    } else {
-      candidate.evidence.forEach((item, evidenceIndex) => {
-        const evidencePrefix = `${prefix}.evidence[${evidenceIndex}]`;
-        if (!isObject(item)) {
-          errors.push(`${evidencePrefix} must be an object`);
-          valid = false;
-          return;
-        }
-        const type = typeof item.type === "string" ? item.type : undefined;
-        const ref = nonEmptyString(item.ref);
-        if (type === undefined) {
-          errors.push(`${evidencePrefix}.type must be a string`);
-          valid = false;
-        }
-        if (!ref) {
-          errors.push(`${evidencePrefix}.ref must be a non-empty string`);
-          valid = false;
-        }
-        if (type !== undefined && ref) evidence.push({ type, ref });
-      });
-    }
-
-    if (!valid || !statement || typeof scope !== "string" || typeof origin !== "string" || typeof confidence !== "number") {
-      ok = false;
-      return;
-    }
-
-    const subjectValue = isObject(candidate.subject) ? candidate.subject : {};
-    const symbol = nonEmptyString(subjectValue.symbol);
-    const file = nonEmptyString(subjectValue.file);
-    const area = nonEmptyString(subjectValue.area);
-    learnings.push({
-      statement,
-      subject: {
-        ...(symbol ? { symbol } : {}),
-        ...(file ? { file } : {}),
-        ...(area ? { area } : {}),
-      },
-      scope: scope as LearningScope,
-      origin: origin as LearningOrigin,
-      evidence,
-      confidence,
-    });
-  });
-
-  return { ok, errors, learnings };
 }
 
 function parseSessionIds(value: unknown): string[] {
@@ -226,23 +87,6 @@ export function recordLibrarianSession(
     status: result.failed ? "failed" : result.dryRun ? "dry_run" : "succeeded",
     outputPath: result.outputPath,
   });
-}
-
-export function learningRecord(learning: ValidLibrarianLearning, producedBy: string): LearningRecord {
-  const subjectKey = learning.subject.symbol ?? learning.subject.file ?? learning.subject.area ?? "general";
-  return {
-    id: `learning:${learning.scope}:${subjectKey}:${shortHash(learning.statement)}`,
-    origin: learning.origin,
-    subject: {
-      scope: learning.scope,
-      ...learning.subject,
-    },
-    statement: learning.statement,
-    evidence: learning.evidence,
-    confidence: learning.confidence,
-    produced_by: producedBy,
-    status: "proposed",
-  };
 }
 
 export function loadWorkerCondenseInput(db: Database, workerStateId: string): LibrarianWorkerCondenseInput {

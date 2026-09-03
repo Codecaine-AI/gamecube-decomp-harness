@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { insertGraphRecords, openKnowledgeGraph, searchKnowledgeGraph, upsertSourceDescriptor } from "../db.js";
+import { readSourceRegistry } from "../registry/sources.js";
 import type { GraphRecords, SourceDescriptor } from "../types.js";
 import { buildDocumentSourceGraphRecords } from "./document-sources.js";
 import { defaultGraphSources, rebuildKnowledgeGraph } from "./rebuild.js";
@@ -16,6 +17,11 @@ afterEach(() => {
 });
 
 describe("document source graph records", () => {
+  test("default and registered sources omit the retired knowledge ledger", () => {
+    expect(defaultGraphSources()).not.toContain("knowledge_ledger");
+    expect(readSourceRegistry().map((source) => source.id)).not.toContain("knowledge_ledger");
+  });
+
   test("chunks markdown, text, and data summaries while skipping licenses", () => {
     const sourcesRoot = tempDir("document-sources-");
     const descriptor = writeDocumentFixture(sourcesRoot);

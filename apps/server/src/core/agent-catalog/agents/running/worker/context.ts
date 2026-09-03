@@ -446,6 +446,11 @@ function compactTargetGraphFileCard(
 ): Record<string, unknown> {
   const target = asRecord(packet.target);
   const sourcePath = String(target.source_path ?? "");
+  const targetSymbol = optionalString(target.symbol);
+  const targetUnit = optionalString(target.unit);
+  const targetStableKey = targetUnit
+    ? [targetUnit, targetSymbol].filter(Boolean).join(":")
+    : undefined;
   const fromPacket = fileCardFromPacket(packet);
   const loaded = Object.keys(fromPacket.card).length
     ? { ...fromPacket, status: fromPacket.status ?? "ready" }
@@ -473,12 +478,18 @@ function compactTargetGraphFileCard(
             tool: "knowledge_graph_search",
             query: [sourcePath, optionalString(target.symbol)].filter(Boolean).join(" "),
           }),
-          compactObject({
-            tool: "ledger_search",
-            query: [optionalString(target.symbol), optionalString(target.unit)]
-              .filter(Boolean)
-              .join(" "),
-          }),
+          ...(targetStableKey
+            ? [
+                compactObject({
+                  tool: "kv2_subject_record",
+                  target_stable_key: targetStableKey,
+                }),
+                compactObject({
+                  tool: "kv2_attempt_search",
+                  target_stable_key: targetStableKey,
+                }),
+              ]
+            : []),
         ],
       },
       no_context_note:
@@ -490,7 +501,6 @@ function compactTargetGraphFileCard(
   const functions = asRecordArray(card.functions)
     .map(compactFunction)
     .filter((fn) => Object.keys(fn).length > 0);
-  const targetSymbol = optionalString(target.symbol);
   const targetFunction =
     functions.find(
       (fn) =>
@@ -526,6 +536,24 @@ function compactTargetGraphFileCard(
         .filter((symbol): symbol is string => Boolean(symbol)),
     ),
   ].slice(0, 2);
+  const topAnalogStableKeys = [
+    ...new Set(
+      [...opseqAnalogs]
+        .sort(
+          (left, right) =>
+            (optionalNumber(right.score) ?? Number.NEGATIVE_INFINITY) -
+            (optionalNumber(left.score) ?? Number.NEGATIVE_INFINITY),
+        )
+        .map((hit) => {
+          const analogUnit = optionalString(hit.analog_unit);
+          const analogSymbol = optionalString(hit.analog_symbol);
+          return analogUnit && analogSymbol
+            ? `${analogUnit}:${analogSymbol}`
+            : undefined;
+        })
+        .filter((stableKey): stableKey is string => Boolean(stableKey)),
+    ),
+  ].slice(0, 2);
   const unitNames = asRecordArray(card.units)
     .map((unit) => optionalString(unit.unit) ?? optionalString(unit.name))
     .filter((unit): unit is string => Boolean(unit));
@@ -549,15 +577,21 @@ function compactTargetGraphFileCard(
       symbol: targetSymbol,
     }),
     compactObject({
-      tool: "past_prs_search",
+      tool: "kv2_pr_search",
       query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
     }),
-    compactObject({
-      tool: "ledger_search",
-      query: [targetSymbol, optionalString(target.unit)]
-        .filter(Boolean)
-        .join(" "),
-    }),
+    ...(targetStableKey
+      ? [
+          compactObject({
+            tool: "kv2_subject_record",
+            target_stable_key: targetStableKey,
+          }),
+          compactObject({
+            tool: "kv2_attempt_search",
+            target_stable_key: targetStableKey,
+          }),
+        ]
+      : []),
     ...(mismatchQueries.length
       ? [
           compactObject({
@@ -569,9 +603,13 @@ function compactTargetGraphFileCard(
     ...(topAnalogSymbols.length
       ? [
           compactObject({
-            tool: "ledger_search",
+            tool: "kv2_attempt_search",
             query: topAnalogSymbols.join(" OR "),
           }),
+          ...topAnalogStableKeys.map((stableKey) => compactObject({
+            tool: "kv2_subject_record",
+            target_stable_key: stableKey,
+          })),
           compactObject({
             tool: "knowledge_graph_search",
             query: topAnalogSymbols.join(" OR "),

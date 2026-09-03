@@ -77,7 +77,7 @@ export const prompt = definePrompt({
       usesContext("knowledge-graph-file-card", {
         instructions: [
           "Use the injected graph file card as first-pass solved-reference context and follow-up leads.",
-          "The card and `graph_related_functions` results carry `learnings` from the communal ledger — prior-attempt methods for this file, this target, and its opseq analogs, each labeled with status and confidence.",
+          "Use the card and `graph_related_functions` for code relationships, including opseq analogs, callers, callees, and xrefs.",
           "Treat graph-derived context as hypotheses until local source or validation evidence verifies it.",
         ],
       }),
@@ -112,16 +112,17 @@ export const prompt = definePrompt({
             "Based on that file understanding, look around the codebase for 100% matched functions/files that resemble this target.",
             "Use the injected target graph file card as a first-pass map of solved neighbors and follow-up leads.",
             "Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.",
-            "Search the communal knowledge ledger (`ledger_search`) for prior-attempt learnings on your target, its unit, and its opseq-analog solved symbols; a method that matched a similar function is a process to adapt to this target.",
-            item("Weigh ledger learnings by status and confidence:", [
+            "Use `kv2_subject_record` and `kv2_attempt_search` to inspect prior work for the target and its opseq analogs.",
+            "Use `kv2_pr_search`, `kv2_discord_search`, and `kv2_wiki_search` when historical discussion or game-mechanics evidence can choose between source hypotheses.",
+            "Resolve any locator you rely on with `kv2_resolve_locator`; search snippets are leads, not complete evidence.",
+            item("Weigh V2 records and attempts by their concrete evidence:", [
               bulletList([
-                "Corroborated high-confidence entries are strong leads.",
-                "Proposed entries are ideas worth a cheap test.",
-                "Refuted entries are known dead ends; they also warn when a high-percent match sits at a local maximum needing restructuring rather than tweaks.",
-                "Very low confidence (around 0.2) is usually ignorable.",
+                "Repeated successful approaches are strong leads.",
+                "Failed attempts are warnings against repeating the same source shape without new evidence.",
+                "A method that matched a similar function is a process to adapt, not proof that the same edit fits this target.",
               ]),
             ]),
-            "Treat every ledger learning as a hypothesis ranked by confidence, weaker than local source and validation evidence.",
+            "Treat historical records as hypotheses, weaker than current local source and validation evidence.",
           ]),
         ],
         { attrs: { id: "2", name: "solved_reference_pass" } },
@@ -168,7 +169,7 @@ export const prompt = definePrompt({
             item("When repeated small edits fail to close a small diff, treat the current source shape as a likely local maximum:", [
               bulletList([
                 "Save your best-scoring source variant so you can restore it for the handoff if the new path fails.",
-                "Re-read the ledger — refuted learnings for this target and its analogs tell you which tweak paths are already dead.",
+                "Re-read the target and analog V2 records and attempts to identify tweak paths that already failed.",
                 "Adapt the structure of an opseq-analog solved function instead of tweaking the current shape, accepting a temporary score regression to open a new path.",
               ]),
             ]),

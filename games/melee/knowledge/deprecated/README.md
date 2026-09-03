@@ -19,6 +19,5 @@ stamped all 22,237 targets:
 | 487 | operational | Operator and run-operator messages. Never imported by design |
 | 481 | semantic candidate | Old past-PR librarian claims. 166 symbol-scoped ones map to targets that V2 re-derived from PRs, code, and Discord with code citations; 61 name symbols no longer in the report; 254 are area/file/general coding notes with no V2 subject. Not imported: the "full semantic reset" outcome of the migration plan |
 
-The legacy readers (`apps/server/src/core/knowledge/ledger.ts`, the learnings graph
-builder, the dashboard's "Legacy ledger" sub-view) still open these files from this
-location until the "Legacy graph and ledger exit" worklist item retires them.
+No runtime reader or writer opens these files. They remain here only as a frozen audit
+archive; Knowledge V2 serves all live knowledge reads and writes.

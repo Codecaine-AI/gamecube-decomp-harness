@@ -8,7 +8,6 @@ import { immediateTransaction } from "../storage/transaction.js";
 import { importAttempts } from "./attempts.js";
 import { importDiscord } from "./discord.js";
 import { extractEntities } from "./entities.js";
-import { classifyLedger } from "./ledger-classification.js";
 import { importPrs } from "./prs.js";
 import { reconcileReport } from "./reconcile.js";
 import { importWiki } from "./wiki.js";
@@ -32,7 +31,6 @@ export interface IngestPaths {
   discordChannelsConfigPath: string;
   wikiDataRoot: string;
   prsRoot: string;
-  ledgerPath: string;
   reportPath: string;
   checkoutRoot: string;
   orchestratorDbPath: string;
@@ -45,7 +43,6 @@ export function resolveIngestPaths(knowledgeRoot: string): IngestPaths {
     discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
     wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
     prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-    ledgerPath: resolve(knowledgeRoot, "deprecated/ledger-v1/learnings.jsonl"),
     reportPath: resolve(gameRoot, "checkout/build/GALE01/report.json"),
     checkoutRoot: resolve(gameRoot, "checkout"),
     orchestratorDbPath: resolve(gameRoot, "state/orchestrator.sqlite"),
@@ -166,10 +163,6 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     if (selected("attempts")) {
       if (existsSync(paths.orchestratorDbPath)) results.attempts = importAttempts(store, { orchestratorDbPath: paths.orchestratorDbPath, dryRun });
       else skip("attempts", paths.orchestratorDbPath);
-    }
-    if (lane === "all") {
-      if (existsSync(paths.ledgerPath)) results.ledger = classifyLedger({ ledgerPath: paths.ledgerPath });
-      else skip("ledger", paths.ledgerPath);
     }
     console.log(JSON.stringify({ lane, dryRun, results }, null, 2));
   } finally {

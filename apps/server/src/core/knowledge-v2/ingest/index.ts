@@ -4,7 +4,6 @@ export * from "./discord.js";
 export * from "./wiki.js";
 export * from "./prs.js";
 export * from "./attempts.js";
-export * from "./ledger-classification.js";
 export * from "./reconcile.js";
 export * from "./entities.js";
 export * from "./cli.js";
