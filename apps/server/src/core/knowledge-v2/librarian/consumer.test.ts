@@ -528,6 +528,7 @@ describe("runLibrarianPass", () => {
       runPiAgent: (options) => {
         expect(options.catalogAgentId).toBe("librarian-v2");
         expect(options.role).toBe("librarian");
+        expect(options.toolProfile?.disable).toBeUndefined();
         promptTouched = options.prompt.kernelContext?.renderedContext;
         return modelResult(proposal(1));
       },

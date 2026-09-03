@@ -267,13 +267,7 @@ async function modelProposal(
     role: "librarian",
     catalogAgentId: "librarian-v2",
     // The consumer pass reads and proposes; it never edits code and must cite only V2 locators.
-    // Same trim as the backfill pass: standards are injected in context, and lint has nothing to lint.
-    toolProfile: {
-      disable: [
-        "past_prs_search",
-        "review_lint_scan",
-      ],
-    },
+    // The librarian profile is the allow-list for V2 research tools and the code graph.
     cwd: deps.globals.repoRoot,
     prompt: librarianV2Prompt({
       task: {

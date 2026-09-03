@@ -220,14 +220,7 @@ async function modelProposal(
     role: "librarian",
     catalogAgentId: "backfill-librarian",
     // The backfill pass reads and proposes; it never edits code and must cite only V2 locators.
-    // Trim the shared librarian profile to the citable surfaces: the kv2 tools plus the code graph
-    // (the one code-source surface). Standards are injected in context, and lint has nothing to lint.
-    toolProfile: {
-      disable: [
-        "past_prs_search",
-        "review_lint_scan",
-      ],
-    },
+    // The librarian profile is the allow-list for V2 research tools and the code graph.
     cwd: deps.globals.repoRoot,
     prompt: backfillLibrarianPrompt({
       task: {

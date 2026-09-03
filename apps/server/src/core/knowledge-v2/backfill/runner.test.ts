@@ -409,6 +409,7 @@ describe("runBackfill parallel pool", () => {
       globals: runFixture.globals,
       concurrency: 1,
       runPiAgent: (options) => {
+        expect(options.toolProfile?.disable).toBeUndefined();
         claimed.push(requestedTargetId(options));
         return modelResult({ facts: [], links: [], entities: [], merges: [] });
       },
