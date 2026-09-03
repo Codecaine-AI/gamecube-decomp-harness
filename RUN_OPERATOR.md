@@ -14,6 +14,8 @@ Cycle:      games/melee/worktrees/cycles/<cycle>/current
 Config:     model <model>, thinking-level <low|xhigh>, max-workers <N>, sandbox profile <profile>
             (staged in runs.inputs_json.configuration_snapshot; resume applies it
             — including a changed worker count — do not change it unless I say so)
+Widening:   header (the default; owning-header write-set widening is on). Do not
+            pass --write-set-widening off/shadow unless I say so.
 Directive:  <none | "pause after this epoch's boundary" | "restart with thinking level X" | ...>
 
 Do this, in order:
@@ -27,7 +29,8 @@ Do this, in order:
 3. Monitor with the two persistent monitors from the skill (30-s sqlite
    heartbeat + log tail). Stay quiet while healthy; speak up immediately on:
    scheduler gone, slots stuck below max-workers, finished_count flat >2 h,
-   "Database has closed", or any gate/breakage line.
+   "Database has closed", any gate/breakage line, or a
+   widening_routed_cross_module event (skill §3 "Widening watch").
 4. At each epoch boundary, verify every step in the skill's checklist in order,
    and confirm the draft PR (doldecomp/melee#3223) head, the 10 CI checks and
    the decomp-dev bot report (must say 0 broken matches). The sync runs a

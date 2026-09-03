@@ -18,6 +18,10 @@
 				"b-35-write-safety-the-necessity-ladder-26",
 				"b-35-write-safety-widening-requests-travel-27",
 				"b-35-write-safety-rollout-controls-29",
+				"b-35-write-safety-mode-selection-33",
+				"b-35-write-safety-widening-request-shape-34",
+				"b-35-write-safety-rung3-decision-35",
+				"b-35-write-safety-owning-header-validation-36",
 				"b-35-write-safety-recycled-targets-reset-28",
 				"b-35-write-safety-workspace-rule-7",
 				"b-35-write-safety-the-main-checkout-remain-8",
@@ -260,7 +264,7 @@
 						],
 						"Exactly one canonical declaring header.",
 						"Rung-1 and rung-2 failures, expected owner, and declaration evidence.",
-						"Runner may approve in header mode."
+						"Runner approves in header mode, the default."
 					],
 					[
 						"4",
@@ -686,6 +690,276 @@
 				},
 				{
 					"insert": " outcome is terminal: the harness commits the resolver's hand-merged tree and never re-applies the original patch."
+				}
+			],
+			"children": []
+		},
+		"b-35-write-safety-mode-selection-33": {
+			"id": "b-35-write-safety-mode-selection-33",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "The mode is a run-loop flag, "
+				},
+				{
+					"insert": "--write-set-widening <off|shadow|config|header>",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ", read by "
+				},
+				{
+					"insert": "writeSetWideningArg",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " in "
+				},
+				{
+					"insert": "apps/server/src/core/game-registry/runtime-options.ts",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ". Omitting it selects "
+				},
+				{
+					"insert": "header",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ". The run loop passes the effective mode on every worker command and records it once per run as a "
+				},
+				{
+					"insert": "write_set_integration_flags",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " event, so the policy a run ran under is auditable. A recorded mode other than "
+				},
+				{
+					"insert": "off",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " also activates confirmed-only PR eligibility in the run checkpoint: tentative checkpoints become deferred patches until the boundary confirms them."
+				}
+			],
+			"children": []
+		},
+		"b-35-write-safety-widening-request-shape-34": {
+			"id": "b-35-write-safety-widening-request-shape-34",
+			"type": "state-shape",
+			"props": {
+				"name": "WideningRequest",
+				"description": "The widening_request object a worker attaches to its runner_validation_handoff note. The runner parses it with parseWideningRequest; a malformed object is a denial, not a silent drop.",
+				"source": {
+					"path": "apps/server/src/core/cycle-runtime/run-state/write-set-categories.ts",
+					"symbol": "WideningRequest"
+				},
+				"fields": [
+					{
+						"name": "schema_version",
+						"type": "\"write_set_widening_request_v1\""
+					},
+					{
+						"name": "paths",
+						"type": "string[]",
+						"description": "Repo-relative paths, all from one category. Rung 3 accepts exactly one header."
+					},
+					{
+						"name": "category",
+						"type": "\"config-metadata\" | \"owning-header\" | \"foreign-source\""
+					},
+					{
+						"name": "rung",
+						"type": "2 | 3 | 4",
+						"description": "Must match the category: 2 config-metadata, 3 owning-header, 4 foreign-source."
+					},
+					{
+						"name": "evidence.mismatched_declaration",
+						"type": "{ symbol, current, required, expected_owner }",
+						"description": "expected_owner must be one of the requested paths."
+					},
+					{
+						"name": "evidence.objdiff",
+						"type": "{ unit, score_without, score_with | null, artifact_path? }",
+						"description": "score_without is the measured score at the lower rung; score_with may be null when it could not be measured."
+					},
+					{
+						"name": "evidence.ladder_evidence",
+						"type": "{ rung1_in_slice, rung2_config?, rung3_header? }",
+						"description": "Each lower rung's failure. Rung 3 requires rung2_config; rung 4 requires rung3_header."
+					}
+				]
+			},
+			"children": []
+		},
+		"b-35-write-safety-rung3-decision-35": {
+			"id": "b-35-write-safety-rung3-decision-35",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "Runner policy ("
+				},
+				{
+					"insert": "decideWidening",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": ") denies a request whose paths span categories, whose rung and category disagree, whose evidence is incomplete, or whose expected owner is not among the requested paths. Rung 2 is approved on complete evidence. Rung 3 additionally requires one header that textually declares the evidence symbol and a mode that allows owning headers ("
+				},
+				{
+					"insert": "header",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " applies the grant, "
+				},
+				{
+					"insert": "shadow",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " only records it). Rung 4 is always "
+				},
+				{
+					"insert": "routed_cross_module",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and emits a "
+				},
+				{
+					"insert": "widening_routed_cross_module",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " event for the operator. A denial or routing comes back to the worker as a repair reason prefixed "
+				},
+				{
+					"insert": "widening_denied",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " or "
+				},
+				{
+					"insert": "widening_routed_cross_module",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": "; the worker then records "
+				},
+				{
+					"insert": "exact requires cross-file edit to <path>",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " in its blockers and returns the best gate-clean version inside its write set. In "
+				},
+				{
+					"insert": "config",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " or "
+				},
+				{
+					"insert": "header",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " mode, an unrequested edit outside the write set is not banked: the runner drafts a request from the surfaced paths and returns "
+				},
+				{
+					"insert": "widening_request_required",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " so the worker either justifies or reverts it."
+				}
+			],
+			"children": []
+		},
+		"b-35-write-safety-owning-header-validation-36": {
+			"id": "b-35-write-safety-owning-header-validation-36",
+			"type": "paragraph",
+			"props": {},
+			"text": [
+				{
+					"insert": "An approved grant widens the live claim through "
+				},
+				{
+					"insert": "widenClaimWriteSet",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " and switches the attempt to scope-following checks ("
+				},
+				{
+					"insert": "validateWidenedChange",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": "). For an owning header the runner resolves the owner unit and every direct includer from the Ninja dependency map, falling back to an include grep, and runs strict object checks on each; an explicit "
+				},
+				{
+					"insert": "maxConsumers",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " ceiling rejects a hot header instead of escalating to a full build. For config metadata it measures the sections of every unit whose address ranges the hunks touch. A passing scoped check is bankable but "
+				},
+				{
+					"insert": "tentative",
+					"attributes": {
+						"code": true
+					}
+				},
+				{
+					"insert": " until the epoch boundary's global build confirms it; no per-attempt full build is permitted."
 				}
 			],
 			"children": []

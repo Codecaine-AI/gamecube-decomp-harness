@@ -78,7 +78,7 @@ export function workerCommand(
   if (!params.leaseId.trim()) throw new Error("workerCommand requires a dispatch lease id");
   command.push("--lease-id", params.leaseId);
   command.push("--graph-db", params.graphDbPath);
-  if (params.writeSetFlags.writeSetWidening !== "off") command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
+  command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
   return command;
 }
 

@@ -112,6 +112,22 @@ describe("confirmed-only PR eligibility", () => {
     }
   });
 
+  test("a recorded off mode does not activate confirmed-only eligibility", () => {
+    const { dir, store } = tempState();
+    try {
+      const run = exactCheckpoint(store, "tentative");
+      addEvent(store, run.id, "write_set_integration_flags", "test", {
+        write_set_widening: "off",
+      });
+      const result = createRunCheckpoint(store, run.id, { artifactDir: resolve(dir, "checkpoint") });
+
+      expect(result.eligibility).toMatchObject({ confirmedOnly: false, excludedTentative: 0 });
+      expect(result.items[0]).toMatchObject({ disposition: "pr_candidate", prCandidate: true });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("ships confirmed candidates and routes regressed candidates to rework", () => {
     const confirmedState = tempState();
     try {

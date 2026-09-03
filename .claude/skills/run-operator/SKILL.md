@@ -188,6 +188,24 @@ Do not restart the scheduler mid-epoch to pick up code changes; you drop
 every in-flight attempt. Restart at the tail (few attempts live) or at a
 boundary.
 
+**Widening watch** (owning-header write-set widening is the default since
+2026-09-01; it had never run live before that). Check once per epoch:
+```bash
+sqlite3 -readonly "$DB" "SELECT status, COUNT(*) FROM write_set_widenings WHERE run_id='$RUN' GROUP BY status;"
+sqlite3 -readonly "$DB" "SELECT created_at, substr(payload_json,1,300) FROM events WHERE run_id='$RUN' AND event_type='widening_routed_cross_module' ORDER BY created_at DESC LIMIT 5;"
+```
+- Expect `approved` rows for rung-2 (symbols/splits) and rung-3 (one owning
+  header). Mostly `denied` = workers cannot satisfy the evidence schema; quote
+  the `decision_reason` values to Ford rather than loosening policy yourself.
+- `widening_routed_cross_module` = a rung-4 (other `.c` file) request. It is
+  never auto-granted; surface it with the target and requested path.
+- Widened checkpoints stay `tentative` until the boundary confirms them, and
+  the run checkpoint is in confirmed-only PR eligibility, so tentative work is a
+  deferred patch, not a PR candidate, until then. A `regressed` outcome after a
+  boundary revert-bisect is the mechanism working; report it, do not re-apply.
+- Escape hatch: `--write-set-widening off` (or `shadow`) on the scheduler,
+  then restart it. Only with Ford's say-so.
+
 ## 4. Boundary checklist
 
 The boundary starts when `finished_count == admitted_count` and no claims
@@ -373,6 +391,7 @@ resume (the snapshot is applied, including desired_workers — fix 31) → verif
 - Game-worktree commits only for boundary repairs (§5), with the verification
   done, on the cycle branch. Never revert worker work without Ford.
 - Commit only your own files; other sessions may have WIP in the tree.
+- Never turn write-set widening off or down without Ford; the default is `header`.
 - Harness/code edits go through codex:
   `codex exec -m gpt-5.6-sol -c model_reasoning_effort="low" --enable fast_mode -s workspace-write "$(cat prompt.txt)" </dev/null`
   — one codex per worktree at a time; `xhigh` only for genuinely unclear root

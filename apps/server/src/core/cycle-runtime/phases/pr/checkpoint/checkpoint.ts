@@ -578,6 +578,7 @@ function confirmedOnlyPrEligibilityReasons(store: StateStore, runId: string, for
             FROM events
             WHERE run_id = ?
               AND event_type = 'write_set_integration_flags'
+              AND COALESCE(json_extract(payload_json, '$.write_set_widening'), 'off') != 'off'
             LIMIT 1
           `,
         )

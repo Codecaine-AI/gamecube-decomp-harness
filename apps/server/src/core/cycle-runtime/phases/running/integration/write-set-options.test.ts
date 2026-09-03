@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { writeSetIntegrationFlags } from "./write-set-options.js";
 
 describe("write-set integration flags", () => {
-  test("default is entirely off", () => {
+  test("default is owning-header widening", () => {
     expect(writeSetIntegrationFlags(new Map())).toEqual({
-      writeSetWidening: "off",
+      writeSetWidening: "header",
     });
   });
 

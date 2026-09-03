@@ -60,7 +60,8 @@ describe("worker-cycle write-set widening", () => {
   });
 
   test("accepts both equals and separated CLI forms and defaults to off", () => {
-    expect(writeSetWideningArg(new Map())).toBe("off");
+    expect(writeSetWideningArg(new Map())).toBe("header");
+    expect(writeSetWideningArg(new Map([["--write-set-widening", "off"]]))).toBe("off");
     expect(writeSetWideningArg(parse(["worker", "--write-set-widening=shadow"]).args)).toBe("shadow");
     expect(writeSetWideningArg(parse(["worker", "--write-set-widening", "header"]).args)).toBe("header");
     expect(() => writeSetWideningArg(new Map([["--write-set-widening", "foreign"]]))).toThrow("off, shadow, config, header");
