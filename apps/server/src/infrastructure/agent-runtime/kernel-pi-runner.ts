@@ -11,28 +11,28 @@ import type { PiRunResult, RuntimeAgentRole } from "@server/core/shared/types";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
 import { buildAgentTools, type AgentToolRuntimeContext } from "@server/core/tools";
 import {
-  meleeKernelAgent,
+  appKernelAgent,
   toKernelParsedAgentFromBundle,
   type KernelAgentId,
 } from "@server/core/agent-catalog/kernel-catalog";
 
 import {
-  createMeleeKernel,
-  type MeleeKernelSpawnContext,
-  type MeleeKernelSpawnOptions,
+  createAppKernel,
+  type AppKernelSpawnContext,
+  type AppKernelSpawnOptions,
 } from "@server/infrastructure/kernel/bridge/kernel";
 import {
-  createMeleeKernelSpawnAgent,
-  type BuildMeleeKernelToolFactories,
+  createAppKernelSpawnAgent,
+  type BuildAppKernelToolFactories,
   type KernelSpawnAgentFactoryPort,
 } from "@server/infrastructure/kernel/bridge/spawn-agent";
-import { createMeleeKernelBridgeConfig } from "@server/infrastructure/kernel/bridge/config";
-import { meleeKernelRuntimeRequiredFromEnv } from "@server/infrastructure/kernel/bridge/database";
+import { createAppKernelBridgeConfig } from "@server/infrastructure/kernel/bridge/config";
+import { appKernelRuntimeRequiredFromEnv } from "@server/infrastructure/kernel/bridge/database";
 import {
-  getDefaultMeleeKernelRuntime,
-  type MeleeKernelRuntime,
+  getDefaultAppKernelRuntime,
+  type AppKernelRuntime,
 } from "@server/infrastructure/kernel/bridge/runtime";
-import type { MeleeTraceWriter } from "@server/infrastructure/kernel/bridge/trace-writer";
+import type { AppTraceWriter } from "@server/infrastructure/kernel/bridge/trace-writer";
 import { runPiAgent } from "./runtime/pi-agent.js";
 
 export const MELEE_AGENT_SPAWN_STARTED_EVENT = "melee:agent_spawn_started";
@@ -204,9 +204,9 @@ function trackedBashOperations(): BashOperations {
   };
 }
 
-export type MeleeKernelSpawnStrategy = "auto" | "kernel";
+export type AppKernelSpawnStrategy = "auto" | "kernel";
 
-export interface MeleeKernelAgentCatalogEntry {
+export interface AppKernelAgentCatalogEntry {
   name: string;
   model?: string;
   tools?: string[];
@@ -220,47 +220,47 @@ export interface KernelPromptBundleConversion {
   contextResolver?: AgentContextResolver | null;
 }
 
-export type ResolveMeleeKernelAgent = (
+export type ResolveAppKernelAgent = (
   role: RuntimeAgentRole,
   catalogAgentId?: KernelAgentId,
-) => MeleeKernelAgentCatalogEntry;
+) => AppKernelAgentCatalogEntry;
 
-export type ConvertMeleeKernelPromptBundle = (
-  entry: MeleeKernelAgentCatalogEntry,
+export type ConvertAppKernelPromptBundle = (
+  entry: AppKernelAgentCatalogEntry,
   bundle: PiRunOptions["prompt"],
 ) => KernelPromptBundleConversion;
 
-export type MeleeKernelSpawnTraceWriter =
-  Pick<MeleeTraceWriter, "submitAppEvent"> &
-  Partial<Pick<MeleeTraceWriter, "submit">>;
-export interface MeleeKernelSpawnRuntime {
-  config?: Pick<MeleeKernelRuntime["config"], "markerConfig" | "piSessionsDir">;
+export type AppKernelSpawnTraceWriter =
+  Pick<AppTraceWriter, "submitAppEvent"> &
+  Partial<Pick<AppTraceWriter, "submit">>;
+export interface AppKernelSpawnRuntime {
+  config?: Pick<AppKernelRuntime["config"], "markerConfig" | "piSessionsDir">;
   db?: unknown;
-  traceWriter?: MeleeKernelSpawnTraceWriter;
-  upsertSpawnContainers?: MeleeKernelRuntime["upsertSpawnContainers"];
+  traceWriter?: AppKernelSpawnTraceWriter;
+  upsertSpawnContainers?: AppKernelRuntime["upsertSpawnContainers"];
 }
 
-export interface MeleeKernelPiRunOptions extends PiRunOptions {
+export interface AppKernelPiRunOptions extends PiRunOptions {
   catalogAgentId?: KernelAgentId;
   autoInitializeKernelRuntime?: boolean;
-  kernelContext?: MeleeKernelSpawnContext;
-  kernelOptions?: MeleeKernelSpawnOptions;
-  kernelRuntime?: MeleeKernelSpawnRuntime | null;
-  kernelSpawnStrategy?: MeleeKernelSpawnStrategy;
-  traceWriter?: MeleeKernelSpawnTraceWriter;
+  kernelContext?: AppKernelSpawnContext;
+  kernelOptions?: AppKernelSpawnOptions;
+  kernelRuntime?: AppKernelSpawnRuntime | null;
+  kernelSpawnStrategy?: AppKernelSpawnStrategy;
+  traceWriter?: AppKernelSpawnTraceWriter;
 }
 
 export type PiRunAgentPort = (options: PiRunOptions) => Promise<PiRunResult>;
 
-export interface CreateMeleeKernelPiAgentRunnerOptions {
-  buildToolFactories?: BuildMeleeKernelToolFactories;
+export interface CreateAppKernelPiAgentRunnerOptions {
+  buildToolFactories?: BuildAppKernelToolFactories;
   createKernelSpawnAgent?: KernelSpawnAgentFactoryPort;
-  resolveKernelAgent?: ResolveMeleeKernelAgent;
+  resolveKernelAgent?: ResolveAppKernelAgent;
   runPiAgent?: PiRunAgentPort;
-  toKernelParsedAgentFromBundle?: ConvertMeleeKernelPromptBundle;
+  toKernelParsedAgentFromBundle?: ConvertAppKernelPromptBundle;
 }
 
-function defaultKernelAgent(role: RuntimeAgentRole): MeleeKernelAgentCatalogEntry {
+function defaultKernelAgent(role: RuntimeAgentRole): AppKernelAgentCatalogEntry {
   return {
     name: role,
     model: undefined,
@@ -271,7 +271,7 @@ function defaultKernelAgent(role: RuntimeAgentRole): MeleeKernelAgentCatalogEntr
 }
 
 function defaultParsedAgentFromBundle(
-  entry: MeleeKernelAgentCatalogEntry,
+  entry: AppKernelAgentCatalogEntry,
   bundle: PiRunOptions["prompt"],
 ): KernelPromptBundleConversion {
   return {
@@ -292,7 +292,7 @@ function defaultParsedAgentFromBundle(
   };
 }
 
-function defaultKernelContext(options: PiRunOptions): MeleeKernelSpawnContext {
+function defaultKernelContext(options: PiRunOptions): AppKernelSpawnContext {
   return {
     workingDir: options.cwd,
     phase: options.role,
@@ -304,7 +304,7 @@ function defaultKernelContext(options: PiRunOptions): MeleeKernelSpawnContext {
   };
 }
 
-function kernelOptionsFor(options: PiRunOptions, overrides?: MeleeKernelSpawnOptions): MeleeKernelSpawnOptions {
+function kernelOptionsFor(options: PiRunOptions, overrides?: AppKernelSpawnOptions): AppKernelSpawnOptions {
   const provider = options.provider ?? undefined;
   const model = options.model ?? undefined;
   return {
@@ -322,7 +322,7 @@ function kernelOptionsFor(options: PiRunOptions, overrides?: MeleeKernelSpawnOpt
 
 function spawnStrategyFromEnv(
   env: NodeJS.ProcessEnv = process.env,
-): MeleeKernelSpawnStrategy {
+): AppKernelSpawnStrategy {
   const value = env.ORCH_AGENT_KERNEL_SPAWN_STRATEGY;
   if (!value) return "auto";
   if (value === "kernel" || value === "auto") return value;
@@ -349,9 +349,9 @@ function metadataString(metadata: Record<string, unknown> | undefined, key: stri
 }
 
 function kernelSessionBindingEntries(
-  context: MeleeKernelSpawnContext,
+  context: AppKernelSpawnContext,
   options: PiRunOptions,
-  markerConfig: MeleeKernelRuntime["config"]["markerConfig"],
+  markerConfig: AppKernelRuntime["config"]["markerConfig"],
 ): PiRunOptions["customSessionEntries"] {
   if (!context.appSessionId) return undefined;
   const metadata = context.metadata ?? {};
@@ -386,8 +386,8 @@ function kernelSessionBindingEntries(
 }
 
 async function submitSpawnEvent(
-  traceWriter: MeleeKernelSpawnTraceWriter | undefined,
-  context: MeleeKernelSpawnContext,
+  traceWriter: AppKernelSpawnTraceWriter | undefined,
+  context: AppKernelSpawnContext,
   type: string,
   options: PiRunOptions,
   eventData: Record<string, unknown> = {},
@@ -436,19 +436,19 @@ function directUserPromptForContextSpawn(
   return `${renderedContext}\n\n${turnPrompt}`;
 }
 
-export function createMeleeKernelPiAgentRunner(
-  deps: CreateMeleeKernelPiAgentRunnerOptions = {},
-): (options: MeleeKernelPiRunOptions) => Promise<PiRunResult> {
+export function createAppKernelPiAgentRunner(
+  deps: CreateAppKernelPiAgentRunnerOptions = {},
+): (options: AppKernelPiRunOptions) => Promise<PiRunResult> {
   const runPiAgent =
     deps.runPiAgent ??
     (async () => {
-      throw new Error("createMeleeKernelPiAgentRunner requires a runPiAgent port");
+      throw new Error("createAppKernelPiAgentRunner requires a runPiAgent port");
     });
   const resolveKernelAgent = deps.resolveKernelAgent ?? defaultKernelAgent;
   const convertPromptBundle = deps.toKernelParsedAgentFromBundle ?? defaultParsedAgentFromBundle;
 
-  return async function runMeleeKernelPiAgent(
-    options: MeleeKernelPiRunOptions,
+  return async function runAppKernelPiAgent(
+    options: AppKernelPiRunOptions,
   ): Promise<PiRunResult> {
     const {
       autoInitializeKernelRuntime = true,
@@ -473,7 +473,7 @@ export function createMeleeKernelPiAgentRunner(
     const runtime =
       kernelRuntime ??
       (autoInitializeKernelRuntime
-        ? await getDefaultMeleeKernelRuntime({
+        ? await getDefaultAppKernelRuntime({
             config: {
               workingDir: piOptions.cwd,
             },
@@ -483,10 +483,10 @@ export function createMeleeKernelPiAgentRunner(
           })
         : null);
     const spawnTraceWriter = traceWriter ?? runtime?.traceWriter;
-    const runtimeRequired = kernelRuntime != null || meleeKernelRuntimeRequiredFromEnv();
+    const runtimeRequired = kernelRuntime != null || appKernelRuntimeRequiredFromEnv();
     const markerConfig =
       runtime?.config?.markerConfig ??
-      createMeleeKernelBridgeConfig({ workingDir: piOptions.cwd }).markerConfig;
+      createAppKernelBridgeConfig({ workingDir: piOptions.cwd }).markerConfig;
     const strategy = kernelSpawnStrategy ?? spawnStrategyFromEnv();
     const useKernelCreateSpawnAgent =
       strategy === "kernel" ||
@@ -502,7 +502,7 @@ export function createMeleeKernelPiAgentRunner(
         : !context.appSessionId
           ? "kernel app session id"
           : "kernel spawn strategy";
-      throw new Error(`Non-dry Melee agent spawns must use kernel createSpawnAgent; missing ${reason}.`);
+      throw new Error(`Non-dry app agent spawns must use kernel createSpawnAgent; missing ${reason}.`);
     }
     if (useKernelCreateSpawnAgent && !runtime?.db) {
       throw new Error("Kernel createSpawnAgent strategy requires an initialized kernel runtime DB");
@@ -511,9 +511,9 @@ export function createMeleeKernelPiAgentRunner(
       throw new Error("Kernel createSpawnAgent strategy requires runtime.config.piSessionsDir");
     }
 
-    const kernel = createMeleeKernel<PiRunResult>({
+    const kernel = createAppKernel<PiRunResult>({
       spawnAgent: useKernelCreateSpawnAgent
-        ? createMeleeKernelSpawnAgent({
+        ? createAppKernelSpawnAgent({
             piOptions,
             expectedAgentName: entry.name,
             parsedAgent: converted.parsed,
@@ -531,7 +531,7 @@ export function createMeleeKernelPiAgentRunner(
           })
         : async (name, prompt) => {
             if (name !== entry.name) {
-              throw new Error(`Melee kernel spawn mismatch: expected ${entry.name}, got ${name}`);
+              throw new Error(`App kernel spawn mismatch: expected ${entry.name}, got ${name}`);
             }
             const userPrompt = converted.contextResolver
               ? directUserPromptForContextSpawn(piOptions, prompt)
@@ -599,14 +599,14 @@ export function createMeleeKernelPiAgentRunner(
   };
 }
 
-export const buildMeleeKernelToolFactories: BuildMeleeKernelToolFactories = (options) => {
+export const buildAppKernelToolFactories: BuildAppKernelToolFactories = (options) => {
   const toolContext: AgentToolRuntimeContext = {
     role: options.role,
     cwd: options.cwd,
     repoRoot: options.cwd,
     ...(options.toolContext ?? {}),
   };
-  const toolFactories: ReturnType<BuildMeleeKernelToolFactories> = [
+  const toolFactories: ReturnType<BuildAppKernelToolFactories> = [
     ...buildAgentTools(toolContext, options.toolProfile),
     ...(options.customTools ?? []),
   ].map((tool) => {
@@ -630,13 +630,13 @@ export const buildMeleeKernelToolFactories: BuildMeleeKernelToolFactories = (opt
   return toolFactories;
 };
 
-export const runMeleeKernelPiAgent = createMeleeKernelPiAgentRunner({
-  buildToolFactories: buildMeleeKernelToolFactories,
+export const runAppKernelPiAgent = createAppKernelPiAgentRunner({
+  buildToolFactories: buildAppKernelToolFactories,
   resolveKernelAgent(role, catalogAgentId) {
-    return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
+    return appKernelAgent(catalogAgentId ?? (role as KernelAgentId));
   },
   runPiAgent,
   toKernelParsedAgentFromBundle(entry, bundle) {
-    return toKernelParsedAgentFromBundle(meleeKernelAgent(entry.name as KernelAgentId), bundle);
+    return toKernelParsedAgentFromBundle(appKernelAgent(entry.name as KernelAgentId), bundle);
   },
 });

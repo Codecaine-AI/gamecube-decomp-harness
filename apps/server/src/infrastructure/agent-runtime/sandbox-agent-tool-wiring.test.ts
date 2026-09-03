@@ -9,7 +9,7 @@ import {
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
-import { buildMeleeKernelToolFactories } from "./kernel-pi-runner.js";
+import { buildAppKernelToolFactories } from "./kernel-pi-runner.js";
 import {
   createSandboxFileToolDefinitions,
   sandboxBashOperations,
@@ -95,7 +95,7 @@ describe("sandbox same-name agent tool wiring", () => {
   test("kernel extension factories replace the same-named Pi builtins", async () => {
     const { hostRoot, provider, handle, workspaceRoot, fileTools } = await fixture();
     provider.scriptExec({ exitCode: 0, stdout: "kernel", stderr: "" });
-    const extensionFactories = buildMeleeKernelToolFactories({
+    const extensionFactories = buildAppKernelToolFactories({
       role: "worker",
       cwd: hostRoot,
       prompt: {

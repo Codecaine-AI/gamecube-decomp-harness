@@ -19,9 +19,9 @@ import {
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import type { JobKindDescriptor, JobQueueKernelOps, JobRecord, JobResult } from "@server/core/job-queue/types.js";
 import { immediateTransaction as orchestratorTransaction, type StateStore } from "@server/core/orchestrator-state";
-import { runMeleeKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
+import { runAppKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { createAppKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   buildAttemptMechanicalRows,
   hasAttemptErrorSignal,
@@ -251,7 +251,7 @@ export async function handleWorkerSummaryJob(
       thinkingLevel: deps.globals.thinkingLevel,
       timeoutMs,
       toolContext: { repoRoot: deps.globals.repoRoot, stateDir: deps.globals.stateDir, game: deps.globals.game },
-      kernelContext: createMeleeKernelSpawnContext({
+      kernelContext: createAppKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: deps.globals.game?.gameId ?? deps.globals.gameId,
         sessionId: knowledgeCycleSessionId({ globals: deps.globals, db: orchestratorStore.db, fallback: job.runId ?? workerStateId }),

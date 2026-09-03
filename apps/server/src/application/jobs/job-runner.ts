@@ -1,6 +1,6 @@
 import { basename, dirname } from "node:path";
 
-import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
+import { closeDefaultAppKernelRuntime, resetDefaultAppKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/game-registry/runtime-options.js";
@@ -82,8 +82,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   } finally {
     if (previousMigrationMode === undefined) delete process.env[STATE_MIGRATION_MODE_ENV];
     else process.env[STATE_MIGRATION_MODE_ENV] = previousMigrationMode;
-    await closeDefaultMeleeKernelRuntime();
-    resetDefaultMeleeKernelRuntimeForTests();
+    await closeDefaultAppKernelRuntime();
+    resetDefaultAppKernelRuntimeForTests();
   }
 
   if (command === "worker-task") {

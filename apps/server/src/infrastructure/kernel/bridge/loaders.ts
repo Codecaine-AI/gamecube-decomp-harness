@@ -28,23 +28,23 @@ export const MELEE_INLINE_CONTEXT_LOADER_KINDS = [
   "qa-repair-queue-summary",
 ] as const;
 
-export interface MeleeSessionContextLoaderDeclaration {
+export interface AppSessionContextLoaderDeclaration {
   kind: typeof MELEE_SESSION_CONTEXT_LOADER_KIND;
   label?: string;
   [key: string]: unknown;
 }
 
-export type MeleeInlineContextLoaderKind = (typeof MELEE_INLINE_CONTEXT_LOADER_KINDS)[number];
+export type AppInlineContextLoaderKind = (typeof MELEE_INLINE_CONTEXT_LOADER_KINDS)[number];
 
-export interface MeleeInlineContextLoaderDeclaration {
-  kind: MeleeInlineContextLoaderKind;
+export interface AppInlineContextLoaderDeclaration {
+  kind: AppInlineContextLoaderKind;
   ref?: string;
   label?: string;
   content?: string;
   [key: string]: unknown;
 }
 
-export interface CreateMeleeLoaderCatalogOptions extends CreateDefaultCatalogOptions {
+export interface CreateAppLoaderCatalogOptions extends CreateDefaultCatalogOptions {
   includeSessionContextLoader?: boolean;
   includeInlineContextLoaders?: boolean;
 }
@@ -65,7 +65,7 @@ function renderSessionContext(ctx: LoaderResolveContext): string {
   );
 }
 
-export function createMeleeSessionContextLoader(): Loader<MeleeSessionContextLoaderDeclaration> {
+export function createAppSessionContextLoader(): Loader<AppSessionContextLoaderDeclaration> {
   return {
     kind: MELEE_SESSION_CONTEXT_LOADER_KIND,
     async resolve(_decl, ctx) {
@@ -80,9 +80,9 @@ export function createMeleeSessionContextLoader(): Loader<MeleeSessionContextLoa
   };
 }
 
-export function createMeleeInlineContextLoader(
-  kind: MeleeInlineContextLoaderKind,
-): Loader<MeleeInlineContextLoaderDeclaration> {
+export function createAppInlineContextLoader(
+  kind: AppInlineContextLoaderKind,
+): Loader<AppInlineContextLoaderDeclaration> {
   return {
     kind,
     async resolve(decl) {
@@ -97,22 +97,22 @@ export function createMeleeInlineContextLoader(
   };
 }
 
-export function registerMeleeLoaders(catalog: LoaderCatalog): LoaderCatalog {
+export function registerAppLoaders(catalog: LoaderCatalog): LoaderCatalog {
   if (!catalog.has(MELEE_SESSION_CONTEXT_LOADER_KIND)) {
-    catalog.register(createMeleeSessionContextLoader());
+    catalog.register(createAppSessionContextLoader());
   }
   for (const kind of MELEE_INLINE_CONTEXT_LOADER_KINDS) {
-    if (!catalog.has(kind)) catalog.register(createMeleeInlineContextLoader(kind));
+    if (!catalog.has(kind)) catalog.register(createAppInlineContextLoader(kind));
   }
   return catalog;
 }
 
-export function createMeleeLoaderCatalog(
-  options: CreateMeleeLoaderCatalogOptions = {},
+export function createAppLoaderCatalog(
+  options: CreateAppLoaderCatalogOptions = {},
 ): LoaderCatalog {
   const catalog = createDefaultCatalog(options);
   if ((options.includeSessionContextLoader ?? true) || (options.includeInlineContextLoaders ?? true)) {
-    registerMeleeLoaders(catalog);
+    registerAppLoaders(catalog);
   }
   return catalog;
 }

@@ -13,12 +13,12 @@ import {
   transitionCycle,
 } from "@server/core/cycle/store.js";
 import type { GameRuntimeContext } from "@server/core/game-registry";
-import type { MeleeKernelRuntime } from "./bridge/runtime.js";
-import { createMeleeTraceWriter } from "./bridge/trace-writer.js";
+import type { AppKernelRuntime } from "./bridge/runtime.js";
+import { createAppTraceWriter } from "./bridge/trace-writer.js";
 import {
-  meleeRootContainerId,
-  meleeSyncWorkflowContainerId,
-  meleeWorkerContainerId,
+  appRootContainerId,
+  appSyncWorkflowContainerId,
+  appWorkerContainerId,
 } from "./bridge/session-mapping.js";
 import {
   createDashboardKernelRuntimeService,
@@ -57,7 +57,7 @@ describe("dashboard kernel trace linkage persistence", () => {
         };
       },
       close: async () => {},
-    } as unknown as MeleeKernelRuntime;
+    } as unknown as AppKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
       env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },
@@ -76,7 +76,7 @@ describe("dashboard kernel trace linkage persistence", () => {
 
     const detail = await service.workerTrace(identity);
 
-    expect(requestedIds).toEqual([meleeWorkerContainerId(identity)]);
+    expect(requestedIds).toEqual([appWorkerContainerId(identity)]);
     expect(detail?.container?.id).toBe(requestedIds[0]);
     await service.closeForTests();
   });
@@ -255,12 +255,12 @@ describe("dashboard kernel trace linkage persistence", () => {
         kernelId: "test-kernel",
         piSessionsDir: "/tmp/pi-sessions",
       },
-      traceWriter: createMeleeTraceWriter({ insertBatch: async (events) => events.length }),
+      traceWriter: createAppTraceWriter({ insertBatch: async (events) => events.length }),
       upsertSpawnContainers: async (context: { containerLineage?: NewContainer[] }) => {
         lineages.push(context.containerLineage ?? []);
       },
       close: async () => {},
-    } as unknown as MeleeKernelRuntime;
+    } as unknown as AppKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
       env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },
@@ -291,11 +291,11 @@ describe("dashboard kernel trace linkage persistence", () => {
     });
 
     expect(result?.containerId).toBe(
-      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      appSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
     );
     expect(lineages[0]?.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      appRootContainerId(ref),
+      appSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
     ]);
     await service.closeForTests();
   });
@@ -314,7 +314,7 @@ describe("dashboard kernel trace linkage persistence", () => {
 
     const submissionAttempts: TraceEvent[] = [];
     const persistedKernelEvents = new Map<string, TraceEvent>();
-    const traceWriter = createMeleeTraceWriter({
+    const traceWriter = createAppTraceWriter({
       insertBatch: async (events) => {
         for (const event of events) {
           submissionAttempts.push(event);
@@ -334,7 +334,7 @@ describe("dashboard kernel trace linkage persistence", () => {
       traceWriter,
       upsertSpawnContainers: async () => {},
       close: async () => {},
-    } as unknown as MeleeKernelRuntime;
+    } as unknown as AppKernelRuntime;
     const service = createDashboardKernelRuntimeService({
       createKernelRuntime: async () => kernelRuntime,
       env: { ORCH_AGENT_KERNEL_DB_PATH: "/tmp/kernel-runtime-test.sqlite" },

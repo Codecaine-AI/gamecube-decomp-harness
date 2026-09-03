@@ -15,64 +15,64 @@ import type {
 } from "@agent-kernel/db";
 import { EventType, TraceLevel, TraceSource } from "@agent-kernel/protocol";
 
-import { createMeleeKernelBridgeConfig, MELEE_KERNEL_ID } from "./config.js";
-import { createMeleeKernel } from "./kernel.js";
-import { createMeleeLoaderCatalog, MELEE_SESSION_CONTEXT_LOADER_KIND } from "./loaders.js";
-import { createMeleeKernelTraceReadService } from "./read-api.js";
+import { createAppKernelBridgeConfig, MELEE_KERNEL_ID } from "./config.js";
+import { createAppKernel } from "./kernel.js";
+import { createAppLoaderCatalog, MELEE_SESSION_CONTEXT_LOADER_KIND } from "./loaders.js";
+import { createAppKernelTraceReadService } from "./read-api.js";
 import {
-  upsertMeleeKernelRegistration,
+  upsertAppKernelRegistration,
   type KernelRegistration,
   type NewKernelRegistration,
 } from "./registration.js";
-import { createMeleeKernelRuntime } from "./runtime.js";
+import { createAppKernelRuntime } from "./runtime.js";
 import {
-  buildMeleeContainer,
-  describeMeleeContainer,
-  MELEE_PHASE_VOCABULARY,
-  meleeAppSessionId,
-  meleeBaselineContainerId,
-  meleeEpochContainerId,
-  meleePrHandoffContainerId,
-  meleePrQaContainerId,
-  meleePrRepairContainerId,
-  meleePrReviewContainerId,
-  meleePrSplitContainerId,
-  meleeRunContainerId,
-  meleeWorkerIntegrationContainerId,
-  type MeleeContainerKind,
-  meleeIntakeContainerId,
-  meleeIntakeItemContainerId,
-  meleeIntakeKnowledgeContainerId,
-  meleeIntakePostmortemContainerId,
-  meleeKnowledgeContainerId,
-  meleeKnowledgeJobContainerId,
-  meleePrContainerId,
-  meleePrPublicationContainerId,
-  meleePostmortemContainerId,
-  meleePrepareContainerId,
-  meleeRootContainerId,
-  meleeRunKnowledgeContainerId,
-  meleeRunKnowledgeJobContainerId,
-  meleeSyncContainerId,
-  meleeSyncIntakeContainerId,
-  meleeSyncWorkflowContainerId,
-  meleeSyncWorkflowIntakeKnowledgeContainerId,
-  meleeSyncWorkflowKnowledgeContainerId,
-  meleeSyncWorkflowKnowledgeJobContainerId,
-  meleeWorkerContainerId,
-  meleeWorkflowTraceEventId,
+  buildAppContainer,
+  describeAppContainer,
+  APP_PHASE_VOCABULARY,
+  appAppSessionId,
+  appBaselineContainerId,
+  appEpochContainerId,
+  appPrHandoffContainerId,
+  appPrQaContainerId,
+  appPrRepairContainerId,
+  appPrReviewContainerId,
+  appPrSplitContainerId,
+  appRunContainerId,
+  appWorkerIntegrationContainerId,
+  type AppContainerKind,
+  appIntakeContainerId,
+  appIntakeItemContainerId,
+  appIntakeKnowledgeContainerId,
+  appIntakePostmortemContainerId,
+  appKnowledgeContainerId,
+  appKnowledgeJobContainerId,
+  appPrContainerId,
+  appPrPublicationContainerId,
+  appPostmortemContainerId,
+  appPrepareContainerId,
+  appRootContainerId,
+  appRunKnowledgeContainerId,
+  appRunKnowledgeJobContainerId,
+  appSyncContainerId,
+  appSyncIntakeContainerId,
+  appSyncWorkflowContainerId,
+  appSyncWorkflowIntakeKnowledgeContainerId,
+  appSyncWorkflowKnowledgeContainerId,
+  appSyncWorkflowKnowledgeJobContainerId,
+  appWorkerContainerId,
+  appWorkflowTraceEventId,
 } from "./session-mapping.js";
-import { createMeleeKernelSpawnContext } from "./spawn-context.js";
+import { createAppKernelSpawnContext } from "./spawn-context.js";
 import {
-  createMeleeKernelPiAgentRunner,
+  createAppKernelPiAgentRunner,
   MELEE_AGENT_SPAWN_COMPLETED_EVENT,
   MELEE_AGENT_SPAWN_FAILED_EVENT,
   MELEE_AGENT_SPAWN_STARTED_EVENT,
-  type MeleeKernelPiRunOptions,
+  type AppKernelPiRunOptions,
 } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeTraceWriter } from "./trace-writer.js";
-import { submitMeleeWorkflowTraceEvent } from "./workflow-trace.js";
+import { createAppTraceWriter } from "./trace-writer.js";
+import { submitAppWorkflowTraceEvent } from "./workflow-trace.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -194,7 +194,7 @@ function fixtureRows(): KernelTraceReadRows {
 describe("kernel registration", () => {
   test("builds and upserts the Melee kernel registration payload", async () => {
     const payloads: NewKernelRegistration[] = [];
-    const config = createMeleeKernelBridgeConfig({
+    const config = createAppKernelBridgeConfig({
       workingDir: "/repo",
       appBaseUrl: "http://127.0.0.1:5174",
       markerConfig: {
@@ -203,7 +203,7 @@ describe("kernel registration", () => {
       metadata: { environment: "test" },
     });
 
-    const row = await upsertMeleeKernelRegistration({
+    const row = await upsertAppKernelRegistration({
       db: {},
       config,
       upsert: async (_db: unknown, data: NewKernelRegistration) => {
@@ -229,16 +229,16 @@ describe("kernel registration", () => {
 describe("session and container mapping", () => {
   test("derives stable UUID app sessions and deterministic container ids", () => {
     const ref = { gameId: "melee", sessionId: "session 2026/06/24" };
-    const appSessionId = meleeAppSessionId(ref);
-    const repeat = meleeAppSessionId({ ...ref });
-    const other = meleeAppSessionId({ gameId: "melee", sessionId: "next" });
+    const appSessionId = appAppSessionId(ref);
+    const repeat = appAppSessionId({ ...ref });
+    const other = appAppSessionId({ gameId: "melee", sessionId: "next" });
 
     expect(appSessionId).toMatch(UUID_RE);
     expect(repeat).toBe(appSessionId);
     expect(other).not.toBe(appSessionId);
-    expect(meleeRootContainerId(ref)).toBe(`melee:${appSessionId}:session`);
+    expect(appRootContainerId(ref)).toBe(`melee:${appSessionId}:session`);
     expect(
-      meleeWorkerContainerId({
+      appWorkerContainerId({
         ...ref,
         runId: "run/live",
         epochId: 3,
@@ -246,7 +246,7 @@ describe("session and container mapping", () => {
         targetId: "ftMain",
       }),
     ).toBe(
-      meleeWorkerContainerId({
+      appWorkerContainerId({
         ...ref,
         runId: "run/live",
         epochId: 3,
@@ -254,8 +254,8 @@ describe("session and container mapping", () => {
       }),
     );
 
-    const container = buildMeleeContainer({ kind: "session", ref, workingDir: "/repo" });
-    expect(container.id).toBe(meleeRootContainerId(ref));
+    const container = buildAppContainer({ kind: "session", ref, workingDir: "/repo" });
+    expect(container.id).toBe(appRootContainerId(ref));
     expect(container.parentContainerId).toBeNull();
     expect(container.metadata).toMatchObject({
       appSessionId,
@@ -266,18 +266,18 @@ describe("session and container mapping", () => {
 
   test("maps PR publication containers under the PR tree with publication phase", () => {
     const ref = { gameId: "melee", sessionId: "run-1" };
-    const container = buildMeleeContainer({
+    const container = buildAppContainer({
       kind: "pr-publication",
       ref,
       metadata: { prId: "draft-1", branch: "pr/demo" },
       workingDir: "/repo",
     });
 
-    expect(container.id).toBe(meleePrPublicationContainerId({ ...ref, prId: "draft-1" }));
-    expect(container.parentContainerId).toBe(meleePrContainerId({ ...ref, prId: "draft-1" }));
+    expect(container.id).toBe(appPrPublicationContainerId({ ...ref, prId: "draft-1" }));
+    expect(container.parentContainerId).toBe(appPrContainerId({ ...ref, prId: "draft-1" }));
     expect(container.phase).toBe("publication");
     expect(container.metadata).toMatchObject({
-      appSessionId: meleeAppSessionId(ref),
+      appSessionId: appAppSessionId(ref),
       containerKind: "pr-publication",
       prId: "draft-1",
       branch: "pr/demo",
@@ -286,7 +286,7 @@ describe("session and container mapping", () => {
 
   test("keeps bridge-owned container identity authoritative over caller metadata", () => {
     const ref = { gameId: "melee", sessionId: "session-real" };
-    const container = buildMeleeContainer({
+    const container = buildAppContainer({
       kind: "pr-publication",
       ref,
       metadata: {
@@ -300,7 +300,7 @@ describe("session and container mapping", () => {
     });
 
     expect(container.metadata).toMatchObject({
-      appSessionId: meleeAppSessionId(ref),
+      appSessionId: appAppSessionId(ref),
       containerId: container.id,
       containerKind: "pr-publication",
       gameId: "melee",
@@ -320,49 +320,49 @@ describe("session and container mapping", () => {
       status: "completed",
     };
 
-    expect(meleeWorkflowTraceEventId(input)).toMatch(UUID_RE);
-    expect(meleeWorkflowTraceEventId({ ...input })).toBe(
-      meleeWorkflowTraceEventId(input),
+    expect(appWorkflowTraceEventId(input)).toMatch(UUID_RE);
+    expect(appWorkflowTraceEventId({ ...input })).toBe(
+      appWorkflowTraceEventId(input),
     );
-    expect(meleeWorkflowTraceEventId({ ...input, status: "failed" })).not.toBe(
-      meleeWorkflowTraceEventId(input),
+    expect(appWorkflowTraceEventId({ ...input, status: "failed" })).not.toBe(
+      appWorkflowTraceEventId(input),
     );
   });
 
   test("keeps sync-less intake and baseline containers under Prepare", () => {
     const ref = { gameId: "melee", sessionId: "session-1" };
-    const sync = buildMeleeContainer({ kind: "sync", ref });
-    const intake = buildMeleeContainer({ kind: "intake", ref });
-    const baseline = buildMeleeContainer({ kind: "baseline", ref });
-    const item = buildMeleeContainer({
+    const sync = buildAppContainer({ kind: "sync", ref });
+    const intake = buildAppContainer({ kind: "intake", ref });
+    const baseline = buildAppContainer({ kind: "baseline", ref });
+    const item = buildAppContainer({
       kind: "intake-item",
       ref,
       metadata: { prId: "2764" },
       workingDir: "/repo",
     });
-    const postmortem = buildMeleeContainer({
+    const postmortem = buildAppContainer({
       kind: "intake-postmortem",
       ref,
       metadata: { prId: "2764" },
       workingDir: "/repo",
     });
-    const knowledge = buildMeleeContainer({
+    const knowledge = buildAppContainer({
       kind: "intake-knowledge",
       ref,
       metadata: { prId: "2764" },
       workingDir: "/repo",
     });
 
-    expect(sync.parentContainerId).toBe(meleeRootContainerId(ref));
+    expect(sync.parentContainerId).toBe(appRootContainerId(ref));
     expect(sync.label).toBe("Sync");
-    expect(intake.parentContainerId).toBe(meleePrepareContainerId(ref));
-    expect(baseline.parentContainerId).toBe(meleePrepareContainerId(ref));
+    expect(intake.parentContainerId).toBe(appPrepareContainerId(ref));
+    expect(baseline.parentContainerId).toBe(appPrepareContainerId(ref));
     expect(baseline.label).toBe("Baseline and rebuild");
-    expect(item.id).toBe(meleeIntakeItemContainerId({ ...ref, prId: "2764" }));
-    expect(item.parentContainerId).toBe(meleeIntakeContainerId(ref));
-    expect(postmortem.id).toBe(meleeIntakePostmortemContainerId({ ...ref, prId: "2764" }));
+    expect(item.id).toBe(appIntakeItemContainerId({ ...ref, prId: "2764" }));
+    expect(item.parentContainerId).toBe(appIntakeContainerId(ref));
+    expect(postmortem.id).toBe(appIntakePostmortemContainerId({ ...ref, prId: "2764" }));
     expect(postmortem.parentContainerId).toBe(item.id);
-    expect(knowledge.id).toBe(meleeIntakeKnowledgeContainerId({ ...ref, prId: "2764" }));
+    expect(knowledge.id).toBe(appIntakeKnowledgeContainerId({ ...ref, prId: "2764" }));
     expect(knowledge.parentContainerId).toBe(item.id);
     expect(knowledge.phase).toBe("knowledge-intake");
   });
@@ -370,7 +370,7 @@ describe("session and container mapping", () => {
 
 describe("spawn context mapping", () => {
   test("builds worker spawn context with app session and claim container identity", () => {
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "worker",
       gameId: "melee",
       sessionId: "run-1",
@@ -383,10 +383,10 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ gameId: "melee", sessionId: "run-1" }),
+      appAppSessionId({ gameId: "melee", sessionId: "run-1" }),
     );
     expect(context.containerId).toBe(
-      meleeWorkerContainerId({
+      appWorkerContainerId({
         gameId: "melee",
         sessionId: "run-1",
         runId: "run-1",
@@ -425,7 +425,7 @@ describe("spawn context mapping", () => {
   });
 
   test("builds postmortem spawn context under the epoch container tree", () => {
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "postmortem",
       gameId: "melee",
       sessionId: "run-1",
@@ -437,7 +437,7 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.containerId).toBe(
-      meleePostmortemContainerId({
+      appPostmortemContainerId({
         gameId: "melee",
         sessionId: "run-1",
         runId: "run-1",
@@ -470,7 +470,7 @@ describe("spawn context mapping", () => {
   });
 
   test("builds sync-less intake agent contexts under the legacy Prepare item", () => {
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "intake-postmortem",
       gameId: "melee",
       sessionId: "session-1",
@@ -482,10 +482,10 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ gameId: "melee", sessionId: "session-1" }),
+      appAppSessionId({ gameId: "melee", sessionId: "session-1" }),
     );
     expect(context.containerId).toBe(
-      meleeIntakePostmortemContainerId({
+      appIntakePostmortemContainerId({
         gameId: "melee",
         sessionId: "session-1",
         prId: "2764",
@@ -502,18 +502,18 @@ describe("spawn context mapping", () => {
       targetId: "pr-2764",
     });
     expect(context.containerLineage?.map((container) => container.id)).toEqual([
-      meleeRootContainerId({ gameId: "melee", sessionId: "session-1" }),
-      meleePrepareContainerId({ gameId: "melee", sessionId: "session-1" }),
-      meleeIntakeContainerId({ gameId: "melee", sessionId: "session-1" }),
-      meleeIntakeItemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
-      meleeIntakePostmortemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
+      appRootContainerId({ gameId: "melee", sessionId: "session-1" }),
+      appPrepareContainerId({ gameId: "melee", sessionId: "session-1" }),
+      appIntakeContainerId({ gameId: "melee", sessionId: "session-1" }),
+      appIntakeItemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
+      appIntakePostmortemContainerId({ gameId: "melee", sessionId: "session-1", prId: "2764" }),
     ]);
   });
 
   test("warns only when a sync workflow id becomes an implicit session id", () => {
     const warning = spyOn(console, "warn").mockImplementation(() => undefined);
     try {
-      createMeleeKernelSpawnContext({
+      createAppKernelSpawnContext({
         kind: "intake-knowledge",
         gameId: "melee",
         runId: "sync-0ccce0b7-x",
@@ -524,7 +524,7 @@ describe("spawn context mapping", () => {
       expect(warning.mock.calls[0]?.[0]).toContain('workflow id "sync-0ccce0b7-x"');
 
       warning.mockClear();
-      createMeleeKernelSpawnContext({
+      createAppKernelSpawnContext({
         kind: "intake-knowledge",
         gameId: "melee",
         sessionId: "sync-explicit",
@@ -533,7 +533,7 @@ describe("spawn context mapping", () => {
       });
       expect(warning).not.toHaveBeenCalled();
 
-      createMeleeKernelSpawnContext({
+      createAppKernelSpawnContext({
         kind: "intake-knowledge",
         gameId: "melee",
         runId: "pr-knowledge-intake-123",
@@ -546,7 +546,7 @@ describe("spawn context mapping", () => {
   });
 
   test("builds PR review context under the PR container tree", () => {
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "pr-review",
       gameId: "melee",
       runId: "run-1",
@@ -555,7 +555,7 @@ describe("spawn context mapping", () => {
     });
 
     expect(context.appSessionId).toBe(
-      meleeAppSessionId({ gameId: "melee", sessionId: "run-1" }),
+      appAppSessionId({ gameId: "melee", sessionId: "run-1" }),
     );
     expect(context.containerId).toContain(":pr:");
     expect(context.containerId).toContain(":review:");
@@ -584,7 +584,7 @@ describe("spawn context mapping", () => {
 describe("trace writer", () => {
   test("submits app-owned workflow events with app source and kernel identity", async () => {
     const submitted: unknown[] = [];
-    const writer = createMeleeTraceWriter({
+    const writer = createAppTraceWriter({
       insertBatch: async (events) => {
         submitted.push(...events);
         return events.length;
@@ -617,7 +617,7 @@ describe("trace writer", () => {
 
   test("flush waits for outstanding inserts", async () => {
     let finishInsert: (() => void) | undefined;
-    const writer = createMeleeTraceWriter({
+    const writer = createAppTraceWriter({
       insertBatch: (events) =>
         new Promise<number>((resolve) => {
           finishInsert = () => resolve(events.length);
@@ -659,9 +659,9 @@ describe("container identity has one authority", () => {
     jobKey: "job-9",
   };
 
-  // Every kind, so a new MeleeContainerKind that forgets its describe case is
+  // Every kind, so a new AppContainerKind that forgets its describe case is
   // caught here as well as by the (now total) switch failing to compile.
-  const ALL_KINDS: MeleeContainerKind[] = [
+  const ALL_KINDS: AppContainerKind[] = [
     "session",
     "sync",
     "sync-intake",
@@ -687,10 +687,10 @@ describe("container identity has one authority", () => {
   ];
 
   test("describes every container kind without falling back to a bare-kind id", () => {
-    const root = meleeRootContainerId(ref);
+    const root = appRootContainerId(ref);
     const ids = new Set<string>();
     for (const kind of ALL_KINDS) {
-      const descriptor = describeMeleeContainer(kind, ref, fullMetadata);
+      const descriptor = describeAppContainer(kind, ref, fullMetadata);
       expect(descriptor.kind).toBe(kind);
       expect(descriptor.id.startsWith(root)).toBe(true);
       // The old default branch minted `<root>:<kind>:none-<sha>` with the raw
@@ -711,67 +711,67 @@ describe("container identity has one authority", () => {
     const epochRef = { ...runRef, epochId: 2 };
     const claimRef = { ...epochRef, claimId: "claim-A" };
     const prRef = { ...ref, prId: "2764" };
-    const expected: Array<[MeleeContainerKind, string]> = [
-      ["run", meleeRunContainerId(runRef)],
-      ["epoch", meleeEpochContainerId(epochRef)],
-      ["worker", meleeWorkerContainerId(claimRef)],
-      ["worker-integration", meleeWorkerIntegrationContainerId(claimRef)],
-      ["postmortem", meleePostmortemContainerId(claimRef)],
-      ["pr-handoff", meleePrHandoffContainerId(prRef)],
-      ["pr-qa", meleePrQaContainerId(prRef)],
-      ["pr-split", meleePrSplitContainerId(prRef)],
-      ["pr-review", meleePrReviewContainerId({ ...prRef, reviewId: "slice-001" })],
-      ["pr-repair", meleePrRepairContainerId({ ...prRef, repairId: "repair-7" })],
-      ["knowledge", meleeRunKnowledgeContainerId(runRef)],
-      ["knowledge-job", meleeRunKnowledgeJobContainerId({ ...runRef, jobKey: "job-9" })],
+    const expected: Array<[AppContainerKind, string]> = [
+      ["run", appRunContainerId(runRef)],
+      ["epoch", appEpochContainerId(epochRef)],
+      ["worker", appWorkerContainerId(claimRef)],
+      ["worker-integration", appWorkerIntegrationContainerId(claimRef)],
+      ["postmortem", appPostmortemContainerId(claimRef)],
+      ["pr-handoff", appPrHandoffContainerId(prRef)],
+      ["pr-qa", appPrQaContainerId(prRef)],
+      ["pr-split", appPrSplitContainerId(prRef)],
+      ["pr-review", appPrReviewContainerId({ ...prRef, reviewId: "slice-001" })],
+      ["pr-repair", appPrRepairContainerId({ ...prRef, repairId: "repair-7" })],
+      ["knowledge", appRunKnowledgeContainerId(runRef)],
+      ["knowledge-job", appRunKnowledgeJobContainerId({ ...runRef, jobKey: "job-9" })],
     ];
     for (const [kind, id] of expected) {
-      expect(describeMeleeContainer(kind, ref, fullMetadata).id).toBe(id);
+      expect(describeAppContainer(kind, ref, fullMetadata).id).toBe(id);
     }
   });
 
   test("the sync-less knowledge lane hangs off the cycle root", () => {
-    const lane = describeMeleeContainer("knowledge", ref, {});
-    expect(lane.id).toBe(`${meleeRootContainerId(ref)}:knowledge`);
-    expect(lane.parentContainerId).toBe(meleeRootContainerId(ref));
+    const lane = describeAppContainer("knowledge", ref, {});
+    expect(lane.id).toBe(`${appRootContainerId(ref)}:knowledge`);
+    expect(lane.parentContainerId).toBe(appRootContainerId(ref));
     expect(lane.label).toBe("Knowledge");
 
-    const job = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-9" });
-    expect(job.parentContainerId).toBe(meleeKnowledgeContainerId(ref));
-    expect(job.id.startsWith(`${meleeKnowledgeContainerId(ref)}:`)).toBe(true);
+    const job = describeAppContainer("knowledge-job", ref, { jobKey: "job-9" });
+    expect(job.parentContainerId).toBe(appKnowledgeContainerId(ref));
+    expect(job.id.startsWith(`${appKnowledgeContainerId(ref)}:`)).toBe(true);
   });
 
   test("two knowledge jobs never collapse onto one container", () => {
-    const first = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-9" });
-    const second = describeMeleeContainer("knowledge-job", ref, { jobKey: "job-10" });
+    const first = describeAppContainer("knowledge-job", ref, { jobKey: "job-9" });
+    const second = describeAppContainer("knowledge-job", ref, { jobKey: "job-10" });
     expect(first.id).not.toBe(second.id);
   });
 
   test("a knowledge job names itself by queue id, then batch, then worker state", () => {
-    const byJobId = describeMeleeContainer("knowledge-job", ref, {
+    const byJobId = describeAppContainer("knowledge-job", ref, {
       jobId: "queued-1",
       batchId: "batch-1",
     });
-    expect(byJobId.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "queued-1" }));
-    const bySubject = describeMeleeContainer("knowledge-job", ref, {
+    expect(byJobId.id).toBe(appKnowledgeJobContainerId({ ...ref, jobKey: "queued-1" }));
+    const bySubject = describeAppContainer("knowledge-job", ref, {
       subjectId: "knowledge-job-2",
       batchId: "batch-1",
     });
     expect(bySubject.id).toBe(
-      meleeKnowledgeJobContainerId({ ...ref, jobKey: "knowledge-job-2" }),
+      appKnowledgeJobContainerId({ ...ref, jobKey: "knowledge-job-2" }),
     );
-    const byBatch = describeMeleeContainer("knowledge-job", ref, { batchId: "batch-1" });
-    expect(byBatch.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "batch-1" }));
-    const byWorkerState = describeMeleeContainer("knowledge-job", ref, {
+    const byBatch = describeAppContainer("knowledge-job", ref, { batchId: "batch-1" });
+    expect(byBatch.id).toBe(appKnowledgeJobContainerId({ ...ref, jobKey: "batch-1" }));
+    const byWorkerState = describeAppContainer("knowledge-job", ref, {
       workerStateId: "ws-3",
     });
-    expect(byWorkerState.id).toBe(meleeKnowledgeJobContainerId({ ...ref, jobKey: "ws-3" }));
+    expect(byWorkerState.id).toBe(appKnowledgeJobContainerId({ ...ref, jobKey: "ws-3" }));
   });
 
   // The regression this whole lane exists to prevent: curation used to reuse
   // the run container's id, and the upsert overwrites label/phase on conflict.
   test("librarian curation no longer lands on the run container", () => {
-    const curation = createMeleeKernelSpawnContext({
+    const curation = createAppKernelSpawnContext({
       kind: "knowledge-curation",
       gameId: "melee",
       sessionId: "cycle-uuid-1",
@@ -780,15 +780,15 @@ describe("container identity has one authority", () => {
       jobKind: "Curator review",
       phase: "knowledge-curation",
     });
-    const runId = meleeRunContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" });
+    const runId = appRunContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" });
     const lineage = curation.containerLineage ?? [];
     expect(curation.containerId).not.toBe(runId);
     expect(lineage.some((container) => container.id === runId)).toBe(true);
     expect(lineage.map((container) => container.id)).toEqual([
-      meleeRootContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
+      appRootContainerId({ gameId: "melee", sessionId: "cycle-uuid-1" }),
       runId,
-      meleeRunKnowledgeContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" }),
-      meleeRunKnowledgeJobContainerId({
+      appRunKnowledgeContainerId({ gameId: "melee", sessionId: "cycle-uuid-1", runId: "run-1" }),
+      appRunKnowledgeJobContainerId({
         gameId: "melee",
         sessionId: "cycle-uuid-1",
         runId: "run-1",
@@ -799,26 +799,26 @@ describe("container identity has one authority", () => {
   });
 
   test("keeps legacy sync-less child ids and parents", () => {
-    const root = meleeRootContainerId(ref);
-    expect(meleeSyncIntakeContainerId(ref)).toBe(`${root}:prepare:sync-intake`);
-    expect(meleeBaselineContainerId(ref)).toBe(`${root}:prepare:baseline`);
-    expect(describeMeleeContainer("sync-intake", ref).parentContainerId).toBe(
-      meleePrepareContainerId(ref),
+    const root = appRootContainerId(ref);
+    expect(appSyncIntakeContainerId(ref)).toBe(`${root}:prepare:sync-intake`);
+    expect(appBaselineContainerId(ref)).toBe(`${root}:prepare:baseline`);
+    expect(describeAppContainer("sync-intake", ref).parentContainerId).toBe(
+      appPrepareContainerId(ref),
     );
-    expect(describeMeleeContainer("baseline", ref).parentContainerId).toBe(
-      meleePrepareContainerId(ref),
+    expect(describeAppContainer("baseline", ref).parentContainerId).toBe(
+      appPrepareContainerId(ref),
     );
   });
 
   test("phase vocabulary covers both writers and the legacy Prepare phase", () => {
     const emittedPhases = new Set(
-      ALL_KINDS.map((kind) => describeMeleeContainer(kind, ref, fullMetadata).phase),
+      ALL_KINDS.map((kind) => describeAppContainer(kind, ref, fullMetadata).phase),
     );
     for (const input of [
       { kind: "knowledge-curation" as const, phase: undefined },
       { kind: "reconcile" as const, phase: undefined },
     ]) {
-      const context = createMeleeKernelSpawnContext({
+      const context = createAppKernelSpawnContext({
         ...input,
         gameId: ref.gameId,
         sessionId: ref.sessionId,
@@ -831,16 +831,16 @@ describe("container identity has one authority", () => {
       }
     }
     for (const phase of emittedPhases) {
-      expect(MELEE_PHASE_VOCABULARY).toContain(phase);
+      expect(APP_PHASE_VOCABULARY).toContain(phase);
     }
-    expect(MELEE_PHASE_VOCABULARY).toContain("sync");
-    expect(MELEE_PHASE_VOCABULARY).toContain("prepare");
+    expect(APP_PHASE_VOCABULARY).toContain("sync");
+    expect(APP_PHASE_VOCABULARY).toContain("prepare");
   });
 
   test("spawn contexts and the descriptor agree on id, label, parent and phase", () => {
     const cases: Array<{
-      kind: MeleeContainerKind;
-      spawn: Parameters<typeof createMeleeKernelSpawnContext>[0];
+      kind: AppContainerKind;
+      spawn: Parameters<typeof createAppKernelSpawnContext>[0];
       metadata: Record<string, unknown>;
     }> = [
       {
@@ -964,8 +964,8 @@ describe("container identity has one authority", () => {
     ];
 
     for (const testCase of cases) {
-      const context = createMeleeKernelSpawnContext(testCase.spawn);
-      const descriptor = describeMeleeContainer(testCase.kind, ref, testCase.metadata);
+      const context = createAppKernelSpawnContext(testCase.spawn);
+      const descriptor = describeAppContainer(testCase.kind, ref, testCase.metadata);
       const spawned = context.containerLineage?.at(-1);
       expect(context.containerId).toBe(descriptor.id);
       expect(spawned?.id).toBe(descriptor.id);
@@ -976,7 +976,7 @@ describe("container identity has one authority", () => {
   });
 
   test("spawn lineage parents are the containers the lineage actually carries", () => {
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "worker",
       gameId: "melee",
       sessionId: "run-1",
@@ -1016,7 +1016,7 @@ describe("workflow trace helper", () => {
       },
     };
 
-    const epoch = await submitMeleeWorkflowTraceEvent({
+    const epoch = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "epoch",
       ...ref,
@@ -1027,7 +1027,7 @@ describe("workflow trace helper", () => {
       status: "started",
       metadata: { runId: "run-7", epochId: "epoch-3" },
     });
-    const run = await submitMeleeWorkflowTraceEvent({
+    const run = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "run",
       ...ref,
@@ -1040,14 +1040,14 @@ describe("workflow trace helper", () => {
     });
 
     expect(epoch.containerId).toBe(
-      meleeEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
+      appEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
     );
     expect(epoch.containers.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleeRunContainerId({ ...ref, runId: "run-7" }),
-      meleeEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
+      appRootContainerId(ref),
+      appRunContainerId({ ...ref, runId: "run-7" }),
+      appEpochContainerId({ ...ref, runId: "run-7", epochId: "epoch-3" }),
     ]);
-    expect(run.containerId).toBe(meleeRunContainerId({ ...ref, runId: "run-real" }));
+    expect(run.containerId).toBe(appRunContainerId({ ...ref, runId: "run-real" }));
     expect(contexts[1].metadata.runId).toBe("run-real");
   });
 
@@ -1086,7 +1086,7 @@ describe("workflow trace helper", () => {
       causedByEventId: null,
     };
 
-    const sync = await submitMeleeWorkflowTraceEvent({
+    const sync = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "sync",
       gameId: ref.gameId,
@@ -1096,7 +1096,7 @@ describe("workflow trace helper", () => {
       workingDir: "/repo",
       ...linkage,
     });
-    const setup = await submitMeleeWorkflowTraceEvent({
+    const setup = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "sync-intake",
       gameId: ref.gameId,
@@ -1107,7 +1107,7 @@ describe("workflow trace helper", () => {
       metadata: { mergedPrs: [123] },
       ...linkage,
     });
-    const baseline = await submitMeleeWorkflowTraceEvent({
+    const baseline = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "baseline",
       gameId: ref.gameId,
@@ -1127,7 +1127,7 @@ describe("workflow trace helper", () => {
       },
       ...linkage,
     });
-    const intakeKnowledge = await submitMeleeWorkflowTraceEvent({
+    const intakeKnowledge = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "intake-knowledge",
       gameId: ref.gameId,
@@ -1138,7 +1138,7 @@ describe("workflow trace helper", () => {
       metadata: { outputPath: "/state/knowledge-intake/pr-2764.json" },
       ...linkage,
     });
-    const publication = await submitMeleeWorkflowTraceEvent({
+    const publication = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "pr-publication",
       gameId: ref.gameId,
@@ -1150,14 +1150,14 @@ describe("workflow trace helper", () => {
       ...linkage,
     });
 
-    expect(sync.containerId).toBe(meleeSyncContainerId(ref));
-    expect(setup.containerId).toBe(meleeSyncIntakeContainerId(ref));
-    expect(baseline.containerId).toBe(meleeBaselineContainerId(ref));
+    expect(sync.containerId).toBe(appSyncContainerId(ref));
+    expect(setup.containerId).toBe(appSyncIntakeContainerId(ref));
+    expect(baseline.containerId).toBe(appBaselineContainerId(ref));
     expect(intakeKnowledge.containerId).toBe(
-      meleeIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
+      appIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
     );
     expect(publication.containerId).toBe(
-      meleePrPublicationContainerId({ ...ref, prId: "draft-1" }),
+      appPrPublicationContainerId({ ...ref, prId: "draft-1" }),
     );
     expect(upsertedContexts).toHaveLength(5);
     expect(submittedTraceEvents).toHaveLength(5);
@@ -1165,13 +1165,13 @@ describe("workflow trace helper", () => {
       (submittedTraceEvents as Array<{ eventId: string }>).map((event) => event.eventId),
     ).size).toBe(5);
     expect((upsertedContexts[0] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleeSyncContainerId(ref),
+      appRootContainerId(ref),
+      appSyncContainerId(ref),
     ]);
     expect((upsertedContexts[1] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleePrepareContainerId(ref),
-      meleeSyncIntakeContainerId(ref),
+      appRootContainerId(ref),
+      appPrepareContainerId(ref),
+      appSyncIntakeContainerId(ref),
     ]);
     expect((upsertedContexts[1] as any).containerLineage.map((container: NewContainer) => container.label)).toEqual([
       "Cycle run-1",
@@ -1189,20 +1189,20 @@ describe("workflow trace helper", () => {
       baseSha: "abc123",
     });
     expect((upsertedContexts[3] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleePrepareContainerId(ref),
-      meleeIntakeContainerId(ref),
-      meleeIntakeItemContainerId({ ...ref, prId: "2764" }),
-      meleeIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
+      appRootContainerId(ref),
+      appPrepareContainerId(ref),
+      appIntakeContainerId(ref),
+      appIntakeItemContainerId({ ...ref, prId: "2764" }),
+      appIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
     ]);
     expect((upsertedContexts[4] as any).containerLineage.map((container: NewContainer) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleePrContainerId({ ...ref, prId: "draft-1" }),
-      meleePrPublicationContainerId({ ...ref, prId: "draft-1" }),
+      appRootContainerId(ref),
+      appPrContainerId({ ...ref, prId: "draft-1" }),
+      appPrPublicationContainerId({ ...ref, prId: "draft-1" }),
     ]);
     expect((upsertedContexts[2] as any).containerLineage.at(-1).metadata).toMatchObject({
-      appSessionId: meleeAppSessionId(ref),
-      containerId: meleeBaselineContainerId(ref),
+      appSessionId: appAppSessionId(ref),
+      containerId: appBaselineContainerId(ref),
       containerKind: "baseline",
       gameId: "melee",
       sessionId: "run-1",
@@ -1218,7 +1218,7 @@ describe("workflow trace helper", () => {
     expect(traceInputs).toMatchObject([
       {
         type: "melee:sync_started",
-        containerId: meleeSyncContainerId(ref),
+        containerId: appSyncContainerId(ref),
         eventData: {
           phase: "sync",
           operation: "syncSession",
@@ -1227,7 +1227,7 @@ describe("workflow trace helper", () => {
       },
       {
         type: "melee:setup_completed",
-        containerId: meleeSyncIntakeContainerId(ref),
+        containerId: appSyncIntakeContainerId(ref),
         eventData: {
           phase: "setup",
           operation: "syncProjectIntake",
@@ -1243,7 +1243,7 @@ describe("workflow trace helper", () => {
       },
       {
         type: "melee:baseline_completed",
-        containerId: meleeBaselineContainerId(ref),
+        containerId: appBaselineContainerId(ref),
         eventData: {
           phase: "baseline",
           operation: "rebuildProductionBaseline",
@@ -1253,7 +1253,7 @@ describe("workflow trace helper", () => {
       },
       {
         type: "melee:knowledge_intake_completed",
-        containerId: meleeIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
+        containerId: appIntakeKnowledgeContainerId({ ...ref, prId: "2764" }),
         eventData: {
           phase: "knowledge-intake",
           operation: "prepare.intake.knowledge",
@@ -1264,7 +1264,7 @@ describe("workflow trace helper", () => {
       },
       {
         type: "melee:publication_started",
-        containerId: meleePrPublicationContainerId({ ...ref, prId: "draft-1" }),
+        containerId: appPrPublicationContainerId({ ...ref, prId: "draft-1" }),
         eventData: {
           phase: "publication",
           operation: "openPrForSlice",
@@ -1278,7 +1278,7 @@ describe("workflow trace helper", () => {
       expect(input.eventData).toMatchObject({
         gameId: "melee",
         sessionId: "run-1",
-        appSessionId: meleeAppSessionId(ref),
+        appSessionId: appAppSessionId(ref),
         correlation_id: "run-1",
         game_event_id: "game-event-1",
         caused_by_event_id: null,
@@ -1309,7 +1309,7 @@ describe("workflow trace helper", () => {
       gameEventId: "game-event-parity",
       causedByEventId: null,
     };
-    const intakeTrace = await submitMeleeWorkflowTraceEvent({
+    const intakeTrace = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "intake-knowledge",
       ...ref,
@@ -1317,14 +1317,14 @@ describe("workflow trace helper", () => {
       operation: "intakeKnowledge",
       ...linkage,
     });
-    const intakeSpawn = createMeleeKernelSpawnContext({
+    const intakeSpawn = createAppKernelSpawnContext({
       kind: "intake-knowledge",
       ...ref,
       runId: "sync-1",
       prId: "2764",
       itemId: "pr-2764",
     });
-    const knowledgeTrace = await submitMeleeWorkflowTraceEvent({
+    const knowledgeTrace = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "knowledge-job",
       ...ref,
@@ -1332,7 +1332,7 @@ describe("workflow trace helper", () => {
       metadata: { jobKey: "batch-7", jobKind: "Curator review", runId: "sync-1" },
       ...linkage,
     });
-    const knowledgeSpawn = createMeleeKernelSpawnContext({
+    const knowledgeSpawn = createAppKernelSpawnContext({
       kind: "knowledge-curation",
       ...ref,
       runId: "sync-1",
@@ -1343,7 +1343,7 @@ describe("workflow trace helper", () => {
       containers.map(({ id, parentContainerId }) => ({ id, parentContainerId }));
 
     expect(intakeTrace.containerId).toBe(
-      meleeSyncWorkflowIntakeKnowledgeContainerId(ref, "sync-1", "2764"),
+      appSyncWorkflowIntakeKnowledgeContainerId(ref, "sync-1", "2764"),
     );
     expect(identity(intakeTrace.containers)).toEqual(
       identity(intakeSpawn.containerLineage ?? []),
@@ -1358,10 +1358,10 @@ describe("workflow trace helper", () => {
       knowledgeSpawn.containerLineage ?? [],
     ]) {
       expect(lineage.map((container) => container.id)).toContain(
-        meleeSyncWorkflowContainerId(ref, "sync-1"),
+        appSyncWorkflowContainerId(ref, "sync-1"),
       );
       expect(lineage.map((container) => container.id)).not.toContain(
-        `${meleeRootContainerId(ref)}:prepare`,
+        `${appRootContainerId(ref)}:prepare`,
       );
     }
   });
@@ -1385,8 +1385,8 @@ describe("workflow trace helper", () => {
       },
     };
     const emit = (
-      input: Omit<Parameters<typeof submitMeleeWorkflowTraceEvent>[0], "runtime" | "gameId" | "sessionId">,
-    ) => submitMeleeWorkflowTraceEvent({ runtime, ...ref, ...input });
+      input: Omit<Parameters<typeof submitAppWorkflowTraceEvent>[0], "runtime" | "gameId" | "sessionId">,
+    ) => submitAppWorkflowTraceEvent({ runtime, ...ref, ...input });
 
     const first = await emit({
       kind: "sync-intake",
@@ -1425,26 +1425,26 @@ describe("workflow trace helper", () => {
     });
 
     expect(first.containerId).toBe(
-      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      appSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
     );
     expect(second.containerId).toBe(
-      meleeSyncWorkflowContainerId(ref, "sync-cccccccc-dddd"),
+      appSyncWorkflowContainerId(ref, "sync-cccccccc-dddd"),
     );
     expect(first.containerId).not.toBe(second.containerId);
     expect(knowledge.containers.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleeSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
-      meleeSyncWorkflowKnowledgeContainerId(ref, "sync-aaaaaaaa-bbbb"),
-      meleeSyncWorkflowKnowledgeJobContainerId(
+      appRootContainerId(ref),
+      appSyncWorkflowContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      appSyncWorkflowKnowledgeContainerId(ref, "sync-aaaaaaaa-bbbb"),
+      appSyncWorkflowKnowledgeJobContainerId(
         ref,
         "sync-aaaaaaaa-bbbb",
         "corpus-1",
       ),
     ]);
     expect(operatorKnowledge.containers.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
-      meleeRunKnowledgeContainerId({ ...ref, runId: "manual-backfill" }),
-      meleeRunKnowledgeJobContainerId({ ...ref, runId: "manual-backfill", jobKey: "corpus-1" }),
+      appRootContainerId(ref),
+      appRunKnowledgeContainerId({ ...ref, runId: "manual-backfill" }),
+      appRunKnowledgeJobContainerId({ ...ref, runId: "manual-backfill", jobKey: "corpus-1" }),
     ]);
   });
 
@@ -1475,7 +1475,7 @@ describe("workflow trace helper", () => {
       causedByEventId: null,
     };
 
-    const handoff = await submitMeleeWorkflowTraceEvent({
+    const handoff = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "pr-handoff",
       gameId: ref.gameId,
@@ -1485,7 +1485,7 @@ describe("workflow trace helper", () => {
       status: "started",
       ...linkage,
     });
-    const qa = await submitMeleeWorkflowTraceEvent({
+    const qa = await submitAppWorkflowTraceEvent({
       runtime,
       kind: "pr-qa",
       gameId: ref.gameId,
@@ -1496,18 +1496,18 @@ describe("workflow trace helper", () => {
       ...linkage,
     });
 
-    const prId = meleePrContainerId({ ...ref, prId: "draft-1" });
+    const prId = appPrContainerId({ ...ref, prId: "draft-1" });
     expect(handoff.containerId).toBe(
-      meleePrHandoffContainerId({ ...ref, prId: "draft-1" }),
+      appPrHandoffContainerId({ ...ref, prId: "draft-1" }),
     );
-    expect(qa.containerId).toBe(meleePrQaContainerId({ ...ref, prId: "draft-1" }));
+    expect(qa.containerId).toBe(appPrQaContainerId({ ...ref, prId: "draft-1" }));
     expect(handoff.containers.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
+      appRootContainerId(ref),
       prId,
       handoff.containerId,
     ]);
     expect(qa.containers.map((container) => container.id)).toEqual([
-      meleeRootContainerId(ref),
+      appRootContainerId(ref),
       prId,
       qa.containerId,
     ]);
@@ -1531,7 +1531,7 @@ describe("kernel runtime composition", () => {
     const registrations: NewKernelRegistration[] = [];
     const containers: NewContainer[] = [];
     const traceEvents: unknown[] = [];
-    const runtime = await createMeleeKernelRuntime({
+    const runtime = await createAppKernelRuntime({
       db: {},
       config: {
         workingDir: "/repo",
@@ -1552,7 +1552,7 @@ describe("kernel runtime composition", () => {
       },
       listRows: async () => [],
     });
-    const context = createMeleeKernelSpawnContext({
+    const context = createAppKernelSpawnContext({
       kind: "worker",
       gameId: "melee",
       sessionId: "run-1",
@@ -1593,7 +1593,7 @@ describe("read API service", () => {
     const rows = fixtureRows();
     const identities: string[] = [];
     const options: KernelTraceReadOptions[] = [];
-    const service = createMeleeKernelTraceReadService({
+    const service = createAppKernelTraceReadService({
       resolveIdentity: (id) => `container-for-${id}`,
       readRows: async (containerId, opts) => {
         identities.push(containerId);
@@ -1649,7 +1649,7 @@ describe("read API service", () => {
 describe("kernel wrapper", () => {
   test("delegates spawn calls to the provided adapter", async () => {
     const calls: unknown[] = [];
-    const kernel = createMeleeKernel({
+    const kernel = createAppKernel({
       spawnAgent: async (name: string, prompt: string, ctx: unknown, opts: unknown) => {
         calls.push({ name, prompt, ctx, opts });
         return { ok: true, name };
@@ -1681,7 +1681,7 @@ describe("kernel Pi runtime bridge", () => {
     const calls: unknown[] = [];
     const traceInputs: unknown[] = [];
     const upsertedContexts: unknown[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       runPiAgent: async (options) => {
         calls.push(options);
         return {
@@ -1695,7 +1695,7 @@ describe("kernel Pi runtime bridge", () => {
         };
       },
     });
-    const options: MeleeKernelPiRunOptions = {
+    const options: AppKernelPiRunOptions = {
       role: "worker",
       cwd: "/repo",
       outputDir: "/out",
@@ -1797,7 +1797,7 @@ describe("kernel Pi runtime bridge", () => {
       assemble: (loaded: ReadonlyArray<{ content: string }>) =>
         loaded.map((input) => input.content).join("\n"),
     };
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       toKernelParsedAgentFromBundle: (entry, bundle) => ({
         parsed: {
           config: {
@@ -1877,7 +1877,7 @@ describe("kernel Pi runtime bridge", () => {
 
   test("rejects non-dry spawns when the kernel createSpawnAgent path is unavailable", async () => {
     const calls: unknown[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       runPiAgent: async (options) => {
         calls.push(options);
         return {
@@ -1925,7 +1925,7 @@ describe("kernel Pi runtime bridge", () => {
           },
         },
       }),
-    ).rejects.toThrow("Non-dry Melee agent spawns must use kernel createSpawnAgent");
+    ).rejects.toThrow("Non-dry app agent spawns must use kernel createSpawnAgent");
     expect(calls).toHaveLength(0);
   });
 
@@ -1947,7 +1947,7 @@ describe("kernel Pi runtime bridge", () => {
     const submittedTraceEvents: unknown[] = [];
     const kernelCalls: unknown[] = [];
     const bindings: unknown[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       runPiAgent: async () => {
         throw new Error("direct Pi runner should not be called for kernel strategy");
       },
@@ -2013,7 +2013,7 @@ describe("kernel Pi runtime bridge", () => {
       kernelRuntime: {
         db: {},
         config: {
-          markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+          markerConfig: createAppKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
           piSessionsDir: join(tempDir, ".pi-sessions"),
         },
         upsertSpawnContainers: async () => {},
@@ -2086,7 +2086,7 @@ describe("kernel Pi runtime bridge", () => {
     const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-provider-error-"));
     const outputDir = join(tempDir, "out");
     const traceInputs: unknown[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       runPiAgent: async () => {
         throw new Error("direct Pi runner should not be called for kernel strategy");
       },
@@ -2120,7 +2120,7 @@ describe("kernel Pi runtime bridge", () => {
       kernelRuntime: {
         db: {},
         config: {
-          markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+          markerConfig: createAppKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
           piSessionsDir: join(tempDir, ".pi-sessions"),
         },
         traceWriter: {
@@ -2178,7 +2178,7 @@ describe("kernel Pi runtime bridge", () => {
       assemble: (loaded: ReadonlyArray<{ content: string }>) =>
         loaded.map((input) => input.content).join("\n"),
     };
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       runPiAgent: async () => {
         throw new Error("direct Pi runner should not be called for kernel strategy");
       },
@@ -2246,7 +2246,7 @@ describe("kernel Pi runtime bridge", () => {
       kernelRuntime: {
         db: {},
         config: {
-          markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+          markerConfig: createAppKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
           piSessionsDir: join(tempDir, ".pi-sessions"),
         },
       },
@@ -2264,7 +2264,7 @@ describe("kernel Pi runtime bridge", () => {
 
 describe("loader catalog", () => {
   test("registers the Melee session context loader with kernel default loaders", async () => {
-    const catalog = createMeleeLoaderCatalog();
+    const catalog = createAppLoaderCatalog();
     expect(catalog.has("text")).toBeTrue();
     expect(catalog.has(MELEE_SESSION_CONTEXT_LOADER_KIND)).toBeTrue();
 

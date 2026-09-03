@@ -7,9 +7,9 @@ import {
   backfillLibrarianPrompt,
 } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
+import { runAppKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { createAppKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   applyLibrarianPass,
   createSharedGate,
@@ -252,7 +252,7 @@ async function modelProposal(
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,
     },
-    kernelContext: createMeleeKernelSpawnContext({
+    kernelContext: createAppKernelSpawnContext({
       kind: "knowledge-curation",
       gameId: deps.globals.game?.gameId ?? deps.globals.gameId,
       sessionId: deps.runId,

@@ -1,7 +1,7 @@
 import {
-  createMeleeKernelBridgeConfig,
-  type CreateMeleeKernelBridgeConfigInput,
-  type MeleeKernelBridgeConfig,
+  createAppKernelBridgeConfig,
+  type CreateAppKernelBridgeConfigInput,
+  type AppKernelBridgeConfig,
 } from "./config.js";
 
 export interface NewKernelRegistration {
@@ -12,7 +12,7 @@ export interface NewKernelRegistration {
   appBaseUrl: string | null;
   appTraceUrlTemplate: string | null;
   genericTraceUrlTemplate: string | null;
-  markerConfig: MeleeKernelBridgeConfig["markerConfig"];
+  markerConfig: AppKernelBridgeConfig["markerConfig"];
   metadata: Record<string, unknown>;
 }
 
@@ -33,7 +33,7 @@ async function snapshotKernelRegistration(
   data: NewKernelRegistration,
 ): Promise<KernelRegistration> {
   // Live kernels advertise through a local manifest instead of the removed
-  // shared registration table. The Melee runtime retains this in-memory
+  // shared registration table. The app runtime retains this in-memory
   // snapshot for its existing status endpoint.
   const now = new Date().toISOString();
   return {
@@ -45,8 +45,8 @@ async function snapshotKernelRegistration(
   };
 }
 
-export function buildMeleeKernelRegistration(
-  config: MeleeKernelBridgeConfig = createMeleeKernelBridgeConfig(),
+export function buildAppKernelRegistration(
+  config: AppKernelBridgeConfig = createAppKernelBridgeConfig(),
 ): NewKernelRegistration {
   return {
     kernelId: config.kernelId,
@@ -61,17 +61,17 @@ export function buildMeleeKernelRegistration(
   };
 }
 
-export interface UpsertMeleeKernelRegistrationOptions {
+export interface UpsertAppKernelRegistrationOptions {
   db: unknown;
-  config?: CreateMeleeKernelBridgeConfigInput | MeleeKernelBridgeConfig;
+  config?: CreateAppKernelBridgeConfigInput | AppKernelBridgeConfig;
   upsert?: KernelRegistrationUpsertPort;
 }
 
-export async function upsertMeleeKernelRegistration({
+export async function upsertAppKernelRegistration({
   db,
   config,
   upsert = snapshotKernelRegistration,
-}: UpsertMeleeKernelRegistrationOptions): Promise<KernelRegistration> {
-  const resolvedConfig = createMeleeKernelBridgeConfig(config);
-  return upsert(db, buildMeleeKernelRegistration(resolvedConfig));
+}: UpsertAppKernelRegistrationOptions): Promise<KernelRegistration> {
+  const resolvedConfig = createAppKernelBridgeConfig(config);
+  return upsert(db, buildAppKernelRegistration(resolvedConfig));
 }

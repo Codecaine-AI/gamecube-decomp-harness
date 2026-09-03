@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { WORKER_CANONICAL_TOOL_PATHS, workerPrompt } from "@server/core/agent-catalog";
 import {
   KERNEL_AGENT_IDS,
-  meleeKernelAgent,
+  appKernelAgent,
   toKernelAgentViewerDefinition,
   type KernelAgentId,
   type KernelAgentViewerDefinition,
@@ -80,7 +80,7 @@ function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undef
 }
 
 function renderedTools(
-  entry: ReturnType<typeof meleeKernelAgent>,
+  entry: ReturnType<typeof appKernelAgent>,
   paths: KernelAgentCatalogContext,
 ): string | null {
   if (entry.tools.length === 0) return null;
@@ -336,7 +336,7 @@ export function loadKernelAgentsPayload(
   const generatedAt = new Date().toISOString();
   const warnings: string[] = [];
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
-    const entry = meleeKernelAgent(agentId);
+    const entry = appKernelAgent(agentId);
     try {
       return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps), {
         generatedAt,

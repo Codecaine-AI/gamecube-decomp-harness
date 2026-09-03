@@ -30,7 +30,7 @@ export const DEFAULT_AGENT_KERNEL_DATABASE_URL = pathToFileURL(
   DEFAULT_AGENT_KERNEL_DB_PATH,
 ).href;
 
-export interface OpenMeleeKernelDatabaseOptions {
+export interface OpenAppKernelDatabaseOptions {
   databasePath?: string | null;
   stateDir?: string | null;
   env?: Record<string, string | undefined>;
@@ -42,24 +42,24 @@ export interface OpenMeleeKernelDatabaseOptions {
   suppressNotices?: boolean;
 }
 
-export interface MeleeKernelDatabaseHandle {
-  db: MeleeKernelDatabase;
+export interface AppKernelDatabaseHandle {
+  db: AppKernelDatabase;
   databasePath: string;
   databaseUrl: string | null;
   close: () => Promise<void>;
 }
 
-export type MeleeKernelDatabase = KernelDatabase;
+export type AppKernelDatabase = KernelDatabase;
 
-function meleeDb(db: unknown): MeleeKernelDatabase {
-  return db as MeleeKernelDatabase;
+function appDb(db: unknown): AppKernelDatabase {
+  return db as AppKernelDatabase;
 }
 
 function resolveDatabasePath(path: string): string {
   return resolve(path);
 }
 
-export function meleeKernelDatabasePathFromEnv(
+export function appKernelDatabasePathFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): string | null {
   const configured = env.ORCH_AGENT_KERNEL_DB_PATH ?? env.AGENT_KERNEL_DB_PATH;
@@ -67,14 +67,14 @@ export function meleeKernelDatabasePathFromEnv(
 }
 
 /** Legacy environment reader retained for source compatibility only. */
-export function meleeKernelDatabaseUrlFromEnv(
+export function appKernelDatabaseUrlFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): string | null {
   return env.ORCH_AGENT_KERNEL_DATABASE_URL ?? env.AGENT_KERNEL_DATABASE_URL ?? null;
 }
 
-export function resolveMeleeKernelDatabasePath(
-  options: OpenMeleeKernelDatabaseOptions = {},
+export function resolveAppKernelDatabasePath(
+  options: OpenAppKernelDatabaseOptions = {},
 ): string {
   if (options.databasePath?.trim()) {
     return resolveDatabasePath(options.databasePath);
@@ -89,7 +89,7 @@ export function resolveMeleeKernelDatabasePath(
     return resolveDatabasePath(fileURLToPath(options.databaseUrl));
   }
 
-  const envPath = meleeKernelDatabasePathFromEnv(options.env);
+  const envPath = appKernelDatabasePathFromEnv(options.env);
   if (envPath) return envPath;
   if (options.stateDir?.trim()) {
     return resolve(options.stateDir, "agent-kernel.sqlite");
@@ -97,26 +97,26 @@ export function resolveMeleeKernelDatabasePath(
   return DEFAULT_AGENT_KERNEL_DB_PATH;
 }
 
-export function meleeKernelRuntimeRequiredFromEnv(
+export function appKernelRuntimeRequiredFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   return /^(1|true|yes)$/i.test(env.ORCH_AGENT_KERNEL_REQUIRED ?? "");
 }
 
 export async function ensureKernelObservabilitySchema(db: unknown): Promise<void> {
-  await ensureAgentKernelObservabilitySchema(meleeDb(db));
+  await ensureAgentKernelObservabilitySchema(appDb(db));
 }
 
-export async function upsertMeleeContainer(
+export async function upsertAppContainer(
   db: unknown,
   input: NewContainer,
 ): Promise<Container> {
-  const database = meleeDb(db) as any;
+  const database = appDb(db) as any;
   const [row] = await database
     .insert(sqliteSchema.containers)
     .values(input)
     .onConflictDoUpdate({
-      // Melee keeps stable hierarchical ids. A placeholder row can later be
+      // The app keeps stable hierarchical ids. A placeholder row can later be
       // refreshed by the richer runtime container with the same id.
       target: sqliteSchema.containers.id,
       set: {
@@ -143,12 +143,12 @@ export async function upsertMeleeContainer(
   return row as Container;
 }
 
-export async function insertMeleeTraceEventsBatch(
+export async function insertAppTraceEventsBatch(
   db: unknown,
   events: TraceEvent[],
 ): Promise<number> {
   if (events.length === 0) return 0;
-  const database = meleeDb(db) as any;
+  const database = appDb(db) as any;
   const inserted = await database
     .insert(sqliteSchema.traceEvents)
     .values(events.map((event) => ({
@@ -171,11 +171,11 @@ export async function insertMeleeTraceEventsBatch(
   return inserted.length;
 }
 
-export async function upsertMeleePiAgentSession(
+export async function upsertAppPiAgentSession(
   db: unknown,
   data: NewPiAgentSession,
 ): Promise<PiAgentSession> {
-  const database = meleeDb(db) as any;
+  const database = appDb(db) as any;
   const [row] = await database
     .insert(sqliteSchema.piAgentSessions)
     .values(data)
@@ -199,11 +199,11 @@ export async function upsertMeleePiAgentSession(
   return row as PiAgentSession;
 }
 
-export async function upsertMeleeAgentRun(
+export async function upsertAppAgentRun(
   db: unknown,
   data: NewAgentRun,
 ): Promise<AgentRun> {
-  const database = meleeDb(db) as any;
+  const database = appDb(db) as any;
   const [row] = await database
     .insert(sqliteSchema.agentRuns)
     .values(data)
@@ -234,10 +234,10 @@ export async function upsertMeleeAgentRun(
   return row as AgentRun;
 }
 
-export async function openMeleeKernelDatabase(
-  options: OpenMeleeKernelDatabaseOptions = {},
-): Promise<MeleeKernelDatabaseHandle> {
-  const databasePath = resolveMeleeKernelDatabasePath(options);
+export async function openAppKernelDatabase(
+  options: OpenAppKernelDatabaseOptions = {},
+): Promise<AppKernelDatabaseHandle> {
+  const databasePath = resolveAppKernelDatabasePath(options);
   const handle = openKernelDatabase({ path: databasePath });
   return {
     db: handle.db,

@@ -9,12 +9,12 @@ import { Database } from "bun:sqlite";
 import {
   DEFAULT_AGENT_KERNEL_DB_PATH,
   ensureKernelObservabilitySchema,
-  openMeleeKernelDatabase,
-  resolveMeleeKernelDatabasePath,
-  upsertMeleeContainer,
+  openAppKernelDatabase,
+  resolveAppKernelDatabasePath,
+  upsertAppContainer,
 } from "./database.js";
-import { getMeleeKernelTraceReadRows } from "./read-api.js";
-import { resolveMeleeKernelTraceIdentity } from "./runtime.js";
+import { getAppKernelTraceReadRows } from "./read-api.js";
+import { resolveAppKernelTraceIdentity } from "./runtime.js";
 
 const tempDirs: string[] = [];
 
@@ -34,7 +34,7 @@ describe("Melee Agent Kernel SQLite database", () => {
   test("opens a file, bootstraps the schema, and round-trips a container", async () => {
     const root = tempDir();
     const databasePath = join(root, "nested", "agent-kernel.sqlite");
-    const handle = await openMeleeKernelDatabase({ databasePath, env: {} });
+    const handle = await openAppKernelDatabase({ databasePath, env: {} });
 
     try {
       expect(handle.databasePath).toBe(databasePath);
@@ -43,7 +43,7 @@ describe("Melee Agent Kernel SQLite database", () => {
 
       await ensureKernelObservabilitySchema(handle.db);
       const createdAt = "2026-08-31T12:00:00.000Z";
-      const inserted = await upsertMeleeContainer(handle.db, {
+      const inserted = await upsertAppContainer(handle.db, {
         id: "melee:test:session",
         kernelId: "melee-decomp-orchestrator",
         kind: "session",
@@ -81,10 +81,10 @@ describe("Melee Agent Kernel SQLite database", () => {
         usageInputTokens: 7,
       });
       expect(
-        await resolveMeleeKernelTraceIdentity(handle.db, "sqlite-bridge-session"),
+        await resolveAppKernelTraceIdentity(handle.db, "sqlite-bridge-session"),
       ).toBe(inserted.id);
       expect(
-        (await getMeleeKernelTraceReadRows(handle.db, inserted.id))?.rootContainer,
+        (await getAppKernelTraceReadRows(handle.db, inserted.id))?.rootContainer,
       ).toEqual(inserted);
 
       const native = new Database(databasePath, { readonly: true });
@@ -107,27 +107,27 @@ describe("Melee Agent Kernel SQLite database", () => {
     const fromEnv = join(root, "env.sqlite");
     const stateDir = join(root, "state");
 
-    expect(resolveMeleeKernelDatabasePath({
+    expect(resolveAppKernelDatabasePath({
       databasePath: explicit,
       stateDir,
       env: { ORCH_AGENT_KERNEL_DB_PATH: fromEnv },
     })).toBe(explicit);
-    expect(resolveMeleeKernelDatabasePath({
+    expect(resolveAppKernelDatabasePath({
       stateDir,
       env: { ORCH_AGENT_KERNEL_DB_PATH: fromEnv },
     })).toBe(fromEnv);
-    expect(resolveMeleeKernelDatabasePath({ stateDir, env: {} })).toBe(
+    expect(resolveAppKernelDatabasePath({ stateDir, env: {} })).toBe(
       join(stateDir, "agent-kernel.sqlite"),
     );
-    expect(resolveMeleeKernelDatabasePath({ env: {} })).toBe(DEFAULT_AGENT_KERNEL_DB_PATH);
-    expect(resolveMeleeKernelDatabasePath({
+    expect(resolveAppKernelDatabasePath({ env: {} })).toBe(DEFAULT_AGENT_KERNEL_DB_PATH);
+    expect(resolveAppKernelDatabasePath({
       databasePath: "relative-agent-kernel.sqlite",
       env: {},
     })).toBe(resolve("relative-agent-kernel.sqlite"));
   });
 
   test("rejects the removed Postgres compatibility path", () => {
-    expect(() => resolveMeleeKernelDatabasePath({
+    expect(() => resolveAppKernelDatabasePath({
       databaseUrl: "postgres://agent_kernel@127.0.0.1/agent_kernel",
       env: {},
     })).toThrow("Postgres Agent Kernel URLs are no longer supported");

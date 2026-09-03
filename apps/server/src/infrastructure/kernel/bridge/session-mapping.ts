@@ -7,7 +7,7 @@ import { MELEE_KERNEL_ID } from "./config.js";
 const MELEE_APP_SESSION_NAMESPACE = "0dbd5814-75c3-4dc8-9b3b-0f6277cc2b08";
 const MELEE_WORKFLOW_TRACE_EVENT_NAMESPACE = "ced83bd4-c12c-5a72-9ae8-507d0da283cf";
 
-export type MeleeContainerKind =
+export type AppContainerKind =
   | "session"
   | "prepare"
   | "sync"
@@ -37,7 +37,7 @@ export type MeleeContainerKind =
  * share this list so a container's phase menu does not depend on which writer
  * created the row.
  */
-export const MELEE_PHASE_VOCABULARY = [
+export const APP_PHASE_VOCABULARY = [
   "session",
   "prepare",
   "sync",
@@ -65,12 +65,12 @@ export const MELEE_PHASE_VOCABULARY = [
   "publication",
 ];
 
-export interface MeleeCycleRef {
+export interface AppCycleRef {
   gameId: string;
   sessionId: string;
 }
 
-export interface MeleeWorkflowTraceEventRef extends MeleeCycleRef {
+export interface AppWorkflowTraceEventRef extends AppCycleRef {
   containerId: string;
   eventType: string;
   operation: string;
@@ -78,42 +78,42 @@ export interface MeleeWorkflowTraceEventRef extends MeleeCycleRef {
   status: string;
 }
 
-export interface MeleeRunRef extends MeleeCycleRef {
+export interface AppRunRef extends AppCycleRef {
   runId: string;
 }
 
-export interface MeleeEpochRef extends MeleeRunRef {
+export interface AppEpochRef extends AppRunRef {
   epochId: string | number;
 }
 
-export interface MeleeClaimRef extends MeleeEpochRef {
+export interface AppClaimRef extends AppEpochRef {
   claimId: string;
   targetId?: string;
 }
 
-export interface MeleeKnowledgeJobRef extends MeleeCycleRef {
+export interface AppKnowledgeJobRef extends AppCycleRef {
   jobKey: string;
 }
 
-export interface MeleePrRef extends MeleeCycleRef {
+export interface AppPrRef extends AppCycleRef {
   prId?: string;
 }
 
-export interface MeleeIntakePrRef extends MeleeCycleRef {
+export interface AppIntakePrRef extends AppCycleRef {
   prId: string | number;
 }
 
-export interface MeleeReviewRef extends MeleePrRef {
+export interface AppReviewRef extends AppPrRef {
   reviewId: string;
 }
 
-export interface MeleeRepairRef extends MeleePrRef {
+export interface AppRepairRef extends AppPrRef {
   repairId: string;
 }
 
-export interface MeleeContainerDescriptor {
+export interface AppContainerDescriptor {
   id: string;
-  kind: MeleeContainerKind;
+  kind: AppContainerKind;
   appSessionId: string;
   parentContainerId: string | null;
   label: string;
@@ -121,9 +121,9 @@ export interface MeleeContainerDescriptor {
   metadata: Record<string, unknown>;
 }
 
-export interface BuildMeleeContainerInput {
-  kind: MeleeContainerKind;
-  ref: MeleeCycleRef;
+export interface BuildAppContainerInput {
+  kind: AppContainerKind;
+  ref: AppCycleRef;
   parentContainerId?: string | null;
   label?: string;
   phase?: string;
@@ -156,7 +156,7 @@ function cleanSegment(value: string | number | undefined): string {
   return `${normalized || "id"}-${digest}`;
 }
 
-export function meleeAppSessionId(ref: MeleeCycleRef): string {
+export function appAppSessionId(ref: AppCycleRef): string {
   return stableUuid(
     MELEE_APP_SESSION_NAMESPACE,
     `game:${ref.gameId}\nsession:${ref.sessionId}`,
@@ -168,7 +168,7 @@ export function meleeAppSessionId(ref: MeleeCycleRef): string {
  * Kernel inserts are conflict-safe by event id, so retrying after a local
  * cursor failure replays the same event instead of appending a duplicate.
  */
-export function meleeWorkflowTraceEventId(ref: MeleeWorkflowTraceEventRef): string {
+export function appWorkflowTraceEventId(ref: AppWorkflowTraceEventRef): string {
   return stableUuid(
     MELEE_WORKFLOW_TRACE_EVENT_NAMESPACE,
     [
@@ -183,162 +183,162 @@ export function meleeWorkflowTraceEventId(ref: MeleeWorkflowTraceEventRef): stri
   );
 }
 
-export function meleeRootContainerId(ref: MeleeCycleRef): string {
-  return `melee:${meleeAppSessionId(ref)}:session`;
+export function appRootContainerId(ref: AppCycleRef): string {
+  return `melee:${appAppSessionId(ref)}:session`;
 }
 
-export function meleeSyncContainerId(ref: MeleeCycleRef): string {
-  return `${meleeRootContainerId(ref)}:sync`;
+export function appSyncContainerId(ref: AppCycleRef): string {
+  return `${appRootContainerId(ref)}:sync`;
 }
 
-export function meleeSyncWorkflowContainerId(ref: MeleeCycleRef, syncId: string): string {
-  return `${meleeSyncContainerId(ref)}:${cleanSegment(syncId)}`;
+export function appSyncWorkflowContainerId(ref: AppCycleRef, syncId: string): string {
+  return `${appSyncContainerId(ref)}:${cleanSegment(syncId)}`;
 }
 
-export function meleeSyncWorkflowIntakeContainerId(
-  ref: MeleeCycleRef,
+export function appSyncWorkflowIntakeContainerId(
+  ref: AppCycleRef,
   syncId: string,
 ): string {
-  return `${meleeSyncWorkflowContainerId(ref, syncId)}:intake`;
+  return `${appSyncWorkflowContainerId(ref, syncId)}:intake`;
 }
 
-export function meleeSyncWorkflowIntakeItemContainerId(
-  ref: MeleeCycleRef,
-  syncId: string,
-  prId: string | number,
-): string {
-  return `${meleeSyncWorkflowIntakeContainerId(ref, syncId)}:pr:${cleanSegment(prId)}`;
-}
-
-export function meleeSyncWorkflowIntakePostmortemContainerId(
-  ref: MeleeCycleRef,
+export function appSyncWorkflowIntakeItemContainerId(
+  ref: AppCycleRef,
   syncId: string,
   prId: string | number,
 ): string {
-  return `${meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:postmortem`;
+  return `${appSyncWorkflowIntakeContainerId(ref, syncId)}:pr:${cleanSegment(prId)}`;
 }
 
-export function meleeSyncWorkflowIntakeKnowledgeContainerId(
-  ref: MeleeCycleRef,
+export function appSyncWorkflowIntakePostmortemContainerId(
+  ref: AppCycleRef,
   syncId: string,
   prId: string | number,
 ): string {
-  return `${meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:knowledge-intake`;
+  return `${appSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:postmortem`;
 }
 
-export function meleeSyncWorkflowKnowledgeContainerId(
-  ref: MeleeCycleRef,
+export function appSyncWorkflowIntakeKnowledgeContainerId(
+  ref: AppCycleRef,
+  syncId: string,
+  prId: string | number,
+): string {
+  return `${appSyncWorkflowIntakeItemContainerId(ref, syncId, prId)}:knowledge-intake`;
+}
+
+export function appSyncWorkflowKnowledgeContainerId(
+  ref: AppCycleRef,
   syncId: string,
 ): string {
-  return `${meleeSyncWorkflowContainerId(ref, syncId)}:knowledge`;
+  return `${appSyncWorkflowContainerId(ref, syncId)}:knowledge`;
 }
 
-export function meleeSyncWorkflowKnowledgeJobContainerId(
-  ref: MeleeCycleRef,
+export function appSyncWorkflowKnowledgeJobContainerId(
+  ref: AppCycleRef,
   syncId: string,
   jobKey: string,
 ): string {
-  return `${meleeSyncWorkflowKnowledgeContainerId(ref, syncId)}:${cleanSegment(jobKey)}`;
+  return `${appSyncWorkflowKnowledgeContainerId(ref, syncId)}:${cleanSegment(jobKey)}`;
 }
 
 /**
  * Legacy id prefix retained so existing child rows keep stable ids when they
  * move under the Sync container.
  */
-export function meleePrepareContainerId(ref: MeleeCycleRef): string {
-  return `${meleeRootContainerId(ref)}:prepare`;
+export function appPrepareContainerId(ref: AppCycleRef): string {
+  return `${appRootContainerId(ref)}:prepare`;
 }
 
-export function meleeSyncIntakeContainerId(ref: MeleeCycleRef): string {
-  return `${meleePrepareContainerId(ref)}:sync-intake`;
+export function appSyncIntakeContainerId(ref: AppCycleRef): string {
+  return `${appPrepareContainerId(ref)}:sync-intake`;
 }
 
-export function meleeIntakeContainerId(ref: MeleeCycleRef): string {
-  return `${meleePrepareContainerId(ref)}:intake`;
+export function appIntakeContainerId(ref: AppCycleRef): string {
+  return `${appPrepareContainerId(ref)}:intake`;
 }
 
-export function meleeIntakeItemContainerId(ref: MeleeIntakePrRef): string {
-  return `${meleeIntakeContainerId(ref)}:pr:${cleanSegment(ref.prId)}`;
+export function appIntakeItemContainerId(ref: AppIntakePrRef): string {
+  return `${appIntakeContainerId(ref)}:pr:${cleanSegment(ref.prId)}`;
 }
 
-export function meleeIntakePostmortemContainerId(ref: MeleeIntakePrRef): string {
-  return `${meleeIntakeItemContainerId(ref)}:postmortem`;
+export function appIntakePostmortemContainerId(ref: AppIntakePrRef): string {
+  return `${appIntakeItemContainerId(ref)}:postmortem`;
 }
 
-export function meleeIntakeKnowledgeContainerId(ref: MeleeIntakePrRef): string {
-  return `${meleeIntakeItemContainerId(ref)}:knowledge-intake`;
+export function appIntakeKnowledgeContainerId(ref: AppIntakePrRef): string {
+  return `${appIntakeItemContainerId(ref)}:knowledge-intake`;
 }
 
 /**
  * Legacy cycle-global knowledge lane for sync-less operator and CLI work.
- * Sync-scoped jobs use `meleeSyncWorkflowKnowledgeContainerId` instead.
+ * Sync-scoped jobs use `appSyncWorkflowKnowledgeContainerId` instead.
  */
-export function meleeKnowledgeContainerId(ref: MeleeCycleRef): string {
-  return `${meleeRootContainerId(ref)}:knowledge`;
+export function appKnowledgeContainerId(ref: AppCycleRef): string {
+  return `${appRootContainerId(ref)}:knowledge`;
 }
 
-export function meleeRunKnowledgeContainerId(ref: MeleeRunRef): string {
-  return `${meleeRunContainerId(ref)}:knowledge`;
+export function appRunKnowledgeContainerId(ref: AppRunRef): string {
+  return `${appRunContainerId(ref)}:knowledge`;
 }
 
-export function meleeRunKnowledgeJobContainerId(ref: MeleeRunRef & { jobKey: string }): string {
-  return `${meleeRunKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
+export function appRunKnowledgeJobContainerId(ref: AppRunRef & { jobKey: string }): string {
+  return `${appRunKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
 }
 
-export function meleeKnowledgeJobContainerId(ref: MeleeKnowledgeJobRef): string {
-  return `${meleeKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
+export function appKnowledgeJobContainerId(ref: AppKnowledgeJobRef): string {
+  return `${appKnowledgeContainerId(ref)}:${cleanSegment(ref.jobKey)}`;
 }
 
-export function meleeBaselineContainerId(ref: MeleeCycleRef): string {
-  return `${meleePrepareContainerId(ref)}:baseline`;
+export function appBaselineContainerId(ref: AppCycleRef): string {
+  return `${appPrepareContainerId(ref)}:baseline`;
 }
 
-export function meleeRunContainerId(ref: MeleeRunRef): string {
-  return `${meleeRootContainerId(ref)}:run:${cleanSegment(ref.runId)}`;
+export function appRunContainerId(ref: AppRunRef): string {
+  return `${appRootContainerId(ref)}:run:${cleanSegment(ref.runId)}`;
 }
 
-export function meleeEpochContainerId(ref: MeleeEpochRef): string {
-  return `${meleeRunContainerId(ref)}:epoch:${cleanSegment(ref.epochId)}`;
+export function appEpochContainerId(ref: AppEpochRef): string {
+  return `${appRunContainerId(ref)}:epoch:${cleanSegment(ref.epochId)}`;
 }
 
-export function meleeWorkerContainerId(ref: MeleeClaimRef): string {
-  return `${meleeEpochContainerId(ref)}:worker:${cleanSegment(ref.claimId)}`;
+export function appWorkerContainerId(ref: AppClaimRef): string {
+  return `${appEpochContainerId(ref)}:worker:${cleanSegment(ref.claimId)}`;
 }
 
-export function meleeWorkerIntegrationContainerId(ref: MeleeClaimRef): string {
-  return `${meleeEpochContainerId(ref)}:integration:${cleanSegment(ref.claimId)}`;
+export function appWorkerIntegrationContainerId(ref: AppClaimRef): string {
+  return `${appEpochContainerId(ref)}:integration:${cleanSegment(ref.claimId)}`;
 }
 
-export function meleePostmortemContainerId(ref: MeleeClaimRef): string {
-  return `${meleeEpochContainerId(ref)}:postmortem:${cleanSegment(ref.claimId)}`;
+export function appPostmortemContainerId(ref: AppClaimRef): string {
+  return `${appEpochContainerId(ref)}:postmortem:${cleanSegment(ref.claimId)}`;
 }
 
-export function meleePrContainerId(ref: MeleePrRef): string {
-  return `${meleeRootContainerId(ref)}:pr:${cleanSegment(ref.prId ?? "session")}`;
+export function appPrContainerId(ref: AppPrRef): string {
+  return `${appRootContainerId(ref)}:pr:${cleanSegment(ref.prId ?? "session")}`;
 }
 
-export function meleePrHandoffContainerId(ref: MeleePrRef): string {
-  return `${meleePrContainerId(ref)}:handoff`;
+export function appPrHandoffContainerId(ref: AppPrRef): string {
+  return `${appPrContainerId(ref)}:handoff`;
 }
 
-export function meleePrQaContainerId(ref: MeleePrRef): string {
-  return `${meleePrContainerId(ref)}:qa`;
+export function appPrQaContainerId(ref: AppPrRef): string {
+  return `${appPrContainerId(ref)}:qa`;
 }
 
-export function meleePrSplitContainerId(ref: MeleePrRef): string {
-  return `${meleePrContainerId(ref)}:split`;
+export function appPrSplitContainerId(ref: AppPrRef): string {
+  return `${appPrContainerId(ref)}:split`;
 }
 
-export function meleePrReviewContainerId(ref: MeleeReviewRef): string {
-  return `${meleePrContainerId(ref)}:review:${cleanSegment(ref.reviewId)}`;
+export function appPrReviewContainerId(ref: AppReviewRef): string {
+  return `${appPrContainerId(ref)}:review:${cleanSegment(ref.reviewId)}`;
 }
 
-export function meleePrRepairContainerId(ref: MeleeRepairRef): string {
-  return `${meleePrContainerId(ref)}:repair:${cleanSegment(ref.repairId)}`;
+export function appPrRepairContainerId(ref: AppRepairRef): string {
+  return `${appPrContainerId(ref)}:repair:${cleanSegment(ref.repairId)}`;
 }
 
-export function meleePrPublicationContainerId(ref: MeleePrRef): string {
-  return `${meleePrContainerId(ref)}:publication`;
+export function appPrPublicationContainerId(ref: AppPrRef): string {
+  return `${appPrContainerId(ref)}:publication`;
 }
 
 /**
@@ -360,25 +360,25 @@ function metaId(metadata: Record<string, unknown>, key: string): string | undefi
  * field degrades to the same literal spawn-context uses ("active", "none",
  * "review", "repair", the session id) rather than an opaque hash bucket.
  */
-function meleeRunId(ref: MeleeCycleRef, metadata: Record<string, unknown>): string {
+function appRunId(ref: AppCycleRef, metadata: Record<string, unknown>): string {
   return metaId(metadata, "runId") ?? ref.sessionId;
 }
 
-function meleeSyncWorkflowId(metadata: Record<string, unknown>): string | undefined {
+function appSyncWorkflowId(metadata: Record<string, unknown>): string | undefined {
   const runId = metaId(metadata, "runId");
   return runId && /^sync-/.test(runId) ? runId : undefined;
 }
 
-function meleeSyncWorkflowLabel(syncId: string): string {
+function appSyncWorkflowLabel(syncId: string): string {
   const uuidPart = syncId.replace(/^sync-/, "");
   return `Sync ${uuidPart.slice(0, 8) || syncId.slice(0, 8)}`;
 }
 
-function meleeEpochId(metadata: Record<string, unknown>): string {
+function appEpochId(metadata: Record<string, unknown>): string {
   return metaId(metadata, "epochId") ?? "active";
 }
 
-function meleeClaimId(metadata: Record<string, unknown>): string {
+function appClaimId(metadata: Record<string, unknown>): string {
   return metaId(metadata, "claimId") ?? metaId(metadata, "itemId") ?? "none";
 }
 
@@ -387,11 +387,11 @@ function meleeClaimId(metadata: Record<string, unknown>): string {
  * The `pr` / `pr-publication` / `pr-handoff` / `pr-qa` kinds keep the older
  * `prId ?? "session"` fallback so their existing ids stay stable.
  */
-function meleeSpawnPrId(ref: MeleeCycleRef, metadata: Record<string, unknown>): string {
-  return metaId(metadata, "prId") ?? meleeRunId(ref, metadata);
+function appSpawnPrId(ref: AppCycleRef, metadata: Record<string, unknown>): string {
+  return metaId(metadata, "prId") ?? appRunId(ref, metadata);
 }
 
-function meleeWorkflowPrId(metadata: Record<string, unknown>): string {
+function appWorkflowPrId(metadata: Record<string, unknown>): string {
   return metaId(metadata, "prId") ?? "session";
 }
 
@@ -401,7 +401,7 @@ function meleeWorkflowPrId(metadata: Record<string, unknown>): string {
  * state the operator CLI is chewing through. Two jobs must never collapse onto
  * one container, so an unnamed job degrades to "job" and nothing finer.
  */
-function meleeKnowledgeJobKey(metadata: Record<string, unknown>): string {
+function appKnowledgeJobKey(metadata: Record<string, unknown>): string {
   return (
     metaId(metadata, "jobKey") ??
     metaId(metadata, "jobId") ??
@@ -413,14 +413,14 @@ function meleeKnowledgeJobKey(metadata: Record<string, unknown>): string {
   );
 }
 
-export function describeMeleeContainer(
-  kind: MeleeContainerKind,
-  ref: MeleeCycleRef,
+export function describeAppContainer(
+  kind: AppContainerKind,
+  ref: AppCycleRef,
   metadata: Record<string, unknown> = {},
-): MeleeContainerDescriptor {
-  const appSessionId = meleeAppSessionId(ref);
-  const rootId = meleeRootContainerId(ref);
-  const syncId = meleeSyncWorkflowId(metadata);
+): AppContainerDescriptor {
+  const appSessionId = appAppSessionId(ref);
+  const rootId = appRootContainerId(ref);
+  const syncId = appSyncWorkflowId(metadata);
 
   switch (kind) {
     case "session":
@@ -435,7 +435,7 @@ export function describeMeleeContainer(
       };
     case "prepare":
       return {
-        id: meleePrepareContainerId(ref),
+        id: appPrepareContainerId(ref),
         kind,
         appSessionId,
         parentContainerId: rootId,
@@ -446,21 +446,21 @@ export function describeMeleeContainer(
     case "sync":
       return {
         id: syncId
-          ? meleeSyncWorkflowContainerId(ref, syncId)
-          : meleeSyncContainerId(ref),
+          ? appSyncWorkflowContainerId(ref, syncId)
+          : appSyncContainerId(ref),
         kind,
         appSessionId,
         parentContainerId: rootId,
-        label: syncId ? meleeSyncWorkflowLabel(syncId) : "Sync",
+        label: syncId ? appSyncWorkflowLabel(syncId) : "Sync",
         phase: "sync",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
     case "sync-intake":
       return {
-        id: meleeSyncIntakeContainerId(ref),
+        id: appSyncIntakeContainerId(ref),
         kind,
         appSessionId,
-        parentContainerId: meleePrepareContainerId(ref),
+        parentContainerId: appPrepareContainerId(ref),
         label: "Sync Intake",
         phase: "setup",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
@@ -468,13 +468,13 @@ export function describeMeleeContainer(
     case "intake":
       return {
         id: syncId
-          ? meleeSyncWorkflowIntakeContainerId(ref, syncId)
-          : meleeIntakeContainerId(ref),
+          ? appSyncWorkflowIntakeContainerId(ref, syncId)
+          : appIntakeContainerId(ref),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowContainerId(ref, syncId)
-          : meleePrepareContainerId(ref),
+          ? appSyncWorkflowContainerId(ref, syncId)
+          : appPrepareContainerId(ref),
         label: "Intake",
         phase: "intake",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
@@ -484,13 +484,13 @@ export function describeMeleeContainer(
       const intakeRef = { ...ref, prId };
       return {
         id: syncId
-          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
-          : meleeIntakeItemContainerId(intakeRef),
+          ? appSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : appIntakeItemContainerId(intakeRef),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowIntakeContainerId(ref, syncId)
-          : meleeIntakeContainerId(ref),
+          ? appSyncWorkflowIntakeContainerId(ref, syncId)
+          : appIntakeContainerId(ref),
         label: prId.startsWith("#") ? `${prId} intake` : `PR #${prId} intake`,
         phase: "intake-item",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
@@ -501,13 +501,13 @@ export function describeMeleeContainer(
       const intakeRef = { ...ref, prId };
       return {
         id: syncId
-          ? meleeSyncWorkflowIntakePostmortemContainerId(ref, syncId, prId)
-          : meleeIntakePostmortemContainerId(intakeRef),
+          ? appSyncWorkflowIntakePostmortemContainerId(ref, syncId, prId)
+          : appIntakePostmortemContainerId(intakeRef),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
-          : meleeIntakeItemContainerId(intakeRef),
+          ? appSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : appIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} postmortem` : `PR #${prId} postmortem`,
         phase: "postmortem",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
@@ -518,57 +518,57 @@ export function describeMeleeContainer(
       const intakeRef = { ...ref, prId };
       return {
         id: syncId
-          ? meleeSyncWorkflowIntakeKnowledgeContainerId(ref, syncId, prId)
-          : meleeIntakeKnowledgeContainerId(intakeRef),
+          ? appSyncWorkflowIntakeKnowledgeContainerId(ref, syncId, prId)
+          : appIntakeKnowledgeContainerId(intakeRef),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
-          : meleeIntakeItemContainerId(intakeRef),
+          ? appSyncWorkflowIntakeItemContainerId(ref, syncId, prId)
+          : appIntakeItemContainerId(intakeRef),
         label: prId.startsWith("#") ? `${prId} knowledge intake` : `PR #${prId} knowledge intake`,
         phase: "knowledge-intake",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "knowledge":
-      const knowledgeRunId = meleeRunId(ref, metadata);
+      const knowledgeRunId = appRunId(ref, metadata);
       const runScopedKnowledge = Boolean(metaId(metadata, "runId") && !syncId);
       return {
         id: syncId
-          ? meleeSyncWorkflowKnowledgeContainerId(ref, syncId)
+          ? appSyncWorkflowKnowledgeContainerId(ref, syncId)
           : runScopedKnowledge
-            ? meleeRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
-            : meleeKnowledgeContainerId(ref),
+            ? appRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
+            : appKnowledgeContainerId(ref),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowContainerId(ref, syncId)
+          ? appSyncWorkflowContainerId(ref, syncId)
           : runScopedKnowledge
-            ? meleeRunContainerId({ ...ref, runId: knowledgeRunId })
+            ? appRunContainerId({ ...ref, runId: knowledgeRunId })
             : rootId,
         label: "Knowledge",
         phase: "knowledge",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
     case "knowledge-job": {
-      const jobKey = meleeKnowledgeJobKey(metadata);
+      const jobKey = appKnowledgeJobKey(metadata);
       const jobKind = metaId(metadata, "jobKind");
-      const knowledgeRunId = meleeRunId(ref, metadata);
+      const knowledgeRunId = appRunId(ref, metadata);
       const runScopedKnowledge = Boolean(metaId(metadata, "runId") && !syncId);
       const targetKey = metaId(metadata, "targetKey");
       return {
         id: syncId
-          ? meleeSyncWorkflowKnowledgeJobContainerId(ref, syncId, jobKey)
+          ? appSyncWorkflowKnowledgeJobContainerId(ref, syncId, jobKey)
           : runScopedKnowledge
-            ? meleeRunKnowledgeJobContainerId({ ...ref, runId: knowledgeRunId, jobKey })
-            : meleeKnowledgeJobContainerId({ ...ref, jobKey }),
+            ? appRunKnowledgeJobContainerId({ ...ref, runId: knowledgeRunId, jobKey })
+            : appKnowledgeJobContainerId({ ...ref, jobKey }),
         kind,
         appSessionId,
         parentContainerId: syncId
-          ? meleeSyncWorkflowKnowledgeContainerId(ref, syncId)
+          ? appSyncWorkflowKnowledgeContainerId(ref, syncId)
           : runScopedKnowledge
-            ? meleeRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
-            : meleeKnowledgeContainerId(ref),
+            ? appRunKnowledgeContainerId({ ...ref, runId: knowledgeRunId })
+            : appKnowledgeContainerId(ref),
         label: targetKey
           ? `Condense ${targetKey}`
           : jobKind
@@ -580,19 +580,19 @@ export function describeMeleeContainer(
     }
     case "baseline":
       return {
-        id: meleeBaselineContainerId(ref),
+        id: appBaselineContainerId(ref),
         kind,
         appSessionId,
-        parentContainerId: meleePrepareContainerId(ref),
+        parentContainerId: appPrepareContainerId(ref),
         label: "Baseline and rebuild",
         phase: "baseline",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId },
       };
     case "pr": {
-      const prId = meleeWorkflowPrId(metadata);
+      const prId = appWorkflowPrId(metadata);
       const prRef = { ...ref, prId };
       return {
-        id: meleePrContainerId(prRef),
+        id: appPrContainerId(prRef),
         kind,
         appSessionId,
         // "PR mode" is the label for the id-less session-wide PR container;
@@ -607,19 +607,19 @@ export function describeMeleeContainer(
       const prId = typeof metadata.prId === "string" && metadata.prId ? metadata.prId : "session";
       const prRef = { ...ref, prId };
       return {
-        id: meleePrPublicationContainerId(prRef),
+        id: appPrPublicationContainerId(prRef),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: "PR publication",
         phase: "publication",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "run": {
-      const runId = meleeRunId(ref, metadata);
+      const runId = appRunId(ref, metadata);
       return {
-        id: meleeRunContainerId({ ...ref, runId }),
+        id: appRunContainerId({ ...ref, runId }),
         kind,
         appSessionId,
         parentContainerId: rootId,
@@ -629,27 +629,27 @@ export function describeMeleeContainer(
       };
     }
     case "epoch": {
-      const runId = meleeRunId(ref, metadata);
-      const epochId = meleeEpochId(metadata);
+      const runId = appRunId(ref, metadata);
+      const epochId = appEpochId(metadata);
       return {
-        id: meleeEpochContainerId({ ...ref, runId, epochId }),
+        id: appEpochContainerId({ ...ref, runId, epochId }),
         kind,
         appSessionId,
-        parentContainerId: meleeRunContainerId({ ...ref, runId }),
+        parentContainerId: appRunContainerId({ ...ref, runId }),
         label: `Epoch ${epochId}`,
         phase: "epoch",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, runId, epochId },
       };
     }
     case "worker": {
-      const runId = meleeRunId(ref, metadata);
-      const epochId = meleeEpochId(metadata);
-      const claimId = meleeClaimId(metadata);
+      const runId = appRunId(ref, metadata);
+      const epochId = appEpochId(metadata);
+      const claimId = appClaimId(metadata);
       return {
-        id: meleeWorkerContainerId({ ...ref, runId, epochId, claimId }),
+        id: appWorkerContainerId({ ...ref, runId, epochId, claimId }),
         kind,
         appSessionId,
-        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        parentContainerId: appEpochContainerId({ ...ref, runId, epochId }),
         label: `Worker claim ${claimId}`,
         phase: "worker",
         metadata: {
@@ -663,14 +663,14 @@ export function describeMeleeContainer(
       };
     }
     case "worker-integration": {
-      const runId = meleeRunId(ref, metadata);
-      const epochId = meleeEpochId(metadata);
-      const claimId = meleeClaimId(metadata);
+      const runId = appRunId(ref, metadata);
+      const epochId = appEpochId(metadata);
+      const claimId = appClaimId(metadata);
       return {
-        id: meleeWorkerIntegrationContainerId({ ...ref, runId, epochId, claimId }),
+        id: appWorkerIntegrationContainerId({ ...ref, runId, epochId, claimId }),
         kind,
         appSessionId,
-        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        parentContainerId: appEpochContainerId({ ...ref, runId, epochId }),
         label: `Worker integration ${claimId}`,
         phase: "integration",
         metadata: {
@@ -684,14 +684,14 @@ export function describeMeleeContainer(
       };
     }
     case "postmortem": {
-      const runId = meleeRunId(ref, metadata);
-      const epochId = meleeEpochId(metadata);
-      const claimId = meleeClaimId(metadata);
+      const runId = appRunId(ref, metadata);
+      const epochId = appEpochId(metadata);
+      const claimId = appClaimId(metadata);
       return {
-        id: meleePostmortemContainerId({ ...ref, runId, epochId, claimId }),
+        id: appPostmortemContainerId({ ...ref, runId, epochId, claimId }),
         kind,
         appSessionId,
-        parentContainerId: meleeEpochContainerId({ ...ref, runId, epochId }),
+        parentContainerId: appEpochContainerId({ ...ref, runId, epochId }),
         // A claim-less postmortem is an epoch-level retro, not a claim's.
         label: metaId(metadata, "claimId")
           ? `Postmortem claim ${claimId}`
@@ -708,53 +708,53 @@ export function describeMeleeContainer(
       };
     }
     case "pr-handoff": {
-      const prId = meleeWorkflowPrId(metadata);
+      const prId = appWorkflowPrId(metadata);
       const prRef = { ...ref, prId };
       return {
-        id: meleePrHandoffContainerId(prRef),
+        id: appPrHandoffContainerId(prRef),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: "PR handoff",
         phase: "handoff",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "pr-qa": {
-      const prId = meleeWorkflowPrId(metadata);
+      const prId = appWorkflowPrId(metadata);
       const prRef = { ...ref, prId };
       return {
-        id: meleePrQaContainerId(prRef),
+        id: appPrQaContainerId(prRef),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: "PR QA",
         phase: "qa",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "pr-split": {
-      const prId = meleeSpawnPrId(ref, metadata);
+      const prId = appSpawnPrId(ref, metadata);
       const prRef = { ...ref, prId };
       return {
-        id: meleePrSplitContainerId(prRef),
+        id: appPrSplitContainerId(prRef),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: `PR split ${prId}`,
         phase: "pr-split",
         metadata: { ...metadata, gameId: ref.gameId, sessionId: ref.sessionId, prId },
       };
     }
     case "pr-review": {
-      const prId = meleeSpawnPrId(ref, metadata);
+      const prId = appSpawnPrId(ref, metadata);
       const prRef = { ...ref, prId };
       const reviewId = metaId(metadata, "reviewId") ?? "review";
       return {
-        id: meleePrReviewContainerId({ ...prRef, reviewId }),
+        id: appPrReviewContainerId({ ...prRef, reviewId }),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: `PR review ${reviewId}`,
         phase: "pr-review",
         metadata: {
@@ -767,14 +767,14 @@ export function describeMeleeContainer(
       };
     }
     case "pr-repair": {
-      const prId = meleeSpawnPrId(ref, metadata);
+      const prId = appSpawnPrId(ref, metadata);
       const prRef = { ...ref, prId };
       const repairId = metaId(metadata, "repairId") ?? "repair";
       return {
-        id: meleePrRepairContainerId({ ...prRef, repairId }),
+        id: appPrRepairContainerId({ ...prRef, repairId }),
         kind,
         appSessionId,
-        parentContainerId: meleePrContainerId(prRef),
+        parentContainerId: appPrContainerId(prRef),
         label: `PR repair ${repairId}`,
         phase: "repair",
         metadata: {
@@ -789,14 +789,14 @@ export function describeMeleeContainer(
   }
 }
 
-export function buildMeleeContainer(input: BuildMeleeContainerInput): NewContainer {
-  const descriptor = describeMeleeContainer(input.kind, input.ref, input.metadata ?? {});
+export function buildAppContainer(input: BuildAppContainerInput): NewContainer {
+  const descriptor = describeAppContainer(input.kind, input.ref, input.metadata ?? {});
   const createdAt = input.startedAt ?? new Date().toISOString();
   return {
     id: descriptor.id,
     kernelId: MELEE_KERNEL_ID,
     kind: descriptor.kind,
-    // Live kernels normally derive UUID ids from kind + appKey. Melee keeps
+    // Live kernels normally derive UUID ids from kind + appKey. This app keeps
     // its established hierarchical ids until the follow-up identity migration.
     appKey: [descriptor.id],
     parentContainerId: input.parentContainerId ?? descriptor.parentContainerId,
@@ -804,7 +804,7 @@ export function buildMeleeContainer(input: BuildMeleeContainerInput): NewContain
     status: input.status ?? "running",
     workingDir: input.workingDir ?? null,
     phase: input.phase ?? descriptor.phase,
-    phaseVocabulary: MELEE_PHASE_VOCABULARY,
+    phaseVocabulary: APP_PHASE_VOCABULARY,
     metadata: {
       ...descriptor.metadata,
       appSessionId: descriptor.appSessionId,

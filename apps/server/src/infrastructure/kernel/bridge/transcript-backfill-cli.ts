@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveGame } from "@server/core/game-registry";
 
-import { getDefaultMeleeKernelRuntime } from "./runtime.js";
-import { runMeleeTranscriptBackfill } from "./transcript-backfill.js";
+import { getDefaultAppKernelRuntime } from "./runtime.js";
+import { runAppTranscriptBackfill } from "./transcript-backfill.js";
 
 function usage(): never {
   throw new Error([
@@ -57,10 +57,10 @@ export function parseArgs(argv: string[], defaultRoots = resolveDefaultTranscrip
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const runtime = await getDefaultMeleeKernelRuntime();
-  if (!runtime) throw new Error("Melee kernel runtime is unavailable");
+  const runtime = await getDefaultAppKernelRuntime();
+  if (!runtime) throw new Error("App kernel runtime is unavailable");
   try {
-    const summary = await runMeleeTranscriptBackfill({ db: runtime.db, ...args });
+    const summary = await runAppTranscriptBackfill({ db: runtime.db, ...args });
     console.log(JSON.stringify(summary, null, 2));
   } finally {
     await runtime.close();

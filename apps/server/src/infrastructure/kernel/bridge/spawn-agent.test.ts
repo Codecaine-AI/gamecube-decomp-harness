@@ -4,13 +4,13 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
-import { createMeleeKernelBridgeConfig } from "./config.js";
-import { createMeleeKernelSpawnAgent } from "./spawn-agent.js";
+import { createAppKernelBridgeConfig } from "./config.js";
+import { createAppKernelSpawnAgent } from "./spawn-agent.js";
 
 test("uses expectedAgentName for kernel spawn validation", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-spawn-name-"));
   const spawnedNames: string[] = [];
-  const spawn = createMeleeKernelSpawnAgent({
+  const spawn = createAppKernelSpawnAgent({
     piOptions: {
       role: "librarian",
       cwd: tempDir,
@@ -37,7 +37,7 @@ test("uses expectedAgentName for kernel spawn validation", async () => {
     runtime: {
       db: {},
       config: {
-        markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+        markerConfig: createAppKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
         piSessionsDir: join(tempDir, ".pi-sessions"),
       },
     },
@@ -66,7 +66,7 @@ test("uses expectedAgentName for kernel spawn validation", async () => {
   expect(result.rawText).toBe("ok");
   expect(spawnedNames).toEqual(["backfill-librarian"]);
   await expect(spawn("worker-summarizer", "user", context)).rejects.toThrow(
-    "Melee kernel spawn mismatch: expected backfill-librarian, got worker-summarizer",
+    "App kernel spawn mismatch: expected backfill-librarian, got worker-summarizer",
   );
   expect(spawnedNames).toEqual(["backfill-librarian"]);
 });

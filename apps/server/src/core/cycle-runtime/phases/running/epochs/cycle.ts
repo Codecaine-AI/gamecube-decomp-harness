@@ -23,8 +23,8 @@ import { activeLockedSourcePaths } from "@server/core/cycle-runtime/run-state/ta
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { requireLease } from "@server/core/harness-state";
 import { activeCycleSessionId } from "@server/core/cycle/session.js";
-import { getDefaultMeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
-import { submitMeleeWorkflowTraceEvent } from "@server/infrastructure/kernel/bridge/workflow-trace.js";
+import { getDefaultAppKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
+import { submitAppWorkflowTraceEvent } from "@server/infrastructure/kernel/bridge/workflow-trace.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import {
   isHostToolPlatform,
@@ -937,11 +937,11 @@ async function submitEpochWorkflowEvent(input: {
     if (!gameId || !epochId) return;
     const sessionId = activeCycleSessionId(input.store.db, gameId);
     if (!sessionId) return;
-    const runtime = await getDefaultMeleeKernelRuntime({
+    const runtime = await getDefaultAppKernelRuntime({
       database: { stateDir: input.store.stateDir },
     });
     if (!runtime) return;
-    await submitMeleeWorkflowTraceEvent({
+    await submitAppWorkflowTraceEvent({
       runtime,
       kind: "epoch",
       gameId,

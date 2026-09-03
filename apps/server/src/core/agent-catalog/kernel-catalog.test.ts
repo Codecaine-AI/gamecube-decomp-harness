@@ -11,10 +11,10 @@ import { librarianV2Prompt } from "@server/core/agent-catalog/agents/knowledge/l
 import { backfillLibrarianPrompt } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/index.js";
 import { agentRegistry } from "@server/core/agent-catalog/registry";
 import {
-  assertMeleeKernelCatalogComplete,
+  assertAppKernelCatalogComplete,
   KERNEL_AGENT_IDS,
-  meleeKernelAgent,
-  meleeKernelAgentCatalog,
+  appKernelAgent,
+  appKernelAgentCatalog,
   toKernelAgentViewerDefinition,
   toKernelParsedAgentFromBundle,
   type KernelAgentId,
@@ -31,7 +31,7 @@ import {
   defaultWorkerToolProfile,
   resolveAgentToolIds,
 } from "@server/core/tools/index.js";
-import { createMeleeLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
+import { createAppLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
 import { formatLocator, parseLocator } from "@server/core/knowledge-v2/locator.js";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
@@ -131,7 +131,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
   }
 }
 
-describe("meleeKernelAgentCatalog", () => {
+describe("appKernelAgentCatalog", () => {
   test("keeps librarian sample locators in canonical format", () => {
     const locatorPattern = /(?:discord|wiki|pr|attempt|code):[^\s"'<>\\]+/gu;
     const locators: string[] = [];
@@ -159,9 +159,9 @@ describe("meleeKernelAgentCatalog", () => {
   });
 
   test("registers every declared context loader kind", () => {
-    const catalog = createMeleeLoaderCatalog();
+    const catalog = createAppLoaderCatalog();
 
-    for (const entry of meleeKernelAgentCatalog) {
+    for (const entry of appKernelAgentCatalog) {
       for (const kind of entry.contextLoaderKinds) {
         expect(catalog.has(kind)).toBeTrue();
       }
@@ -169,11 +169,11 @@ describe("meleeKernelAgentCatalog", () => {
   });
 
   test("registers the worker summarizer context loader kind", () => {
-    expect(createMeleeLoaderCatalog().has("worker-summarizer-context")).toBeTrue();
+    expect(createAppLoaderCatalog().has("worker-summarizer-context")).toBeTrue();
   });
 
   test("registers the draft librarian context loader kinds", () => {
-    const catalog = createMeleeLoaderCatalog();
+    const catalog = createAppLoaderCatalog();
 
     expect(catalog.has("librarian-v2-context")).toBeTrue();
     expect(catalog.has("backfill-librarian-context")).toBeTrue();
@@ -182,15 +182,15 @@ describe("meleeKernelAgentCatalog", () => {
   test("covers every registered backend agent exactly once", () => {
     const registeredIds = Object.keys(agentRegistry) as KernelAgentId[];
 
-    expect(() => assertMeleeKernelCatalogComplete()).not.toThrow();
+    expect(() => assertAppKernelCatalogComplete()).not.toThrow();
     expect(KERNEL_AGENT_IDS).toHaveLength(4);
-    expect(meleeKernelAgentCatalog).toHaveLength(4);
+    expect(appKernelAgentCatalog).toHaveLength(4);
     expect([...KERNEL_AGENT_IDS].sort()).toEqual(registeredIds.sort());
-    expect(new Set(meleeKernelAgentCatalog.map((entry) => entry.id)).size).toBe(meleeKernelAgentCatalog.length);
+    expect(new Set(appKernelAgentCatalog.map((entry) => entry.id)).size).toBe(appKernelAgentCatalog.length);
   });
 
   test("keeps default tool allowlists aligned with existing tool profiles", () => {
-    for (const entry of meleeKernelAgentCatalog) {
+    for (const entry of appKernelAgentCatalog) {
       expect(entry.promptPaths.systemTemplatePath.endsWith("/agent.ts")).toBeTrue();
       expect(entry.promptPaths.promptModulePath.endsWith("/prompt.ts")).toBeTrue();
       expect(entry.promptPaths.contextModulePath.endsWith("/context.ts")).toBeTrue();
@@ -201,7 +201,7 @@ describe("meleeKernelAgentCatalog", () => {
       expect(entry.toolProfile).toBe(entry.role);
     }
 
-    expect(meleeKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
+    expect(appKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
     expect(defaultWorkerToolProfile).toContain("ledger_search");
     expect(
       agentToolProfileSummary("worker").map((tool) => tool.id),
@@ -218,20 +218,20 @@ describe("meleeKernelAgentCatalog", () => {
       "kv2_resolve_locator",
       "kv2_unit_context",
     ]);
-    expect(meleeKernelAgent("worker-summarizer").tools).toEqual([]);
-    expect(meleeKernelAgent("librarian-v2").tools).toEqual([...defaultLibrarianToolProfile]);
-    expect(meleeKernelAgent("backfill-librarian").tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(appKernelAgent("worker-summarizer").tools).toEqual([]);
+    expect(appKernelAgent("librarian-v2").tools).toEqual([...defaultLibrarianToolProfile]);
+    expect(appKernelAgent("backfill-librarian").tools).toEqual([...defaultLibrarianToolProfile]);
   });
 
   test("describes worker output as a runner validation handoff in the catalog", () => {
-    const worker = meleeKernelAgent("worker");
+    const worker = appKernelAgent("worker");
 
     expect(worker.resultContract.notes).toContain("validation handoff");
     expect(worker.resultContract.notes).not.toContain("checkpoint note");
   });
 
   test("keeps every harness-authored agent bundle path complete", () => {
-    for (const entry of meleeKernelAgentCatalog) {
+    for (const entry of appKernelAgentCatalog) {
       expect(existsSync(resolve(repoRoot, entry.promptPaths.systemTemplatePath))).toBeTrue();
       expect(existsSync(resolve(repoRoot, entry.promptPaths.promptModulePath))).toBeTrue();
       expect(existsSync(resolve(repoRoot, entry.promptPaths.contextModulePath))).toBeTrue();
@@ -246,7 +246,7 @@ describe("meleeKernelAgentCatalog", () => {
 
   test("converts existing prompt bundles into kernel ParsedAgent inputs", () => {
     for (const agentId of KERNEL_AGENT_IDS) {
-      const entry = meleeKernelAgent(agentId);
+      const entry = appKernelAgent(agentId);
       const bundle = samplePrompt(agentId);
       const converted = toKernelParsedAgentFromBundle(entry, bundle);
 
@@ -277,7 +277,7 @@ describe("meleeKernelAgentCatalog", () => {
 
   test("builds kernel viewer definitions from rendered prompt bundles", () => {
     for (const agentId of KERNEL_AGENT_IDS) {
-      const entry = meleeKernelAgent(agentId);
+      const entry = appKernelAgent(agentId);
       const bundle = samplePrompt(agentId);
       const viewerDefinition = toKernelAgentViewerDefinition(entry, bundle, {
         generatedAt: "2026-06-24T18:00:00.000Z",
@@ -325,7 +325,7 @@ describe("meleeKernelAgentCatalog", () => {
   });
 
   test("falls back when viewer context inputs do not render", () => {
-    const entry = meleeKernelAgent("worker");
+    const entry = appKernelAgent("worker");
     const bundle = samplePrompt("worker");
     const emptyInputs = toKernelAgentViewerDefinition(entry, {
       ...bundle,

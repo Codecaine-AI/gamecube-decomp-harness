@@ -3,7 +3,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSyn
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runMeleeTranscriptBackfill } from "./bridge/transcript-backfill.js";
+import { runAppTranscriptBackfill } from "./bridge/transcript-backfill.js";
 
 type PackageJson = {
   name?: string;
@@ -275,7 +275,7 @@ function collectBoundaryFailures(): string[] {
 }
 
 describe("agent-kernel package boundaries", () => {
-  test("exports the Melee transcript backfill stub", () => expect(runMeleeTranscriptBackfill).toBeFunction());
+  test("exports the Melee transcript backfill stub", () => expect(runAppTranscriptBackfill).toBeFunction());
 
   test("keeps the harness on package exports and the kernel source isolated", () => {
     expect(collectBoundaryFailures()).toEqual([]);

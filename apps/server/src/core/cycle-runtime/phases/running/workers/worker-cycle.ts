@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { delimiter, isAbsolute, relative, resolve } from "node:path";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { createAppKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   appendWorkerActivityEvent,
   captureWorkerChangeBaseline,
@@ -77,7 +77,7 @@ import {
 } from "@server/core/cycle-runtime/run-state/write-set-widening.js";
 import type { WorkerOutputIntegrationApplyResult } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import type { PiRunResult } from "@server/core/shared/types";
-import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
+import type { AppKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
   gameMetadata,
   stringArg,
@@ -1217,7 +1217,7 @@ export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTask
 
 export interface WorkerTaskRuntimeDeps {
   sandboxProvider?: SandboxProvider;
-  runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
+  runAgent?: (options: AppKernelPiRunOptions) => Promise<PiRunResult>;
 }
 
 function disabledSandboxSleepStats(): SandboxSleepStats {
@@ -1344,7 +1344,7 @@ async function executeClaimedWorker(params: {
   workerRepoRoot: string;
   workspaceExec: WorkspaceExec;
   sandboxHandle: SandboxHandle;
-  runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
+  runAgent?: (options: AppKernelPiRunOptions) => Promise<PiRunResult>;
   outputDir: string;
   baseRev: string;
   ttlSeconds: number;
@@ -1479,7 +1479,7 @@ async function executeClaimedWorker(params: {
       });
       let result: PiRunResult;
       try {
-        const runWorkerAgent = runAgent ?? (await import("@server/infrastructure/agent-runtime/kernel-pi-runner")).runMeleeKernelPiAgent;
+        const runWorkerAgent = runAgent ?? (await import("@server/infrastructure/agent-runtime/kernel-pi-runner")).runAppKernelPiAgent;
         let targetSourceText: string | null;
         const targetSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
         if (!targetSourcePath) {
@@ -1532,7 +1532,7 @@ async function executeClaimedWorker(params: {
             sandboxHandle,
             mwccDebugProvisioned,
           },
-          kernelContext: createMeleeKernelSpawnContext({
+          kernelContext: createAppKernelSpawnContext({
             kind: "worker",
             gameId: game?.gameId ?? globals.gameId,
             // The cycle-derived session id, not the run id: a worker belongs to

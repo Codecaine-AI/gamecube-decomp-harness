@@ -314,8 +314,8 @@ describe("claimed worker task reconstruction", () => {
           sandboxProvider: provider,
           runAgent: async (options) => {
             capturedRunnerOptions = options;
-            const { runMeleeKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
-            return runMeleeKernelPiAgent(options);
+            const { runAppKernelPiAgent } = await import("@server/infrastructure/agent-runtime/kernel-pi-runner");
+            return runAppKernelPiAgent(options);
           },
         },
       );

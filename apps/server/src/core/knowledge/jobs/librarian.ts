@@ -11,7 +11,7 @@ import {
 } from "@server/core/knowledge/ledger.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { addPiSession, type StateStore } from "@server/core/cycle-runtime/run-state";
-import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
+import { runAppKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 
 export interface LibrarianWorkerStateRow extends AttemptWorkerStateRow {
   run_id: string;

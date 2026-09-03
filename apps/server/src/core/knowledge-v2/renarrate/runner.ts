@@ -10,9 +10,9 @@ import {
 } from "@server/core/knowledge/jobs/librarian.js";
 import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
 import type { StateStore } from "@server/core/orchestrator-state";
-import { runMeleeKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
+import { runAppKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { createAppKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { insertRunNarrative, type KnowledgeStoreHandle } from "../records/index.js";
 import {
   narrativeSubmissionsById,
@@ -226,7 +226,7 @@ async function modelNarrative(
       stateDir: options.globals.stateDir,
       game: options.globals.game,
     },
-    kernelContext: createMeleeKernelSpawnContext({
+    kernelContext: createAppKernelSpawnContext({
       kind: "knowledge-curation",
       gameId: options.globals.game?.gameId ?? options.globals.gameId,
       sessionId: knowledgeCycleSessionId({

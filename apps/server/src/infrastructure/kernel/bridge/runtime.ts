@@ -13,38 +13,38 @@ import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 const sqliteSchema = schema as any;
 
 import {
-  createMeleeKernelBridgeConfig,
+  createAppKernelBridgeConfig,
   MELEE_KERNEL_ID,
-  type CreateMeleeKernelBridgeConfigInput,
-  type MeleeKernelBridgeConfig,
+  type CreateAppKernelBridgeConfigInput,
+  type AppKernelBridgeConfig,
 } from "./config.js";
 import {
   ensureKernelObservabilitySchema,
-  insertMeleeTraceEventsBatch,
-  upsertMeleeContainer,
-  meleeKernelRuntimeRequiredFromEnv,
-  openMeleeKernelDatabase,
-  resolveMeleeKernelDatabasePath,
-  type MeleeKernelDatabaseHandle,
-  type OpenMeleeKernelDatabaseOptions,
+  insertAppTraceEventsBatch,
+  upsertAppContainer,
+  appKernelRuntimeRequiredFromEnv,
+  openAppKernelDatabase,
+  resolveAppKernelDatabasePath,
+  type AppKernelDatabaseHandle,
+  type OpenAppKernelDatabaseOptions,
 } from "./database.js";
-import type { MeleeKernelSpawnContext } from "./kernel.js";
+import type { AppKernelSpawnContext } from "./kernel.js";
 import {
   createDbKernelTraceRowsReader,
-  createMeleeKernelTraceReadService,
-  getMeleeKernelTraceReadRows,
+  createAppKernelTraceReadService,
+  getAppKernelTraceReadRows,
   type KernelTraceRowsLister,
   type KernelTraceRowsReader,
   type KernelTraceIdentityResolver,
 } from "./read-api.js";
 import {
-  upsertMeleeKernelRegistration,
+  upsertAppKernelRegistration,
   type KernelRegistration,
   type KernelRegistrationUpsertPort,
 } from "./registration.js";
 import {
-  createMeleeTraceWriter,
-  type MeleeTraceWriter,
+  createAppTraceWriter,
+  type AppTraceWriter,
 } from "./trace-writer.js";
 
 export type ContainerUpsertPort = (
@@ -57,22 +57,22 @@ export type TraceEventsInsertPort = (
   events: TraceEvent[],
 ) => Promise<number>;
 
-export interface MeleeKernelRuntime {
-  config: MeleeKernelBridgeConfig;
+export interface AppKernelRuntime {
+  config: AppKernelBridgeConfig;
   databasePath: string | null;
   databaseUrl: string | null;
   db: unknown;
   registration: KernelRegistration | null;
   readApi: { handle(request: Request): Promise<Response> };
   readRows: KernelTraceRowsReader;
-  traceWriter: MeleeTraceWriter;
-  upsertSpawnContainers: (context: MeleeKernelSpawnContext) => Promise<void>;
+  traceWriter: AppTraceWriter;
+  upsertSpawnContainers: (context: AppKernelSpawnContext) => Promise<void>;
   close: () => Promise<void>;
 }
 
-export interface CreateMeleeKernelRuntimeOptions {
-  config?: CreateMeleeKernelBridgeConfigInput | MeleeKernelBridgeConfig;
-  database?: OpenMeleeKernelDatabaseOptions;
+export interface CreateAppKernelRuntimeOptions {
+  config?: CreateAppKernelBridgeConfigInput | AppKernelBridgeConfig;
+  database?: OpenAppKernelDatabaseOptions;
   db?: unknown;
   closeDatabase?: () => Promise<void>;
   ensureSchema?: boolean;
@@ -86,9 +86,9 @@ export interface CreateMeleeKernelRuntimeOptions {
   resolveIdentity?: KernelTraceIdentityResolver;
 }
 
-export interface GetDefaultMeleeKernelRuntimeOptions
-  extends Omit<CreateMeleeKernelRuntimeOptions, "database"> {
-  database?: OpenMeleeKernelDatabaseOptions & {
+export interface GetDefaultAppKernelRuntimeOptions
+  extends Omit<CreateAppKernelRuntimeOptions, "database"> {
+  database?: OpenAppKernelDatabaseOptions & {
     env?: Record<string, string | undefined>;
   };
 }
@@ -104,12 +104,12 @@ function dedupeContainers(containers: NewContainer[]): NewContainer[] {
   return [...byId.values()];
 }
 
-export async function upsertMeleeSpawnContextContainers({
+export async function upsertAppSpawnContextContainers({
   context,
   db,
-  upsert = upsertMeleeContainer,
+  upsert = upsertAppContainer,
 }: {
-  context: MeleeKernelSpawnContext;
+  context: AppKernelSpawnContext;
   db: unknown;
   upsert?: ContainerUpsertPort;
 }): Promise<void> {
@@ -144,7 +144,7 @@ export async function upsertMeleeSpawnContextContainers({
   }
 }
 
-export async function resolveMeleeKernelTraceIdentity(
+export async function resolveAppKernelTraceIdentity(
   db: unknown,
   id: string,
 ): Promise<string> {
@@ -181,9 +181,9 @@ export async function resolveMeleeKernelTraceIdentity(
   return byMetadata?.id ?? id;
 }
 
-export function createDbMeleeKernelTraceRowsLister(
+export function createDbAppKernelTraceRowsLister(
   db: unknown,
-  _config: MeleeKernelBridgeConfig,
+  _config: AppKernelBridgeConfig,
 ): KernelTraceRowsLister {
   return async (query) => {
     const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
@@ -202,7 +202,7 @@ export function createDbMeleeKernelTraceRowsLister(
 
     const rows: KernelTraceReadRows[] = [];
     for (const root of roots) {
-      const readRows = await getMeleeKernelTraceReadRows(
+      const readRows = await getAppKernelTraceReadRows(
         db,
         root.id,
         {
@@ -217,11 +217,11 @@ export function createDbMeleeKernelTraceRowsLister(
   };
 }
 
-export async function createMeleeKernelRuntime(
-  options: CreateMeleeKernelRuntimeOptions = {},
-): Promise<MeleeKernelRuntime> {
-  const config = createMeleeKernelBridgeConfig(options.config);
-  const handle: Pick<MeleeKernelDatabaseHandle, "databaseUrl" | "close"> & {
+export async function createAppKernelRuntime(
+  options: CreateAppKernelRuntimeOptions = {},
+): Promise<AppKernelRuntime> {
+  const config = createAppKernelBridgeConfig(options.config);
+  const handle: Pick<AppKernelDatabaseHandle, "databaseUrl" | "close"> & {
     db: unknown;
     databasePath: string | null;
   } = options.db
@@ -231,7 +231,7 @@ export async function createMeleeKernelRuntime(
         databaseUrl: options.database?.databaseUrl ?? null,
         close: options.closeDatabase ?? (async () => {}),
       }
-    : await openMeleeKernelDatabase(options.database);
+    : await openAppKernelDatabase(options.database);
   const db = handle.db;
 
   if (options.ensureSchema !== false) {
@@ -241,26 +241,26 @@ export async function createMeleeKernelRuntime(
   const registration =
     options.register === false
       ? null
-      : await upsertMeleeKernelRegistration({
+      : await upsertAppKernelRegistration({
           db,
           config,
           upsert: options.upsertRegistration,
         });
-  const insertTraceEvents = options.insertTraceEvents ?? insertMeleeTraceEventsBatch;
-  const traceWriter = createMeleeTraceWriter({
+  const insertTraceEvents = options.insertTraceEvents ?? insertAppTraceEventsBatch;
+  const traceWriter = createAppTraceWriter({
     insertBatch: (events) => insertTraceEvents(db, events),
   });
   const readRows = options.readRows ?? createDbKernelTraceRowsReader({ db });
-  const listRows = options.listRows ?? createDbMeleeKernelTraceRowsLister(db, config);
+  const listRows = options.listRows ?? createDbAppKernelTraceRowsLister(db, config);
   const resolveIdentity =
-    options.resolveIdentity ?? ((id) => resolveMeleeKernelTraceIdentity(db, id));
-  const readService = createMeleeKernelTraceReadService({
+    options.resolveIdentity ?? ((id) => resolveAppKernelTraceIdentity(db, id));
+  const readService = createAppKernelTraceReadService({
     readRows,
     listRows,
     resolveIdentity,
   });
   const readApi = createKernelTraceReadApi(readService);
-  const upsertContainer = options.upsertContainer ?? upsertMeleeContainer;
+  const upsertContainer = options.upsertContainer ?? upsertAppContainer;
 
   return {
     config,
@@ -272,46 +272,46 @@ export async function createMeleeKernelRuntime(
     readRows,
     traceWriter,
     upsertSpawnContainers: (context) =>
-      upsertMeleeSpawnContextContainers({ context, db, upsert: upsertContainer }),
+      upsertAppSpawnContextContainers({ context, db, upsert: upsertContainer }),
     close: () => handle.close(),
   };
 }
 
-let defaultRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
+let defaultRuntimePromise: Promise<AppKernelRuntime | null> | null = null;
 let defaultRuntimeWarningShown = false;
 
 /** One retry after a short jittered pause for transient SQLite lock errors. */
-async function createDefaultMeleeKernelRuntimeWithRetry(
-  options: GetDefaultMeleeKernelRuntimeOptions,
-): Promise<MeleeKernelRuntime> {
+async function createDefaultAppKernelRuntimeWithRetry(
+  options: GetDefaultAppKernelRuntimeOptions,
+): Promise<AppKernelRuntime> {
   try {
-    return await createMeleeKernelRuntime(options);
+    return await createAppKernelRuntime(options);
   } catch (error) {
     const delayMs = Math.round(1000 + Math.random() * 1000);
     console.warn(
       `Agent Kernel runtime init failed (${error instanceof Error ? error.message : String(error)}); retrying once in ${delayMs}ms`,
     );
     await new Promise<void>((resolveDelay) => setTimeout(resolveDelay, delayMs));
-    return createMeleeKernelRuntime(options);
+    return createAppKernelRuntime(options);
   }
 }
 
-export async function getDefaultMeleeKernelRuntime(
-  options: GetDefaultMeleeKernelRuntimeOptions = {},
-): Promise<MeleeKernelRuntime | null> {
-  if (options.db) return createMeleeKernelRuntime(options);
+export async function getDefaultAppKernelRuntime(
+  options: GetDefaultAppKernelRuntimeOptions = {},
+): Promise<AppKernelRuntime | null> {
+  if (options.db) return createAppKernelRuntime(options);
 
   const env = options.database?.env ?? process.env;
   if (/^(1|true|yes)$/i.test(env.ORCH_AGENT_KERNEL_DISABLED ?? env.ORCH_AGENT_KERNEL_DISABLE ?? "")) {
     return null;
   }
-  const databasePath = resolveMeleeKernelDatabasePath({
+  const databasePath = resolveAppKernelDatabasePath({
     ...options.database,
     env,
   });
 
   if (!defaultRuntimePromise) {
-    defaultRuntimePromise = createDefaultMeleeKernelRuntimeWithRetry({
+    defaultRuntimePromise = createDefaultAppKernelRuntimeWithRetry({
       ...options,
       database: {
         ...options.database,
@@ -320,7 +320,7 @@ export async function getDefaultMeleeKernelRuntime(
       },
     }).catch((error) => {
       defaultRuntimePromise = null;
-      if (meleeKernelRuntimeRequiredFromEnv(env)) throw error;
+      if (appKernelRuntimeRequiredFromEnv(env)) throw error;
       if (!defaultRuntimeWarningShown) {
         defaultRuntimeWarningShown = true;
         console.warn(
@@ -334,12 +334,12 @@ export async function getDefaultMeleeKernelRuntime(
   return defaultRuntimePromise;
 }
 
-export function resetDefaultMeleeKernelRuntimeForTests(): void {
+export function resetDefaultAppKernelRuntimeForTests(): void {
   defaultRuntimePromise = null;
   defaultRuntimeWarningShown = false;
 }
 
-export async function closeDefaultMeleeKernelRuntime(): Promise<void> {
+export async function closeDefaultAppKernelRuntime(): Promise<void> {
   const runtimePromise = defaultRuntimePromise;
   defaultRuntimePromise = null;
   defaultRuntimeWarningShown = false;
