@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { packageRoot } from "@server/core/knowledge";
 import { appendLearnings, defaultLedgerPath } from "@server/core/knowledge/ledger.js";
 import { forceReportRun } from "@server/core/validation/report";
@@ -597,7 +598,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           });
           if (breakageGate.status === "breakage") {
             await (params.dependencies?.writeBoundaryBreakageDeferrals ?? writeBoundaryBreakageDeferralsDefault)({
-              gameId: globals.game?.gameId ?? globals.gameId ?? "melee",
+              gameId: globals.game?.gameId ?? globals.gameId ?? DEFAULT_GAME_ID,
               cycleUuid: run?.cycle_uuid ?? null,
               gate: breakageGate,
             });
@@ -823,7 +824,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           }
           if (breakageGate.status === "breakage") {
             await (params.dependencies?.writeBoundaryBreakageDeferrals ?? writeBoundaryBreakageDeferralsDefault)({
-              gameId: globals.game?.gameId ?? globals.gameId ?? "melee",
+              gameId: globals.game?.gameId ?? globals.gameId ?? DEFAULT_GAME_ID,
               cycleUuid: run?.cycle_uuid ?? null,
               gate: breakageGate,
             });

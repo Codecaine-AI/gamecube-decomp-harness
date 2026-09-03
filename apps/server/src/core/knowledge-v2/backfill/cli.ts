@@ -1,5 +1,6 @@
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
 import {
@@ -38,7 +39,7 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
   }
 
   const explicitRoot = optionalStringArg(args, "--knowledge-root");
-  const gameId = globals.gameId ?? "melee";
+  const gameId = globals.gameId ?? DEFAULT_GAME_ID;
   const knowledgeRoot = explicitRoot === undefined ? gameKnowledgeRoot(gameId) : resolve(explicitRoot);
   if (args.get("--status") === true) {
     const store = explicitRoot === undefined ? openKnowledgeStore({ gameId }) : openKnowledgeStore({ knowledgeRoot });

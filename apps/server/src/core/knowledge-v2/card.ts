@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { gameKnowledgeRoot } from "../knowledge/paths.js";
 import type { KnowledgeStoreHandle } from "./records/index.js";
 import {
@@ -201,7 +202,7 @@ export function loadV2TargetCard(options: {
 }): V2TargetCard | null {
   if (!options.unit) return null;
   const stableKey = options.symbol ? `${options.unit}:${options.symbol}` : options.unit;
-  const dbPath = resolve(gameKnowledgeRoot(options.gameId ?? "melee"), "knowledge.sqlite");
+  const dbPath = resolve(gameKnowledgeRoot(options.gameId ?? DEFAULT_GAME_ID), "knowledge.sqlite");
   if (!existsSync(dbPath)) return null;
 
   let db: Database | null = null;

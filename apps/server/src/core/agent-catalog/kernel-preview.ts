@@ -53,10 +53,10 @@ function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): Backfill
     store = openKnowledgeStore({ gameId });
     const rows = prioritizeTargets(store).rows;
     const row = rows.find(
-      (candidate) => candidate.stable_key.startsWith("main/melee/") && candidate.attempts_runs > 0,
+      (candidate) => candidate.stable_key.startsWith(`main/${gameId}/`) && candidate.attempts_runs > 0,
     ) ?? rows[0];
     if (!row) return null;
-    const context = buildPassContext(store, row);
+    const context = buildPassContext(store, row, { checkoutRoot: paths.game.repoRoot });
     return { fillOut: context.fillOut, supporting: context.supporting };
   } catch {
     return null;

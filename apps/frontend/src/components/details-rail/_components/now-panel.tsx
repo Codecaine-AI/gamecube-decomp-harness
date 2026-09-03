@@ -46,7 +46,7 @@ function commandLine(record: JsonObject): string {
 
 function processName(dashboard: Dashboard | null): string {
   const game = asObject(dashboard?.game);
-  return text(game.processName, "melee-live");
+  return text(game.processName, "process");
 }
 
 /**

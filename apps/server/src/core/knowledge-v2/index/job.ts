@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import {
@@ -36,7 +37,7 @@ export async function kg2Index(
   const rebuild = args.get("--rebuild") === true;
   const knowledgeRoot = optionalStringArg(args, "--knowledge-root");
   const embeddingModel = optionalStringArg(args, "--embedding-model");
-  const gameId = globals.gameId ?? "melee";
+  const gameId = globals.gameId ?? DEFAULT_GAME_ID;
 
   let store: KnowledgeStore | undefined;
   let indexDb: KnowledgeIndexDb | undefined;

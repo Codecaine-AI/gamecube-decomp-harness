@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { ensureParentDir } from "./graph/util.js";
 import { gameKnowledgeRoot } from "./paths.js";
 
@@ -65,12 +66,12 @@ export interface LedgerLearningSearchResult {
   results: LedgerLearningHit[];
 }
 
-export function defaultLedgerPath(gameId = "melee"): string {
+export function defaultLedgerPath(gameId = DEFAULT_GAME_ID): string {
   // ORCH_GAME_KNOWLEDGE_ROOT overrides this root; --state-dir does not, so disposable runs must set the env to avoid the production ledger.
   return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings.jsonl");
 }
 
-export function defaultLedgerSearchDbPath(gameId = "melee"): string {
+export function defaultLedgerSearchDbPath(gameId = DEFAULT_GAME_ID): string {
   return resolve(gameKnowledgeRoot(gameId), "ledger", "learnings-fts.sqlite");
 }
 
@@ -159,7 +160,7 @@ export function searchLedgerLearnings(options: {
   dbPath?: string;
   ledgerPath?: string;
 }): LedgerLearningSearchResult {
-  const gameId = options.gameId ?? "melee";
+  const gameId = options.gameId ?? DEFAULT_GAME_ID;
   const dbPath = resolve(options.dbPath ?? defaultLedgerSearchDbPath(gameId));
   const ledgerPath = resolve(options.ledgerPath ?? defaultLedgerPath(gameId));
   if (!existsSync(dbPath)) {

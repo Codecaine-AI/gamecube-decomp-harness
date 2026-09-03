@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
 import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
@@ -99,7 +100,7 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     throw new Error("--reattribute requires --lane prs or --lane all");
   }
   const dryRun = args.has("--dry-run");
-  const gameId = globals.gameId ?? "melee";
+  const gameId = globals.gameId ?? DEFAULT_GAME_ID;
   const gameRootOverride = stringArg(args, "--game-root", "");
   const defaultKnowledgeRoot = gameRootOverride
     ? resolve(gameRootOverride, "knowledge")

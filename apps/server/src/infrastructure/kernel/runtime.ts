@@ -15,7 +15,7 @@ import {
   type AppWorkflowTraceStatus,
   type SubmitAppWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
-import type { GameRuntimeContext } from "@server/core/game-registry";
+import { DEFAULT_GAME_ID, type GameRuntimeContext } from "@server/core/game-registry";
 import { canonicalProcessName } from "@server/core/cycle/process-identity";
 import { openState } from "@server/core/orchestrator-state";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
@@ -388,7 +388,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   }
 
   function gameId(paths: GameRuntimeContext): string {
-    return paths.game?.gameId ?? "melee";
+    return paths.game?.gameId ?? DEFAULT_GAME_ID;
   }
 
   function sessionId(

@@ -21,3 +21,4 @@ export {
   type SandboxRuntimeOptions,
 } from "./resolver.js";
 export type { GameRuntimeContext } from "./context.js";
+export { DEFAULT_GAME_ID } from "./runtime-defaults.js";

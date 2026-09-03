@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { openState } from "@server/core/orchestrator-state";
 import { openKnowledgeStore } from "../storage/store.js";
@@ -15,7 +16,7 @@ export async function kg2Renarrate(globals: GlobalArgs, args: Map<string, string
   const stopFileArg = optionalString(args, "--stop-file");
   const outcome = optionalOutcome(args, "--outcome");
   const workerStateId = optionalString(args, "--worker-state-id");
-  const knowledge = openKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? "melee" });
+  const knowledge = openKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? DEFAULT_GAME_ID });
   const orchestrator = openState(globals.stateDir);
   try {
     await runRenarrate(knowledge, {

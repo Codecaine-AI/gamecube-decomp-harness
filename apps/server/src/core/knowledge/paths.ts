@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 
 interface SourceRegistryEntry {
   id: string;
@@ -20,7 +21,7 @@ export function knowledgeRoot(): string {
   return gameKnowledgeRoot();
 }
 
-export function gameKnowledgeRoot(gameId = "melee"): string {
+export function gameKnowledgeRoot(gameId = DEFAULT_GAME_ID): string {
   const override = process.env.ORCH_GAME_KNOWLEDGE_ROOT
     ?? process.env.ORCHESTRATOR_GAME_KNOWLEDGE_ROOT;
   if (override) return isAbsolute(override) ? override : resolve(packageRoot(), override);
@@ -91,23 +92,23 @@ export function toolpackToolRegistryPath(toolpackId = defaultToolpackId()): stri
   return resolve(toolpackRoot(toolpackId), "registry.json");
 }
 
-export function gameRoot(gameId = "melee"): string {
+export function gameRoot(gameId = DEFAULT_GAME_ID): string {
   return resolve(packageRoot(), "games", gameId);
 }
 
-export function gameToolBindingRoot(gameId = "melee"): string {
+export function gameToolBindingRoot(gameId = DEFAULT_GAME_ID): string {
   return resolve(gameRoot(gameId), "tool-bindings");
 }
 
-export function gameSharedToolDataRoot(gameId = "melee"): string {
+export function gameSharedToolDataRoot(gameId = DEFAULT_GAME_ID): string {
   return resolve(gameRoot(gameId), "shared/tool-data");
 }
 
-export function gameWorktreeRoot(gameId = "melee", worktreeId = "main"): string {
+export function gameWorktreeRoot(gameId = DEFAULT_GAME_ID, worktreeId = "main"): string {
   return resolve(gameRoot(gameId), "worktrees", worktreeId);
 }
 
-export function gameWorktreeToolCacheRoot(gameId = "melee", worktreeId = "main"): string {
+export function gameWorktreeToolCacheRoot(gameId = DEFAULT_GAME_ID, worktreeId = "main"): string {
   return resolve(gameWorktreeRoot(gameId, worktreeId), "tool-cache");
 }
 
@@ -127,8 +128,8 @@ export function knowledgeCuratorEnrichmentPath(): string {
   return resolve(resourceGraphEnrichmentsRoot(), "knowledge_curator_updates.jsonl");
 }
 
-export function resourceGraphDbPath(): string {
-  return resolve(gameRoot("melee"), "graph/graph.sqlite");
+export function resourceGraphDbPath(gameId = DEFAULT_GAME_ID): string {
+  return resolve(gameRoot(gameId), "graph/graph.sqlite");
 }
 
 function sourceRegistryPath(sourceId: string): string {
