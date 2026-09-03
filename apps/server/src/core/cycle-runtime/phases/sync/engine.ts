@@ -13,6 +13,7 @@ import type { Blocker } from "@server/core/harness-state/types.js";
 import { readPrRecordsArtifact } from "@server/core/cycle-runtime/phases/pr/pr-records.js";
 import { fetchUpstreamAndFindMergedPrs, parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { linkGameAssets } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import { readRegressionReport } from "@server/core/validation/objdiff/report.js";
 import { forceReportRun } from "@server/core/validation/report/index.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
@@ -55,6 +56,7 @@ import type {
 
 interface SyncGameContext {
   baseRef?: string;
+  reportRelPath?: string;
 }
 
 type LooseJsonObject = Record<string, unknown>;
@@ -976,17 +978,19 @@ async function defaultValidation(
   context: SyncEngineContext,
   staging: SyncStagingProgress,
 ): Promise<SyncValidationResult> {
+  const reportRelPath = context.game?.reportRelPath ?? "build/GALE01/report.json";
+  const buildId = reportBuildIdFromPath(reportRelPath);
   const cycleWorktree = context.cycleWorktreePath;
   const cycleBuild = resolve(cycleWorktree, "build");
   const cycleBuildNinja = resolve(cycleWorktree, "build.ninja");
-  const cycleBaseline = resolve(cycleBuild, "GALE01/baseline.json");
+  const cycleBaseline = resolve(cycleBuild, `${buildId}/baseline.json`);
   if (!existsSync(cycleBuildNinja) || !existsSync(cycleBaseline)) {
     throw new Error(
       `Incremental sync validation requires the existing cycle baseline cache (${cycleBaseline}); refusing a full rebuild`,
     );
   }
   const stagingBuild = resolve(worktreePath, "build");
-  if (!existsSync(resolve(stagingBuild, "GALE01/baseline.json"))) {
+  if (!existsSync(resolve(stagingBuild, `${buildId}/baseline.json`))) {
     cpSync(cycleBuild, stagingBuild, { recursive: true, mode: constants.COPYFILE_FICLONE });
   }
   for (const name of ["build.ninja", ".ninja_deps", ".ninja_log"]) {
@@ -995,7 +999,7 @@ async function defaultValidation(
     if (existsSync(source) && !existsSync(target)) copyFileSync(source, target, constants.COPYFILE_FICLONE);
   }
   const { adoptUpstream, resetBaseline } = syncValidationPolicy(staging);
-  const report = await forceReportRun(worktreePath, { resetBaseline });
+  const report = await forceReportRun(worktreePath, { resetBaseline, reportRelPath });
   if (adoptUpstream) {
     return {
       result: "passed",

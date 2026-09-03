@@ -23,6 +23,8 @@ const MAX_PROFILE_REFS = 16;
 export interface BuildGhidraXrefGraphRecordsOptions {
   indexesRoot?: string;
   maxRefsPerFunction?: number;
+  reportRelPath?: string;
+  gameId?: string;
 }
 
 interface CurrentFunction {
@@ -72,11 +74,11 @@ export function buildGhidraXrefGraphRecords(
   repoRoot: string,
   options: BuildGhidraXrefGraphRecordsOptions = {},
 ): GraphRecords | null {
-  const indexesRoot = options.indexesRoot ?? resolve(gameSharedToolDataRoot("melee"), "ghidra/indexes");
+  const indexesRoot = options.indexesRoot ?? resolve(gameSharedToolDataRoot(options.gameId), "ghidra/indexes");
   const xrefsPath = resolve(indexesRoot, "xrefs.jsonl");
   if (!existsSync(xrefsPath)) return null;
 
-  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot));
+  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot, options.reportRelPath, options.gameId), options.reportRelPath);
   if (functions.ranges.length === 0) return null;
 
   const observations = xrefObservations(xrefsPath, functions);
@@ -153,17 +155,17 @@ export function buildGhidraXrefGraphRecords(
   };
 }
 
-function repoRootWithFunctionReport(repoRoot: string): string {
+function repoRootWithFunctionReport(repoRoot: string, reportRelPath = "build/GALE01/report.json", gameId?: string): string {
   const requested = resolve(repoRoot);
-  if (existsSync(resolve(requested, "build/GALE01/report.json"))) return requested;
-  const fallback = resolve(gameRoot("melee"), "checkout");
-  if (fallback !== requested && existsSync(resolve(fallback, "build/GALE01/report.json"))) return fallback;
+  if (existsSync(resolve(requested, reportRelPath))) return requested;
+  const fallback = resolve(gameRoot(gameId), "checkout");
+  if (fallback !== requested && existsSync(resolve(fallback, reportRelPath))) return fallback;
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string): FunctionIndex {
+function currentFunctionIndex(repoRoot: string, reportRelPath = "build/GALE01/report.json"): FunctionIndex {
   const index: FunctionIndex = { bySymbol: new Map(), byAddress: new Map(), ranges: [] };
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, reportRelPath);
   if (!existsSync(reportPath)) return index;
 
   const report = readJson(reportPath);

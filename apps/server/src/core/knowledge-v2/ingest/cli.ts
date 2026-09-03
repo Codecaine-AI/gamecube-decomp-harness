@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import { openKnowledgeStore } from "../storage/store.js";
 import { immediateTransaction } from "../storage/transaction.js";
 import { importAttempts } from "./attempts.js";
@@ -36,15 +37,16 @@ export interface IngestPaths {
   orchestratorDbPath: string;
 }
 
-export function resolveIngestPaths(knowledgeRoot: string): IngestPaths {
+export function resolveIngestPaths(knowledgeRoot: string, reportRelPath?: string): IngestPaths {
   const gameRoot = dirname(knowledgeRoot);
+  const buildId = reportBuildIdFromPath(reportRelPath);
   return {
     discordRawRoot: resolve(knowledgeRoot, "sources/rag_search/discord_raw/data/raw"),
     discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
     wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
     prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
     ledgerPath: resolve(knowledgeRoot, "ledger/learnings.jsonl"),
-    reportPath: resolve(gameRoot, "checkout/build/GALE01/report.json"),
+    reportPath: resolve(gameRoot, `checkout/build/${buildId}/report.json`),
     checkoutRoot: resolve(gameRoot, "checkout"),
     orchestratorDbPath: resolve(gameRoot, "state/orchestrator.sqlite"),
   };
@@ -103,7 +105,7 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     ? resolve(gameRootOverride, "knowledge")
     : gameKnowledgeRoot(gameId);
   const knowledgeRoot = resolve(stringArg(args, "--knowledge-root", defaultKnowledgeRoot));
-  const defaults = resolveIngestPaths(knowledgeRoot);
+  const defaults = resolveIngestPaths(knowledgeRoot, globals.game?.validation.reportPath);
   const paths: IngestPaths = {
     ...defaults,
     reportPath: resolve(stringArg(args, "--report", defaults.reportPath)),

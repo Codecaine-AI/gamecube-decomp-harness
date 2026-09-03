@@ -230,6 +230,8 @@ export async function runCiParityGate(input: {
       continue;
     }
 
+    // TODO(sms-onboarding): mirrors Melee's specific CI link-mode output path and
+    // check_complete.py step (see workflow.ts) — not generalized, see note there.
     const reportPath = resolve(input.worktreeDir, "build-ci/link/GALE01/report.json");
     if (!(await pathExists(reportPath))) {
       result.reasons.push("check_complete skipped: build-ci/link/GALE01/report.json does not exist");

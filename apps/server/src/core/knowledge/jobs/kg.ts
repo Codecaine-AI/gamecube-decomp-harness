@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import {
   agentSharedStateEnrichmentPath,
   knowledgeCuratorEnrichmentPath,
@@ -29,6 +29,7 @@ import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storag
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { booleanArg, numberArg, stringArg } from "@server/core/game-registry/runtime-options.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 
 export interface SpawnSummary {
   tool?: string;
@@ -251,6 +252,8 @@ export async function kgRebuildGraph(globals: GlobalArgs, args: Map<string, stri
     sources,
     agentStateEnrichmentPath: enrichmentPath,
     knowledgeCuratorEnrichmentPath: curatorPath,
+    reportPath: globals.game?.validation.reportPath,
+    gameId: globals.gameId ?? globals.game?.gameId,
   });
   console.log(JSON.stringify(payload, null, 2));
 }
@@ -493,19 +496,20 @@ async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMai
 function toolRunnerRepoRoot(context: ToolRuntimeContext, toolId: string): { repoRoot: string; fallbackReason?: string } {
   const requested = context.repoRoot ?? context.game?.repoRoot ?? "";
   if (toolId !== "opseq") return { repoRoot: requested };
+  const reportRelPath = context.game?.reportPath ?? "build/GALE01/report.json";
   const candidates = [requested, context.game?.repoRoot ?? ""].filter((value, index, values) => value && values.indexOf(value) === index);
-  const withAsm = candidates.find(hasOpseqBuildArtifacts);
+  const withAsm = candidates.find((candidate) => hasOpseqBuildArtifacts(candidate, reportRelPath));
   if (withAsm && withAsm !== requested) {
     return {
       repoRoot: withAsm,
-      fallbackReason: "requested_repo_root_missing_build_GALE01_asm",
+      fallbackReason: `requested_repo_root_missing_${reportBuildIdFromPath(reportRelPath)}_asm`,
     };
   }
   return { repoRoot: requested };
 }
 
-function hasOpseqBuildArtifacts(repoRoot: string): boolean {
-  return Boolean(repoRoot) && existsSync(resolve(repoRoot, "build/GALE01/asm")) && existsSync(resolve(repoRoot, "build/GALE01/report.json"));
+function hasOpseqBuildArtifacts(repoRoot: string, reportRelPath: string): boolean {
+  return Boolean(repoRoot) && existsSync(resolve(repoRoot, dirname(reportRelPath), "asm")) && existsSync(resolve(repoRoot, reportRelPath));
 }
 
 function toolBlocksOnFailure(toolId: string): boolean {
@@ -578,6 +582,8 @@ async function ensureGraphReady(globals: GlobalArgs, args: Map<string, string | 
       sources: defaultGraphSources(),
       agentStateEnrichmentPath: enrichmentPath,
       knowledgeCuratorEnrichmentPath: curatorPath,
+      reportPath: globals.game?.validation.reportPath,
+      gameId: globals.gameId ?? globals.game?.gameId,
     });
   }
   return dbPath;

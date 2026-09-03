@@ -10,6 +10,7 @@ import {
 } from "@server/core/tools/platform.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell/index.js";
 import { actionableFailureOutput } from "../failure-output.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 
 export interface ReportRunStep extends CommandResult {
   command: string[];
@@ -59,6 +60,8 @@ export interface ReportRunOptions {
   resetBaseline?: boolean;
   timeoutMs?: number;
   toolPlatform?: ToolPlatform;
+  /** The game's report path from its descriptor (e.g. "build/GALE01/report.json"); defaults to Melee's. */
+  reportRelPath?: string;
 }
 
 export interface ReportReuseKeyInput {
@@ -315,14 +318,14 @@ async function ensureConfigured(
   await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform), options);
 }
 
-async function reportReuseMetadata(repoRoot: string): Promise<ReportReuseMetadata> {
+async function reportReuseMetadata(repoRoot: string, buildId: string): Promise<ReportReuseMetadata> {
   const head = await runCommand(repoRoot, ["git", "rev-parse", "--verify", "HEAD"]);
   if (head.exitCode !== 0 || !head.stdout.trim()) {
     throw new Error(`report reuse key failed to resolve worktree HEAD: ${(head.stderr || head.stdout).trim() || `exit ${head.exitCode}`}`);
   }
   const [buildNinja, dolConfig] = await Promise.all([
     readFile(resolve(repoRoot, "build.ninja")),
-    readFile(resolve(repoRoot, "config/GALE01/config.yml")),
+    readFile(resolve(repoRoot, `config/${buildId}/config.yml`)),
   ]);
   const headCommit = head.stdout.trim();
   const buildNinjaSha256 = sha256(buildNinja);
@@ -348,7 +351,9 @@ async function storedReportReuseKey(path: string): Promise<string | null> {
 const reportRuns = new Map<string, Promise<unknown>>();
 
 async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
-  const buildDir = resolve(repoRoot, "build/GALE01");
+  const reportRelPath = options.reportRelPath ?? "build/GALE01/report.json";
+  const buildId = reportBuildIdFromPath(reportRelPath);
+  const buildDir = resolve(repoRoot, dirname(reportRelPath));
   const reportPath = resolve(buildDir, "report.json");
   const baselinePath = resolve(buildDir, "baseline.json");
   const reportChangesPath = resolve(buildDir, "report_changes.json");
@@ -370,7 +375,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
 
   await ensureConfigured(repoRoot, steps, toolPlatform, stepOptions);
   await removeIfExists(reportChangesPath);
-  const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot) : null;
+  const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot, buildId) : null;
   const reusedReport = Boolean(
     reuseMetadata &&
       (await pathExists(reportPath)) &&
@@ -378,7 +383,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   );
   if (!reusedReport) {
     await removeIfExists(reportPath);
-    await runStep(repoRoot, steps, "generate report", ["ninja", "-k", "0", "build/GALE01/report.json"], stepOptions);
+    await runStep(repoRoot, steps, "generate report", ["ninja", "-k", "0", reportRelPath], stepOptions);
     if (reuseMetadata) await writeFile(reportReusePath, `${JSON.stringify(reuseMetadata, null, 2)}\n`);
   }
 

@@ -23,8 +23,8 @@ interface FileRecord {
   declaredUnmatchedFunctionCount?: number;
 }
 
-export function buildCodeGraphRecords(repoRoot: string): GraphRecords {
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+export function buildCodeGraphRecords(repoRoot: string, reportRelPath = "build/GALE01/report.json"): GraphRecords {
+  const reportPath = resolve(repoRoot, reportRelPath);
   const objdiffPath = resolve(repoRoot, "objdiff.json");
   if (!existsSync(reportPath) || !existsSync(objdiffPath)) return buildCodeGraphRecordsFromIndexes(reportPath, objdiffPath);
 

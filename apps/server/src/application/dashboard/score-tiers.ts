@@ -7,6 +7,7 @@ import {
   type MasterBreakageGateResult,
 } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 import { buildRegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
+import { DEFAULT_REPORT_BUILD_ID } from "@server/core/game-registry/report-build-id.js";
 
 export type ScoreTierState = "in_branch" | "in_upstream";
 export type ScoreTimelineKind = "baseline" | "epoch_finish" | "pr_sync" | "legacy";
@@ -154,13 +155,14 @@ async function confirmedVsMaster(input: {
   anchorRevision: string | null;
   confirmedRow: SavePointRow | null;
   gate: MasterGate;
+  reportRelPath: string;
 }): Promise<Pick<DashboardScoreTiers["confirmed"], "comparisonStatus" | "matches" | "improvements" | "breakages">> {
   const unavailable = { comparisonStatus: "baseline_unavailable" as const, matches: [], improvements: [], breakages: [] };
   if (!input.anchorRevision || !input.confirmedRow) return unavailable;
   const savedReportPath = input.confirmedRow.report_path ?? "";
   const oursReportPath = savedReportPath && existsSync(savedReportPath)
     ? savedReportPath
-    : resolve(input.repoRoot, "build/GALE01/report.json");
+    : resolve(input.repoRoot, input.reportRelPath);
   const changesOutPath = resolve(
     input.store.stateDir,
     "dashboard_master_changes",
@@ -172,7 +174,7 @@ async function confirmedVsMaster(input: {
     worktreeDir: null,
     oursReportPath,
     anchorSha: input.anchorRevision,
-    reportRelPath: "build/GALE01/report.json",
+    reportRelPath: input.reportRelPath,
     changesOutPath,
     prSyncFallbackReportPath: null,
   });
@@ -241,8 +243,9 @@ export async function scoreTiersProjection(
   gameId: string,
   cycle: CycleRecord | null,
   repoRoot: string,
-  options: { runMasterBreakageGate?: MasterGate } = {},
+  options: { runMasterBreakageGate?: MasterGate; reportRelPath?: string } = {},
 ): Promise<DashboardScoreTiers> {
+  const reportRelPath = options.reportRelPath ?? `build/${DEFAULT_REPORT_BUILD_ID}/report.json`;
   const empty: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
     confirmed: {
@@ -282,6 +285,7 @@ export async function scoreTiersProjection(
     anchorRevision,
     confirmedRow,
     gate: options.runMasterBreakageGate ?? runMasterBreakageGate,
+    reportRelPath,
   });
   return {
     baseline: {

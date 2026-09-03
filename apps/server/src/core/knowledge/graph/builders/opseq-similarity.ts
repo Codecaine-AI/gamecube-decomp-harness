@@ -15,6 +15,8 @@ const SEARCH_ANALOG_LIMIT = 5;
 export interface BuildOpseqSimilarityGraphRecordsOptions {
   indexesRoot?: string;
   maxAnalogsPerFunction?: number;
+  reportRelPath?: string;
+  gameId?: string;
 }
 
 interface CurrentFunction {
@@ -57,13 +59,13 @@ export function buildOpseqSimilarityGraphRecords(
   repoRoot: string,
   options: BuildOpseqSimilarityGraphRecordsOptions = {},
 ): GraphRecords | null {
-  const indexesRoot = options.indexesRoot ?? defaultOpseqIndexesRoot();
+  const indexesRoot = options.indexesRoot ?? defaultOpseqIndexesRoot(options.gameId);
   const profilePaths = existingIndexPaths(indexesRoot, PROFILE_INDEX_FILES);
   const neighborPaths = existingIndexPaths(indexesRoot, NEIGHBOR_INDEX_FILES);
   const sourcePaths = [...profilePaths, ...neighborPaths];
   if (sourcePaths.length === 0 || neighborPaths.length === 0) return null;
 
-  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot));
+  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot, options.reportRelPath, options.gameId), options.reportRelPath);
   if (functions.byEntityId.size === 0) return null;
 
   const profileAliases = profileFunctionAliases(profilePaths, functions);
@@ -169,25 +171,25 @@ export function buildOpseqSimilarityGraphRecords(
   };
 }
 
-function defaultOpseqIndexesRoot(): string {
-  return resolve(gameSharedToolDataRoot("melee"), "opseq/indexes");
+function defaultOpseqIndexesRoot(gameId?: string): string {
+  return resolve(gameSharedToolDataRoot(gameId), "opseq/indexes");
 }
 
 function existingIndexPaths(root: string, names: readonly string[]): string[] {
   return names.map((name) => resolve(root, name)).filter((path) => existsSync(path));
 }
 
-function repoRootWithFunctionReport(repoRoot: string): string {
+function repoRootWithFunctionReport(repoRoot: string, reportRelPath = "build/GALE01/report.json", gameId?: string): string {
   const requested = resolve(repoRoot);
-  if (existsSync(resolve(requested, "build/GALE01/report.json"))) return requested;
-  const fallback = resolve(gameRoot("melee"), "checkout");
-  if (fallback !== requested && existsSync(resolve(fallback, "build/GALE01/report.json"))) return fallback;
+  if (existsSync(resolve(requested, reportRelPath))) return requested;
+  const fallback = resolve(gameRoot(gameId), "checkout");
+  if (fallback !== requested && existsSync(resolve(fallback, reportRelPath))) return fallback;
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string): FunctionIndex {
+function currentFunctionIndex(repoRoot: string, reportRelPath = "build/GALE01/report.json"): FunctionIndex {
   const index = emptyFunctionIndex();
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, reportRelPath);
   if (existsSync(reportPath)) {
     const report = readJson(reportPath);
     for (const unitValue of arrayValue(report.units)) {

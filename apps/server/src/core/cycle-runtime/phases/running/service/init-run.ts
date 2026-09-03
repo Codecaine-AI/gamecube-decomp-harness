@@ -35,7 +35,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       configurationSnapshot,
       requireReady: true,
     });
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath });
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath, reportRelPath: globals.game?.validation.reportPath });
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 
     await mkdir(resolve(globals.stateDir, "runs", run.id, "snapshots"), { recursive: true });

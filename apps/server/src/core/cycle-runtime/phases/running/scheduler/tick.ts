@@ -144,6 +144,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   }
   const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
     graphDbPath: params.graphDbPath,
+    reportRelPath: params.globals.game?.validation.reportPath,
   });
   if (!progress || progress.admitted === 0) {
     const candidates = params.config.epochTargetCap == null
@@ -161,7 +162,7 @@ export function ensureSchedulerEpochFromBoard(params: {
   if (!epoch || !progress) throw new Error("Scheduler epoch admission did not produce an epoch");
 
   const availabilityRefresh = refreshEpochTargetAvailability(params.store, epoch.id, {
-    exactTargetKeys: loadExactTargetKeys(params.globals.repoRoot),
+    exactTargetKeys: loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation.reportPath),
   });
   epoch = activeSchedulerEpoch(params.store, params.runId) ?? epoch;
   progress = schedulerEpochProgress(params.store, epoch.id);

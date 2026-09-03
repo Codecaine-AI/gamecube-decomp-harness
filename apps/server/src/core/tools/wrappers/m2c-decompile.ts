@@ -2,9 +2,14 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 
-const OBJECT_ROOT = "build/GALE01/obj";
-const ASM_ROOT = "build/GALE01/asm";
+function objectRootForBuildId(buildId: string): string {
+  return `build/${buildId}/obj`;
+}
+function asmRootForBuildId(buildId: string): string {
+  return `build/${buildId}/asm`;
+}
 const CONTEXT_PATH = "build/ctx.c";
 const CONTEXT_SCRIPT = "tools/m2ctx/m2ctx.py";
 const CONTEXT_CHECK_TIMEOUT_MS = 10_000;
@@ -65,12 +70,13 @@ const SAFE_VALUE_EXTRA_ARGS = new Map<string, (value: string) => boolean>([
 
 // This mirrors decomp.py's pyelftools lookup without requiring pyelftools in the sandbox:
 // inspect each ELF .symtab in Path.rglob order and select an exact STT_FUNC name match.
-const SYMBOL_DISCOVERY_SCRIPT = `
+function symbolDiscoveryScript(objectRoot: string): string {
+  return `
 import struct
 import sys
 from pathlib import Path
 
-root = Path("build/GALE01/obj")
+root = Path("${objectRoot}")
 target = sys.argv[1]
 
 def unpack_sections(data):
@@ -128,6 +134,7 @@ if root.is_dir():
             print(object_path.relative_to(root).as_posix())
             break
 `.trim();
+}
 
 interface ParsedM2cApiArgs {
   input: string;
@@ -141,6 +148,8 @@ export interface SandboxM2cFetchFirstInput {
   args: string[];
   runHost(args: string[], mirrorRoot: string): Promise<Record<string, unknown>>;
   tempParent?: string;
+  /** `game.json`'s `validation.reportPath`, used to derive the build/config directory segment (e.g. "GALE01", "GMSP01"). */
+  reportRelPath?: string;
 }
 
 function toolError(
@@ -283,13 +292,13 @@ function assemblyForInput(input: string): string {
   return `${extension ? input.slice(0, -extension.length) : input}.s`;
 }
 
-function normalizedObjectPath(stdout: string): string | Record<string, unknown> | null {
+function normalizedObjectPath(stdout: string, objectRoot: string): string | Record<string, unknown> | null {
   const matches = stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (matches.length === 0) return null;
   if (matches.length !== 1) {
     return toolError("symbol_discovery_failed", "sandbox_symbol_discovery_failed", "m2c_decompile symbol discovery returned more than one object");
   }
-  const relative = matches[0].startsWith(`${OBJECT_ROOT}/`) ? matches[0].slice(OBJECT_ROOT.length + 1) : matches[0];
+  const relative = matches[0].startsWith(`${objectRoot}/`) ? matches[0].slice(objectRoot.length + 1) : matches[0];
   if (posix.isAbsolute(relative) || posix.normalize(relative) !== relative || relative.split("/").includes("..") || !relative.endsWith(".o")) {
     return toolError(
       "symbol_discovery_failed",
@@ -329,10 +338,13 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
   const extraArgsError = validateExtraArgs(parsed.extraArgs);
   if (extraArgsError) return extraArgsError;
 
+  const buildId = reportBuildIdFromPath(input.reportRelPath);
+  const objectRoot = objectRootForBuildId(buildId);
+  const asmRoot = asmRootForBuildId(buildId);
   let mirrorRoot: string | undefined;
   try {
     const discovery = await input.sandboxHandle.exec(
-      ["python3", "-c", SYMBOL_DISCOVERY_SCRIPT, parsed.input],
+      ["python3", "-c", symbolDiscoveryScript(objectRoot), parsed.input],
       { cwd: input.workspaceRoot, timeoutMs: parsed.timeoutMs },
     );
     if (discovery.exitCode !== 0) {
@@ -342,11 +354,11 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
         discovery.stderr.trim() || `sandbox symbol discovery exited ${discovery.exitCode}`,
       );
     }
-    const objectPath = normalizedObjectPath(discovery.stdout);
+    const objectPath = normalizedObjectPath(discovery.stdout, objectRoot);
     if (objectPath && typeof objectPath !== "string") return objectPath;
     const assemblyPath = objectPath
-      ? `${ASM_ROOT}/${objectPath.slice(0, -2)}.s`
-      : `${ASM_ROOT}/${assemblyForInput(parsed.input)}`;
+      ? `${asmRoot}/${objectPath.slice(0, -2)}.s`
+      : `${asmRoot}/${assemblyForInput(parsed.input)}`;
 
     const contextCheck = await input.sandboxHandle.exec(
       ["test", "-f", CONTEXT_PATH],
@@ -374,8 +386,8 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
     }
 
     mirrorRoot = await mkdtemp(join(input.tempParent ?? tmpdir(), "orch-m2c-"));
-    await mkdir(resolve(mirrorRoot, OBJECT_ROOT), { recursive: true });
-    if (objectPath) await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, `${OBJECT_ROOT}/${objectPath}`);
+    await mkdir(resolve(mirrorRoot, objectRoot), { recursive: true });
+    if (objectPath) await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, `${objectRoot}/${objectPath}`);
     await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, assemblyPath);
     await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, CONTEXT_PATH);
     return await input.runHost(preparedHostArgs(input.args, mirrorRoot), mirrorRoot);

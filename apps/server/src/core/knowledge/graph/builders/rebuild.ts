@@ -37,6 +37,7 @@ export interface RebuildKnowledgeGraphOptions {
   agentStateEnrichmentPath?: string;
   knowledgeCuratorEnrichmentPath?: string;
   reportPath?: string;
+  gameId?: string;
 }
 
 export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
@@ -54,7 +55,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
     for (const tool of readToolRegistry()) upsertToolDescriptor(store, tool);
 
     if (selected.has("code_graph")) {
-      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot));
+      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, options.reportPath));
       indexedSources.push("code_graph");
     }
     if (selected.has("past_prs")) {
@@ -71,7 +72,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("agent_shared_state")) {
-      const records = buildAgentSharedStateGraphRecords(options.repoRoot, options.agentStateEnrichmentPath);
+      const records = buildAgentSharedStateGraphRecords(options.repoRoot, options.agentStateEnrichmentPath, options.reportPath);
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("agent_shared_state");
@@ -92,6 +93,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       const records = buildMismatchPatternGraphRecords(options.repoRoot, {
         agentStateEnrichmentPath: options.agentStateEnrichmentPath,
         knowledgeCuratorEnrichmentPath: options.knowledgeCuratorEnrichmentPath,
+        reportRelPath: options.reportPath,
       });
       if (records) {
         insertGraphRecords(store, records);
@@ -101,7 +103,10 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("opseq_similarity")) {
-      const records = buildOpseqSimilarityGraphRecords(options.repoRoot);
+      const records = buildOpseqSimilarityGraphRecords(options.repoRoot, {
+        reportRelPath: options.reportPath,
+        gameId: options.gameId,
+      });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("opseq_similarity");
@@ -110,7 +115,10 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("call_graph")) {
-      const records = buildCallGraphEdgeRecords(options.repoRoot);
+      const records = buildCallGraphEdgeRecords(options.repoRoot, {
+        reportRelPath: options.reportPath,
+        gameId: options.gameId,
+      });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("call_graph");
@@ -119,7 +127,10 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("ghidra_xrefs")) {
-      const records = buildGhidraXrefGraphRecords(options.repoRoot);
+      const records = buildGhidraXrefGraphRecords(options.repoRoot, {
+        reportRelPath: options.reportPath,
+        gameId: options.gameId,
+      });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("ghidra_xrefs");
@@ -128,7 +139,10 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("siblings")) {
-      const records = buildSiblingGraphRecords(options.repoRoot);
+      const records = buildSiblingGraphRecords(options.repoRoot, {
+        reportRelPath: options.reportPath,
+        gameId: options.gameId,
+      });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("siblings");
@@ -137,7 +151,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("knowledge_ledger")) {
-      const records = buildLearningsGraphRecords({ repoRoot: options.repoRoot });
+      const records = buildLearningsGraphRecords({ repoRoot: options.repoRoot, reportRelPath: options.reportPath });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("knowledge_ledger");

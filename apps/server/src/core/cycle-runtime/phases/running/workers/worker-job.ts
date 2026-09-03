@@ -11,6 +11,7 @@ import {
 } from "@server/core/cycle-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
 import { sandboxRuntimeOptions } from "@server/core/game-registry/resolver.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
 import {
@@ -145,11 +146,9 @@ export function workerKernelOps(ctx: WorkerJobRunContext): JobQueueKernelOps {
   };
 }
 
-const REPORT_PATHS = [
-  "build/GALE01/report.json",
-  "build/GALE01/report_changes.json",
-  "build/GALE01/baseline.json",
-];
+function reportPathsForBuildId(buildId: string): [string, string, string] {
+  return [`build/${buildId}/report.json`, `build/${buildId}/report_changes.json`, `build/${buildId}/baseline.json`];
+}
 function latestArtifactSourcePath(store: StateStore, runId: string, artifactType: string, artifactKey: string): string | null {
   const row = store.db.query(`SELECT source_path FROM dashboard_artifacts
     WHERE run_id = ? AND artifact_type = ? AND artifact_key = ?
@@ -161,12 +160,13 @@ function latestArtifactSourcePath(store: StateStore, runId: string, artifactType
 function reportArtifactSources(ctx: WorkerJobRunContext): WorkerReportArtifactSource[] {
   const gameDir = ctx.globals.game?.gameDir ?? dirname(ctx.globals.repoRoot);
   const fallbackRoots = [ctx.globals.repoRoot, resolve(gameDir, "worktrees", "upstream-current")];
+  const reportPaths = reportPathsForBuildId(reportBuildIdFromPath(ctx.globals.game?.validation?.reportPath));
   const dashboard: Record<string, Array<string | null>> = {
-    [REPORT_PATHS[0]]: [latestArtifactSourcePath(ctx.store, ctx.runId, "board_snapshot", "current"), latestArtifactSourcePath(ctx.store, ctx.runId, "board_snapshot", "initial")],
-    [REPORT_PATHS[1]]: [latestArtifactSourcePath(ctx.store, ctx.runId, "trusted_report", "current"), latestArtifactSourcePath(ctx.store, ctx.runId, "trusted_report", "baseline")],
-    [REPORT_PATHS[2]]: [],
+    [reportPaths[0]]: [latestArtifactSourcePath(ctx.store, ctx.runId, "board_snapshot", "current"), latestArtifactSourcePath(ctx.store, ctx.runId, "board_snapshot", "initial")],
+    [reportPaths[1]]: [latestArtifactSourcePath(ctx.store, ctx.runId, "trusted_report", "current"), latestArtifactSourcePath(ctx.store, ctx.runId, "trusted_report", "baseline")],
+    [reportPaths[2]]: [],
   };
-  return REPORT_PATHS.flatMap((relativePath) => {
+  return reportPaths.flatMap((relativePath) => {
     const sourcePath = [...dashboard[relativePath], ...fallbackRoots.map((root) => resolve(root, relativePath))]
       .find((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0 && existsSync(candidate));
     return sourcePath ? [{ relativePath, sourcePath }] : [];

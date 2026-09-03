@@ -3,6 +3,7 @@ import { basename, dirname, resolve } from "node:path";
 import type { BoardMeasures, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 import { candidateFromReportFunction, objdiffSourceMap } from "./candidates.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
 
 function readJson(path: string): JsonObject {
@@ -11,6 +12,7 @@ function readJson(path: string): JsonObject {
 
 export interface LoadBoardSnapshotOptions {
   codeGraphFunctionsIndexPath?: string;
+  reportRelPath?: string;
 }
 
 function cycleBaselineRepoRoot(repoRoot: string): string | null {
@@ -23,11 +25,12 @@ function cycleBaselineRepoRoot(repoRoot: string): string | null {
 }
 
 export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOptions = {}): BoardSnapshot {
-  let reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const buildId = reportBuildIdFromPath(options.reportRelPath);
+  let reportPath = resolve(repoRoot, `build/${buildId}/report.json`);
   let objdiffPath = resolve(repoRoot, "objdiff.json");
   if (!existsSync(reportPath)) {
     const baselineRoot = cycleBaselineRepoRoot(repoRoot);
-    const baselineReportPath = baselineRoot ? resolve(baselineRoot, "build/GALE01/report.json") : "";
+    const baselineReportPath = baselineRoot ? resolve(baselineRoot, `build/${buildId}/report.json`) : "";
     const baselineObjdiffPath = baselineRoot ? resolve(baselineRoot, "objdiff.json") : "";
     if (baselineReportPath && existsSync(baselineReportPath)) {
       reportPath = baselineReportPath;
@@ -82,11 +85,12 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
   };
 }
 
-export function loadExactTargetKeys(repoRoot: string): Set<string> {
-  let reportPath = resolve(repoRoot, "build/GALE01/report.json");
+export function loadExactTargetKeys(repoRoot: string, reportRelPath?: string): Set<string> {
+  const buildId = reportBuildIdFromPath(reportRelPath);
+  let reportPath = resolve(repoRoot, `build/${buildId}/report.json`);
   if (!existsSync(reportPath)) {
     const baselineRoot = cycleBaselineRepoRoot(repoRoot);
-    const baselineReportPath = baselineRoot ? resolve(baselineRoot, "build/GALE01/report.json") : "";
+    const baselineReportPath = baselineRoot ? resolve(baselineRoot, `build/${buildId}/report.json`) : "";
     if (baselineReportPath && existsSync(baselineReportPath)) reportPath = baselineReportPath;
     else return new Set();
   }

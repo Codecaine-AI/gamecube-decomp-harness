@@ -5,6 +5,12 @@ export interface CiBuildMatrix {
 
 const CONFIG_ARGS_BLOCK = /config_args=\$\(printf[ \t]+'%s '[ \t]*\\\r?\n([\s\S]*?)\)/;
 
+// TODO(sms-onboarding): this whole module parses Melee's specific GitHub Actions
+// workflow shape (config_args printf block, link/test matrix arms) — doldecomp/sms's
+// build.yml has a different structure entirely (single-version matrix, no link/test
+// split, no check_complete.py step). Ci-parity checking needs a per-game strategy
+// before it means anything for a second game; the GALE01 literal below is left as-is
+// rather than swapped for a build id that would still be structurally wrong.
 function parseArgs(block: string): string[] {
   const args: string[] = [];
   for (const match of block.matchAll(/'([^']*)'/g)) {

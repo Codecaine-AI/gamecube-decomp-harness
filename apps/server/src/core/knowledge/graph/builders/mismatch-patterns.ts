@@ -42,6 +42,7 @@ interface CurrentFunction {
 export interface BuildMismatchPatternGraphRecordsOptions {
   agentStateEnrichmentPath?: string;
   knowledgeCuratorEnrichmentPath?: string;
+  reportRelPath?: string;
 }
 
 const PATTERNS: PatternDefinition[] = [
@@ -134,7 +135,7 @@ export function buildMismatchPatternGraphRecords(repoRoot: string, options: Buil
   if (inputPaths.length === 0) return null;
 
   const sourceVersionId = `source-version:${SOURCE_ID}:${shortHash(filesFingerprint(inputPaths))}`;
-  const currentFunctions = currentFunctionIndex(repoRoot);
+  const currentFunctions = currentFunctionIndex(repoRoot, options.reportRelPath);
   const buckets = new Map<string, PatternEvidence[]>();
 
   for (const evidence of curatedEvidence(curatorPath)) {
@@ -388,8 +389,8 @@ function currentForEvidence(evidence: PatternEvidence, currentFunctions: Map<str
   return null;
 }
 
-function currentFunctionIndex(repoRoot: string): Map<string, CurrentFunction> {
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+function currentFunctionIndex(repoRoot: string, reportRelPath = "build/GALE01/report.json"): Map<string, CurrentFunction> {
+  const reportPath = resolve(repoRoot, reportRelPath);
   const objdiffPath = resolve(repoRoot, "objdiff.json");
   if (!existsSync(reportPath) || !existsSync(objdiffPath)) return new Map();
   const sourceByUnit = objdiffSourceMap(readJson(objdiffPath));

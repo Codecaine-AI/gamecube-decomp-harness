@@ -25,6 +25,7 @@ import {
   type WorkerChangeValidation,
 } from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import type { WorkerMicroGateFlags } from "@server/core/agent-catalog/agents/running/worker/micro-gates";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
   fileGraphCard,
@@ -1365,7 +1366,7 @@ async function executeClaimedWorker(params: {
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath });
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath, reportRelPath: globals.game?.validation.reportPath });
     const target = targetPacketTarget(claimed.target);
     const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath, {
       unit: String(target.unit ?? ""),
@@ -1392,6 +1393,7 @@ async function executeClaimedWorker(params: {
       undefinedSymbols: globals.game?.validation?.workerUndefinedSymbolGate ?? true,
       bannedIdioms: globals.game?.validation?.workerBannedIdiomGate ?? true,
     };
+    const reportBuildId = reportBuildIdFromPath(globals.game?.validation?.reportPath);
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1402,6 +1404,7 @@ async function executeClaimedWorker(params: {
       // visible to the L1 QA lint diff.
       extraPaths: preAttemptChangedPaths.filter((path) => !currentWriteSet.includes(path)),
       captureUndefinedSymbols: microGateFlags.undefinedSymbols,
+      reportBuildId,
       workspaceExec,
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
@@ -1935,6 +1938,7 @@ async function executeClaimedWorker(params: {
         shouldRun: shouldRunRunnerValidation,
         claimedExact: true,
         microGateFlags,
+        reportBuildId,
         postAttemptDiffText: postAttemptDiff.stdout,
         workspaceExec,
       });
@@ -1948,6 +1952,7 @@ async function executeClaimedWorker(params: {
             writeSetEntries: currentEntries,
             baseRev,
             runStateDir: resolve(globals.stateDir, "runs", runId),
+            reportBuildId,
             workspaceExec,
           })
         : targetChangeValidation;

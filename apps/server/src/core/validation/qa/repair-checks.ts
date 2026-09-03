@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 
 export interface UnitMatchSnapshot {
   sourcePath: string;
@@ -63,22 +64,23 @@ function combinedLog(stdout: string, stderr: string): string {
   return [stdout.trimEnd(), stderr.trimEnd()].filter(Boolean).join("\n");
 }
 
-export function objectPathForSource(sourcePath: string): string {
+export function objectPathForSource(sourcePath: string, reportRelPath?: string): string {
   const normalized = normalizeRepoPath(sourcePath);
   const withoutExtension = normalized.replace(/\.[^/.]+$/, "");
-  return `build/GALE01/${withoutExtension}.o`;
+  return `build/${reportBuildIdFromPath(reportRelPath)}/${withoutExtension}.o`;
 }
 
 export async function buildObjectForSource(opts: {
   repoRoot: string;
   sourcePath: string;
+  reportRelPath?: string;
   timeoutMs?: number;
   commandRunner?: RepairCommandRunner;
 }): Promise<{ ok: boolean; log: string }> {
   try {
     const commandRunner = opts.commandRunner ?? runCommand;
     const result = await withNinjaLock(opts.repoRoot, () =>
-      commandRunner(opts.repoRoot, ["ninja", objectPathForSource(opts.sourcePath)], {
+      commandRunner(opts.repoRoot, ["ninja", objectPathForSource(opts.sourcePath, opts.reportRelPath)], {
         timeoutMs: opts.timeoutMs,
       }),
     );
@@ -193,6 +195,7 @@ function rowsFromReport(unit: JsonRecord): Pick<UnitMatchSnapshot, "functions" |
 export async function captureUnitMatchSnapshot(opts: {
   repoRoot: string;
   sourcePath: string;
+  reportRelPath?: string;
   timeoutMs?: number;
 }): Promise<UnitMatchSnapshot | null> {
   const build = await buildObjectForSource(opts);
@@ -232,7 +235,7 @@ export async function captureUnitMatchSnapshot(opts: {
     if (!reportUnit) return null;
     return {
       sourcePath: normalizeRepoPath(opts.sourcePath),
-      objectPath: objectPathForSource(opts.sourcePath),
+      objectPath: objectPathForSource(opts.sourcePath, opts.reportRelPath),
       ...rowsFromReport(reportUnit),
     };
   } catch {

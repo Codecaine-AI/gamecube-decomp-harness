@@ -24,6 +24,7 @@ import {
   type WorkerMicroGateResult,
 } from "./micro-gates.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+import { DEFAULT_REPORT_BUILD_ID } from "@server/core/game-registry/report-build-id.js";
 
 const SCORE_EPSILON = 0.000001;
 
@@ -164,6 +165,7 @@ export interface ScopedUnitCheckRunnerOptions {
   sourcePath: string;
   mode: ScopedCheckMode;
   triggerPaths: string[];
+  reportBuildId?: string;
   workspaceExec: WorkspaceExec;
 }
 
@@ -210,11 +212,11 @@ function scoreFromRow(row: Record<string, unknown>): number {
   return objdiffRowScore(row);
 }
 
-function objectTargetFromSourcePath(sourcePath: string): string | null {
+function objectTargetFromSourcePath(sourcePath: string, buildId: string): string | null {
   if (!sourcePath) return null;
   const withoutExtension = sourcePath.replace(/\.[^./\\]+$/, "");
   if (withoutExtension === sourcePath) return null;
-  return `build/GALE01/${withoutExtension}.o`;
+  return `build/${buildId}/${withoutExtension}.o`;
 }
 
 function scoredSideRows(side: unknown): ObjdiffSideRows {
@@ -419,13 +421,15 @@ export async function captureWorkerChangeBaseline(params: {
   /** Additional repo-relative paths to snapshot for the L1 QA lint diff. */
   extraPaths?: string[];
   captureUndefinedSymbols?: boolean;
+  /** Build/config directory id from the game descriptor (e.g. "GALE01", "GMSP01"); defaults to Melee's. */
+  reportBuildId?: string;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = objectTargetFromSourcePath(sourcePath);
+  const objectTarget = objectTargetFromSourcePath(sourcePath, params.reportBuildId ?? DEFAULT_REPORT_BUILD_ID);
   const reasons: string[] = [];
 
   if (params.dryRun) {
@@ -905,6 +909,7 @@ async function resolveConfigUnitsFromHunks(options: {
   repoRoot: string;
   baseRev: string;
   metadataPath: string;
+  reportBuildId?: string;
   workspaceExec: WorkspaceExec;
 }): Promise<string[]> {
   const runWorkspaceCommand = (command: string[]) => options.workspaceExec.exec(command);
@@ -913,7 +918,7 @@ async function resolveConfigUnitsFromHunks(options: {
   const addresses = configHunkAddresses(diff.stdout);
   if (addresses.length === 0) return [];
 
-  const splitsPath = "config/GALE01/splits.txt";
+  const splitsPath = `config/${options.reportBuildId ?? DEFAULT_REPORT_BUILD_ID}/splits.txt`;
   let currentSplits = "";
   try {
     currentSplits = await readWorkspaceText(options.repoRoot, splitsPath, options.workspaceExec);
@@ -964,7 +969,7 @@ function scopedArtifactSlug(sourcePath: string): string {
 async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<ScopedUnitCheck> {
   const slug = scopedArtifactSlug(options.sourcePath);
   const prefix = `attempt-${options.attemptIndex}.scoped-${slug}`;
-  const objectTarget = objectTargetFromSourcePath(options.sourcePath);
+  const objectTarget = objectTargetFromSourcePath(options.sourcePath, options.reportBuildId ?? DEFAULT_REPORT_BUILD_ID);
   if (!objectTarget) {
     return {
       sourcePath: options.sourcePath,
@@ -1105,6 +1110,7 @@ export async function validateWidenedChange(params: {
   maxConsumers?: number;
   headerOwnerByPath?: Record<string, string>;
   runners?: WidenedValidationRunners;
+  reportBuildId?: string;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
@@ -1191,6 +1197,7 @@ export async function validateWidenedChange(params: {
               repoRoot: params.repoRoot,
               baseRev: params.baseRev,
               metadataPath: entry.path,
+              reportBuildId: params.reportBuildId,
               workspaceExec: params.workspaceExec,
             });
       } catch (error) {
@@ -1216,6 +1223,7 @@ export async function validateWidenedChange(params: {
         sourcePath,
         mode: scope.mode,
         triggerPaths,
+        reportBuildId: params.reportBuildId,
         workspaceExec: params.workspaceExec,
       });
     } catch (error) {
@@ -1333,6 +1341,8 @@ export async function validateWorkerChange(params: {
   qaScanRunner?: QaScanRunner;
   /** Per-gate enable flags from the game descriptor; defaults to all-on. */
   microGateFlags?: WorkerMicroGateFlags;
+  /** Build/config directory id from the game descriptor (e.g. "GALE01", "GMSP01"); defaults to Melee's. */
+  reportBuildId?: string;
   /** The attempt's write-set diff text for the banned-idiom micro-gate lint. */
   postAttemptDiffText?: string;
   workspaceExec: WorkspaceExec;
@@ -1370,13 +1380,14 @@ export async function validateWorkerChange(params: {
   const undefinedSymbolGate = await evaluateUndefinedSymbolGate({
     enabled: flags.undefinedSymbols,
     objectTarget: objectBuilt
-      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path)))
+      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path), params.reportBuildId ?? DEFAULT_REPORT_BUILD_ID))
       : null,
     baselineUndefined: params.baseline.undefinedSymbols ?? null,
+    symbolsTxtPath: `config/${params.reportBuildId ?? DEFAULT_REPORT_BUILD_ID}/symbols.txt`,
     workspaceExec: params.workspaceExec,
   });
   const bannedIdiomContext = flags.bannedIdioms
-    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec, stringValue(params.target.symbol))
+    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec, params.reportBuildId ?? DEFAULT_REPORT_BUILD_ID, stringValue(params.target.symbol))
     : {};
   const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
     ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
@@ -1391,6 +1402,7 @@ async function loadBannedIdiomContext(
   diffText: string,
   baseline: WorkerChangeBaseline,
   workspaceExec: WorkspaceExec,
+  reportBuildId: string,
   targetFunction?: string,
 ): Promise<{ symbolsTxt?: string; baselineSources: Map<string, string>; postChangeSources: Map<string, string>; targetFunction?: string }> {
   const baselineSources = new Map<string, string>();
@@ -1424,7 +1436,7 @@ async function loadBannedIdiomContext(
     }
   }));
   try {
-    const result = await workspaceExec.exec(["cat", "config/GALE01/symbols.txt"]);
+    const result = await workspaceExec.exec(["cat", `config/${reportBuildId}/symbols.txt`]);
     return { symbolsTxt: result.exitCode === 0 ? result.stdout : undefined, baselineSources, postChangeSources, targetFunction };
   } catch {
     return { baselineSources, postChangeSources, targetFunction };
@@ -1439,6 +1451,7 @@ async function validateWorkerScoreChange(
     baseline: WorkerChangeBaseline;
     target: Record<string, unknown>;
     claimedExact: boolean;
+    reportBuildId?: string;
     workspaceExec: WorkspaceExec;
   },
   summaryPath: string,
@@ -1459,7 +1472,7 @@ async function validateWorkerScoreChange(
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath);
+  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath, params.reportBuildId ?? DEFAULT_REPORT_BUILD_ID);
   if (!unit || !symbol || !sourcePath || !objectTarget) {
     return {
       validation: {

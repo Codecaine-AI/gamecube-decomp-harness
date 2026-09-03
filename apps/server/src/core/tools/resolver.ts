@@ -356,6 +356,7 @@ export async function runRegisteredToolApi(
       sandboxHandle: context.sandboxHandle,
       workspaceRoot: resolved.gameRepoRoot,
       args,
+      reportRelPath: context.game?.reportPath,
       runHost: async (hostArgs) => {
         const command = ["python3", scriptPath, ...hostArgs];
         const result = await commandRunner(cwd, command, { env: resolved.env });

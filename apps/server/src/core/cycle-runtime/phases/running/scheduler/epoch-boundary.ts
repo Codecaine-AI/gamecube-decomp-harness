@@ -224,7 +224,7 @@ async function productionBoundarySync(
     buildFixerEnabled: params.config.boundaryBuildFixerEnabled,
     mergePolicy: params.config.syncMergePolicy ?? "score",
     prepareMergeReport: async () => {
-      await forceReportRun(params.globals.repoRoot, { resetBaseline: false, generateChanges: false });
+      await forceReportRun(params.globals.repoRoot, { resetBaseline: false, generateChanges: false, reportRelPath });
     },
     onMergePolicyFile: (entry) => {
       console.error(`[run-loop] boundary sync policy: ${entry.message}`);
@@ -296,7 +296,7 @@ async function productionBoundarySync(
         ]));
       },
       recomputeReport: async () => {
-        await forceReportRun(params.globals.repoRoot, { resetBaseline: false });
+        await forceReportRun(params.globals.repoRoot, { resetBaseline: false, reportRelPath });
         const measures = measuresAt(params.globals.repoRoot, reportRelPath);
         const score = Number(measures.matched_code_percent);
         const dataScore = Number(measures.matched_data_percent);

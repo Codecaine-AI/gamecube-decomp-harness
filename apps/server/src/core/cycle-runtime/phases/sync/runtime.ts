@@ -487,7 +487,7 @@ function syncLeaseContext(
     stateDir: paths.stateDir,
     repoRoot: paths.repoRoot,
     cycleWorktreePath: durableCycleWorktreePath(paths, store, sync),
-    game: paths.game ? { baseRef: paths.game.baseRef } : null,
+    game: paths.game ? { baseRef: paths.game.baseRef, reportRelPath: paths.game.validation?.reportPath } : null,
     leaseId: lease.lease_id,
     runGit: deps.runGit,
   };
@@ -505,7 +505,7 @@ function requestedSyncContext(
     stateDir: paths.stateDir,
     repoRoot: paths.repoRoot,
     cycleWorktreePath: durableCycleWorktreePath(paths, store, sync),
-    game: paths.game ? { baseRef: paths.game.baseRef } : null,
+    game: paths.game ? { baseRef: paths.game.baseRef, reportRelPath: paths.game.validation?.reportPath } : null,
     leaseId: "requested-sync-has-no-lease",
     runGit: deps.runGit,
   };

@@ -32,6 +32,8 @@ export interface RunGameMetadata {
   graphDbPath?: string;
   descriptorPath?: string;
   localOverridePath?: string;
+  /** `game.json`'s `validation.reportPath` (e.g. "build/GALE01/report.json") — the source of truth for this game's build/config directory segment. */
+  reportPath?: string;
 }
 
 export interface RunRecord {

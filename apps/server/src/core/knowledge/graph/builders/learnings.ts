@@ -61,12 +61,12 @@ function anchorIndexFromJsonl(functionsIndex: string): Map<string, string> {
 
 // repoRoot is the game checkout (matching every other builder); the fallback
 // function index lives under the knowledge sources root, not the checkout.
-function buildAnchorIndex(repoRoot: string, functionsIndexPath?: string): AnchorIndex {
+function buildAnchorIndex(repoRoot: string, functionsIndexPath?: string, reportRelPath = "build/GALE01/report.json"): AnchorIndex {
   if (functionsIndexPath !== undefined) {
     return { symbolToUnit: anchorIndexFromJsonl(functionsIndexPath), repoRoot };
   }
 
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, reportRelPath);
   const symbolToUnit = existsSync(reportPath)
     ? anchorIndexFromReport(reportPath)
     : anchorIndexFromJsonl(resolve(sourceRoot("code_graph"), "indexes/functions.jsonl"));
@@ -112,12 +112,13 @@ export function buildLearningsGraphRecords(options: {
   repoRoot: string;
   ledgerPath?: string;
   functionsIndexPath?: string;
+  reportRelPath?: string;
 }): GraphRecords | null {
   const ledgerPath = options.ledgerPath ?? defaultLedgerPath();
   if (!existsSync(ledgerPath)) return null;
 
   const sourceVersionId = `source-version:${LEARNINGS_SOURCE_ID}:${shortHash(filesFingerprint([ledgerPath]))}`;
-  const anchorIndex = buildAnchorIndex(options.repoRoot, options.functionsIndexPath);
+  const anchorIndex = buildAnchorIndex(options.repoRoot, options.functionsIndexPath, options.reportRelPath);
   const entities: GraphEntity[] = [];
   const facts: GraphFact[] = [];
   const edges: GraphEdge[] = [];

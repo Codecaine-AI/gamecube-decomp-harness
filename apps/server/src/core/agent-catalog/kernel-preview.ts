@@ -75,6 +75,7 @@ function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undef
     graphDbPath: paths.graphDbPath,
     descriptorPath: paths.game.descriptorPath,
     localOverridePath: paths.game.localOverridePath,
+    reportPath: paths.game.validation?.reportPath,
   };
 }
 
