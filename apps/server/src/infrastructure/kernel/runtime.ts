@@ -16,6 +16,7 @@ import {
   type SubmitMeleeWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
 import type { GameRuntimeContext } from "@server/core/game-registry";
+import { canonicalProcessName } from "@server/core/cycle/process-identity";
 import { openState } from "@server/core/orchestrator-state";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
@@ -71,6 +72,7 @@ export interface DashboardKernelRuntimeServiceDeps {
   latestRunId: (stateDir: string) => string;
   packageRoot: string;
   port: number;
+  processName?: string;
   stateDir?: string;
   createKernelRuntime?: typeof createMeleeKernelRuntime;
   persistCycleKernelTraceLinkage?: (
@@ -279,7 +281,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
           appTraceUrlTemplate: `${kernelAppBaseUrl}/trace?containerId={containerId}`,
           genericTraceUrlTemplate: kernelObserverUrl ? `${kernelObserverUrl}/containers/{containerId}` : null,
           metadata: {
-            processName: "melee-live",
+            processName: canonicalProcessName(deps.processName),
             server: "server",
           },
         },
