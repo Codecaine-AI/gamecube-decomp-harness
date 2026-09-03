@@ -64,13 +64,26 @@ def tool_impl_tools_root() -> Path:
     return tool_impl_root() / "tools"
 
 
+def build_id() -> str:
+    """The active game's objdiff build directory name under ``build/``.
+
+    Defaults to Melee's ``GALE01`` for backward compatibility with the
+    existing sandbox image; a second game's descriptor sets
+    ``$ORCH_GAME_BUILD_ID`` to its own build id (e.g. Super Mario Sunshine's
+    ``GMSP01``).
+    """
+
+    return os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01"
+
+
 def looks_like_project_repo(path: Path) -> bool:
     """Return true when ``path`` has enough GameCube decomp checkout shape."""
 
+    game_build_id = build_id()
     return (path / "src").is_dir() and (
-        (path / "build" / "GALE01").exists()
+        (path / "build" / game_build_id).exists()
         or (path / "compile_commands.json").exists()
-        or (path / "config" / "GALE01").exists()
+        or (path / "config" / game_build_id).exists()
     )
 
 

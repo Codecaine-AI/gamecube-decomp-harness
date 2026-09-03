@@ -28,10 +28,11 @@ from typing import Optional
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
-from project_root import resolve_root
+from project_root import build_id, resolve_root
 
 ROOT = resolve_root()
-REPORT_PATH = ROOT / "build/GALE01/report.json"
+BUILD_ID = build_id()
+REPORT_PATH = ROOT / f"build/{BUILD_ID}/report.json"
 
 
 def find_unit_for_function(func_name: str) -> Optional[str]:
@@ -57,7 +58,7 @@ def find_build_block(src: str) -> tuple[str, str]:
     text = (ROOT / "build.ninja").read_text()
     # Unfold ninja line continuations.
     text = text.replace("$\n", " ")
-    obj = f"build/GALE01/{src[:-2]}.o"
+    obj = f"build/{BUILD_ID}/{src[:-2]}.o"
     blocks = re.split(r"^build ", text, flags=re.M)
     for b in blocks:
         if b.startswith(f"{obj}:") or b.startswith(f"{obj} :"):

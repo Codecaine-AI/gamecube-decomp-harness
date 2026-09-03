@@ -39,12 +39,12 @@ from elftools.elf.sections import SymbolTableSection
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/ (matches checkdiff.py etc.).
-from project_root import resolve_root
+from project_root import build_id, resolve_root
 
 ROOT = resolve_root()
 # The vendored m2c fork lives at the implementation root, next to this tools/ dir.
 M2C_ROOT = Path(__file__).resolve().parents[1] / "m2c"
-DTK_ROOT = ROOT / "build/GALE01"
+DTK_ROOT = ROOT / f"build/{build_id()}"
 OBJ_ROOT = DTK_ROOT / "obj"
 ASM_ROOT = DTK_ROOT / "asm"
 SRC_ROOT = ROOT / "src"

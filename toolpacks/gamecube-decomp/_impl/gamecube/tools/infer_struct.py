@@ -28,10 +28,10 @@ from pathlib import Path
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
-from project_root import resolve_root
+from project_root import build_id, resolve_root
 
 ROOT = resolve_root()
-DEFAULT_ASM = ROOT / "build" / "GALE01" / "asm"
+DEFAULT_ASM = ROOT / "build" / build_id() / "asm"
 
 INSN_RE = re.compile(r"^/\*[^*]*\*/\s+(\S+)\s*(.*?)\s*$")
 MEMOP_RE = re.compile(r"^(-?(?:0x)?[0-9A-Fa-f]+)\(r(\d+)\)$")

@@ -57,7 +57,7 @@ def default_output_root() -> Path:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a sparse assembly-window search index.")
     parser.add_argument("--repo-root", type=Path, required=True, help="Built melee checkout root.")
-    parser.add_argument("--version", default="GALE01")
+    parser.add_argument("--version", default=os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01")
     parser.add_argument("--report", help="Progress report path or URL.")
     parser.add_argument("--objdump", help="powerpc-eabi-objdump executable.")
     parser.add_argument("--out", type=Path, default=default_output_root())
@@ -169,7 +169,7 @@ def build_index_from_functions(
     *,
     report: dict[str, tuple[float, str]] | None = None,
     repo_root: Path | None = None,
-    version: str = "GALE01",
+    version: str = os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01",
     window_size: int = 32,
     stride: int = 16,
     report_source: str | None = None,

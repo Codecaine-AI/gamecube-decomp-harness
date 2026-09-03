@@ -11,7 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import captured_stdio, import_tool_module, print_json, resolve_repo_root
+from toolpack_runtime import build_id, captured_stdio, import_tool_module, print_json, resolve_repo_root
 
 
 def main() -> None:
@@ -36,7 +36,7 @@ def main() -> None:
         ninja_compile = import_tool_module("ninja_compile", repo_root)
         unit = args.unit or ninja_compile.find_unit_for_function(args.function)
         if not unit:
-            payload.update({"status": "function_not_found", "message": "Function was not found in build/GALE01/report.json."})
+            payload.update({"status": "function_not_found", "message": f"Function was not found in build/{build_id()}/report.json."})
             print_json(payload)
             return
         with captured_stdio() as (stdout, stderr):

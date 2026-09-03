@@ -22,6 +22,7 @@ from search_index import package_root_for_tool, tool_storage_root  # type: ignor
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
 DEFAULT_REPO_ROOT = PACKAGE_ROOT.parent / "melee"
+BUILD_ID = os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01"
 SUMMARY_PATTERN = re.compile(r"EXPORT_XREFS_SUMMARY count=(\d+) output=(.+)")
 
 
@@ -119,7 +120,7 @@ def main() -> int:
     repo_root = args.repo_root.resolve()
     analyze = find_analyze_headless(args.analyze_headless)
     java = java_home()
-    input_elf = repo_root / "build" / "GALE01" / "main.elf"
+    input_elf = repo_root / "build" / BUILD_ID / "main.elf"
     project_dir = TOOL_STORAGE_ROOT / "cache" / "ghidra_xrefs_project"
     log_path = TOOL_STORAGE_ROOT / "cache" / "ghidra_export_xrefs.log"
     status_path = TOOL_STORAGE_ROOT / "cache" / "export_xrefs_status.json"
@@ -228,7 +229,7 @@ def main() -> int:
         "dependencies": [
             analyze or args.analyze_headless or "analyzeHeadless",
             java or "openjdk@21",
-            "build/GALE01/main.elf",
+            f"build/{BUILD_ID}/main.elf",
             str(script_path),
         ],
         "analyze_headless": analyze,

@@ -141,7 +141,7 @@ class ObjdiffScorer:
     def __init__(self, unit: str, fn: str) -> None:
         self.unit = unit
         self.fn = fn
-        self.target = str(ROOT / f"build/GALE01/obj/{unit}.o")
+        self.target = str(ROOT / f"build/{ninja_compile.BUILD_ID}/obj/{unit}.o")
         self.proc = None
         self.proc = subprocess.Popen(
             [str(objdiff_cli()), "score", self.target, fn],
@@ -421,7 +421,7 @@ def run_objdiff_json(unit: str, fn: str, cand_o: Path, *, timeout: int) -> subpr
     return subprocess.run(
         [objdiff_cli(), "diff", "--format", "json", "--output", "-",
          "-c", "functionRelocDiffs=data_value",
-         "-1", str(ROOT / f"build/GALE01/obj/{unit}.o"),
+         "-1", str(ROOT / f"build/{ninja_compile.BUILD_ID}/obj/{unit}.o"),
          "-2", str(cand_o), fn],
         capture_output=True, text=True, timeout=timeout,
     )
