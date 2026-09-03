@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "id": "drift-gate",
+  "title": "Drift gate: head moves, pass re-cites, gate verifies",
+  "participants": [
+    { "id": "sync-epoch", "name": "sync / epoch", "kind": "actor" },
+    { "id": "reconciliation", "name": "reconciliation", "kind": "participant" },
+    { "id": "target-rows", "name": "target rows", "kind": "participant" },
+    { "id": "importer", "name": "importer", "kind": "participant", "label": "PR or run-closed importer" },
+    { "id": "index-queue", "name": "index queue", "kind": "participant" },
+    { "id": "librarian", "name": "librarian", "kind": "participant" },
+    { "id": "flagger", "name": "flagger", "kind": "participant" },
+    { "id": "apply", "name": "apply", "kind": "participant" },
+    { "id": "gate", "name": "gate", "kind": "participant" }
+  ],
+  "items": [
+    { "kind": "message", "id": "drift-gate-m1", "from": "sync-epoch", "to": "reconciliation", "line": "sync", "text": "head moves" },
+    { "kind": "message", "id": "drift-gate-m2", "from": "reconciliation", "to": "target-rows", "line": "sync", "text": "refresh targets at the current head" },
+    { "kind": "message", "id": "drift-gate-m3", "from": "reconciliation", "to": "target-rows", "line": "sync", "text": "pair 1:1 renames at the same address and kind" },
+    { "kind": "message", "id": "drift-gate-m4", "from": "reconciliation", "to": "target-rows", "line": "sync", "text": "move old rows and re-point references" },
+    {
+      "kind": "fragment",
+      "id": "drift-gate-f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "ambiguous address",
+          "items": [
+            { "kind": "message", "id": "drift-gate-m4a", "from": "reconciliation", "to": "target-rows", "line": "return", "text": "report ambiguity, no move" }
+          ]
+        }
+      ]
+    },
+    { "kind": "message", "id": "drift-gate-m5", "from": "importer", "to": "index-queue", "line": "sync", "text": "enqueue pr_imported or run_closed task" },
+    { "kind": "message", "id": "drift-gate-m6", "from": "index-queue", "to": "librarian", "line": "sync", "text": "claim task" },
+    { "kind": "message", "id": "drift-gate-m7", "from": "librarian", "to": "flagger", "line": "sync", "text": "assemble context: renamed_from plus compact drift report" },
+    { "kind": "message", "id": "drift-gate-m8", "from": "librarian", "to": "apply", "line": "sync", "text": "propose re-citations, rewrites, and clears" },
+    { "kind": "message", "id": "drift-gate-m9", "from": "apply", "to": "target-rows", "line": "sync", "text": "write librarian pass" },
+    { "kind": "message", "id": "drift-gate-m10", "from": "gate", "to": "flagger", "line": "sync", "text": "re-run flagger on touched subjects" },
+    {
+      "kind": "fragment",
+      "id": "drift-gate-f2",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "no drift left",
+          "items": [
+            { "kind": "message", "id": "drift-gate-m11", "from": "gate", "to": "index-queue", "line": "return", "text": "complete task" }
+          ]
+        },
+        {
+          "guard": "drift left, first attempt",
+          "items": [
+            { "kind": "message", "id": "drift-gate-m12", "from": "gate", "to": "index-queue", "line": "return", "text": "release task with drift_attempts=1" }
+          ]
+        },
+        {
+          "guard": "drift left, second attempt",
+          "items": [
+            { "kind": "message", "id": "drift-gate-m13", "from": "gate", "to": "index-queue", "line": "return", "text": "complete task; log drift left unresolved after retry in the pass artifact" }
+          ]
+        }
+      ]
+    }
+  ],
+  "style": {}
+}
