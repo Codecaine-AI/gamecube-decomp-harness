@@ -2,16 +2,16 @@ import type { NewContainer } from "@agent-kernel/db";
 
 import { MELEE_KERNEL_ID } from "./config.js";
 
-import type { MeleeKernelSpawnContext } from "./kernel.js";
+import type { AppKernelSpawnContext } from "./kernel.js";
 import {
-  describeMeleeContainer,
-  MELEE_PHASE_VOCABULARY,
-  meleeAppSessionId,
-  type MeleeContainerKind,
-  type MeleeCycleRef,
+  describeAppContainer,
+  APP_PHASE_VOCABULARY,
+  appAppSessionId,
+  type AppContainerKind,
+  type AppCycleRef,
 } from "./session-mapping.js";
 
-export type MeleeKernelSpawnContainerKind =
+export type AppKernelSpawnContainerKind =
   | "run"
   | "worker"
   | "worker-integration"
@@ -25,8 +25,8 @@ export type MeleeKernelSpawnContainerKind =
   | "pr-repair"
   | "reconcile";
 
-export interface MeleeKernelSpawnContextInput {
-  kind: MeleeKernelSpawnContainerKind;
+export interface AppKernelSpawnContextInput {
+  kind: AppKernelSpawnContainerKind;
   gameId?: string | null;
   sessionId?: string | null;
   runId?: string | null;
@@ -54,7 +54,7 @@ function nonEmpty(value: string | number | null | undefined): string | undefined
   return text ? text : undefined;
 }
 
-function baseRef(input: MeleeKernelSpawnContextInput): MeleeCycleRef {
+function baseRef(input: AppKernelSpawnContextInput): AppCycleRef {
   const gameId = nonEmpty(input.gameId) ?? DEFAULT_GAME_ID;
   const sessionId =
     nonEmpty(input.sessionId) ??
@@ -64,7 +64,7 @@ function baseRef(input: MeleeKernelSpawnContextInput): MeleeCycleRef {
   return { gameId, sessionId };
 }
 
-function defaultPhase(kind: MeleeKernelSpawnContainerKind): string {
+function defaultPhase(kind: AppKernelSpawnContainerKind): string {
   switch (kind) {
     case "intake-postmortem":
       return "postmortem";
@@ -88,7 +88,7 @@ function containerRecord(input: {
   parentContainerId: string | null;
   label: string;
   phase: string;
-  ref: MeleeCycleRef;
+  ref: AppCycleRef;
   appSessionId: string;
   kind: string;
   workingDir?: string;
@@ -107,7 +107,7 @@ function containerRecord(input: {
     status: "running",
     workingDir: input.workingDir ?? null,
     phase: input.phase,
-    phaseVocabulary: MELEE_PHASE_VOCABULARY,
+    phaseVocabulary: APP_PHASE_VOCABULARY,
     metadata: {
       appSessionId: input.appSessionId,
       appSessionSlug: input.ref.sessionId,
@@ -115,7 +115,7 @@ function containerRecord(input: {
       containerKind: input.kind,
       gameId: input.ref.gameId,
       sessionId: input.ref.sessionId,
-      topic: `Melee ${input.ref.gameId} session ${input.ref.sessionId}`,
+      topic: `${input.ref.gameId} session ${input.ref.sessionId}`,
       ...(input.metadata ?? {}),
     },
     createdAt,
@@ -124,19 +124,19 @@ function containerRecord(input: {
 }
 
 /**
- * Container identity has exactly one authority: `describeMeleeContainer`. This
+ * Container identity has exactly one authority: `describeAppContainer`. This
  * wraps a described container in the spawn-context row envelope (session slug,
  * topic, spawn metadata) without letting spawn-context invent its own id,
  * parent, label, or phase — that divergence is what orphaned containers.
  */
 function describedRecord(input: {
-  kind: MeleeContainerKind;
-  ref: MeleeCycleRef;
+  kind: AppContainerKind;
+  ref: AppCycleRef;
   appSessionId: string;
   workingDir?: string;
   metadata?: Record<string, unknown>;
 }): NewContainer {
-  const descriptor = describeMeleeContainer(input.kind, input.ref, input.metadata ?? {});
+  const descriptor = describeAppContainer(input.kind, input.ref, input.metadata ?? {});
   return containerRecord({
     id: descriptor.id,
     parentContainerId: descriptor.parentContainerId,
@@ -151,8 +151,8 @@ function describedRecord(input: {
 }
 
 function containerLineage(
-  input: MeleeKernelSpawnContextInput,
-  ref: MeleeCycleRef,
+  input: AppKernelSpawnContextInput,
+  ref: AppCycleRef,
   appSessionId: string,
 ): NewContainer[] {
   const workingDir = nonEmpty(input.workingDir);
@@ -398,9 +398,9 @@ function containerLineage(
   }
 }
 
-export function createMeleeKernelSpawnContext(
-  input: MeleeKernelSpawnContextInput,
-): MeleeKernelSpawnContext {
+export function createAppKernelSpawnContext(
+  input: AppKernelSpawnContextInput,
+): AppKernelSpawnContext {
   if (!nonEmpty(input.sessionId)) {
     const fallbackSessionId = nonEmpty(input.runId) ?? nonEmpty(input.prId);
     if (fallbackSessionId && /^sync-/.test(fallbackSessionId)) {
@@ -410,7 +410,7 @@ export function createMeleeKernelSpawnContext(
     }
   }
   const ref = baseRef(input);
-  const appSessionId = meleeAppSessionId(ref);
+  const appSessionId = appAppSessionId(ref);
   const runId = nonEmpty(input.runId);
   const prId = nonEmpty(input.prId);
   const epochId = nonEmpty(input.epochId);
@@ -422,7 +422,7 @@ export function createMeleeKernelSpawnContext(
   // of recomputing an id beside the lineage) is what keeps the two in sync.
   const lineage = containerLineage(input, ref, appSessionId);
   const container = lineage.at(-1);
-  if (!container) throw new Error(`Unable to build Melee spawn lineage for kind ${input.kind}`);
+  if (!container) throw new Error(`Unable to build app spawn lineage for kind ${input.kind}`);
 
   return {
     appSessionId,

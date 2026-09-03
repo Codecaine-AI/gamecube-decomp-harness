@@ -6,8 +6,8 @@ import { describe, expect, test } from "bun:test";
 import type { NewAgentRun, NewPiAgentSession } from "@agent-kernel/db";
 
 import {
-  runMeleeTranscriptBackfill,
-  type MeleeTranscriptBackfillIdentityStore,
+  runAppTranscriptBackfill,
+  type AppTranscriptBackfillIdentityStore,
 } from "./transcript-backfill.js";
 import {
   parseArgs,
@@ -44,7 +44,7 @@ function identityStore(existingSessions: string[] = [], existingRuns: string[] =
   const runIds = new Set(existingRuns);
   const sessions: NewPiAgentSession[] = [];
   const runs: NewAgentRun[] = [];
-  const store: MeleeTranscriptBackfillIdentityStore = {
+  const store: AppTranscriptBackfillIdentityStore = {
     hasPiSession: async (_db, id) => sessionIds.has(id),
     hasAgentRun: async (_db, id) => runIds.has(id),
     insertPiSession: async (_db, row) => {
@@ -92,7 +92,7 @@ describe("transcript backfill CLI", () => {
   });
 });
 
-describe("runMeleeTranscriptBackfill", () => {
+describe("runAppTranscriptBackfill", () => {
   test("enumerates nested JSONL files across roots and skips missing roots", async () => {
     const base = await mkdtemp(join(tmpdir(), "melee-backfill-"));
     const rootA = join(base, "a");
@@ -106,7 +106,7 @@ describe("runMeleeTranscriptBackfill", () => {
     ]);
     const identities = identityStore();
 
-    const result = await runMeleeTranscriptBackfill({
+    const result = await runAppTranscriptBackfill({
       db: {}, roots: [rootA, rootB, join(base, "missing")],
       ports: { backfill: fakeBackfill as any, identityStore: identities.store },
     });
@@ -121,7 +121,7 @@ describe("runMeleeTranscriptBackfill", () => {
     await writeFile(join(root, "session.jsonl"), transcript());
     const identities = identityStore();
 
-    const result = await runMeleeTranscriptBackfill({
+    const result = await runAppTranscriptBackfill({
       db: {}, roots: [root], ports: { backfill: fakeBackfill as any, identityStore: identities.store },
     });
 
@@ -140,7 +140,7 @@ describe("runMeleeTranscriptBackfill", () => {
     await writeFile(join(root, "session.jsonl"), transcript());
     const identities = identityStore([PI_SESSION_ID], [RUN_ID]);
 
-    const result = await runMeleeTranscriptBackfill({
+    const result = await runAppTranscriptBackfill({
       db: {}, roots: [root], ports: { backfill: fakeBackfill as any, identityStore: identities.store },
     });
 
@@ -156,7 +156,7 @@ describe("runMeleeTranscriptBackfill", () => {
     const identities = identityStore();
     let backfillCalls = 0;
 
-    const result = await runMeleeTranscriptBackfill({
+    const result = await runAppTranscriptBackfill({
       db: {}, roots: [root], dryRun: true,
       ports: {
         backfill: async () => { backfillCalls++; return fakeBackfill({ files: [] }); },

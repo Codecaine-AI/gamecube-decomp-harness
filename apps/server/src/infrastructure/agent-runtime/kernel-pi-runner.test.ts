@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { meleeKernelAgent, type KernelAgentId } from "@server/core/agent-catalog/kernel-catalog";
+import { appKernelAgent, type KernelAgentId } from "@server/core/agent-catalog/kernel-catalog";
 import {
-  createMeleeKernelPiAgentRunner,
+  createAppKernelPiAgentRunner,
   createPiChildProcessReaper,
-  type MeleeKernelPiRunOptions,
+  type AppKernelPiRunOptions,
 } from "./kernel-pi-runner.js";
 
 function dryRunOptions(
-  overrides: Partial<MeleeKernelPiRunOptions> = {},
-): MeleeKernelPiRunOptions {
+  overrides: Partial<AppKernelPiRunOptions> = {},
+): AppKernelPiRunOptions {
   return {
     role: "worker",
     cwd: "/repo",
@@ -28,9 +28,9 @@ function dryRunOptions(
 describe("Melee kernel Pi agent resolution", () => {
   test("prefers catalogAgentId when it differs from the runtime role", async () => {
     const resolvedNames: string[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       resolveKernelAgent(role, catalogAgentId) {
-        return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
+        return appKernelAgent(catalogAgentId ?? (role as KernelAgentId));
       },
       toKernelParsedAgentFromBundle(entry, bundle) {
         resolvedNames.push(entry.name);
@@ -69,9 +69,9 @@ describe("Melee kernel Pi agent resolution", () => {
 
   test("keeps role-based catalog resolution without catalogAgentId", async () => {
     const resolvedNames: string[] = [];
-    const runner = createMeleeKernelPiAgentRunner({
+    const runner = createAppKernelPiAgentRunner({
       resolveKernelAgent(role, catalogAgentId) {
-        return meleeKernelAgent(catalogAgentId ?? (role as KernelAgentId));
+        return appKernelAgent(catalogAgentId ?? (role as KernelAgentId));
       },
       toKernelParsedAgentFromBundle(entry, bundle) {
         resolvedNames.push(entry.name);

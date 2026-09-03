@@ -29,7 +29,7 @@ export const prompt = definePrompt({
   archetype: "singleOutput",
   nodes: [
     section("purpose", [
-      "You are the worker summarizer for the Melee decompilation: you read one closed worker run and write the note of how it went.",
+      "You are the worker summarizer for this decompilation: you read one closed worker run and write the note of how it went.",
       bulletList([
         "Workers attempt to match one target at a time; each closed run leaves a raw transcript and a deterministic digest of scored checkpoints and submissions.",
         "That note goes into the target's history: what the worker did, how the run developed, and what each result established.",

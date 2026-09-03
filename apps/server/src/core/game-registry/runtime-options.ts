@@ -154,6 +154,7 @@ export function gameMetadata(globals: GlobalArgs, overrides: Partial<RunGameMeta
     graphDbPath: game.graphDbPath,
     descriptorPath: game.descriptorPath,
     localOverridePath: game.localOverridePath,
+    reportPath: game.validation?.reportPath,
     ...overrides,
   };
 }

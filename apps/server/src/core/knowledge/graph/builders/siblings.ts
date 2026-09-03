@@ -13,6 +13,8 @@ const MAX_SIBLINGS_IN_PAYLOAD = 12;
 export interface BuildSiblingGraphRecordsOptions {
   rulesPath?: string;
   maxGroupSize?: number;
+  reportRelPath?: string;
+  gameId?: string;
 }
 
 interface CurrentFunction {
@@ -47,10 +49,10 @@ export function buildSiblingGraphRecords(
   repoRoot: string,
   options: BuildSiblingGraphRecordsOptions = {},
 ): GraphRecords | null {
-  const rulesPath = options.rulesPath ?? defaultSiblingRulesPath();
+  const rulesPath = options.rulesPath ?? defaultSiblingRulesPath(options.gameId);
   if (!existsSync(rulesPath)) return null;
 
-  const reportPath = functionReportPath(repoRoot);
+  const reportPath = functionReportPath(repoRoot, options.reportRelPath, options.gameId);
   if (!existsSync(reportPath)) return null;
 
   const functions = currentFunctionIndex(reportPath);
@@ -143,14 +145,14 @@ export function buildSiblingGraphRecords(
   };
 }
 
-function defaultSiblingRulesPath(): string {
-  return resolve(gameRoot("melee"), "knowledge/config/sibling_rules.json");
+function defaultSiblingRulesPath(gameId?: string): string {
+  return resolve(gameRoot(gameId), "knowledge/config/sibling_rules.json");
 }
 
-function functionReportPath(repoRoot: string): string {
-  const requested = resolve(repoRoot, "build/GALE01/report.json");
+function functionReportPath(repoRoot: string, reportRelPath = "build/GALE01/report.json", gameId?: string): string {
+  const requested = resolve(repoRoot, reportRelPath);
   if (existsSync(requested)) return requested;
-  return resolve(gameRoot("melee"), "checkout/build/GALE01/report.json");
+  return resolve(gameRoot(gameId), `checkout/${reportRelPath}`);
 }
 
 function currentFunctionIndex(reportPath: string): CurrentFunction[] {

@@ -39,10 +39,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
-from project_root import resolve_root
+from project_root import build_id, resolve_root
 
 ROOT = resolve_root()
-REPORT_PATH = ROOT / "build/GALE01/report.json"
+BUILD_ID = build_id()
+REPORT_PATH = ROOT / f"build/{BUILD_ID}/report.json"
 SRC_ROOT = ROOT / "src"
 
 MWCC_RULES = {"mwcc", "mwcc_sjis", "mwcc_extab", "mwcc_sjis_extab"}
@@ -394,7 +395,7 @@ def _parse_build_index(path: Path) -> Dict[str, Any]:
     for block in re.split(r"^build ", text, flags=re.M):
         build_line = block.splitlines()[0]
         match = re.match(
-            r"build/GALE01/src/(.+)\.o\s*:\s*(\S+)\s+(.+)", build_line
+            rf"build/{re.escape(BUILD_ID)}/src/(.+)\.o\s*:\s*(\S+)\s+(.+)", build_line
         )
         if match is None:
             continue
@@ -466,7 +467,7 @@ def _valid_build_index(value: Any) -> bool:
 
 def find_build_block(obj_path: str) -> BuildBlock:
     """Return the cached MWCC build edge that produces obj_path."""
-    target = f"build/GALE01/src/{obj_path}.o"
+    target = f"build/{BUILD_ID}/src/{obj_path}.o"
     index = _load_metadata(
         "build-edge-index-v1.json",
         ROOT / "build.ninja",
@@ -731,7 +732,7 @@ def _base_ascii_verdict(
     obj_path: str, block: BuildBlock
 ) -> Optional[Dict[str, Any]]:
     """Content-keyed ASCII verdict for the real TU source and prior deps."""
-    depfile_path = ROOT / f"build/GALE01/src/{obj_path}.d"
+    depfile_path = ROOT / f"build/{BUILD_ID}/src/{obj_path}.d"
     depfile_result = _stable_file_record(depfile_path)
     if depfile_result is None:
         return None

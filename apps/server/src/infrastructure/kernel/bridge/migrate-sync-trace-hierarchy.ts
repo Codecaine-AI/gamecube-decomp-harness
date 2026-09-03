@@ -17,21 +17,21 @@ const piAgentSessions = kernelPiAgentSessions as any;
 const traceEvents = kernelTraceEvents as any;
 
 import { MELEE_KERNEL_ID } from "./config.js";
-import { getDefaultMeleeKernelRuntime } from "./runtime.js";
+import { getDefaultAppKernelRuntime } from "./runtime.js";
 import {
-  buildMeleeContainer,
-  meleeIntakeContainerId,
-  meleeKnowledgeContainerId,
-  meleeRootContainerId,
-  meleeRunContainerId,
-  meleeSyncContainerId,
-  meleeSyncIntakeContainerId,
-  meleeSyncWorkflowContainerId,
-  meleeSyncWorkflowIntakeContainerId,
-  meleeSyncWorkflowIntakeItemContainerId,
-  meleeSyncWorkflowIntakePostmortemContainerId,
-  meleeSyncWorkflowKnowledgeContainerId,
-  type MeleeCycleRef,
+  buildAppContainer,
+  appIntakeContainerId,
+  appKnowledgeContainerId,
+  appRootContainerId,
+  appRunContainerId,
+  appSyncContainerId,
+  appSyncIntakeContainerId,
+  appSyncWorkflowContainerId,
+  appSyncWorkflowIntakeContainerId,
+  appSyncWorkflowIntakeItemContainerId,
+  appSyncWorkflowIntakePostmortemContainerId,
+  appSyncWorkflowKnowledgeContainerId,
+  type AppCycleRef,
 } from "./session-mapping.js";
 
 export interface SyncTraceMigrationContainerRow {
@@ -69,7 +69,7 @@ export interface SyncTraceScopedEventMove {
 
 export interface SyncTraceMigrationPlan {
   syncId: string;
-  refs: MeleeCycleRef[];
+  refs: AppCycleRef[];
   parents: SyncTraceMigrationContainerRow[];
   rewrites: SyncTraceContainerRewrite[];
   scopedEventMoves: SyncTraceScopedEventMove[];
@@ -135,13 +135,13 @@ function metadataString(row: SyncTraceMigrationContainerRow, key: string): strin
   return value.trim() || null;
 }
 
-function refForRow(row: SyncTraceMigrationContainerRow): MeleeCycleRef | null {
+function refForRow(row: SyncTraceMigrationContainerRow): AppCycleRef | null {
   const gameId = metadataString(row, "gameId");
   const sessionId = metadataString(row, "sessionId");
   return gameId && sessionId ? { gameId, sessionId } : null;
 }
 
-function refKey(ref: MeleeCycleRef): string {
+function refKey(ref: AppCycleRef): string {
   return `${ref.gameId}\n${ref.sessionId}`;
 }
 
@@ -170,7 +170,7 @@ function postmortemDescendantSuffix(id: string): string {
 }
 
 function parentRow(
-  ref: MeleeCycleRef,
+  ref: AppCycleRef,
   syncId: string,
   kind: "sync" | "intake" | "intake-item" | "knowledge",
   id: string,
@@ -178,7 +178,7 @@ function parentRow(
   now: string,
   prId?: string,
 ): SyncTraceMigrationContainerRow {
-  const built = buildMeleeContainer({
+  const built = buildAppContainer({
     kind,
     ref,
     startedAt: now,
@@ -240,14 +240,14 @@ function copiedRow(
 /** Pure rewrite planner. It never reads from or writes to the database. */
 export function planSyncTraceHierarchyMigration(input: {
   syncId: string;
-  refs: MeleeCycleRef[];
+  refs: AppCycleRef[];
   containers: SyncTraceMigrationContainerRow[];
   claimIntakeItems?: boolean;
   now?: string;
 }): SyncTraceMigrationPlan {
   const syncId = assertSyncId(input.syncId);
   const now = input.now ?? new Date().toISOString();
-  const refsByRoot = new Map(input.refs.map((ref) => [meleeRootContainerId(ref), ref]));
+  const refsByRoot = new Map(input.refs.map((ref) => [appRootContainerId(ref), ref]));
   const parents = new Map<string, SyncTraceMigrationContainerRow>();
   const rewriteIds = new Map<string, string>();
   const scopedEventMoves = new Map<string, SyncTraceScopedEventMove>();
@@ -255,11 +255,11 @@ export function planSyncTraceHierarchyMigration(input: {
   const addParent = (row: SyncTraceMigrationContainerRow): void => {
     parents.set(row.id, row);
   };
-  const addBaseParents = (ref: MeleeCycleRef): { sync: string; intake: string; knowledge: string } => {
-    const root = meleeRootContainerId(ref);
-    const sync = meleeSyncWorkflowContainerId(ref, syncId);
-    const intake = meleeSyncWorkflowIntakeContainerId(ref, syncId);
-    const knowledge = meleeSyncWorkflowKnowledgeContainerId(ref, syncId);
+  const addBaseParents = (ref: AppCycleRef): { sync: string; intake: string; knowledge: string } => {
+    const root = appRootContainerId(ref);
+    const sync = appSyncWorkflowContainerId(ref, syncId);
+    const intake = appSyncWorkflowIntakeContainerId(ref, syncId);
+    const knowledge = appSyncWorkflowKnowledgeContainerId(ref, syncId);
     addParent(parentRow(ref, syncId, "sync", sync, root, now));
     addParent(parentRow(ref, syncId, "intake", intake, sync, now));
     addParent(parentRow(ref, syncId, "knowledge", knowledge, sync, now));
@@ -268,9 +268,9 @@ export function planSyncTraceHierarchyMigration(input: {
 
   for (const [root, ref] of refsByRoot) {
     const next = addBaseParents(ref);
-    const legacySync = meleeSyncContainerId(ref);
-    const legacySyncIntake = meleeSyncIntakeContainerId(ref);
-    const legacyKnowledge = meleeKnowledgeContainerId(ref);
+    const legacySync = appSyncContainerId(ref);
+    const legacySyncIntake = appSyncIntakeContainerId(ref);
+    const legacyKnowledge = appKnowledgeContainerId(ref);
     for (const [oldContainerId, newContainerId] of [
       [legacySync, next.sync],
       [legacySyncIntake, next.sync],
@@ -279,8 +279,8 @@ export function planSyncTraceHierarchyMigration(input: {
       scopedEventMoves.set(`${oldContainerId}\n${newContainerId}`, { oldContainerId, newContainerId });
     }
 
-    const legacyRunPrefix = `${meleeRunContainerId({ ...ref, runId: syncId })}:epoch:`;
-    const legacyIntakePrefix = `${meleeIntakeContainerId(ref)}:pr:`;
+    const legacyRunPrefix = `${appRunContainerId({ ...ref, runId: syncId })}:epoch:`;
+    const legacyIntakePrefix = `${appIntakeContainerId(ref)}:pr:`;
     const legacyKnowledgePrefix = `${legacyKnowledge}:`;
     const legacySyncIntakePrefix = `${legacySyncIntake}:`;
     const rows = input.containers.filter((row) => row.id === root || row.id.startsWith(`${root}:`));
@@ -289,17 +289,17 @@ export function planSyncTraceHierarchyMigration(input: {
       if (row.id.startsWith(legacyRunPrefix) && row.id.includes(":postmortem:")) {
         const prId = prIdForPostmortem(row);
         if (!prId) continue;
-        const itemId = meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId);
+        const itemId = appSyncWorkflowIntakeItemContainerId(ref, syncId, prId);
         addParent(parentRow(ref, syncId, "intake-item", itemId, next.intake, now, prId));
         rewriteIds.set(
           row.id,
-          `${meleeSyncWorkflowIntakePostmortemContainerId(ref, syncId, prId)}${postmortemDescendantSuffix(row.id)}`,
+          `${appSyncWorkflowIntakePostmortemContainerId(ref, syncId, prId)}${postmortemDescendantSuffix(row.id)}`,
         );
         continue;
       }
 
       if (input.claimIntakeItems && row.id.startsWith(legacyIntakePrefix)) {
-        rewriteIds.set(row.id, `${next.intake}${row.id.slice(meleeIntakeContainerId(ref).length)}`);
+        rewriteIds.set(row.id, `${next.intake}${row.id.slice(appIntakeContainerId(ref).length)}`);
         continue;
       }
 
@@ -322,18 +322,18 @@ export function planSyncTraceHierarchyMigration(input: {
     let newParentContainerId = mappedParent ?? row.parentContainerId;
     for (const [root, ref] of refsByRoot) {
       if (!(oldId === root || oldId.startsWith(`${root}:`))) continue;
-      const oldIntake = meleeIntakeContainerId(ref);
-      const oldKnowledge = meleeKnowledgeContainerId(ref);
-      const oldSyncIntake = meleeSyncIntakeContainerId(ref);
+      const oldIntake = appIntakeContainerId(ref);
+      const oldKnowledge = appKnowledgeContainerId(ref);
+      const oldSyncIntake = appSyncIntakeContainerId(ref);
       if (row.parentContainerId === oldIntake) {
-        newParentContainerId = meleeSyncWorkflowIntakeContainerId(ref, syncId);
+        newParentContainerId = appSyncWorkflowIntakeContainerId(ref, syncId);
       } else if (row.parentContainerId === oldKnowledge) {
-        newParentContainerId = meleeSyncWorkflowKnowledgeContainerId(ref, syncId);
+        newParentContainerId = appSyncWorkflowKnowledgeContainerId(ref, syncId);
       } else if (row.parentContainerId === oldSyncIntake) {
-        newParentContainerId = meleeSyncWorkflowContainerId(ref, syncId);
+        newParentContainerId = appSyncWorkflowContainerId(ref, syncId);
       } else if (!mappedParent && oldId.includes(":postmortem:")) {
         const prId = prIdForPostmortem(row);
-        if (prId) newParentContainerId = meleeSyncWorkflowIntakeItemContainerId(ref, syncId, prId);
+        if (prId) newParentContainerId = appSyncWorkflowIntakeItemContainerId(ref, syncId, prId);
       }
       break;
     }
@@ -563,7 +563,7 @@ export async function runSyncTraceHierarchyMigration(
   if (!options.port && !options.db) throw new Error("Migration requires a database or database port");
   const port = options.port ?? createSqlitePort(options.db as KernelDatabase);
   const discovery = await port.findContainersReferencingSync(syncId);
-  const refsByKey = new Map<string, MeleeCycleRef>();
+  const refsByKey = new Map<string, AppCycleRef>();
   for (const row of discovery) {
     const ref = refForRow(row);
     if (ref) refsByKey.set(refKey(ref), ref);
@@ -572,7 +572,7 @@ export async function runSyncTraceHierarchyMigration(
   if (refs.length === 0) {
     throw new Error(`No kernel containers with gameId/sessionId metadata reference ${syncId}`);
   }
-  const rootIds = refs.map(meleeRootContainerId);
+  const rootIds = refs.map(appRootContainerId);
   const containers = await port.findContainersUnderRoots(rootIds);
   const plan = planSyncTraceHierarchyMigration({
     syncId,
@@ -646,8 +646,8 @@ export function parseSyncTraceMigrationArgs(argv: string[]): CliArgs {
 
 async function main(): Promise<void> {
   const args = parseSyncTraceMigrationArgs(process.argv.slice(2));
-  const runtime = await getDefaultMeleeKernelRuntime();
-  if (!runtime) throw new Error("Melee kernel runtime is unavailable");
+  const runtime = await getDefaultAppKernelRuntime();
+  if (!runtime) throw new Error("App kernel runtime is unavailable");
   try {
     const summary = await runSyncTraceHierarchyMigration({ db: runtime.db, ...args });
     console.log(JSON.stringify(summary, null, 2));

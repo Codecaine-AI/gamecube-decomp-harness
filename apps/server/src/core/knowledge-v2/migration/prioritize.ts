@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "../../knowledge/paths.js";
 import { KNOWLEDGE_INDEX_DB_FILENAME, openKnowledgeIndexDb, type KnowledgeIndexDb } from "../index/db.js";
@@ -415,7 +416,7 @@ function unitNamedRatioBucket(ratio: number): typeof UNIT_NAMED_RATIO_HISTOGRAM_
 export async function kg2Prioritize(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const limit = integerArg(args, "--limit", 30);
   const explicitRoot = optionalStringArg(args, "--knowledge-root");
-  const gameId = globals.gameId ?? "melee";
+  const gameId = globals.gameId ?? DEFAULT_GAME_ID;
   const knowledgeRoot = explicitRoot ?? gameKnowledgeRoot(gameId);
   let store: KnowledgeStore | undefined;
   let indexDb: KnowledgeIndexDb | undefined;

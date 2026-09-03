@@ -1,5 +1,6 @@
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
@@ -82,7 +83,7 @@ export async function kg2Librarian(globals: GlobalArgs, args: Map<string, string
     return;
   }
 
-  const gameId = globals.game?.gameId ?? globals.gameId ?? "melee";
+  const gameId = globals.game?.gameId ?? globals.gameId ?? DEFAULT_GAME_ID;
   const knowledgeRoot = parsed.knowledgeRoot === undefined
     ? gameKnowledgeRoot(gameId)
     : resolve(parsed.knowledgeRoot);

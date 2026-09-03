@@ -1,5 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import {
   buildLedgerSearchIndex,
   defaultLedgerPath,
@@ -85,7 +86,7 @@ export async function handleKnowledgeLearningsApiRoute(
   if (url.pathname !== collectionPath && !url.pathname.startsWith(detailPrefix)) return null;
   if (req.method !== "GET") return deps.json({ error: "method not allowed" }, { status: 405 });
 
-  const gameId = url.searchParams.get("gameId") || "melee";
+  const gameId = url.searchParams.get("gameId") || DEFAULT_GAME_ID;
   const ledgerPath = defaultLedgerPath(gameId);
   const dbPath = defaultLedgerSearchDbPath(gameId);
   const { latestById, versionsById } = indexLearnings(loadLearnings(ledgerPath));

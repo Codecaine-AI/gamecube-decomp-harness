@@ -57,7 +57,8 @@ def _arg_value(*names: str) -> Optional[str]:
 
 
 def _looks_like_project_root(path: Path) -> bool:
-    return (path / "build/GALE01/report.json").is_file() and (path / "src").is_dir()
+    build_id = os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01"
+    return (path / f"build/{build_id}/report.json").is_file() and (path / "src").is_dir()
 
 
 def _bootstrap_project_root() -> None:

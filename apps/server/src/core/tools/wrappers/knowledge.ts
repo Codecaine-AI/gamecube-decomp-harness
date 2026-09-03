@@ -1,4 +1,5 @@
 /** Graph-first knowledge tools plus the few intentionally direct corpus APIs. */
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { searchLedgerLearnings, type LearningScope } from "@server/core/knowledge/ledger.js";
 import { graphFileCard, graphRelatedFunctions, graphSearch } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
@@ -225,7 +226,7 @@ export const ledgerSearchToolRegistration: AgentToolRegistration = {
             query,
             scope,
             limit: boundedLimit(params.limit),
-            gameId: context.game?.gameId ?? "melee",
+            gameId: context.game?.gameId ?? DEFAULT_GAME_ID,
           }),
         });
       },

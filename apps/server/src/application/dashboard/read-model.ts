@@ -3641,7 +3641,9 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   if (gameId) {
     const harnessStateStore = openState(stateDir);
     try {
-      scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot);
+      scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot, {
+        reportRelPath: paths.game?.validation.reportPath,
+      });
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
         campaign,
         // The authority root (cycle worktree when present) is the tree whose

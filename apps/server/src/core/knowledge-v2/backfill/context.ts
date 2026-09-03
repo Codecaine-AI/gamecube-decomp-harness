@@ -10,6 +10,7 @@ import {
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 
 import { formatLocator } from "../locator.js";
 import type { PrioritizedTargetRow } from "../migration/prioritize.js";
@@ -395,7 +396,7 @@ export function sourceSpan(
   if (target.kind === "data") return { locator: null, reason: "section target" };
   if (target.symbol === null) return { locator: null, reason: "target symbol unavailable" };
   try {
-    const checkoutRoot = resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout"));
+    const checkoutRoot = resolve(options.checkoutRoot ?? resolve(gameRoot(DEFAULT_GAME_ID), "checkout"));
     const sourcePath = unitLocator.replace(/^translation_unit:/, "");
     const filePath = resolve(checkoutRoot, sourcePath);
     if (!existsSync(filePath)) return { locator: null, reason: "unit source file not found" };

@@ -148,11 +148,11 @@ export function importAgentSharedStateLessons(options: ImportAgentSharedStateOpt
   };
 }
 
-export function buildAgentSharedStateGraphRecords(repoRoot: string, path = agentSharedStateEnrichmentPath()): GraphRecords | null {
+export function buildAgentSharedStateGraphRecords(repoRoot: string, path = agentSharedStateEnrichmentPath(), reportRelPath?: string): GraphRecords | null {
   const enrichmentPath = resolve(path);
   if (!existsSync(enrichmentPath)) return null;
   const sourceVersionId = `source-version:${SOURCE_ID}:${shortHash(filesFingerprint([enrichmentPath]))}`;
-  const currentFunctions = currentFunctionIndex(repoRoot);
+  const currentFunctions = currentFunctionIndex(repoRoot, reportRelPath);
   const entities: GraphEntity[] = [];
   const facts: GraphFact[] = [];
   const edges: GraphEdge[] = [];
@@ -310,8 +310,8 @@ function addFunctionHintLesson(
   }
 }
 
-function currentFunctionIndex(repoRoot: string): Map<string, CurrentFunction> {
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+function currentFunctionIndex(repoRoot: string, reportRelPath = "build/GALE01/report.json"): Map<string, CurrentFunction> {
+  const reportPath = resolve(repoRoot, reportRelPath);
   const objdiffPath = resolve(repoRoot, "objdiff.json");
   if (!existsSync(reportPath) || !existsSync(objdiffPath)) return new Map();
   const sourceByUnit = objdiffSourceMap(readJson(objdiffPath));

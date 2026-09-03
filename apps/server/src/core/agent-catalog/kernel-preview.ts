@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { WORKER_CANONICAL_TOOL_PATHS, workerPrompt } from "@server/core/agent-catalog";
 import {
   KERNEL_AGENT_IDS,
-  meleeKernelAgent,
+  appKernelAgent,
   toKernelAgentViewerDefinition,
   type KernelAgentId,
   type KernelAgentViewerDefinition,
@@ -53,10 +53,10 @@ function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): Backfill
     store = openKnowledgeStore({ gameId });
     const rows = prioritizeTargets(store).rows;
     const row = rows.find(
-      (candidate) => candidate.stable_key.startsWith("main/melee/") && candidate.attempts_runs > 0,
+      (candidate) => candidate.stable_key.startsWith(`main/${gameId}/`) && candidate.attempts_runs > 0,
     ) ?? rows[0];
     if (!row) return null;
-    const context = buildPassContext(store, row);
+    const context = buildPassContext(store, row, { checkoutRoot: paths.game.repoRoot });
     return { fillOut: context.fillOut, supporting: context.supporting };
   } catch {
     return null;
@@ -75,11 +75,12 @@ function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undef
     graphDbPath: paths.graphDbPath,
     descriptorPath: paths.game.descriptorPath,
     localOverridePath: paths.game.localOverridePath,
+    reportPath: paths.game.validation?.reportPath,
   };
 }
 
 function renderedTools(
-  entry: ReturnType<typeof meleeKernelAgent>,
+  entry: ReturnType<typeof appKernelAgent>,
   paths: KernelAgentCatalogContext,
 ): string | null {
   if (entry.tools.length === 0) return null;
@@ -335,7 +336,7 @@ export function loadKernelAgentsPayload(
   const generatedAt = new Date().toISOString();
   const warnings: string[] = [];
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
-    const entry = meleeKernelAgent(agentId);
+    const entry = appKernelAgent(agentId);
     try {
       return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps), {
         generatedAt,

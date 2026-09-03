@@ -1,3 +1,4 @@
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import {
   kv2AttemptSearch,
   kv2DiscordSearch,
@@ -165,7 +166,7 @@ async function withKnowledgeV2Handles<T extends object>(
   context: AgentToolRuntimeContext,
   invoke: (handles: KnowledgeV2Handles) => Promise<T> | T,
 ): Promise<T> {
-  const gameId = context.game?.gameId ?? "melee";
+  const gameId = context.game?.gameId ?? DEFAULT_GAME_ID;
   const store = openKnowledgeStore({ gameId });
   let indexDb: KnowledgeIndexDb | undefined;
   try {

@@ -10,7 +10,7 @@ import { createInterface } from "node:readline";
 
 import {
   ensureKernelObservabilitySchema,
-  openMeleeKernelDatabase,
+  openAppKernelDatabase,
 } from "../src/infrastructure/kernel/bridge/database.js";
 
 const SESSION_SHORT_ID = "02a80f9b";
@@ -695,7 +695,7 @@ function bridgeContainerShape(row: Awaited<ReturnType<typeof getContainer>>): Js
 }
 
 async function verifyBridgeRoundTrip(expected: JsonRow): Promise<void> {
-  const handle = await openMeleeKernelDatabase({
+  const handle = await openAppKernelDatabase({
     databasePath: SQLITE_PATH,
     env: {},
   });
@@ -744,7 +744,7 @@ async function main(): Promise<void> {
   const startedAt = performance.now();
   await mkdir(STAGE_DIR, { recursive: true });
 
-  const bridge = await openMeleeKernelDatabase({ databasePath: SQLITE_PATH, env: {} });
+  const bridge = await openAppKernelDatabase({ databasePath: SQLITE_PATH, env: {} });
   try {
     await ensureKernelObservabilitySchema(bridge.db);
   } finally {

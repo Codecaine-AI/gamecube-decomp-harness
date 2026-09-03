@@ -1,5 +1,6 @@
 import { gameRoot, pastPrsRoot } from "@server/core/knowledge";
 import { resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 
 import { resolveCitation } from "../apply/resolver.js";
 import {
@@ -1153,7 +1154,7 @@ function buildDriftRecheckContext(
     : knowledgeRecord(store, { targetId: subject.target.id });
   if (record.subject === null) throw new Error("Drift subject not found");
   const resolverOptions = {
-    checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout")),
+    checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot(DEFAULT_GAME_ID), "checkout")),
     prsRoot: options.prsRoot ?? resolve(pastPrsRoot(), "prs"),
   };
   const flaggedFacts = Object.values(record.facts).flatMap((fact) => fact === undefined ? [] : [{

@@ -1,6 +1,6 @@
 import type {
-  MeleeWorkflowTraceStatus,
-  SubmitMeleeWorkflowTraceEventInput,
+  AppWorkflowTraceStatus,
+  SubmitAppWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
 import type { PreparingPhaseState } from "@server/core/cycle";
 import { getLatestRun, openState } from "@server/core/cycle-runtime/run-state";
@@ -32,9 +32,9 @@ export interface PreparingRuntimeGameContext {
 }
 
 export interface PreparingRuntimeWorkflowEventInput {
-  kind: SubmitMeleeWorkflowTraceEventInput["kind"];
+  kind: SubmitAppWorkflowTraceEventInput["kind"];
   operation: string;
-  status?: MeleeWorkflowTraceStatus;
+  status?: AppWorkflowTraceStatus;
   sessionId?: string | null;
   runId?: string | null;
   prId?: string | null;

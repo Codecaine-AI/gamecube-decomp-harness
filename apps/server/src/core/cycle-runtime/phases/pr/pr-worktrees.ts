@@ -10,6 +10,7 @@ import {
   type ToolPlatform,
 } from "@server/core/tools/platform.js";
 import { installMwccCacheShim } from "@server/core/tools/mwcc-cache.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report";
 import type { DispatchLeaseRevalidator } from "@server/core/cycle-runtime/dispatch-guard";
 import type { GameEventTraceLinkage } from "@server/core/harness-state/kernel-links.js";
@@ -31,7 +32,7 @@ export interface CodeIssuesResult {
 
 export interface PrWorktreeGameContext {
   handoffDir?: string;
-  game: { baseRef?: string } | null;
+  game: { baseRef?: string; reportPath?: string } | null;
   repoRoot: string;
   stateDir: string;
   toolPlatform?: ToolPlatform;
@@ -234,8 +235,9 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     const { repoRoot } = paths;
     const baseRef = paths.game?.baseRef ?? "origin/master";
     const baseSha = (await runGit(repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to resolve ${baseRef}` })).stdout.trim();
+    const buildId = reportBuildIdFromPath(paths.game?.reportPath);
     const worktreeDir = resolve(tmpdir(), `melee-baseline-${baseSha}`);
-    const worktreeBaseline = resolve(worktreeDir, "build/GALE01/baseline.json");
+    const worktreeBaseline = resolve(worktreeDir, `build/${buildId}/baseline.json`);
     const cached = existsSync(worktreeBaseline);
     if (submitWorkflowEvent) {
       await submitWorkflowEvent(paths, {
@@ -277,7 +279,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     } else {
       uiLog("ui", `baseline reused from cache for ${baseSha.slice(0, 10)}`);
     }
-    const baselinePath = resolve(repoRoot, "build/GALE01/baseline.json");
+    const baselinePath = resolve(repoRoot, `build/${buildId}/baseline.json`);
     mkdirSync(dirname(baselinePath), { recursive: true });
     copyFileSync(worktreeBaseline, baselinePath);
     uiLog("ui", `production baseline installed at ${baselinePath}`);
@@ -318,7 +320,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     const baseSha = (await runGit(paths.repoRoot, ["rev-parse", "--verify", baseRef], { failureHint: `Unable to resolve ${baseRef}` })).stdout.trim();
     const status = readJsonObject(resolve(paths.stateDir, "pr_handoff", "baseline_status.json"));
     const worktreeDir = stringValue(status.worktreeDir);
-    const baselinePath = worktreeDir ? resolve(worktreeDir, "build/GALE01/baseline.json") : "";
+    const baselinePath = worktreeDir ? resolve(worktreeDir, `build/${reportBuildIdFromPath(paths.game?.reportPath)}/baseline.json`) : "";
     if (stringValue(status.baseSha) === baseSha && worktreeDir && existsSync(baselinePath)) return status;
 
     const reason =
@@ -383,7 +385,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         if (apply.exitCode !== 0) throw new Error(`Ship-set patch did not apply cleanly (${apply.exitCode}): ${outputTail(apply.stderr, 2000)}`);
         const build = await runCli(["ninja", "changes_all"], worktreeDir);
         if (build.exitCode !== 0) throw new Error(`Ship-set build failed (${build.exitCode}): ${outputTail(build.stderr || build.stdout, 4000)}`);
-        report = await readRegressionReport(resolve(worktreeDir, "build/GALE01/report_changes.json"), "ship set", 0);
+        report = await readRegressionReport(resolve(worktreeDir, `build/${reportBuildIdFromPath(paths.game?.reportPath)}/report_changes.json`), "ship set", 0);
         // Upstream CI parity: the patched tree must also pass the Issues lint.
         issues = await checkCodeIssues(worktreeDir);
         if (issues.status === "unavailable") uiLog("ui", `ship-set round ${round}: code-issues check skipped — ${outputTail(issues.output, 300)}`);
@@ -494,7 +496,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     return { status: "issues", output, files };
   }
 
-  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
+  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator; reportBuildId?: string }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
     const allFiles = manifestFiles(params.files, params.supportFiles);
     const includeArgs = allFiles.map((file) => `--include=${file}`);
     let report: RegressionReport | null = null;
@@ -505,7 +507,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       if (apply.exitCode !== 0) throw new Error(`Slice patch did not apply (${apply.exitCode}): ${outputTail(apply.stderr, 1500)}`);
       const build = await runCli(["ninja", "changes_all"], params.baselineWorktree);
       if (build.exitCode !== 0) throw new Error(`Slice build failed (${build.exitCode}): ${outputTail(build.stderr || build.stdout, 3000)}`);
-      report = await readRegressionReport(resolve(params.baselineWorktree, "build/GALE01/report_changes.json"), "slice isolation", 0);
+      report = await readRegressionReport(resolve(params.baselineWorktree, `build/${reportBuildIdFromPath(params.reportBuildId)}/report_changes.json`), "slice isolation", 0);
       if (report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0) {
         issues = await checkCodeIssues(params.baselineWorktree);
       } else {

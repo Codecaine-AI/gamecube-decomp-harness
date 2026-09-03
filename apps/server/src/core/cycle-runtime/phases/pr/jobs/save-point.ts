@@ -15,6 +15,7 @@ import type { EventActor, JsonObject as GameEventJsonObject } from "@server/core
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { loadTrustedReportFile } from "@server/core/validation/report";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import { COMMIT_EXCLUDES } from "../boundary-commit.js";
 
 const SAVE_POINT_TRIGGERS: SavePointTrigger[] = [
@@ -113,9 +114,10 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
 
     const artifactDir = resolve(globals.stateDir, "save_points", artifactTimestamp());
     await mkdir(artifactDir, { recursive: true });
-    const reportSource = resolve(globals.repoRoot, "build/GALE01/report.json");
-    const baselineSource = resolve(globals.repoRoot, "build/GALE01/baseline.json");
-    const reportChangesSource = resolve(globals.repoRoot, "build/GALE01/report_changes.json");
+    const buildId = reportBuildIdFromPath(globals.game?.validation.reportPath);
+    const reportSource = resolve(globals.repoRoot, `build/${buildId}/report.json`);
+    const baselineSource = resolve(globals.repoRoot, `build/${buildId}/baseline.json`);
+    const reportChangesSource = resolve(globals.repoRoot, `build/${buildId}/report_changes.json`);
     let reportPath: string | null = null;
     let reportChangesPath: string | null = null;
     let measuresSource: string | null = null;
@@ -213,7 +215,7 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
       });
     }
     if (reportChangesPath) {
-      const trustedReport = await loadTrustedReportFile(reportChangesPath, "build/GALE01/report_changes.json", 0);
+      const trustedReport = await loadTrustedReportFile(reportChangesPath, `build/${buildId}/report_changes.json`, 0);
       if (trustedReport.status === "ready") {
         recordDashboardArtifact(store, {
           runId: record.runId,
@@ -221,7 +223,7 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
           artifactType: "trusted_report",
           artifactKey: "current",
           sourcePath: reportChangesPath,
-          sourceLabel: "build/GALE01/report_changes.json",
+          sourceLabel: `build/${buildId}/report_changes.json`,
           payload: trustedReport as unknown as Record<string, unknown>,
           createdAt: trustedReport.generatedAt ?? record.createdAt,
         });

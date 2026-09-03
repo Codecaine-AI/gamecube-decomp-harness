@@ -5,7 +5,7 @@ const INFRASTRUCTURE_FAILURE_PATTERNS = [
   /\b(?:OpenAI|Anthropic|Gemini|LLM) (?:API|provider) error\b/i,
   /\bserver_is_overloaded\b/i,
   /\bprevious_response_id\b/i,
-  /Non-dry Melee agent spawns must use kernel createSpawnAgent/i,
+  /Non-dry app agent spawns must use kernel createSpawnAgent/i,
   /\bkernel runtime (?:DB|database).*(?:missing|uninitialized|unavailable|unreachable|failed|error)/i,
   /(?:missing|uninitialized|unavailable|unreachable|failed).{0,80}\bkernel runtime (?:DB|database)\b/i,
   /\b(?:sandbox|Daytona).{0,80}(?:provision|create|start).{0,40}(?:failed|failure|error|unavailable|timed out)/i,

@@ -283,6 +283,7 @@ const kernelRuntime = createDashboardKernelRuntimeService({
   latestRunId,
   packageRoot,
   port,
+  processName: gameContext.defaultGame()?.processName,
   recordCycleKernelTrace,
   stateDir: gameContext.defaultGame()?.stateDir ?? defaultStateDir,
 });

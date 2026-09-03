@@ -29,7 +29,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
     const repoRoot = paths.repoRoot;
     const resetBaseline = boolValue(body.resetBaseline);
     uiLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} started`);
-    const result = await forceReportRun(repoRoot, { resetBaseline });
+    const result = await forceReportRun(repoRoot, { resetBaseline, reportRelPath: paths.game?.validation.reportPath });
     const store = openState(paths.stateDir);
     try {
       const requestedRunId = stringValue(body.runId);

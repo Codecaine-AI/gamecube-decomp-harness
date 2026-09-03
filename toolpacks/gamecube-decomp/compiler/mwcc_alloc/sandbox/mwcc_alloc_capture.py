@@ -176,8 +176,9 @@ def run_command(
 
 def object_path_for_unit(unit: str) -> str:
     source = PurePosixPath(unit)
-    # The compiled object is build/GALE01/src/<unit>.o; build/GALE01/obj/ is the dtk-split baseline and not a ninja target.
-    return str(PurePosixPath("build/GALE01") / source.with_suffix(".o"))
+    build_id = os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01"
+    # The compiled object is build/<build_id>/src/<unit>.o; build/<build_id>/obj/ is the dtk-split baseline and not a ninja target.
+    return str(PurePosixPath(f"build/{build_id}") / source.with_suffix(".o"))
 
 
 def extract_compile_command(

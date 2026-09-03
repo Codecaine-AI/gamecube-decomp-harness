@@ -18,12 +18,12 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import print_json
+from toolpack_runtime import build_id, print_json
 from search_index import tool_storage_root  # type: ignore
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = tool_storage_root(TOOL_ROOT) / "cache"
-SYMBOLS_REL_PATH = Path("config") / "GALE01" / "symbols.txt"
+SYMBOLS_REL_PATH = Path("config") / build_id() / "symbols.txt"
 CACHE_SCHEMA_VERSION = 2
 DATA_SECTIONS = {".data", ".rodata", ".sdata", ".sdata2", ".bss", ".sbss"}
 HEADER_ROOTS = ("src", "include")

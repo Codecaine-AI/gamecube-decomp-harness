@@ -21,12 +21,12 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import print_json
+from toolpack_runtime import build_id, print_json
 from search_index import tool_storage_root  # type: ignore
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = tool_storage_root(TOOL_ROOT) / "cache"
-SPLITS_REL_PATH = Path("config") / "GALE01" / "splits.txt"
+SPLITS_REL_PATH = Path("config") / build_id() / "splits.txt"
 
 # Sections that hold a TU's own data (the targets of literal-anchoring externs).
 DATA_SECTIONS = {".data", ".sdata", ".sdata2", ".rodata", ".bss", ".sbss"}

@@ -1,5 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { reportBuildIdFromPath } from "@server/core/game-registry/report-build-id.js";
 import {
   readRegressionReport,
   type MetricChange,
@@ -119,6 +120,8 @@ export async function loadTrustedReportFile(path: string, source: string, maxRow
   }
 }
 
-export async function loadTrustedReport(repoRoot: string, maxRows = 100): Promise<TrustedReport> {
-  return loadTrustedReportFile(resolve(repoRoot, "build/GALE01/report_changes.json"), "build/GALE01/report_changes.json", maxRows);
+/** `reportRelPath` is `game.json`'s `validation.reportPath` (e.g. "build/GALE01/report.json"), used only to derive the build/config directory segment. */
+export async function loadTrustedReport(repoRoot: string, maxRows = 100, reportRelPath?: string): Promise<TrustedReport> {
+  const relPath = `build/${reportBuildIdFromPath(reportRelPath)}/report_changes.json`;
+  return loadTrustedReportFile(resolve(repoRoot, relPath), relPath, maxRows);
 }

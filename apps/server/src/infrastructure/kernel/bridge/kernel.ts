@@ -2,7 +2,7 @@ import type { NewContainer } from "@agent-kernel/db";
 
 import { MELEE_KERNEL_ID } from "./config.js";
 
-export interface MeleeKernelSpawnContext {
+export interface AppKernelSpawnContext {
   appSessionId?: string;
   containerId?: string;
   containerLineage?: NewContainer[];
@@ -11,47 +11,47 @@ export interface MeleeKernelSpawnContext {
   metadata?: Record<string, unknown>;
 }
 
-export interface MeleeKernelSpawnOptions {
+export interface AppKernelSpawnOptions {
   model?: string;
   timeoutMs?: number;
   abortSignal?: AbortSignal;
   metadata?: Record<string, unknown>;
 }
 
-export type MeleeKernelSpawnAdapter<TResult = unknown> = (
+export type AppKernelSpawnAdapter<TResult = unknown> = (
   name: string,
   prompt: string,
-  context?: MeleeKernelSpawnContext | null,
-  options?: MeleeKernelSpawnOptions,
+  context?: AppKernelSpawnContext | null,
+  options?: AppKernelSpawnOptions,
 ) => Promise<TResult>;
 
-export interface MeleeKernelAgentManagerLike {
+export interface AppKernelAgentManagerLike {
   setMaxConcurrent?: (limit: number) => void;
   dispose?: () => void;
 }
 
-export interface CreateMeleeKernelOptions<
+export interface CreateAppKernelOptions<
   TResult = unknown,
-  TAgentManager extends MeleeKernelAgentManagerLike | undefined = undefined,
+  TAgentManager extends AppKernelAgentManagerLike | undefined = undefined,
 > {
   id?: string;
   concurrency?: { maxBackgroundAgents?: number };
-  spawnAgent: MeleeKernelSpawnAdapter<TResult>;
+  spawnAgent: AppKernelSpawnAdapter<TResult>;
   createAgentManager?: (input: {
     kernelId: string;
     maxConcurrentBackgroundAgents: number;
-    spawnAgent: MeleeKernelSpawnAdapter<TResult>;
+    spawnAgent: AppKernelSpawnAdapter<TResult>;
   }) => TAgentManager;
 }
 
-export interface MeleeKernelInstance<
+export interface AppKernelInstance<
   TResult = unknown,
-  TAgentManager extends MeleeKernelAgentManagerLike | undefined = undefined,
+  TAgentManager extends AppKernelAgentManagerLike | undefined = undefined,
 > {
   readonly id: string;
   readonly concurrency: { maxBackgroundAgents: number };
   readonly agentManager: TAgentManager;
-  spawnAgent: MeleeKernelSpawnAdapter<TResult>;
+  spawnAgent: AppKernelSpawnAdapter<TResult>;
   setMaxBackgroundAgents(limit: number): void;
   dispose(): void;
 }
@@ -66,17 +66,17 @@ function normalizeBackgroundAgentLimit(limit: number | undefined): number {
  * live createKernel now owns a catalog runtime and is not a drop-in adapter;
  * moving this path to that catalog is intentionally a separate migration.
  */
-export function createMeleeKernel<
+export function createAppKernel<
   TResult = unknown,
-  TAgentManager extends MeleeKernelAgentManagerLike | undefined = undefined,
+  TAgentManager extends AppKernelAgentManagerLike | undefined = undefined,
 >(
-  options: CreateMeleeKernelOptions<TResult, TAgentManager>,
-): MeleeKernelInstance<TResult, TAgentManager> {
+  options: CreateAppKernelOptions<TResult, TAgentManager>,
+): AppKernelInstance<TResult, TAgentManager> {
   const id = options.id ?? MELEE_KERNEL_ID;
   let maxBackgroundAgents = normalizeBackgroundAgentLimit(
     options.concurrency?.maxBackgroundAgents,
   );
-  const spawnAgent: MeleeKernelSpawnAdapter<TResult> = (name, prompt, context, spawnOptions) =>
+  const spawnAgent: AppKernelSpawnAdapter<TResult> = (name, prompt, context, spawnOptions) =>
     options.spawnAgent(name, prompt, context, spawnOptions);
   const agentManager = options.createAgentManager?.({
     kernelId: id,

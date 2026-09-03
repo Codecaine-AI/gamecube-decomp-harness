@@ -4,7 +4,7 @@ import { booleanArg, type GlobalArgs } from "@server/core/game-registry/runtime-
 
 export async function reportRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const resetBaseline = booleanArg(args, "--reset-baseline");
-  const result = await forceReportRun(globals.repoRoot, { resetBaseline });
+  const result = await forceReportRun(globals.repoRoot, { resetBaseline, reportRelPath: globals.game?.validation.reportPath });
   const store = openState(globals.stateDir);
   try {
     const run = getLatestRun(store);

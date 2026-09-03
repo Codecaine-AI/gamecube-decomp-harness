@@ -28,7 +28,7 @@ const piAgentSessions = kernelPiAgentSessions as any;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MELEE_AGENT_RUN_NAMESPACE = "56de4ed7-1d44-47ff-8f3b-c5e1b9071f25";
 
-export interface MeleeTranscriptBackfillRootSummary {
+export interface AppTranscriptBackfillRootSummary {
   root: string;
   files: number;
   eventsInserted: number;
@@ -40,7 +40,7 @@ export interface MeleeTranscriptBackfillRootSummary {
   warnings: string[];
 }
 
-export interface MeleeTranscriptBackfillSummary {
+export interface AppTranscriptBackfillSummary {
   files: number;
   eventsInserted: number;
   eventsSkipped: number;
@@ -49,17 +49,17 @@ export interface MeleeTranscriptBackfillSummary {
   agentRunsInserted: number;
   agentRunsSkipped: number;
   dryRun: boolean;
-  roots: MeleeTranscriptBackfillRootSummary[];
+  roots: AppTranscriptBackfillRootSummary[];
 }
 
-export interface MeleeTranscriptBackfillIdentityStore {
+export interface AppTranscriptBackfillIdentityStore {
   hasPiSession(db: unknown, id: string): Promise<boolean>;
   hasAgentRun(db: unknown, id: string): Promise<boolean>;
   insertPiSession(db: unknown, row: NewPiAgentSession): Promise<boolean>;
   insertAgentRun(db: unknown, row: NewAgentRun): Promise<boolean>;
 }
 
-export interface RunMeleeTranscriptBackfillOptions {
+export interface RunAppTranscriptBackfillOptions {
   db: unknown;
   roots: string[];
   batchSize?: number;
@@ -68,7 +68,7 @@ export interface RunMeleeTranscriptBackfillOptions {
   /** Test seam. Production callers use the default kernel and database ports. */
   ports?: {
     backfill?: (options: RunBackfillOptions) => Promise<BackfillSummary>;
-    identityStore?: MeleeTranscriptBackfillIdentityStore;
+    identityStore?: AppTranscriptBackfillIdentityStore;
   };
 }
 
@@ -210,7 +210,7 @@ function recoverIdentity(events: PiEvent[]): RecoveredIdentity | null {
   };
 }
 
-const defaultIdentityStore: MeleeTranscriptBackfillIdentityStore = {
+const defaultIdentityStore: AppTranscriptBackfillIdentityStore = {
   async hasPiSession(db, id) {
     const rows = await (db as any).select({ id: piAgentSessions.id })
       .from(piAgentSessions).where(eq(piAgentSessions.id, id)).limit(1);
@@ -259,9 +259,9 @@ async function dryRunBackfill(files: string[]): Promise<BackfillSummary> {
   return summary;
 }
 
-export async function runMeleeTranscriptBackfill(
-  options: RunMeleeTranscriptBackfillOptions,
-): Promise<MeleeTranscriptBackfillSummary> {
+export async function runAppTranscriptBackfill(
+  options: RunAppTranscriptBackfillOptions,
+): Promise<AppTranscriptBackfillSummary> {
   const identityStore = options.ports?.identityStore ?? defaultIdentityStore;
   const backfill = options.ports?.backfill ?? runBackfill;
   const rootFiles = await Promise.all(options.roots.map(async (root) => ({ root, files: await enumerateJsonl(root) })));

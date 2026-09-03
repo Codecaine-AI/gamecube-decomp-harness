@@ -6,21 +6,21 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ensureKernelObservabilitySchema,
-  openMeleeKernelDatabase,
-  upsertMeleeContainer,
+  openAppKernelDatabase,
+  upsertAppContainer,
 } from "./database.js";
 import { MELEE_KERNEL_ID } from "./config.js";
 
 import {
-  meleeIntakeItemContainerId,
-  meleeKnowledgeJobContainerId,
-  meleePostmortemContainerId,
-  meleeRootContainerId,
-  meleeSyncWorkflowContainerId,
-  meleeSyncWorkflowIntakeItemContainerId,
-  meleeSyncWorkflowIntakePostmortemContainerId,
-  meleeSyncWorkflowKnowledgeJobContainerId,
-  type MeleeCycleRef,
+  appIntakeItemContainerId,
+  appKnowledgeJobContainerId,
+  appPostmortemContainerId,
+  appRootContainerId,
+  appSyncWorkflowContainerId,
+  appSyncWorkflowIntakeItemContainerId,
+  appSyncWorkflowIntakePostmortemContainerId,
+  appSyncWorkflowKnowledgeJobContainerId,
+  type AppCycleRef,
 } from "./session-mapping.js";
 import {
   runSyncTraceHierarchyMigration,
@@ -30,7 +30,7 @@ import {
   type SyncTraceScopedEventMove,
 } from "./migrate-sync-trace-hierarchy.js";
 
-const ref: MeleeCycleRef = { gameId: "melee", sessionId: "cycle-2026-08-25" };
+const ref: AppCycleRef = { gameId: "melee", sessionId: "cycle-2026-08-25" };
 const syncId = "sync-12345678-1234-4234-8234-123456789abc";
 const now = "2026-08-25T12:00:00.000Z";
 
@@ -133,15 +133,15 @@ class FakeMigrationPort implements SyncTraceMigrationDatabasePort {
 
 describe("sync trace hierarchy migration", () => {
   test("rewrites only the requested sync through a fake database port", async () => {
-    const oldPostmortemId = meleePostmortemContainerId({
+    const oldPostmortemId = appPostmortemContainerId({
       ...ref,
       runId: syncId,
       epochId: "knowledge-pr-42",
       claimId: "pr-42",
     });
-    const oldIntakeItemId = meleeIntakeItemContainerId({ ...ref, prId: "43" });
-    const oldKnowledgeJobId = meleeKnowledgeJobContainerId({ ...ref, jobKey: "discord-7" });
-    const otherSyncKnowledgeJob = meleeKnowledgeJobContainerId({ ...ref, jobKey: "discord-other" });
+    const oldIntakeItemId = appIntakeItemContainerId({ ...ref, prId: "43" });
+    const oldKnowledgeJobId = appKnowledgeJobContainerId({ ...ref, jobKey: "discord-7" });
+    const otherSyncKnowledgeJob = appKnowledgeJobContainerId({ ...ref, jobKey: "discord-other" });
     const postmortem = row({
       id: oldPostmortemId,
       metadata: { gameId: ref.gameId, sessionId: ref.sessionId, runId: syncId, prId: "42" },
@@ -182,7 +182,7 @@ describe("sync trace hierarchy migration", () => {
 
     const rewrites = new Map(port.traceRewrites.map((rewrite) => [rewrite.oldId, rewrite.newId]));
     expect(rewrites.get(oldPostmortemId)).toBe(
-      meleeSyncWorkflowIntakePostmortemContainerId(ref, syncId, "42"),
+      appSyncWorkflowIntakePostmortemContainerId(ref, syncId, "42"),
     );
     expect(port.traceRewrites.find((rewrite) => rewrite.oldId === oldPostmortemId)?.row).toMatchObject({
       kind: "intake-postmortem",
@@ -190,22 +190,22 @@ describe("sync trace hierarchy migration", () => {
       metadata: { containerKind: "intake-postmortem", prId: "42" },
     });
     expect(rewrites.get(postmortemChild.id)).toBe(
-      `${meleeSyncWorkflowIntakePostmortemContainerId(ref, syncId, "42")}:agent:summary`,
+      `${appSyncWorkflowIntakePostmortemContainerId(ref, syncId, "42")}:agent:summary`,
     );
     expect(rewrites.get(oldIntakeItemId)).toBe(
-      meleeSyncWorkflowIntakeItemContainerId(ref, syncId, "43"),
+      appSyncWorkflowIntakeItemContainerId(ref, syncId, "43"),
     );
     expect(rewrites.get(oldKnowledgeJobId)).toBe(
-      meleeSyncWorkflowKnowledgeJobContainerId(ref, syncId, "discord-7"),
+      appSyncWorkflowKnowledgeJobContainerId(ref, syncId, "discord-7"),
     );
     expect(rewrites.has(otherSyncKnowledgeJob)).toBeFalse();
     expect(port.agentRunRewrites).toEqual(port.traceRewrites);
     expect(port.sessionRewrites).toEqual(port.traceRewrites);
-    expect(port.inserted[0][0].id).toBe(meleeSyncWorkflowContainerId(ref, syncId));
+    expect(port.inserted[0][0].id).toBe(appSyncWorkflowContainerId(ref, syncId));
     expect(port.inserted.flat().every((inserted) => inserted.appKey[0] === inserted.id)).toBeTrue();
     expect(port.calls).toEqual([
       "discover",
-      `load:${meleeRootContainerId(ref)}`,
+      `load:${appRootContainerId(ref)}`,
       "transaction",
       "insert-parents",
       "insert-rewrites",
@@ -228,7 +228,7 @@ describe("sync trace hierarchy migration", () => {
 
   test("dry-run plans without opening a transaction", async () => {
     const postmortem = row({
-      id: meleePostmortemContainerId({ ...ref, runId: syncId, epochId: "epoch", claimId: "pr-99" }),
+      id: appPostmortemContainerId({ ...ref, runId: syncId, epochId: "epoch", claimId: "pr-99" }),
       metadata: { gameId: ref.gameId, sessionId: ref.sessionId, runId: syncId, prId: "99" },
     });
     const port = new FakeMigrationPort([postmortem], [postmortem]);
@@ -237,26 +237,26 @@ describe("sync trace hierarchy migration", () => {
 
     expect(summary.containersPlanned).toBe(1);
     expect(summary.containersInserted).toBe(0);
-    expect(port.calls).toEqual(["discover", `load:${meleeRootContainerId(ref)}`]);
+    expect(port.calls).toEqual(["discover", `load:${appRootContainerId(ref)}`]);
   });
 
   test("rewrites rows through the SQLite database port", async () => {
     const root = mkdtempSync(join(tmpdir(), "sync-trace-sqlite-"));
-    const handle = await openMeleeKernelDatabase({
+    const handle = await openAppKernelDatabase({
       databasePath: join(root, "agent-kernel.sqlite"),
       env: {},
     });
     try {
       await ensureKernelObservabilitySchema(handle.db);
       const rootContainer = row({
-        id: meleeRootContainerId(ref),
+        id: appRootContainerId(ref),
         kind: "session",
         metadata: { gameId: ref.gameId, sessionId: ref.sessionId },
         parentContainerId: null,
         phase: "session",
       });
       const postmortem = row({
-        id: meleePostmortemContainerId({
+        id: appPostmortemContainerId({
           ...ref,
           runId: syncId,
           epochId: "epoch",
@@ -270,11 +270,11 @@ describe("sync trace hierarchy migration", () => {
         },
         parentContainerId: rootContainer.id,
       });
-      await upsertMeleeContainer(handle.db, {
+      await upsertAppContainer(handle.db, {
         ...rootContainer,
         kernelId: MELEE_KERNEL_ID,
       } as any);
-      await upsertMeleeContainer(handle.db, {
+      await upsertAppContainer(handle.db, {
         ...postmortem,
         kernelId: MELEE_KERNEL_ID,
       } as any);

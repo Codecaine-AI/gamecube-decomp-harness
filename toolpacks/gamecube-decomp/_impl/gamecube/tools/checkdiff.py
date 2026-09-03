@@ -39,9 +39,10 @@ from ninja_compile import (
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
-from project_root import resolve_root
+from project_root import build_id, resolve_root
 
 ROOT = resolve_root()
+BUILD_ID = build_id()
 SRC_ROOT = ROOT / "src"
 # Sibling implementation scripts live next to this one, not in the melee tree.
 TOOLS = Path(__file__).resolve().parent
@@ -115,7 +116,7 @@ def run_diff(
     pipeline. Callers that specifically need the instruction-focused view can
     pass strict=False to ignore data-relocation symbol diffs.
     """
-    ref_obj = f"./build/GALE01/obj/{obj_path}.o"
+    ref_obj = f"./build/{BUILD_ID}/obj/{obj_path}.o"
     command = [
         objdiff_cli(), "diff",
         "--format", "json",

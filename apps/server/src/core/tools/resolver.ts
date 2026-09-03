@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import {
   defaultToolpackId,
   packageRoot,
@@ -134,7 +135,7 @@ function stringMapField(value: unknown): Record<string, string> | undefined {
 }
 
 function gameRuntimePaths(context: ToolRuntimeContext): GameRuntimePaths {
-  const gameId = context.game?.gameId ?? "melee";
+  const gameId = context.game?.gameId ?? DEFAULT_GAME_ID;
   const descriptorPath = context.game?.descriptorPath ?? resolve(gameRoot(gameId), "game.json");
   const gameDir = dirname(descriptorPath);
   return {
@@ -356,6 +357,7 @@ export async function runRegisteredToolApi(
       sandboxHandle: context.sandboxHandle,
       workspaceRoot: resolved.gameRepoRoot,
       args,
+      reportRelPath: context.game?.reportPath,
       runHost: async (hostArgs) => {
         const command = ["python3", scriptPath, ...hostArgs];
         const result = await commandRunner(cwd, command, { env: resolved.env });

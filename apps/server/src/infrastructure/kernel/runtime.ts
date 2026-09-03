@@ -2,20 +2,21 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Database } from "bun:sqlite";
 import {
-  meleeKernelDatabasePathFromEnv,
-  meleeKernelRuntimeRequiredFromEnv,
-  resolveMeleeKernelDatabasePath,
+  appKernelDatabasePathFromEnv,
+  appKernelRuntimeRequiredFromEnv,
+  resolveAppKernelDatabasePath,
 } from "@server/infrastructure/kernel/bridge/database";
-import { createMeleeKernelRuntime, type MeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime";
+import { createAppKernelRuntime, type AppKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime";
 import { toKernelTraceSessionDetail } from "@server/infrastructure/kernel/bridge/read-api";
-import { meleeRootContainerId, meleeWorkerContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
+import { appRootContainerId, appWorkerContainerId } from "@server/infrastructure/kernel/bridge/session-mapping";
 import type { KernelTraceSessionDetail } from "@agent-kernel/viewer-core";
 import {
-  submitMeleeWorkflowTraceEvent,
-  type MeleeWorkflowTraceStatus,
-  type SubmitMeleeWorkflowTraceEventInput,
+  submitAppWorkflowTraceEvent,
+  type AppWorkflowTraceStatus,
+  type SubmitAppWorkflowTraceEventInput,
 } from "@server/infrastructure/kernel/bridge/workflow-trace";
-import type { GameRuntimeContext } from "@server/core/game-registry";
+import { DEFAULT_GAME_ID, type GameRuntimeContext } from "@server/core/game-registry";
+import { canonicalProcessName } from "@server/core/cycle/process-identity";
 import { openState } from "@server/core/orchestrator-state";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
@@ -28,9 +29,9 @@ type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 export interface DashboardKernelWorkflowEventInput {
-  kind: SubmitMeleeWorkflowTraceEventInput["kind"];
+  kind: SubmitAppWorkflowTraceEventInput["kind"];
   operation: string;
-  status?: MeleeWorkflowTraceStatus;
+  status?: AppWorkflowTraceStatus;
   sessionId?: string | null;
   runId?: string | null;
   prId?: string | null;
@@ -57,7 +58,7 @@ export interface DashboardKernelRuntimeService {
   kernelRuntimeRequired: boolean;
   gameId: (paths: GameRuntimeContext) => string;
   readApiResponse: (req: Request) => Promise<Response>;
-  runtime: () => Promise<MeleeKernelRuntime | null>;
+  runtime: () => Promise<AppKernelRuntime | null>;
   sessionId: (paths: GameRuntimeContext, input: Pick<DashboardKernelWorkflowEventInput, "sessionId" | "runId">) => string;
   status: () => Promise<JsonObject>;
   submitWorkflowEvent: (paths: GameRuntimeContext, input: DashboardKernelWorkflowEventInput) => Promise<JsonObject | null>;
@@ -71,8 +72,9 @@ export interface DashboardKernelRuntimeServiceDeps {
   latestRunId: (stateDir: string) => string;
   packageRoot: string;
   port: number;
+  processName?: string;
   stateDir?: string;
-  createKernelRuntime?: typeof createMeleeKernelRuntime;
+  createKernelRuntime?: typeof createAppKernelRuntime;
   persistCycleKernelTraceLinkage?: (
     stateDir: string,
     gameId: string,
@@ -249,26 +251,26 @@ export function persistCycleKernelTraceLinkage(
 }
 
 export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntimeServiceDeps): DashboardKernelRuntimeService {
-  const explicitKernelDatabasePath = meleeKernelDatabasePathFromEnv(deps.env);
+  const explicitKernelDatabasePath = appKernelDatabasePathFromEnv(deps.env);
   const kernelRuntimeDisabled = /^(1|true|yes)$/i.test(deps.env.ORCH_AGENT_KERNEL_DISABLED ?? deps.env.ORCH_AGENT_KERNEL_DISABLE ?? "");
   const kernelDatabasePath = kernelRuntimeDisabled
     ? null
-    : resolveMeleeKernelDatabasePath({
+    : resolveAppKernelDatabasePath({
         databasePath: explicitKernelDatabasePath,
         stateDir: deps.stateDir ?? resolve(deps.packageRoot, "games/melee/state"),
         env: deps.env,
       });
   const kernelDatabaseUrl = kernelDatabasePath ? pathToFileURL(kernelDatabasePath).href : null;
   const kernelDatabaseSource = kernelRuntimeDisabled ? "disabled" : (explicitKernelDatabasePath ? "env" : "game-state");
-  const kernelRuntimeRequired = meleeKernelRuntimeRequiredFromEnv(deps.env);
+  const kernelRuntimeRequired = appKernelRuntimeRequiredFromEnv(deps.env);
   const kernelAppBaseUrl = deps.env.ORCH_AGENT_KERNEL_APP_BASE_URL ?? `http://localhost:${deps.port}`;
   const kernelObserverUrl = deps.env.AGENT_KERNEL_OBSERVER_URL ?? null;
-  const createKernelRuntime = deps.createKernelRuntime ?? createMeleeKernelRuntime;
+  const createKernelRuntime = deps.createKernelRuntime ?? createAppKernelRuntime;
   const persistKernelTraceLinkage =
     deps.persistCycleKernelTraceLinkage ?? persistCycleKernelTraceLinkage;
-  let kernelRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
+  let kernelRuntimePromise: Promise<AppKernelRuntime | null> | null = null;
 
-  function runtime(): Promise<MeleeKernelRuntime | null> {
+  function runtime(): Promise<AppKernelRuntime | null> {
     if (!kernelDatabaseUrl) return Promise.resolve(null);
     if (!kernelRuntimePromise) {
       kernelRuntimePromise = createKernelRuntime({
@@ -279,7 +281,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
           appTraceUrlTemplate: `${kernelAppBaseUrl}/trace?containerId={containerId}`,
           genericTraceUrlTemplate: kernelObserverUrl ? `${kernelObserverUrl}/containers/{containerId}` : null,
           metadata: {
-            processName: "melee-live",
+            processName: canonicalProcessName(deps.processName),
             server: "server",
           },
         },
@@ -374,7 +376,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   async function workerTrace(input: DashboardKernelWorkerTraceInput): Promise<KernelTraceSessionDetail | null> {
     const current = await runtime();
     if (!current) return null;
-    const containerId = meleeWorkerContainerId({
+    const containerId = appWorkerContainerId({
       claimId: requiredText(input.claimId, "claimId"),
       epochId: requiredText(input.epochId, "epochId"),
       gameId: requiredText(input.gameId, "gameId"),
@@ -386,7 +388,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   }
 
   function gameId(paths: GameRuntimeContext): string {
-    return paths.game?.gameId ?? "melee";
+    return paths.game?.gameId ?? DEFAULT_GAME_ID;
   }
 
   function sessionId(
@@ -432,7 +434,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
         resolvedGameId,
         input,
       );
-      const result = await submitMeleeWorkflowTraceEvent({
+      const result = await submitAppWorkflowTraceEvent({
         runtime: current,
         kind: input.kind,
         gameId: resolvedGameId,
@@ -452,7 +454,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
           ...(input.runId ? { runId: input.runId } : {}),
         },
       });
-      const rootContainerId = meleeRootContainerId({
+      const rootContainerId = appRootContainerId({
         gameId: resolvedGameId,
         sessionId: resolvedSessionId,
       });

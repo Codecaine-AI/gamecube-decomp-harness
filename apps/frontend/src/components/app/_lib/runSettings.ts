@@ -125,7 +125,7 @@ const defaultForm: FormState = {
   repoRoot: "",
   stateDir: "",
   graphDbPath: "",
-  processName: "melee-live",
+  processName: "",
   ...schedulingForWorkers(12),
   goalValue: 100,
   provider: "codex-lb",

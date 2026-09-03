@@ -13,6 +13,8 @@ const MAX_PROFILE_PEERS = 12;
 export interface BuildCallGraphEdgeRecordsOptions {
   indexesRoot?: string;
   maxPeersPerFunction?: number;
+  reportRelPath?: string;
+  gameId?: string;
 }
 
 interface CurrentFunction {
@@ -73,13 +75,13 @@ export function buildCallGraphEdgeRecords(
   repoRoot: string,
   options: BuildCallGraphEdgeRecordsOptions = {},
 ): GraphRecords | null {
-  const indexesRoot = options.indexesRoot ?? defaultCallGraphIndexesRoot();
+  const indexesRoot = options.indexesRoot ?? defaultCallGraphIndexesRoot(options.gameId);
   const callsPath = resolve(indexesRoot, "calls.jsonl");
   if (!existsSync(callsPath)) return null;
   const dataRefsPath = resolve(indexesRoot, "data_refs.jsonl");
   const sourcePaths = [callsPath, ...(existsSync(dataRefsPath) ? [dataRefsPath] : [])];
 
-  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot));
+  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot, options.reportRelPath, options.gameId), options.reportRelPath);
   if (functions.byEntityId.size === 0) return null;
 
   const calls = callObservations(callsPath, functions);
@@ -165,25 +167,25 @@ export function buildCallGraphEdgeRecords(
   };
 }
 
-function defaultCallGraphIndexesRoot(): string {
-  return resolve(gameSharedToolDataRoot("melee"), "callgraph/indexes");
+function defaultCallGraphIndexesRoot(gameId?: string): string {
+  return resolve(gameSharedToolDataRoot(gameId), "callgraph/indexes");
 }
 
-function repoRootWithFunctionReport(repoRoot: string): string {
+function repoRootWithFunctionReport(repoRoot: string, reportRelPath = "build/GALE01/report.json", gameId?: string): string {
   const requested = resolve(repoRoot);
-  if (existsSync(resolve(requested, "build/GALE01/report.json"))) return requested;
-  const fallback = resolve(gameRoot("melee"), "checkout");
-  if (fallback !== requested && existsSync(resolve(fallback, "build/GALE01/report.json"))) return fallback;
+  if (existsSync(resolve(requested, reportRelPath))) return requested;
+  const fallback = resolve(gameRoot(gameId), "checkout");
+  if (fallback !== requested && existsSync(resolve(fallback, reportRelPath))) return fallback;
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string): FunctionIndex {
+function currentFunctionIndex(repoRoot: string, reportRelPath = "build/GALE01/report.json"): FunctionIndex {
   const index: FunctionIndex = {
     byEntityId: new Map(),
     byUnitSymbol: new Map(),
     bySymbol: new Map(),
   };
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, reportRelPath);
   if (!existsSync(reportPath)) return index;
 
   const report = readJson(reportPath);

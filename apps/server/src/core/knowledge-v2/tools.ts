@@ -1,6 +1,7 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import { gameRoot } from "../knowledge/paths.js";
 import { formatLocator, parseLocator, type LocatorKind } from "./locator.js";
 import type { KnowledgeIndexDb } from "./index/db.js";
@@ -1179,7 +1180,7 @@ function resolveCodeLocator(
   }
 
   const checkoutRoot = resolve(
-    handles.checkoutRoot ?? resolve(gameRoot(handles.gameId ?? "melee"), "checkout"),
+    handles.checkoutRoot ?? resolve(gameRoot(handles.gameId ?? DEFAULT_GAME_ID), "checkout"),
   );
   const candidate = resolve(checkoutRoot, parsed.path);
   if (!pathInside(checkoutRoot, candidate)) return outsideCheckout(locator);

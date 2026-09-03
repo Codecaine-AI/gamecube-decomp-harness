@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 import hashlib
 import json
 import math
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from search_index import package_root_for_tool, tool_storage_root  # type: ignor
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
 DEFAULT_REPO_ROOT = PACKAGE_ROOT / "projects" / "melee" / "checkout"
+BUILD_ID = os.environ.get("ORCH_GAME_BUILD_ID") or "GALE01"
 PREFIX_OPCODE_COUNT = 12
 DEFAULT_NEIGHBOR_LIMIT = 10
 MAX_CANDIDATE_FEATURES = 48
@@ -41,7 +43,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def has_required_artifacts(repo_root: Path) -> bool:
-    return (repo_root / "build" / "GALE01" / "asm").is_dir() and (repo_root / "build" / "GALE01" / "report.json").is_file()
+    return (repo_root / "build" / BUILD_ID / "asm").is_dir() and (repo_root / "build" / BUILD_ID / "report.json").is_file()
 
 
 def resolve_repo_root(requested: Path) -> tuple[Path, str | None]:
@@ -62,7 +64,7 @@ def read_json(path: Path, default: Any) -> Any:
 
 
 def report_metadata(repo_root: Path) -> dict[str, Any]:
-    report = read_json(repo_root / "build" / "GALE01" / "report.json", {})
+    report = read_json(repo_root / "build" / BUILD_ID / "report.json", {})
     by_unit_symbol: dict[tuple[str, str], dict[str, Any]] = {}
     by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for unit in report.get("units") or []:
@@ -120,7 +122,7 @@ def safe_float(value: Any) -> float:
 
 
 def iter_asm_functions(repo_root: Path, metadata: dict[str, Any]) -> Iterable[dict[str, Any]]:
-    asm_root = repo_root / "build" / "GALE01" / "asm"
+    asm_root = repo_root / "build" / BUILD_ID / "asm"
     for asm_path in sorted(asm_root.rglob("*.s")):
         lines = asm_path.read_text(encoding="utf-8", errors="replace").splitlines()
         symbol = ""
@@ -245,7 +247,7 @@ def make_row(
 
 def unit_from_asm_path(repo_root: Path, asm_path: Path) -> str:
     try:
-        rel = asm_path.relative_to(repo_root / "build" / "GALE01" / "asm").with_suffix("")
+        rel = asm_path.relative_to(repo_root / "build" / BUILD_ID / "asm").with_suffix("")
     except ValueError:
         try:
             rel = asm_path.relative_to(repo_root).with_suffix("")
@@ -665,7 +667,7 @@ def write_manifest(
         "generated_artifacts": generated_artifacts,
         "generated_indexes": generated_indexes,
         "smoke_results": smoke_results,
-        "dependencies": ["build/GALE01/asm", "build/GALE01/report.json"],
+        "dependencies": [f"build/{BUILD_ID}/asm", f"build/{BUILD_ID}/report.json"],
     }
     status_path = TOOL_STORAGE_ROOT / "cache" / "runner_status.json"
     status_path.parent.mkdir(parents=True, exist_ok=True)

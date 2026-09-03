@@ -6,6 +6,11 @@ import {
 import type { ReportRunResult, ReportRunSummary } from "./run.js";
 import { loadTrustedReportFile } from "./trusted-report.js";
 
+function reportBuildIdFromAnyPath(path: string | null | undefined): string {
+  const match = path ? /build\/([^/]+)\//.exec(path) : null;
+  return match ? match[1] : "GALE01";
+}
+
 export interface RecordReportRunDashboardArtifactsInput {
   result: ReportRunResult;
   runId?: string | null;
@@ -47,13 +52,14 @@ export async function recordReportRunDashboardArtifacts(
     gameId: input.gameId ?? null,
     cycleUuid: input.cycleUuid ?? null,
   };
+  const buildId = reportBuildIdFromAnyPath(input.result.reportPath);
   const reportRunKey = input.reportRunKey ?? (input.result.resetBaseline ? "baseline_reset" : "report");
   recordDashboardArtifact(store, {
     ...common,
     artifactType: "report_run",
     artifactKey: reportRunKey,
     sourcePath: input.result.reportPath,
-    sourceLabel: "build/GALE01/report.json",
+    sourceLabel: `build/${buildId}/report.json`,
     payload: {
       baselinePath: input.result.baselinePath,
       reportChangesPath: input.result.reportChangesPath,
@@ -74,7 +80,7 @@ export async function recordReportRunDashboardArtifacts(
       artifactType: "board_snapshot",
       artifactKey: boardKey,
       sourcePath: input.result.reportPath,
-      sourceLabel: "build/GALE01/report.json",
+      sourceLabel: `build/${buildId}/report.json`,
       payload: {
         generatedAt: input.result.timestamps.report ?? null,
         measures,
@@ -87,7 +93,7 @@ export async function recordReportRunDashboardArtifacts(
   }
 
   if (input.result.timestamps.reportChanges) {
-    const source = input.reportChangesSource ?? "build/GALE01/report_changes.json";
+    const source = input.reportChangesSource ?? `build/${buildId}/report_changes.json`;
     const trustedReport = await loadTrustedReportFile(input.result.reportChangesPath, source, 0);
     if (trustedReport.status === "ready") {
       recordDashboardArtifact(store, {

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer";
+import { DEFAULT_GAME_ID } from "@server/core/game-registry";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
   loadWorkerCondenseInput,
@@ -19,9 +20,9 @@ import {
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
 import type { JobKindDescriptor, JobQueueKernelOps, JobRecord, JobResult } from "@server/core/job-queue/types.js";
 import { immediateTransaction as orchestratorTransaction, type StateStore } from "@server/core/orchestrator-state";
-import { runMeleeKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
+import { runAppKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
-import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { createAppKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import {
   buildAttemptMechanicalRows,
   hasAttemptErrorSignal,
@@ -86,7 +87,7 @@ export function enqueueWorkerSummaryForWorker(store: StateStore, workerStateId: 
       r.game_id, r.trace_id, r.caused_by_event_id
       FROM worker_state ws JOIN runs r ON r.id = ws.run_id WHERE ws.id = ?`).get(workerStateId) as WorkerSource | null;
     if (!source || source.ended_at === null) throw new Error(`Completed worker state not found: ${workerStateId}`);
-    const gameId = source.game_id ?? "melee";
+    const gameId = source.game_id ?? DEFAULT_GAME_ID;
     return enqueueJob(store, {
       kind: KIND,
       dedupeKey: workerStateId,
@@ -191,7 +192,7 @@ function sourceCheckpoint(row: LibrarianCheckpointRow): AttemptSourceCheckpoint 
 }
 
 function defaultStore(globals: GlobalArgs): KnowledgeStore {
-  return realOpenKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? "melee" });
+  return realOpenKnowledgeStore({ gameId: globals.game?.gameId ?? globals.gameId ?? DEFAULT_GAME_ID });
 }
 
 export async function handleWorkerSummaryJob(
@@ -251,7 +252,7 @@ export async function handleWorkerSummaryJob(
       thinkingLevel: deps.globals.thinkingLevel,
       timeoutMs,
       toolContext: { repoRoot: deps.globals.repoRoot, stateDir: deps.globals.stateDir, game: deps.globals.game },
-      kernelContext: createMeleeKernelSpawnContext({
+      kernelContext: createAppKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: deps.globals.game?.gameId ?? deps.globals.gameId,
         sessionId: knowledgeCycleSessionId({ globals: deps.globals, db: orchestratorStore.db, fallback: job.runId ?? workerStateId }),

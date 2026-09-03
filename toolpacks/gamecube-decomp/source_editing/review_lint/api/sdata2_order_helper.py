@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import captured_stdio, clip, import_tool_module, print_json, resolve_repo_root
+from toolpack_runtime import build_id, captured_stdio, clip, import_tool_module, print_json, resolve_repo_root
 
 
 @dataclass(frozen=True)
@@ -416,7 +416,7 @@ def install_helper(text: str, helper: str) -> tuple[str, bool]:
 
 def normalize_unit(value: str, repo_root: Path) -> str:
     unit = value.replace("\\", "/").strip()
-    for prefix in ("build/GALE01/obj/", "obj/"):
+    for prefix in (f"build/{build_id()}/obj/", "obj/"):
         if unit.startswith(prefix):
             unit = unit[len(prefix) :]
     if unit.endswith(".o"):
@@ -425,7 +425,7 @@ def normalize_unit(value: str, repo_root: Path) -> str:
         unit = unit[4:]
     if unit.endswith(".c"):
         unit = unit[:-2]
-    if unit.startswith("main/") and not (repo_root / "build" / "GALE01" / "obj" / f"{unit}.o").is_file():
+    if unit.startswith("main/") and not (repo_root / "build" / build_id() / "obj" / f"{unit}.o").is_file():
         unit = unit[5:]
     return unit.strip("/")
 
@@ -558,7 +558,7 @@ def validate_applied_helper(
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     repo_root = resolve_repo_root(args.repo_root)
     source, unit = resolve_target(args, repo_root)
-    target_object = repo_root / "build" / "GALE01" / "obj" / f"{unit}.o"
+    target_object = repo_root / "build" / build_id() / "obj" / f"{unit}.o"
     payload: dict[str, Any] = {
         "tool": "review_lint",
         "operation": "review_lint:sdata2_order_helper",

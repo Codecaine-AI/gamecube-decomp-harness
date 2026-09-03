@@ -261,7 +261,7 @@ function catalogEntry(
   };
 }
 
-export const meleeKernelAgentCatalog = [
+export const appKernelAgentCatalog = [
   catalogEntry("worker", {
     group: "running",
     phase: "worker",
@@ -330,12 +330,12 @@ export const meleeKernelAgentCatalog = [
   }),
 ] as const satisfies readonly KernelAgentCatalogEntry[];
 
-export const meleeKernelAgentCatalogById = Object.fromEntries(
-  meleeKernelAgentCatalog.map((entry) => [entry.id, entry]),
+export const appKernelAgentCatalogById = Object.fromEntries(
+  appKernelAgentCatalog.map((entry) => [entry.id, entry]),
 ) as Record<KernelAgentId, KernelAgentCatalogEntry>;
 
-export function meleeKernelAgent(id: KernelAgentId): KernelAgentCatalogEntry {
-  return meleeKernelAgentCatalogById[id];
+export function appKernelAgent(id: KernelAgentId): KernelAgentCatalogEntry {
+  return appKernelAgentCatalogById[id];
 }
 
 export function toKernelParsedAgentFromBundle(
@@ -444,14 +444,14 @@ export function toKernelAgentViewerDefinition(
   };
 }
 
-export function assertMeleeKernelCatalogComplete(): void {
+export function assertAppKernelCatalogComplete(): void {
   const registered = Object.keys(agentRegistry).sort();
   const catalog = [...KERNEL_AGENT_IDS].sort();
   const missing = registered.filter((id) => !catalog.includes(id as KernelAgentId));
   const extra = catalog.filter((id) => !registered.includes(id));
   if (missing.length || extra.length) {
     throw new Error(
-      `Melee kernel agent catalog mismatch: missing=[${missing.join(", ")}] extra=[${extra.join(", ")}]`,
+      `Kernel agent catalog mismatch: missing=[${missing.join(", ")}] extra=[${extra.join(", ")}]`,
     );
   }
 }

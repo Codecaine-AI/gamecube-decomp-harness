@@ -4,7 +4,7 @@ export const MELEE_KERNEL_ID = "melee-decomp-orchestrator";
 export const MELEE_KERNEL_DISPLAY_NAME = "Melee Decomp Orchestrator";
 export const MELEE_DASHBOARD_PROCESS_NAME = "melee-live";
 
-export interface MeleeKernelMarkerConfig {
+export interface AppKernelMarkerConfig {
   sessionBinding: string;
   lifecycle: string;
   subagentLink: string;
@@ -14,39 +14,39 @@ export const MELEE_KERNEL_MARKER_CONFIG = Object.freeze({
   sessionBinding: "agent-kernel:session-binding",
   lifecycle: "agent-kernel:pi-lifecycle",
   subagentLink: "agent-kernel:subagent-link",
-} satisfies MeleeKernelMarkerConfig);
+} satisfies AppKernelMarkerConfig);
 
 export const DEFAULT_PI_SESSIONS_DIR_NAME = ".pi-sessions";
 
-export interface MeleeKernelBridgeConfig {
+export interface AppKernelBridgeConfig {
   kernelId: string;
   displayName: string;
   processName: string;
   workingDir: string;
   piSessionsDir: string;
-  markerConfig: MeleeKernelMarkerConfig;
+  markerConfig: AppKernelMarkerConfig;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
   genericTraceUrlTemplate?: string | null;
   metadata: Record<string, unknown>;
 }
 
-export interface CreateMeleeKernelBridgeConfigInput {
+export interface CreateAppKernelBridgeConfigInput {
   kernelId?: string;
   displayName?: string;
   processName?: string;
   workingDir?: string;
   piSessionsDir?: string;
-  markerConfig?: Partial<MeleeKernelMarkerConfig>;
+  markerConfig?: Partial<AppKernelMarkerConfig>;
   appBaseUrl?: string | null;
   appTraceUrlTemplate?: string | null;
   genericTraceUrlTemplate?: string | null;
   metadata?: Record<string, unknown>;
 }
 
-export function createMeleeKernelBridgeConfig(
-  input: CreateMeleeKernelBridgeConfigInput = {},
-): MeleeKernelBridgeConfig {
+export function createAppKernelBridgeConfig(
+  input: CreateAppKernelBridgeConfigInput = {},
+): AppKernelBridgeConfig {
   const workingDir = input.workingDir ?? process.cwd();
   const piSessionsDir = input.piSessionsDir ?? resolve(workingDir, DEFAULT_PI_SESSIONS_DIR_NAME);
 

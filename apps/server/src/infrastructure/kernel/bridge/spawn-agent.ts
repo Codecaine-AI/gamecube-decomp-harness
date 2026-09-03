@@ -26,19 +26,19 @@ import type { PiRunResult } from "@server/core/shared/types";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
 import { applyProcessEnvPatch } from "@server/infrastructure/agent-runtime/runtime/process-env";
 
-import { MELEE_KERNEL_ID, type MeleeKernelBridgeConfig } from "./config.js";
+import { MELEE_KERNEL_ID, type AppKernelBridgeConfig } from "./config.js";
 import type {
-  MeleeKernelSpawnAdapter,
-  MeleeKernelSpawnContext,
-  MeleeKernelSpawnOptions,
+  AppKernelSpawnAdapter,
+  AppKernelSpawnContext,
+  AppKernelSpawnOptions,
 } from "./kernel.js";
-import { createMeleeLoaderCatalog } from "./loaders.js";
+import { createAppLoaderCatalog } from "./loaders.js";
 
-export type BuildMeleeKernelToolFactories = (
+export type BuildAppKernelToolFactories = (
   piOptions: PiRunOptions,
 ) => ExtensionFactory[];
 
-export interface MeleeKernelPipelineSpawnOptions extends KernelSpawnOptions {
+export interface AppKernelPipelineSpawnOptions extends KernelSpawnOptions {
   /**
    * Compatibility metadata retained in the harness marker while the app moves
    * to the live kernel's container/run identity model.
@@ -48,51 +48,51 @@ export interface MeleeKernelPipelineSpawnOptions extends KernelSpawnOptions {
   appSessionDir?: string;
 }
 
-export type MeleeKernelPipelineSpawnAgent = (
+export type AppKernelPipelineSpawnAgent = (
   name: string,
   prompt: string,
   ctx?: ExtensionContext | null,
-  opts?: MeleeKernelPipelineSpawnOptions,
+  opts?: AppKernelPipelineSpawnOptions,
 ) => Promise<KernelSpawnAgentResult>;
 
-export interface MeleeCreateSpawnAgentAdapters {
-  loadAgent(name: string, opts?: MeleeKernelPipelineSpawnOptions): ParsedAgent;
+export interface AppCreateSpawnAgentAdapters {
+  loadAgent(name: string, opts?: AppKernelPipelineSpawnOptions): ParsedAgent;
   loadAgentResolver(name: string): Promise<AgentContextResolver | null>;
   buildPrivateRegisterFactory(name: string): Promise<ExtensionFactory | null>;
   buildToolFactories(config: ParsedAgent["config"]): ExtensionFactory[];
-  createContextCatalog(): ReturnType<typeof createMeleeLoaderCatalog>;
+  createContextCatalog(): ReturnType<typeof createAppLoaderCatalog>;
   createSpawnContext: (params: CreateSpawnContextParams) => SpawnContext;
   getDb(): unknown;
-  createAppSessionBinding?(opts: MeleeKernelPipelineSpawnOptions): SessionBindingInput | undefined;
+  createAppSessionBinding?(opts: AppKernelPipelineSpawnOptions): SessionBindingInput | undefined;
   piLifecycleCustomType?: string;
   logger?: SpawnAgentLoggerLike;
 }
 
 export type KernelSpawnAgentFactoryPort = (
-  adapters: MeleeCreateSpawnAgentAdapters,
-) => MeleeKernelPipelineSpawnAgent;
+  adapters: AppCreateSpawnAgentAdapters,
+) => AppKernelPipelineSpawnAgent;
 
 export type KernelTraceWriterSinkLike = {
   submit?: (event: TraceEvent) => unknown;
 };
 
-export interface MeleeCreateSpawnAgentRuntime {
+export interface AppCreateSpawnAgentRuntime {
   db: unknown;
-  config: Pick<MeleeKernelBridgeConfig, "markerConfig" | "piSessionsDir">;
+  config: Pick<AppKernelBridgeConfig, "markerConfig" | "piSessionsDir">;
   traceWriter?: KernelTraceWriterSinkLike;
 }
 
-export interface CreateMeleeKernelSpawnAgentOptions {
+export interface CreateAppKernelSpawnAgentOptions {
   piOptions: PiRunOptions;
   expectedAgentName?: string;
   parsedAgent: ParsedAgent;
   contextResolver?: AgentContextResolver | null;
-  runtime: MeleeCreateSpawnAgentRuntime;
+  runtime: AppCreateSpawnAgentRuntime;
   createSpawnAgent?: KernelSpawnAgentFactoryPort;
   createSpawnContext?: (params: CreateSpawnContextParams) => SpawnContext;
   loadAgentResolver?: (name: string) => Promise<AgentContextResolver | null>;
-  buildToolFactories?: BuildMeleeKernelToolFactories;
-  buildPrivateRegisterFactory?: MeleeCreateSpawnAgentAdapters["buildPrivateRegisterFactory"];
+  buildToolFactories?: BuildAppKernelToolFactories;
+  buildPrivateRegisterFactory?: AppCreateSpawnAgentAdapters["buildPrivateRegisterFactory"];
   logger?: SpawnAgentLoggerLike;
 }
 
@@ -117,17 +117,17 @@ function defaultPiAgentDir(env: NodeJS.ProcessEnv = process.env): string {
 
 function modelOverride(
   piOptions: PiRunOptions,
-  spawnOptions?: MeleeKernelSpawnOptions,
+  spawnOptions?: AppKernelSpawnOptions,
 ): string | undefined {
   if (spawnOptions?.model) return spawnOptions.model;
   if (piOptions.provider && piOptions.model) return `${piOptions.provider}/${piOptions.model}`;
   return piOptions.model;
 }
 
-export function parsedAgentForMeleeKernelSpawn(
+export function parsedAgentForAppKernelSpawn(
   parsedAgent: ParsedAgent,
   piOptions: PiRunOptions,
-  spawnOptions?: MeleeKernelSpawnOptions,
+  spawnOptions?: AppKernelSpawnOptions,
 ): ParsedAgent {
   const sourceEditingRoles = new Set(["worker", "pr-fixer", "qa-repair", "reconcile"]);
   const sourceEditingCoreTools = sourceEditingRoles.has(piOptions.role)
@@ -196,7 +196,7 @@ function resultPaths(piOptions: PiRunOptions, sessionId: string): Pick<
 }
 
 function sessionDirFor(
-  runtime: MeleeCreateSpawnAgentRuntime,
+  runtime: AppCreateSpawnAgentRuntime,
   containerId: string,
   piOptions: PiRunOptions,
 ): string {
@@ -242,11 +242,11 @@ function buildKernelSpawnOptions({
   runtime,
   spawnOptions,
 }: {
-  context: MeleeKernelSpawnContext;
+  context: AppKernelSpawnContext;
   piOptions: PiRunOptions;
-  runtime: MeleeCreateSpawnAgentRuntime;
-  spawnOptions?: MeleeKernelSpawnOptions;
-}): MeleeKernelPipelineSpawnOptions {
+  runtime: AppCreateSpawnAgentRuntime;
+  spawnOptions?: AppKernelSpawnOptions;
+}): AppKernelPipelineSpawnOptions {
   const appSessionId = context.appSessionId;
   if (!appSessionId) {
     throw new Error("Kernel createSpawnAgent strategy requires kernelContext.appSessionId");
@@ -277,7 +277,7 @@ function buildKernelSpawnOptions({
     appSessionDir,
     // Live Agent Kernel renamed appSessionDir to sessionDir and made
     // container/run identity authoritative. Keep the app fields above in the
-    // harness marker until Melee completes that identity migration.
+    // harness marker until the app completes that identity migration.
     sessionDir: appSessionDir,
     captureRequestSnapshots: false,
     traceWriter: traceWriterSink(runtime.traceWriter),
@@ -291,9 +291,9 @@ function buildKernelSpawnOptions({
 }
 
 function createAppSessionBinding(
-  runtime: MeleeCreateSpawnAgentRuntime,
+  runtime: AppCreateSpawnAgentRuntime,
   piOptions: PiRunOptions,
-): MeleeCreateSpawnAgentAdapters["createAppSessionBinding"] {
+): AppCreateSpawnAgentAdapters["createAppSessionBinding"] {
   return (opts) => {
     if (!opts.appSessionId) return undefined;
     return {
@@ -388,7 +388,7 @@ async function writeRuntimeCatalog(
   const promptDocument = {
     kind: "prompt",
     schemaVersion: "prompt-kit/v1",
-    id: `meleeRuntime${config.name.replace(/[^A-Za-z0-9]/g, "-")}Prompt`,
+    id: `appRuntime${config.name.replace(/[^A-Za-z0-9]/g, "-")}Prompt`,
     nodes: [
       {
         type: "raw",
@@ -408,7 +408,7 @@ async function writeRuntimeCatalog(
   const contextModule = [
     `const registry = globalThis[Symbol.for(${JSON.stringify(RUNTIME_CONTEXT_RESOLVERS_SYMBOL.description)})];`,
     `const context = registry?.get(${JSON.stringify(resolverToken)});`,
-    `if (!context) throw new Error(${JSON.stringify(`Missing Melee runtime context resolver ${resolverToken}`)});`,
+    `if (!context) throw new Error(${JSON.stringify(`Missing app runtime context resolver ${resolverToken}`)});`,
     "export { context };",
     "",
   ].join("\n");
@@ -416,7 +416,7 @@ async function writeRuntimeCatalog(
   return { root, resolverToken };
 }
 
-function liveKernelLoaders(adapters: MeleeCreateSpawnAgentAdapters) {
+function liveKernelLoaders(adapters: AppCreateSpawnAgentAdapters) {
   const catalog = adapters.createContextCatalog();
   const builtInKinds = new Set(["text", "file", "directory", "command"]);
   return catalog.list().filter((kind) => !builtInKinds.has(kind)).map((kind) => catalog.get(kind));
@@ -459,7 +459,7 @@ const defaultCreateSpawnAgent: KernelSpawnAgentFactoryPort = (adapters) => {
         createSessionBinding: adapters.createAppSessionBinding
           ? (spawnOptions) =>
               adapters.createAppSessionBinding?.(
-                spawnOptions as MeleeKernelPipelineSpawnOptions,
+                spawnOptions as AppKernelPipelineSpawnOptions,
               )
           : undefined,
         piLifecycleCustomType: adapters.piLifecycleCustomType,
@@ -476,9 +476,9 @@ const defaultCreateSpawnAgent: KernelSpawnAgentFactoryPort = (adapters) => {
   };
 };
 
-export function createMeleeKernelSpawnAgent(
-  options: CreateMeleeKernelSpawnAgentOptions,
-): MeleeKernelSpawnAdapter<PiRunResult> {
+export function createAppKernelSpawnAgent(
+  options: CreateAppKernelSpawnAgentOptions,
+): AppKernelSpawnAdapter<PiRunResult> {
   const createSpawnAgent = options.createSpawnAgent ?? defaultCreateSpawnAgent;
   const createSpawnContext = options.createSpawnContext ?? defaultCreateSpawnContext;
 
@@ -488,29 +488,29 @@ export function createMeleeKernelSpawnAgent(
     context,
     spawnOptions,
   ): Promise<PiRunResult> {
-    const spawnContext: MeleeKernelSpawnContext = context ?? {
+    const spawnContext: AppKernelSpawnContext = context ?? {
       workingDir: options.piOptions.cwd,
       phase: options.piOptions.role,
     };
     const expectedAgentName = options.expectedAgentName ?? options.piOptions.role;
     if (name !== expectedAgentName) {
       throw new Error(
-        `Melee kernel spawn mismatch: expected ${expectedAgentName}, got ${name}`,
+        `App kernel spawn mismatch: expected ${expectedAgentName}, got ${name}`,
       );
     }
     if (options.piOptions.dryRun) {
       throw new Error("Kernel createSpawnAgent strategy does not support Pi dryRun");
     }
 
-    const parsedAgent = parsedAgentForMeleeKernelSpawn(
+    const parsedAgent = parsedAgentForAppKernelSpawn(
       options.parsedAgent,
       options.piOptions,
       spawnOptions,
     );
-    const adapters: MeleeCreateSpawnAgentAdapters = {
+    const adapters: AppCreateSpawnAgentAdapters = {
       loadAgent(agentName) {
         if (agentName !== name) {
-          throw new Error(`No Melee parsed agent loaded for "${agentName}"`);
+          throw new Error(`No app parsed agent loaded for "${agentName}"`);
         }
         return parsedAgent;
       },
@@ -520,7 +520,7 @@ export function createMeleeKernelSpawnAgent(
       buildPrivateRegisterFactory:
         options.buildPrivateRegisterFactory ?? (async () => null),
       buildToolFactories: () => options.buildToolFactories?.(options.piOptions) ?? [],
-      createContextCatalog: () => createMeleeLoaderCatalog(),
+      createContextCatalog: () => createAppLoaderCatalog(),
       createSpawnContext,
       getDb: () => options.runtime.db,
       createAppSessionBinding: createAppSessionBinding(options.runtime, options.piOptions),

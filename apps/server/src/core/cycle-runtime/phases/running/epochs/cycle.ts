@@ -23,8 +23,8 @@ import { activeLockedSourcePaths } from "@server/core/cycle-runtime/run-state/ta
 import { processWorkerOutputIntegrationQueue } from "@server/core/cycle-runtime/phases/running/integration/worker-output-queue.js";
 import { requireLease } from "@server/core/harness-state";
 import { activeCycleSessionId } from "@server/core/cycle/session.js";
-import { getDefaultMeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
-import { submitMeleeWorkflowTraceEvent } from "@server/infrastructure/kernel/bridge/workflow-trace.js";
+import { getDefaultAppKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
+import { submitAppWorkflowTraceEvent } from "@server/infrastructure/kernel/bridge/workflow-trace.js";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import {
   isHostToolPlatform,
@@ -458,6 +458,7 @@ async function restoreProbePatches(worktreeDir: string, removed: ConfirmationCan
 async function probeWithoutCandidates(params: {
   candidates: ConfirmationCandidate[];
   reportPath: string;
+  reportRelPath: string;
   reportChangesPath: string;
   runId: string;
   toolPlatform: ToolPlatform;
@@ -479,7 +480,7 @@ async function probeWithoutCandidates(params: {
     // Report reuse is keyed by HEAD. Removing the generated report forces the
     // probe to observe these uncommitted reverse-applies as well.
     await rm(params.reportPath, { force: true });
-    await forceReportRun(params.worktreeDir, { resetBaseline: false, toolPlatform: params.toolPlatform });
+    await forceReportRun(params.worktreeDir, { resetBaseline: false, toolPlatform: params.toolPlatform, reportRelPath: params.reportRelPath });
     const report = await readRegressionReport(params.reportChangesPath, `Confirmation probe for run ${params.runId}`, 50);
     return isCleanGlobalRegression(report);
   } finally {
@@ -936,11 +937,11 @@ async function submitEpochWorkflowEvent(input: {
     if (!gameId || !epochId) return;
     const sessionId = activeCycleSessionId(input.store.db, gameId);
     if (!sessionId) return;
-    const runtime = await getDefaultMeleeKernelRuntime({
+    const runtime = await getDefaultAppKernelRuntime({
       database: { stateDir: input.store.stateDir },
     });
     if (!runtime) return;
-    await submitMeleeWorkflowTraceEvent({
+    await submitAppWorkflowTraceEvent({
       runtime,
       kind: "epoch",
       gameId,
@@ -1209,6 +1210,7 @@ async function runEpochCycleInnerTracked(
     resetBaseline: !existsSync(worktreeBaselinePath),
     timeoutMs: reportBuildTimeoutMs(),
     toolPlatform,
+    reportRelPath,
   });
   let fixerBaseline: BoundaryBuildFixerBaseline | undefined;
   let buildResult = await runReportBuildWithFixer({
@@ -1347,6 +1349,7 @@ async function runEpochCycleInnerTracked(
             probeWithoutCandidates({
               candidates,
               reportPath: worktreeReportPath,
+              reportRelPath,
               reportChangesPath: worktreeChangesPath,
               runId,
               toolPlatform,
@@ -1378,6 +1381,7 @@ async function runEpochCycleInnerTracked(
         resetBaseline: false,
         timeoutMs: reportBuildTimeoutMs(),
         toolPlatform,
+        reportRelPath,
       });
       buildResult = { ...recheckBuild, steps: [...buildResult.steps, ...recheckBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50);
@@ -1405,6 +1409,7 @@ async function runEpochCycleInnerTracked(
         resetBaseline: false,
         timeoutMs: reportBuildTimeoutMs(),
         toolPlatform,
+        reportRelPath,
       });
       buildResult = { ...restoredBuild, steps: [...buildResult.steps, ...restoredBuild.steps] };
       regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50);
@@ -1643,11 +1648,11 @@ async function runEpochCycleInnerTracked(
       artifactType: "trusted_report",
       artifactKey: "current",
       sourcePath: resolve(artifactDir, "report_changes.json"),
-      sourceLabel: "build/GALE01/report_changes.json",
+      sourceLabel: reportChangesRelPath,
       payload: trustedReportFromRegressionReport(
         regressionReport,
         resolve(artifactDir, "report_changes.json"),
-        "build/GALE01/report_changes.json",
+        reportChangesRelPath,
         savePoint.createdAt,
         0,
       ) as unknown as Record<string, unknown>,

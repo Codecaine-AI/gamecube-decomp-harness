@@ -23,7 +23,7 @@ import type {
   TraceSessionMeta,
 } from "@agent-kernel/viewer-core";
 
-import type { MeleeKernelDatabase } from "./database.js";
+import type { AppKernelDatabase } from "./database.js";
 
 export type KernelTraceRowsReader = (
   containerId: string,
@@ -49,7 +49,7 @@ export interface CreateDbKernelTraceRowsReaderOptions {
   readRows?: KernelTraceRowsReadPort;
 }
 
-export interface CreateMeleeKernelTraceReadServiceOptions {
+export interface CreateAppKernelTraceReadServiceOptions {
   readRows: KernelTraceRowsReader;
   listRows?: KernelTraceRowsLister;
   resolveIdentity?: KernelTraceIdentityResolver;
@@ -76,13 +76,13 @@ function latestTimestamp(rows: Array<{ timestamp?: string | null }>): string | n
   return latest;
 }
 
-export async function getMeleeKernelTraceReadRows(
+export async function getAppKernelTraceReadRows(
   db: unknown,
   rootContainerId: string,
   options: KernelTraceReadOptions = {},
 ): Promise<KernelTraceReadRows | undefined> {
   return getKernelTraceReadRows(
-    db as MeleeKernelDatabase,
+    db as AppKernelDatabase,
     rootContainerId,
     options,
   );
@@ -90,7 +90,7 @@ export async function getMeleeKernelTraceReadRows(
 
 export function createDbKernelTraceRowsReader({
   db,
-  readRows = getMeleeKernelTraceReadRows,
+  readRows = getAppKernelTraceReadRows,
 }: CreateDbKernelTraceRowsReaderOptions): KernelTraceRowsReader {
   return (containerId, options) => readRows(db, containerId, options);
 }
@@ -233,11 +233,11 @@ export function toKernelTraceSessionSummary(
   };
 }
 
-export function createMeleeKernelTraceReadService({
+export function createAppKernelTraceReadService({
   readRows,
   listRows,
   resolveIdentity = defaultKernelTraceIdentityResolver,
-}: CreateMeleeKernelTraceReadServiceOptions): KernelTraceReadService<
+}: CreateAppKernelTraceReadServiceOptions): KernelTraceReadService<
   KernelTraceSessionDetail,
   KernelTraceSessionListResponse
 > {
