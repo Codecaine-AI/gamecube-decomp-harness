@@ -83,10 +83,13 @@ export interface LibrarianPassArtifact {
   timings: LibrarianPassTimings;
   model: string;
   dry_run: boolean;
+  drift_gate: LibrarianDriftGateResult;
   remaining_drift?: LibrarianRemainingDrift[];
   drift_attempts?: number;
   warning?: string;
 }
+
+export type LibrarianDriftGateResult = "skipped" | "clean" | "released" | "warned";
 
 export type LibrarianRemainingDrift = (
   | { target_id: string }
@@ -513,10 +516,15 @@ export async function runLibrarianPass(
     let remainingDrift: LibrarianRemainingDrift[] | undefined;
     let driftAttempts: number | undefined;
     let warning: string | undefined;
+    let driftGate: LibrarianDriftGateResult = "skipped";
     let claim: "released" | "completed";
     if (dryRun) {
       releaseIndexTask(store, task.id);
       claim = "released";
+    } else if (!context.drift_gate) {
+      stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
+      completeIndexTask(store, task.id, indexedAt);
+      claim = "completed";
     } else {
       remainingDrift = remainingDriftAfterPass(
         store,
@@ -530,13 +538,17 @@ export async function runLibrarianPass(
       if (remainingDrift.length > 0 && driftAttempts === 1) {
         releaseIndexTask(store, task.id);
         claim = "released";
+        driftGate = "released";
       } else {
         stamped = stampTouchedSubjects(store, context, applyReport, indexedAt);
         completeIndexTask(store, task.id, indexedAt);
         claim = "completed";
         if (remainingDrift.length > 0) {
           warning = "drift left unresolved after retry";
+          driftGate = "warned";
           console.warn(warning);
+        } else {
+          driftGate = "clean";
         }
       }
     }
@@ -560,6 +572,7 @@ export async function runLibrarianPass(
       timings,
       model: deps.globals.model,
       dry_run: dryRun,
+      drift_gate: driftGate,
       ...(remainingDrift === undefined || remainingDrift.length === 0
         ? {}
         : { remaining_drift: remainingDrift }),
@@ -576,6 +589,7 @@ export async function runLibrarianPass(
         ? "drift_remaining"
         : "completed",
       dry_run: dryRun,
+      drift_gate: driftGate,
       claim,
       stamped,
       apply_report: applyReport,

@@ -302,6 +302,117 @@ describe("claimNextLibrarianTask", () => {
 });
 
 describe("runLibrarianPass", () => {
+  test("skips drift gating for archival ingest even when its touched subject has drift", async () => {
+    const f = fixture("archival-drift-skip", 1);
+    f.store.db.query(`INSERT INTO discord_message
+      (id, channel, author, posted_at, content, thread_id, ingested_at)
+      VALUES ('1000', 'chan', 'author', '2026-08-01T00:00:00.000Z',
+        'unit:func_1 should keep this behavior', NULL, '2026-08-30T00:00:00.000Z')`).run();
+    const id = "task:archival_ingest:drift-skip";
+    enqueueIndexTask(f.store, {
+      id,
+      pathway: "archival_ingest",
+      payload: JSON.stringify({ source: "discord", channel_id: "chan", from_id: "1000", to_id: "1000", count: 1 }),
+      enqueuedAt: FIXED_NOW,
+    });
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    let flaggerCalls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "archival-drift-skip-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift: (_store, options) => {
+        flaggerCalls += 1;
+        return driftReport(options.subject, { drifted: 1, unresolvable: 0 });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(result.context.touched).toHaveLength(1);
+    expect(flaggerCalls).toBe(0);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(taskRow(f.store, id).payload).not.toContain("drift_attempts");
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({ drift_gate: "skipped" });
+    expect(logEntries(f, "archival-drift-skip-run")).toEqual([
+      expect.objectContaining({ task_id: id, claim: "completed", drift_gate: "skipped" }),
+    ]);
+  });
+
+  test("keeps drift gating enabled for imported PRs", async () => {
+    const f = fixture("pr-drift-gate", 1);
+    const prsRoot = join(f.root, "prs");
+    const extracted = join(prsRoot, "pr-101", "extracted");
+    mkdirSync(extracted, { recursive: true });
+    writeFileSync(join(extracted, "text_corpus.jsonl"), `${JSON.stringify({
+      kind: "review_comment",
+      author: "reviewer",
+      created_at: "2026-08-21T00:00:00.000Z",
+      body: "func_1 keeps the reviewed behavior.",
+    })}\n`);
+    f.store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-101--target-1', 'target-1', NULL, 'melee#101',
+        'Fixture row for target 1', 'improvement', '2026-08-21T00:00:00.000Z')`).run();
+    const id = "task:pr_imported:drift-gate";
+    enqueueIndexTask(f.store, {
+      id,
+      pathway: "pr_imported",
+      payload: JSON.stringify(["pr-101--target-1"]),
+      enqueuedAt: FIXED_NOW,
+    });
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    let flaggerCalls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "pr-drift-gate-run",
+      globals: f.globals,
+      prsRoot,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift: (_store, options) => {
+        flaggerCalls += 1;
+        return driftReport(options.subject, { drifted: 1, unresolvable: 0 });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(flaggerCalls).toBeGreaterThan(0);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: null, done_at: null });
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      drift_gate: "released",
+      drift_attempts: 1,
+    });
+  });
+
+  test("keeps drift rechecks gated", async () => {
+    const f = fixture("drift-recheck-gate", 1);
+    const id = "task:drift_recheck:target-1";
+    enqueueIndexTask(f.store, { id, pathway: "drift_recheck", payload: "target-1", enqueuedAt: FIXED_NOW });
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    let flaggerCalls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "drift-recheck-gate-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(emptyProposal),
+      flagCodeDrift: (_store, options) => {
+        flaggerCalls += 1;
+        return driftReport(options.subject, { drifted: 1, unresolvable: 0 });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(flaggerCalls).toBe(1);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: null, done_at: null });
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      drift_gate: "released",
+      drift_attempts: 1,
+    });
+  });
+
   test("releases the first unresolved drift pass, then completes the retry with a warning", async () => {
     const f = fixture("drift-retry", 1);
     const id = enqueueRunClosed(f, 1);
@@ -327,6 +438,7 @@ describe("runLibrarianPass", () => {
     });
     expect(indexedAt(f.store, "target-1")).toBeNull();
     expect(JSON.parse(readFileSync(first.artifactPath, "utf8"))).toMatchObject({
+      drift_gate: "released",
       drift_attempts: 1,
       remaining_drift: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
     });
@@ -351,6 +463,7 @@ describe("runLibrarianPass", () => {
     expect(warn).toHaveBeenCalledWith("drift left unresolved after retry");
     warn.mockRestore();
     expect(JSON.parse(readFileSync(retry.artifactPath, "utf8"))).toMatchObject({
+      drift_gate: "warned",
       drift_attempts: 2,
       warning: "drift left unresolved after retry",
       remaining_drift: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
@@ -394,6 +507,7 @@ describe("runLibrarianPass", () => {
     expect(checked).toEqual([{ entityId: "unit-main" }, { targetId: "target-1" }]);
     expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
     expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).not.toHaveProperty("remaining_drift");
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({ drift_gate: "clean" });
     expect(logEntries(f, "drift-clean-run")).toEqual([
       expect.objectContaining({ task_id: id, status: "completed", claim: "completed" }),
     ]);

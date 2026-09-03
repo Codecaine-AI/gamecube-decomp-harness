@@ -93,6 +93,7 @@ export type LibrarianTouchedSubject =
   };
 
 export interface LibrarianTaskContext {
+  drift_gate: boolean;
   task: {
     id: string;
     pathway: LibrarianPathway;
@@ -1384,6 +1385,9 @@ export function buildTaskContext(
     built = noOpContext(errorMessage(error));
   }
   return {
+    drift_gate: task.pathway === "run_closed"
+      || task.pathway === "pr_imported"
+      || task.pathway === "drift_recheck",
     task: {
       id: task.id,
       pathway: task.pathway,
