@@ -16,7 +16,7 @@ import { importWiki } from "./wiki.js";
 const INGEST_LANES = ["discord", "wiki", "prs", "attempts", "reconcile", "entities", "sync", "all"] as const;
 type IngestLane = (typeof INGEST_LANES)[number];
 type IndividualIngestLane = Exclude<IngestLane, "sync" | "all">;
-const SYNC_LANES: readonly IndividualIngestLane[] = ["prs", "discord", "attempts"];
+const SYNC_LANES: readonly IndividualIngestLane[] = ["reconcile", "prs", "discord", "attempts"];
 const RESET_SOURCES = ["wiki"] as const;
 type ResetSource = (typeof RESET_SOURCES)[number];
 
@@ -139,6 +139,7 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     if (lane === "all" || lane === "sync") {
       console.error("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
     }
+    // Reconcile first so rename continuity is available to PR tasks as renamed_from.
     if (selected("reconcile")) {
       if (existsSync(paths.reportPath)) results.reconcile = reconcileReport(store, { reportPath: paths.reportPath, dryRun });
       else skip("reconcile", paths.reportPath);
@@ -147,6 +148,10 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
       if (!existsSync(paths.reportPath)) skip("entities", paths.reportPath);
       else if (!existsSync(paths.checkoutRoot)) skip("entities", paths.checkoutRoot);
       else results.entities = extractEntities(store, { reportPath: paths.reportPath, checkoutRoot: paths.checkoutRoot, dryRun });
+    }
+    if (selected("prs")) {
+      if (existsSync(paths.prsRoot)) results.prs = importPrs(store, { prsRoot: paths.prsRoot, dryRun, reattribute });
+      else skip("prs", paths.prsRoot);
     }
     if (selected("discord")) {
       if (!existsSync(paths.discordRawRoot)) skip("discord", paths.discordRawRoot);
@@ -157,10 +162,6 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     if (selected("wiki")) {
       if (existsSync(paths.wikiDataRoot)) results.wiki = importWiki(store, { dataRoot: paths.wikiDataRoot, dryRun });
       else skip("wiki", paths.wikiDataRoot);
-    }
-    if (selected("prs")) {
-      if (existsSync(paths.prsRoot)) results.prs = importPrs(store, { prsRoot: paths.prsRoot, dryRun, reattribute });
-      else skip("prs", paths.prsRoot);
     }
     if (selected("attempts")) {
       if (existsSync(paths.orchestratorDbPath)) results.attempts = importAttempts(store, { orchestratorDbPath: paths.orchestratorDbPath, dryRun });

@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { openKnowledgeStore } from "../storage/store.js";
+import * as entitiesModule from "./entities.js";
+import * as prsModule from "./prs.js";
+import * as reconcileModule from "./reconcile.js";
+import * as wikiModule from "./wiki.js";
 import { kg2Ingest, resolveIngestPaths } from "./cli.js";
 
 const temporaryRoots: string[] = [];
@@ -47,24 +51,49 @@ describe("kg2Ingest", () => {
       .rejects.toThrow("kg2-ingest refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
   });
 
-  test("defaults to sync and does not import wiki", async () => {
-    const knowledgeRoot = join(temporaryRoot(), "knowledge");
+  test("defaults to sync, reconciles before PR import, and skips wiki and entities", async () => {
+    const gameRoot = temporaryRoot();
+    const knowledgeRoot = join(gameRoot, "knowledge");
     createEmptyWikiMirror(knowledgeRoot);
+    const paths = resolveIngestPaths(knowledgeRoot);
+    mkdirSync(paths.prsRoot, { recursive: true });
+    mkdirSync(resolve(paths.reportPath, ".."), { recursive: true });
+    writeFileSync(paths.reportPath, JSON.stringify({ units: [] }));
     const output: string[] = [];
     const errors: string[] = [];
+    const calls: string[] = [];
     const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
     const error = spyOn(console, "error").mockImplementation((value) => errors.push(String(value)));
+    const reconcile = spyOn(reconcileModule, "reconcileReport").mockImplementation(() => {
+      calls.push("reconcile");
+      return {} as ReturnType<typeof reconcileModule.reconcileReport>;
+    });
+    const importPrs = spyOn(prsModule, "importPrs").mockImplementation(() => {
+      calls.push("prs");
+      return {} as ReturnType<typeof prsModule.importPrs>;
+    });
+    const importWiki = spyOn(wikiModule, "importWiki");
+    const extractEntities = spyOn(entitiesModule, "extractEntities");
 
     try {
       await kg2Ingest({ gameId: "melee" } as GlobalArgs, new Map([
         ["--knowledge-root", knowledgeRoot],
       ]));
+      expect(calls).toEqual(["reconcile", "prs"]);
+      expect(reconcile).toHaveBeenCalledTimes(1);
+      expect(importPrs).toHaveBeenCalledTimes(1);
+      expect(importWiki).not.toHaveBeenCalled();
+      expect(extractEntities).not.toHaveBeenCalled();
     } finally {
       log.mockRestore();
       error.mockRestore();
+      reconcile.mockRestore();
+      importPrs.mockRestore();
+      importWiki.mockRestore();
+      extractEntities.mockRestore();
     }
 
-    expect(JSON.parse(output[0]!)).toMatchObject({ lane: "sync", results: {} });
+    expect(JSON.parse(output[0]!)).toMatchObject({ lane: "sync" });
     expect(JSON.parse(output[0]!).results).not.toHaveProperty("wiki");
     expect(errors).toContain("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
   });
