@@ -1328,6 +1328,15 @@ function buildDriftRecheckContext(
       unit_entity_id: unitEntity.id,
       reason: typeof parsedPayload.reason === "string" ? parsedPayload.reason : "drift",
       subjects: entries.map(({ object }) => object),
+      ...(typeof parsedPayload.split_from === "string"
+        ? { split_from: parsedPayload.split_from }
+        : {}),
+      ...(typeof parsedPayload.split_index === "number"
+        ? { split_index: parsedPayload.split_index }
+        : {}),
+      ...(typeof parsedPayload.split_total === "number"
+        ? { split_total: parsedPayload.split_total }
+        : {}),
     });
   }
 

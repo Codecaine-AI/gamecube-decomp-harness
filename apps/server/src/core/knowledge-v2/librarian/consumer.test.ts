@@ -400,6 +400,106 @@ describe("claimNextLibrarianTask", () => {
     expect(rowCount(f.store, "index_task")).toBe(1);
     expect(taskState(f.store, "task:pr_imported:dry")).toMatchObject({ started_at: null, done_at: null });
   });
+
+  test("splits 30 batched drift subjects into 12/12/6 children with unit fields preserved", () => {
+    const f = fixture("drift-split", 30);
+    const parentId = "task:drift_recheck:unit-main";
+    const enqueuedAt = "2026-08-01T00:00:00.000Z";
+    const subjects = Array.from({ length: 30 }, (_, index) => ({
+      target_id: `target-${index + 1}`,
+      drifted: index + 1,
+      unresolvable: 0,
+    }));
+    enqueueIndexTask(f.store, {
+      id: parentId,
+      pathway: "drift_recheck",
+      payload: JSON.stringify({
+        unit: "unit",
+        unit_entity_id: "unit-main",
+        reason: "drift",
+        subjects,
+      }),
+      enqueuedAt,
+    });
+
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+    const children = [1, 2, 3].map((index) => `${parentId}/${index}`);
+    expect(claimed?.split?.children).toEqual(children);
+    expect(claimed?.split?.enqueued).toBeTrue();
+    expect(taskState(f.store, parentId)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    const payloads = children.map((id) => JSON.parse(taskRow(f.store, id).payload) as {
+      unit: string;
+      unit_entity_id: string;
+      reason: string;
+      subjects: typeof subjects;
+      split_from: string;
+      split_index: number;
+      split_total: number;
+    });
+    expect(payloads.map((payload) => payload.subjects.length)).toEqual([12, 12, 6]);
+    expect(payloads.map(({ unit, unit_entity_id, reason, split_from, split_index, split_total }) => ({
+      unit, unit_entity_id, reason, split_from, split_index, split_total,
+    }))).toEqual([
+      { unit: "unit", unit_entity_id: "unit-main", reason: "drift", split_from: parentId, split_index: 1, split_total: 3 },
+      { unit: "unit", unit_entity_id: "unit-main", reason: "drift", split_from: parentId, split_index: 2, split_total: 3 },
+      { unit: "unit", unit_entity_id: "unit-main", reason: "drift", split_from: parentId, split_index: 3, split_total: 3 },
+    ]);
+    expect(payloads.flatMap((payload) => payload.subjects)).toEqual(subjects);
+    expect(children.map(() => claimNextLibrarianTask(f.store)?.task.id)).toEqual(children);
+  });
+
+  test("does not split a batched drift task with exactly 12 subjects", () => {
+    const f = fixture("drift-split-boundary", 12);
+    enqueueIndexTask(f.store, {
+      id: "task:drift_recheck:boundary",
+      pathway: "drift_recheck",
+      payload: JSON.stringify({
+        unit: "unit",
+        unit_entity_id: "unit-main",
+        reason: "drift",
+        subjects: Array.from({ length: 12 }, (_, index) => ({ target_id: `target-${index + 1}` })),
+      }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    expect(claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })?.split).toBeUndefined();
+  });
+
+  test("does not split a single-subject drift follow-up", () => {
+    const f = fixture("drift-single");
+    enqueueIndexTask(f.store, {
+      id: "task:drift_recheck:single",
+      pathway: "drift_recheck",
+      payload: JSON.stringify({ target_id: "target-1", reason: "follow_up" }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    expect(claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })?.split).toBeUndefined();
+  });
+
+  test("projects a batched drift split during dry run without enqueueing children", () => {
+    const f = fixture("drift-split-dry", 13);
+    const parentId = "task:drift_recheck:dry";
+    enqueueIndexTask(f.store, {
+      id: parentId,
+      pathway: "drift_recheck",
+      payload: JSON.stringify({
+        unit: "unit",
+        unit_entity_id: "unit-main",
+        reason: "drift",
+        subjects: Array.from({ length: 13 }, (_, index) => ({ target_id: `target-${index + 1}` })),
+      }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    const claimed = claimNextLibrarianTask(f.store, { dryRun: true, now: () => FIXED_NOW });
+    expect(claimed?.split?.children).toEqual([`${parentId}/1`, `${parentId}/2`]);
+    expect(claimed?.split?.enqueued).toBeFalse();
+    expect(claimed?.split?.childPayloads.map((payload) =>
+      (JSON.parse(payload) as { subjects: unknown[] }).subjects.length)).toEqual([12, 1]);
+    expect(rowCount(f.store, "index_task")).toBe(1);
+    expect(taskState(f.store, parentId)).toMatchObject({ started_at: null, done_at: null });
+  });
 });
 
 describe("runLibrarianPass", () => {

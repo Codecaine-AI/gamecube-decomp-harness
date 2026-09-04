@@ -46,6 +46,7 @@ const DEFAULT_TIMEOUT_MS = 900_000;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const CLAIM_CANDIDATE_BATCH = 64;
 const PR_IMPORTED_CHILD_SIZE = 24;
+const DRIFT_RECHECK_CHILD_SIZE = 12;
 
 export const LIBRARIAN_PATHWAYS: readonly LibrarianPathway[] = [
   "run_closed",
@@ -958,7 +959,23 @@ function packImportedPrRows(ids: string[]): string[][] {
   return chunks;
 }
 
-/** Split oversized archival and imported-PR tasks before any model pass. */
+function batchedDriftPayload(payload: string): Record<string, unknown> | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload) as unknown;
+  } catch {
+    return null;
+  }
+  if (!record(parsed)
+    || typeof parsed.unit !== "string"
+    || typeof parsed.unit_entity_id !== "string"
+    || !Array.isArray(parsed.subjects)) {
+    return null;
+  }
+  return parsed;
+}
+
+/** Split oversized archival, imported-PR, and batched drift tasks before any model pass. */
 function splitOversizedTask(
   store: KnowledgeStoreHandle,
   task: LibrarianTaskRow,
@@ -970,6 +987,28 @@ function splitOversizedTask(
     if (slice === null) return null;
     const children = splitSlicePayload(store, slice);
     return children.length === 0 ? null : finishTaskSplit(store, task, children, doneAt, dryRun);
+  }
+  if (task.pathway === "drift_recheck") {
+    const payload = batchedDriftPayload(task.payload);
+    const subjects = payload?.subjects;
+    if (!Array.isArray(subjects) || subjects.length <= DRIFT_RECHECK_CHILD_SIZE) return null;
+    const chunks = Array.from(
+      { length: Math.ceil(subjects.length / DRIFT_RECHECK_CHILD_SIZE) },
+      (_, index) => subjects.slice(
+        index * DRIFT_RECHECK_CHILD_SIZE,
+        (index + 1) * DRIFT_RECHECK_CHILD_SIZE,
+      ),
+    );
+    const childPayloads = chunks.map((childSubjects, index) => JSON.stringify({
+      unit: payload.unit,
+      unit_entity_id: payload.unit_entity_id,
+      reason: payload.reason,
+      subjects: childSubjects,
+      split_from: task.id,
+      split_index: index + 1,
+      split_total: chunks.length,
+    }));
+    return finishTaskSplit(store, task, childPayloads, doneAt, dryRun);
   }
   if (task.pathway !== "pr_imported") return null;
   const ids = importedPrRowIds(task.payload);
@@ -1135,6 +1174,7 @@ export async function runLibrarianConsumer(
           const parsed: unknown = JSON.parse(payload);
           if (!record(parsed)) return 0;
           if (Array.isArray(parsed.task_payload)) return parsed.task_payload.length;
+          if (Array.isArray(parsed.subjects)) return parsed.subjects.length;
           if (parsed.source === "discord" && typeof parsed.count === "number") return parsed.count;
           if (parsed.source === "wiki" && Array.isArray(parsed.pages)) return parsed.pages.length;
           return 0;
@@ -1150,6 +1190,10 @@ export async function runLibrarianConsumer(
             ? claimed.split.enqueued
               ? `oversized imported PR task split into ${claimed.split.children.length} child tasks; parent completed without a model pass`
               : `dry run: oversized imported PR task would split into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`
+            : claimed.task.pathway === "drift_recheck"
+              ? claimed.split.enqueued
+                ? `oversized batched drift task split into ${claimed.split.children.length} child tasks; parent completed without a model pass`
+                : `dry run: oversized batched drift task would split into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`
             : claimed.split.enqueued
               ? `oversized archival slice re-chunked into ${claimed.split.children.length} child tasks; parent completed without a model pass`
               : `dry run: oversized archival slice would be re-chunked into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`,

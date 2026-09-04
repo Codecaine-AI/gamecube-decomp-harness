@@ -1099,6 +1099,33 @@ describe("buildTaskContext", () => {
     assertOrderingAndScope(context);
   });
 
+  test("accepts batched drift split children without stripping split metadata", () => {
+    const store = openFixture();
+    const context = buildTaskContext(
+      store,
+      task("drift_recheck", JSON.stringify({
+        unit: "main/melee/ft/ftcommon",
+        unit_entity_id: "unit-main",
+        reason: "drift",
+        subjects: [{ target_id: "target-main", drifted: 1, unresolvable: 0 }],
+        split_from: "task:drift_recheck:unit-main",
+        split_index: 2,
+        split_total: 3,
+      })),
+      fixtureOptions(store),
+    );
+
+    expect(context.object).toMatchObject({
+      unit: "main/melee/ft/ftcommon",
+      unit_entity_id: "unit-main",
+      reason: "drift",
+      split_from: "task:drift_recheck:unit-main",
+      split_index: 2,
+      split_total: 3,
+    });
+    expect(context.touched).toHaveLength(1);
+  });
+
   test("returns no-op contexts for malformed and dangling payloads", () => {
     const store = openFixture();
     const cases: Array<[LibrarianPathway, string]> = [
