@@ -280,7 +280,12 @@ export const prompt = definePrompt({
           bulletList([
             "The apply layer rejects items without one (`missing_pr_citation`, `irrelevant_pr_citation`).",
             "Each comment citation's `why` states what that comment says about the subject, never that the PR matched it.",
-            "The one exception is the rename audit: a fact on a subject with a non-empty `renamed_from` may cite `code://` at `head_revision` instead when it rewrites the old name.",
+            item("The exceptions are:", [
+              bulletList([
+                "The one exception is the rename audit: a fact on a subject with a non-empty `renamed_from` may cite `code://` at `head_revision` instead when it rewrites the old name.",
+                "The drift audit is the other exception: a fact whose type carries a `drifted` or `unresolvable` entry in the subject's `drift` report may cite `code://` at `head_revision` instead when it re-cites or rewrites that fact.",
+              ]),
+            ]),
           ]),
         ]),
         "Do not emit a link when there is nothing citable supporting the relationship, and never emit a target → target link.",

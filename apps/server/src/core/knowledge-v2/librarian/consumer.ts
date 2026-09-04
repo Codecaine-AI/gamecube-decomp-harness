@@ -372,6 +372,18 @@ function renamedSubjects(context: LibrarianTaskContext): string[] {
       : []);
 }
 
+function driftedFacts(context: LibrarianTaskContext) {
+  return context.touched.flatMap((subject) => {
+    const subjectKey = subject.kind === "target"
+      ? subject.target_stable_key
+      : subject.entity_locator;
+    return subject.drift?.evidence.flatMap((entry) =>
+      entry.status === "drifted" || entry.status === "unresolvable"
+        ? [{ subject: subjectKey, type: entry.fact_type }]
+        : []) ?? [];
+  });
+}
+
 function hasPendingDriftRecheck(store: KnowledgeStoreHandle, subject: SubjectRef): boolean {
   const key = subject.targetId !== undefined ? "target_id" : "entity_id";
   const value = subject.targetId ?? subject.entityId;
@@ -620,6 +632,7 @@ export async function runLibrarianPass(
       prsRoot: deps.prsRoot,
       headRevision: context.head_revision,
       renamedSubjects: renamedSubjects(context),
+      driftedFacts: driftedFacts(context),
       now: () => indexedAt,
       ...(requiredCitation === undefined ? {} : { requiredCitation }),
     };

@@ -1075,6 +1075,64 @@ describe("librarian rejection retry contract", () => {
     expect(rejected.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
   });
 
+  test("waives the PR comment gate for drifted facts cited at head revision", async () => {
+    const store = openStore("drifted-head-citation");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("drifted-head-git");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "current implementation purpose", rationale: "head code", confidence: 0.8,
+      evidence: [{ kind: "code", locator: git.locator, why: "Current implementation." }],
+    };
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root, {
+      requiredCitation: { kind: "pr", prNumber: "42" },
+      headRevision: git.revision,
+      driftedFacts: [{ subject: "unit-one:func_one", type: "purpose" }],
+    }));
+
+    expect(report.items[0]).toMatchObject({ action: "applied" });
+  });
+
+  test("keeps the PR comment gate for a non-drifted fact type", async () => {
+    const store = openStore("non-drifted-type-citation");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("non-drifted-type-git");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "data_flow", op: "write",
+      value: "current data flow", rationale: "head code", confidence: 0.8,
+      evidence: [{ kind: "code", locator: git.locator, why: "Current implementation." }],
+    };
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root, {
+      requiredCitation: { kind: "pr", prNumber: "42" },
+      headRevision: git.revision,
+      driftedFacts: [{ subject: "unit-one:func_one", type: "purpose" }],
+    }));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+  });
+
+  test("keeps the PR comment gate when a drifted fact cites another revision", async () => {
+    const store = openStore("drifted-other-revision-citation");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("drifted-other-revision-git");
+    writeFileSync(join(git.root, "src", "sample.c"), "line one\nline two changed\nline three\nline four\n");
+    runGit(git.root, "add", "src/sample.c");
+    runGit(git.root, "commit", "-m", "head fixture");
+    const headRevision = runGit(git.root, "rev-parse", "HEAD");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "stale implementation purpose", rationale: "old code", confidence: 0.8,
+      evidence: [{ kind: "code", locator: git.locator, why: "Previous implementation." }],
+    };
+    const report = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root, {
+      requiredCitation: { kind: "pr", prNumber: "42" },
+      headRevision,
+      driftedFacts: [{ subject: "unit-one:func_one", type: "purpose" }],
+    }));
+
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+  });
+
   test("applies the renamed-head exception to links", async () => {
     const store = openStore("renamed-head-link");
     seedMechanicalSubjects(store);

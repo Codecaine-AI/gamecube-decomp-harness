@@ -48,6 +48,7 @@ export interface ApplyOptions {
   requiredCitation?: { kind: "pr"; prNumber: string };
   headRevision?: string;
   renamedSubjects?: string[];
+  driftedFacts?: Array<{ subject: string; type: FactType }>;
   dryRun?: boolean;
   now?: () => string;
 }
@@ -517,6 +518,7 @@ function checkRequiredCitation(
   requiredCitation: ApplyOptions["requiredCitation"],
   options: ApplyOptions,
   subjects: readonly ResolvedSubject[],
+  factType?: FactType,
 ): RequiredCitationResult {
   if (requiredCitation === undefined) return { ok: true };
   const renamed = new Set(options.renamedSubjects ?? []);
@@ -532,6 +534,12 @@ function checkRequiredCitation(
     }
   });
   if (hasRenamedSubject && hasHeadCodeCitation) return { ok: true };
+  const hasDriftedFact = factType !== undefined && subjects.some((subject) => {
+    const subjectKey = subject.targetStableKey ?? subject.entityLocator;
+    return subjectKey !== undefined && options.driftedFacts?.some((drifted) =>
+      drifted.subject === subjectKey && drifted.type === factType) === true;
+  });
+  if (hasDriftedFact && hasHeadCodeCitation) return { ok: true };
   const comments = citations.flatMap((citation) => {
     if (citation.kind !== "pr") return [];
     try {
@@ -631,7 +639,7 @@ async function applyFactItem(
     writableSubjects: [...options.scope.targetStableKeys, ...options.scope.entityLocators],
   });
   const requiredCitation = checkRequiredCitation(
-    store, fact.evidence, options.requiredCitation, options, [subject.value],
+    store, fact.evidence, options.requiredCitation, options, [subject.value], fact.type,
   );
   if (!requiredCitation.ok) return rejected(item, requiredCitation.reason as ApplyRejectReason, {
     prNumber: options.requiredCitation?.prNumber,

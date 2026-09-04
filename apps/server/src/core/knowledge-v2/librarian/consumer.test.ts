@@ -8,7 +8,7 @@ import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createSharedGate } from "../apply/index.js";
 import type { LibrarianPassEnvelope } from "../backfill/runner.js";
 import type { DriftReport } from "../drift/flagger.js";
-import { enqueueIndexTask } from "../records/index.js";
+import { enqueueIndexTask, writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { parseLibrarianArgs } from "./cli.js";
 import {
@@ -832,6 +832,84 @@ describe("runLibrarianPass", () => {
 
     expect(applied.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
     expect(rowCount(f.store, "fact")).toBe(1);
+  });
+
+  test("accepts a head code citation for a drifted pr_imported fact", async () => {
+    const f = fixture("pr-drifted-code-citation", 1);
+    const prsRoot = join(f.root, "prs");
+    const extracted = join(prsRoot, "pr-101", "extracted");
+    mkdirSync(extracted, { recursive: true });
+    writeFileSync(join(extracted, "text_corpus.jsonl"), `${JSON.stringify({
+      kind: "review_comment",
+      author: "reviewer",
+      created_at: "2026-08-21T00:00:00.000Z",
+      body: "This discussion does not name the touched target.",
+    })}\n`);
+    writeFileSync(join(f.root, "sample.c"), "fixture implementation\n");
+    runGit(f.root, "init");
+    runGit(f.root, "config", "user.email", "consumer-test@example.com");
+    runGit(f.root, "config", "user.name", "Consumer Test");
+    runGit(f.root, "add", "sample.c");
+    runGit(f.root, "commit", "-m", "fixture");
+    const revision = runGit(f.root, "rev-parse", "--short", "HEAD");
+    writeFactWithEvidence(f.store, {
+      id: "fact-drifted-purpose",
+      targetId: "target-1",
+      type: "purpose",
+      value: "Stale purpose",
+      rationale: "Fixture drift input.",
+      confidence: 0.7,
+    }, [{
+      id: "evidence-drifted-purpose",
+      kind: "code",
+      locator: `code://${revision}/sample.c#L1-L1`,
+      digest: "sha256:stale",
+      why: "Stale source evidence.",
+    }]);
+    f.store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-101--target-1', 'target-1', NULL, 'melee#101',
+        'Fixture row for target 1', 'improvement', '2026-08-21T00:00:00.000Z')`).run();
+    const id = "task:pr_imported:drifted-code-citation";
+    enqueueIndexTask(f.store, {
+      id,
+      pathway: "pr_imported",
+      payload: JSON.stringify(["pr-101--target-1"]),
+      enqueuedAt: FIXED_NOW,
+    });
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "pr-drifted-code-citation-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      prsRoot,
+      runPiAgent: () => modelResult({
+        facts: [{
+          ...fact(1),
+          evidence: [{
+            kind: "code",
+            locator: `code://${revision}/sample.c#L1-L1`,
+            why: "The head source re-cites the drifted purpose.",
+          }],
+        }],
+        links: [],
+        entities: [],
+        merges: [],
+      }),
+      now: () => FIXED_NOW,
+    });
+
+    expect(result.context.touched).toContainEqual(expect.objectContaining({
+      kind: "target",
+      target_stable_key: "unit:func_1",
+      drift: expect.objectContaining({
+        evidence: [expect.objectContaining({ fact_type: "purpose", status: "drifted" })],
+      }),
+    }));
+    expect(result.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(result.driftGate).toBe("clean");
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
   });
 
   test("rejects a malformed envelope, releases the claim, and writes nothing", async () => {
