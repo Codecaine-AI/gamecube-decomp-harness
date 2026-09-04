@@ -33,6 +33,7 @@ interface ReportRow {
   from?: MetricValues;
   to?: MetricValues;
   metadata?: { virtual_address?: unknown };
+  movedAcrossUnits?: boolean;
 }
 
 interface ReportUnit extends ReportRow {
@@ -72,6 +73,11 @@ export interface RenamedFunction {
   fromPercent: number;
   toPercent: number;
   pairedBy: "address" | "size";
+}
+
+export interface MovedUnit {
+  from: string;
+  to: string;
 }
 
 export interface RegressionReportSummary {
@@ -126,9 +132,93 @@ export interface RegressionReport {
   improvements: ReportEntry[];
   fuzzyRegressions: ReportEntry[];
   renames: RenamedFunction[];
+  movedUnits: MovedUnit[];
   summary: RegressionReportSummary;
   promotion: PrPromotionEvaluation;
   markdown: string;
+}
+
+function sameItem(row: ReportRow, candidate: ReportRow, includeName: boolean): boolean {
+  if (includeName && row.name !== candidate.name) return false;
+  const address = rowAddress(row);
+  const candidateAddress = rowAddress(candidate);
+  if (address === null || candidateAddress === null || address !== candidateAddress) return false;
+  const size = toNumber(row.from?.size ?? row.to?.size);
+  const candidateSize = toNumber(candidate.to?.size ?? candidate.from?.size);
+  return size <= 0 || candidateSize <= 0 || size === candidateSize;
+}
+
+function resolveCrossUnitMoves(report: ObjdiffReportChanges): { report: ObjdiffReportChanges; movedUnits: MovedUnit[] } {
+  const units = asArray<ReportUnit>(report.units).map((unit) => ({
+    ...unit,
+    functions: asArray<ReportRow>(unit.functions).map((row) => ({ ...row })),
+    sections: asArray<ReportRow>(unit.sections).map((row) => ({ ...row })),
+  }));
+  const pairedSourceFunctions = new Map<string, Set<ReportRow>>();
+  const pairedSourceSections = new Map<string, Set<ReportRow>>();
+  const destinations = new Map<string, Set<string>>();
+
+  const pairRows = (kind: "functions" | "sections", includeName: boolean): void => {
+    const targets = units.flatMap((unit) =>
+      asArray<ReportRow>(unit[kind])
+        .filter((row) => row.to != null)
+        .map((row) => ({ unit, row })),
+    );
+    const usedTargets = new Set<ReportRow>();
+    for (const sourceUnit of units) {
+      const sourceRows = asArray<ReportRow>(sourceUnit[kind]).filter((row) => row.from != null && row.to == null);
+      for (const sourceRow of sourceRows) {
+        const matches = targets.filter(({ unit, row }) => {
+          if (unit.name === sourceUnit.name || usedTargets.has(row)) return false;
+          if (kind === "sections") {
+            return sourceRow.name === row.name && rowAddress(sourceRow) !== null && rowAddress(sourceRow) === rowAddress(row);
+          }
+          return sameItem(sourceRow, row, includeName);
+        });
+        if (matches.length !== 1) continue;
+        const target = matches[0]!;
+        usedTargets.add(target.row);
+        if (target.row.from == null) target.row.from = sourceRow.from;
+        target.row.movedAcrossUnits = true;
+        const sourceList = sourceUnit[kind] as ReportRow[];
+        sourceList.splice(sourceList.indexOf(sourceRow), 1);
+        if (kind === "functions") {
+          const paired = pairedSourceFunctions.get(sourceUnit.name) ?? new Set<ReportRow>();
+          paired.add(sourceRow);
+          pairedSourceFunctions.set(sourceUnit.name, paired);
+          const movedTo = destinations.get(sourceUnit.name) ?? new Set<string>();
+          movedTo.add(target.unit.name);
+          destinations.set(sourceUnit.name, movedTo);
+        } else {
+          const paired = pairedSourceSections.get(sourceUnit.name) ?? new Set<ReportRow>();
+          paired.add(sourceRow);
+          pairedSourceSections.set(sourceUnit.name, paired);
+          const movedTo = destinations.get(sourceUnit.name) ?? new Set<string>();
+          movedTo.add(target.unit.name);
+          destinations.set(sourceUnit.name, movedTo);
+        }
+      }
+    }
+  };
+
+  pairRows("functions", false);
+  pairRows("sections", true);
+
+  const movedUnits: MovedUnit[] = [];
+  for (const unit of units) {
+    if (unit.from == null || unit.to != null) continue;
+    const baselineFunctions = asArray<ReportRow>(report.units?.find((entry) => entry.name === unit.name)?.functions)
+      .filter((row) => row.from != null);
+    const baselineSections = asArray<ReportRow>(report.units?.find((entry) => entry.name === unit.name)?.sections)
+      .filter((row) => row.from != null);
+    const functionsMoved = baselineFunctions.length > 0 && pairedSourceFunctions.get(unit.name)?.size === baselineFunctions.length;
+    const dataOnlyUnitMoved = baselineFunctions.length === 0 && baselineSections.length > 0 && pairedSourceSections.get(unit.name)?.size === baselineSections.length;
+    if (!functionsMoved && !dataOnlyUnitMoved) continue;
+    unit.from = undefined;
+    for (const to of [...(destinations.get(unit.name) ?? [])].sort()) movedUnits.push({ from: unit.name, to });
+  }
+  movedUnits.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+  return { report: { ...report, units }, movedUnits };
 }
 
 export const DEFAULT_PR_PROMOTION_POLICY: PrPromotionPolicy = {
@@ -371,7 +461,7 @@ function reportSummary(report: ObjdiffReportChanges): RegressionReportSummary {
 
 function sortedEntries(report: ObjdiffReportChanges): Omit<
   RegressionReport,
-  "regressions" | "progressions" | "summary" | "promotion" | "markdown"
+  "regressions" | "progressions" | "movedUnits" | "summary" | "promotion" | "markdown"
 > {
   const newMatches: ReportEntry[] = [];
   const brokenMatches: ReportEntry[] = [];
@@ -392,6 +482,7 @@ function sortedEntries(report: ObjdiffReportChanges): Omit<
       const fromPercent = toNumber(row.from?.fuzzy_match_percent);
       const toPercent = toNumber(row.to?.fuzzy_match_percent);
       if (fromPercent === toPercent) continue;
+      if (row.movedAcrossUnits && toPercent < fromPercent) continue;
       const size = sizeOf(row);
       const entry: ReportEntry = {
         unitName: unit.name,
@@ -447,6 +538,19 @@ function renameSection(renames: RenamedFunction[], maxRows: number): string[] {
     if (maxRows > 0 && renames.length > maxRows) {
       lines.push("", `...and ${renames.length - maxRows} more`);
     }
+  }
+  lines.push("</details>");
+  return lines;
+}
+
+function movedUnitSection(movedUnits: MovedUnit[], maxRows: number): string[] {
+  const shown = maxRows <= 0 ? movedUnits : movedUnits.slice(0, maxRows);
+  const lines = ["<details>", `<summary>${movedUnits.length} moved units (paired, not regressions)</summary>`, ""];
+  if (shown.length === 0) lines.push("No entries.");
+  else {
+    lines.push("| Before | After |", "| - | - |");
+    for (const move of shown) lines.push(`| \`${move.from}\` | \`${move.to}\` |`);
+    if (maxRows > 0 && movedUnits.length > maxRows) lines.push("", `...and ${movedUnits.length - maxRows} more`);
   }
   lines.push("</details>");
   return lines;
@@ -554,7 +658,7 @@ function promotionSection(promotion: PrPromotionEvaluation): string[] {
   ];
 }
 
-function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: number, policy?: Partial<PrPromotionPolicy>): string {
+function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: number, movedUnits: MovedUnit[], policy?: Partial<PrPromotionPolicy>): string {
   const changes = metricChanges(report);
   const entries = sortedEntries(report);
   const summary = reportSummary(report);
@@ -577,6 +681,8 @@ function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: 
     "",
     ...renameSection(entries.renames, maxRows),
     "",
+    ...movedUnitSection(movedUnits, maxRows),
+    "",
   ];
   return lines.join("\n");
 }
@@ -587,7 +693,8 @@ export function buildRegressionReport(
   maxRows: number,
   promotionPolicy?: Partial<PrPromotionPolicy>,
 ): RegressionReport {
-  const report = asRecord(raw) as ObjdiffReportChanges;
+  const original = asRecord(raw) as ObjdiffReportChanges;
+  const { report, movedUnits } = resolveCrossUnitMoves(original);
   const changes = metricChanges(report);
   const entries = sortedEntries(report);
   const summary = reportSummary(report);
@@ -595,9 +702,10 @@ export function buildRegressionReport(
   return {
     ...changes,
     ...entries,
+    movedUnits,
     summary,
     promotion,
-    markdown: generateMarkdown(report, title, maxRows, promotionPolicy),
+    markdown: generateMarkdown(report, title, maxRows, movedUnits, promotionPolicy),
   };
 }
 

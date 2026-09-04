@@ -470,7 +470,7 @@ describe("staged sync reconciliation", () => {
         return {
           result: "passed",
           whatRan: [{ name: "fixture baseline gate", command: ["fixture", "gate"] }],
-          details: { regressions: 0 },
+          details: { regressions: 0, moved_units: [{ from: "old/unit", to: "new/unit" }] },
         };
       },
     });
@@ -480,6 +480,7 @@ describe("staged sync reconciliation", () => {
       staging_head_sha: sync.staging?.staging_head_sha,
       validated_at: "2026-08-13T18:00:00.000Z",
       regressions: 0,
+      moved_units: [{ from: "old/unit", to: "new/unit" }],
     });
 
     write(fixture.seed, "later.c", "int later = 1;\n");

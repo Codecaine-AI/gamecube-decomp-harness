@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import {
   readRegressionReport,
   type MetricChange,
+  type MovedUnit,
   type PrPromotionEvaluation,
   type RegressionReport,
   type RegressionReportSummary,
@@ -18,6 +19,7 @@ export interface TrustedReportCounts {
   fuzzyRegressions: number;
   metricRegressions: number;
   metricProgressions: number;
+  movedUnits: number;
 }
 
 export interface TrustedReport {
@@ -35,6 +37,7 @@ export interface TrustedReport {
   fuzzyRegressions: ReportEntry[];
   metricRegressions: MetricChange[];
   metricProgressions: MetricChange[];
+  movedUnits: MovedUnit[];
 }
 
 function emptyCounts(): TrustedReportCounts {
@@ -45,6 +48,7 @@ function emptyCounts(): TrustedReportCounts {
     fuzzyRegressions: 0,
     metricRegressions: 0,
     metricProgressions: 0,
+    movedUnits: 0,
   };
 }
 
@@ -64,6 +68,7 @@ function emptyTrustedReport(path: string, source: string, status: Exclude<Truste
     fuzzyRegressions: [],
     metricRegressions: [],
     metricProgressions: [],
+    movedUnits: [],
   };
 }
 
@@ -95,6 +100,7 @@ export function trustedReportFromRegressionReport(
       fuzzyRegressions: report.fuzzyRegressions.length,
       metricRegressions: report.regressions.length,
       metricProgressions: report.progressions.length,
+      movedUnits: report.movedUnits.length,
     },
     measures: report.summary,
     promotion: report.promotion,
@@ -104,6 +110,7 @@ export function trustedReportFromRegressionReport(
     fuzzyRegressions: limitedRows(report.fuzzyRegressions, maxRows),
     metricRegressions: limitedRows(report.regressions, maxRows),
     metricProgressions: limitedRows(report.progressions, maxRows),
+    movedUnits: limitedRows(report.movedUnits, maxRows),
   };
 }
 

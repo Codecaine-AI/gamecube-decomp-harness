@@ -42,7 +42,130 @@ function build(functions: Record<string, unknown>[]) {
   return buildRegressionReport(changesReport(functions), "test", 0);
 }
 
+function movedUnitChanges(units: Record<string, unknown>[]): Record<string, unknown> {
+  return {
+    from: { fuzzy_match_percent: 50, matched_code_percent: 50, matched_code: 1000, matched_data_percent: 50, matched_data: 1000 },
+    to: { fuzzy_match_percent: 50, matched_code_percent: 50, matched_code: 1000, matched_data_percent: 50, matched_data: 1000 },
+    units,
+  };
+}
+
 describe("buildRegressionReport rename pairing", () => {
+  test("unit rename with identical functions is recorded as a move, not a regression", () => {
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "main/melee/ft/kinds/ftMario/ftMr_Strings",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "ftMr_Init", from: 100, fromSize: 64, address: "2148000000" })],
+      },
+      {
+        name: "main/melee/ft/kinds/ftMario/ftmariostrings",
+        to: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "ftMr_Init", to: 100, toSize: 64, address: "2148000000" })],
+      },
+    ]), "test", 0);
+
+    expect(report.regressions).toEqual([]);
+    expect(report.brokenMatches).toEqual([]);
+    expect(report.fuzzyRegressions).toEqual([]);
+    expect(report.movedUnits).toEqual([
+      { from: "main/melee/ft/kinds/ftMario/ftMr_Strings", to: "main/melee/ft/kinds/ftMario/ftmariostrings" },
+    ]);
+  });
+
+  test("function regression after a unit move is attributed to the new unit", () => {
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "main/melee/ft/kinds/ftCLink/ftCl_Init",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "ftCl_Init", from: 100, fromSize: 80, address: "2148000100" })],
+      },
+      {
+        name: "main/melee/ft/kinds/ftCLink/ftclink",
+        to: { fuzzy_match_percent: 95, matched_code_percent: 95 },
+        functions: [fnRow({ name: "ftCl_Init", to: 95, toSize: 80, address: "2148000100" })],
+      },
+    ]), "test", 0);
+
+    expect(report.regressions).toHaveLength(1);
+    expect(report.regressions[0]).toMatchObject({ name: "ftCl_Init", from: 100, to: 95 });
+    expect(report.brokenMatches).toEqual([]);
+    expect(report.fuzzyRegressions).toEqual([]);
+    expect(report.movedUnits).toEqual([
+      { from: "main/melee/ft/kinds/ftCLink/ftCl_Init", to: "main/melee/ft/kinds/ftCLink/ftclink" },
+    ]);
+  });
+
+  test("function removed during a unit rename remains a broken match", () => {
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "old/unit",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [
+          fnRow({ name: "kept", from: 100, fromSize: 64, address: "2148000200" }),
+          fnRow({ name: "gone", from: 100, fromSize: 32, address: "2148000300" }),
+        ],
+      },
+      {
+        name: "new/unit",
+        to: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "kept", to: 100, toSize: 64, address: "2148000200" })],
+      },
+    ]), "test", 0);
+
+    expect(report.brokenMatches).toHaveLength(1);
+    expect(report.brokenMatches[0]).toMatchObject({ unitName: "old/unit", itemName: "gone" });
+    expect(report.movedUnits).toEqual([]);
+  });
+
+  test("unit split records every destination without broken matches", () => {
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "old/combined",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [
+          fnRow({ name: "first", from: 100, fromSize: 64, address: "2148000400" }),
+          fnRow({ name: "second", from: 100, fromSize: 48, address: "2148000500" }),
+        ],
+      },
+      {
+        name: "new/first",
+        to: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "first", to: 100, toSize: 64, address: "2148000400" })],
+      },
+      {
+        name: "new/second",
+        to: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        functions: [fnRow({ name: "second", to: 100, toSize: 48, address: "2148000500" })],
+      },
+    ]), "test", 0);
+
+    expect(report.regressions).toEqual([]);
+    expect(report.brokenMatches).toEqual([]);
+    expect(report.fuzzyRegressions).toEqual([]);
+    expect(report.movedUnits).toEqual([
+      { from: "old/combined", to: "new/first" },
+      { from: "old/combined", to: "new/second" },
+    ]);
+  });
+
+  test("data section moved across units is paired by section name and address", () => {
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "old/data",
+        sections: [{ name: ".data", from: { fuzzy_match_percent: 100, size: "32" }, metadata: { virtual_address: "2150000000" } }],
+      },
+      {
+        name: "new/data",
+        sections: [{ name: ".data", to: { fuzzy_match_percent: 100, size: "32" }, metadata: { virtual_address: "2150000000" } }],
+      },
+    ]), "test", 0);
+
+    expect(report.regressions).toEqual([]);
+    expect(report.brokenMatches).toEqual([]);
+    expect(report.newMatches).toEqual([]);
+  });
+
   test("pure rename at 100% pairs by address and is not counted as a regression", () => {
     const report = build([
       fnRow({ name: "fn_8002F488", from: 100, fromSize: 76, address: "2147677320" }),

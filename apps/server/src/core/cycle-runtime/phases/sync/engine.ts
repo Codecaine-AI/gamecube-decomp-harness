@@ -1097,6 +1097,7 @@ async function defaultValidation(
       regressions: regression.regressions.length,
       broken_matches: regression.brokenMatches.length,
       fuzzy_regressions: regression.fuzzyRegressions.length,
+      moved_units: regression.movedUnits,
       reused_report: report.reusedReport ?? false,
       incremental_cache_seeded_from: cycleWorktree,
     },
