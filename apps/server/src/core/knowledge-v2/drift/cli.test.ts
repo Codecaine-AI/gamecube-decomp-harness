@@ -114,13 +114,15 @@ async function runScan(f: Fixture, extraArgs: Array<[string, string | true]> = [
   try {
     await kg2DriftScan(f.globals, new Map<string, string | true>([
       ["--knowledge-root", f.knowledgeRoot],
+      ["--checkout-root", f.checkoutRoot],
       ...extraArgs,
     ]));
   } finally {
     log.mockRestore();
   }
-  expect(output).toHaveLength(1);
-  return JSON.parse(output[0]!) as Record<string, unknown>;
+  expect(output).toHaveLength(2);
+  expect(output[0]).toContain(`[kg2-drift-scan] checkout ${f.checkoutRoot} @ `);
+  return JSON.parse(output[1]!) as Record<string, unknown>;
 }
 
 afterEach(() => {

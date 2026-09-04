@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -10,6 +11,14 @@ const temporaryRoots: string[] = [];
 function temporaryRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "kg2-backfill-cli-test-"));
   temporaryRoots.push(root);
+  const checkout = join(root, "checkout");
+  mkdirSync(checkout);
+  execFileSync("git", ["-C", checkout, "init", "-q"]);
+  execFileSync("git", ["-C", checkout, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", checkout, "config", "user.name", "Test"]);
+  writeFileSync(join(checkout, "README"), "fixture");
+  execFileSync("git", ["-C", checkout, "add", "."]);
+  execFileSync("git", ["-C", checkout, "commit", "-qm", "fixture"]);
   return root;
 }
 

@@ -21,6 +21,7 @@ interface KnowledgeV2Handles {
   store: KnowledgeStore;
   indexDb: KnowledgeIndexDb;
   gameId: string;
+  stateDir?: string;
 }
 
 const searchModeProperty = {
@@ -170,7 +171,12 @@ async function withKnowledgeV2Handles<T extends object>(
   let indexDb: KnowledgeIndexDb | undefined;
   try {
     indexDb = openKnowledgeIndexDb({ gameId });
-    return await invoke({ store, indexDb, gameId });
+    return await invoke({
+      store,
+      indexDb,
+      gameId,
+      ...(context.stateDir === undefined ? {} : { stateDir: context.stateDir }),
+    });
   } finally {
     indexDb?.close();
     store.close();

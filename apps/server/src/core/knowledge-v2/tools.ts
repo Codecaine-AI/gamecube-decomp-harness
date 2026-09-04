@@ -1,8 +1,8 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { gameRoot } from "../knowledge/paths.js";
 import { formatLocator, parseLocator, type LocatorKind } from "./locator.js";
+import { resolveKnowledgeCheckout } from "./checkout.js";
 import type { KnowledgeIndexDb } from "./index/db.js";
 import { searchFts, type FtsHit } from "./index/fts.js";
 import { searchVector, type VectorHit } from "./index/embeddings/indexer.js";
@@ -41,6 +41,7 @@ export interface KnowledgeV2ToolHandles {
   embeddingProvider?: EmbeddingProvider;
   checkoutRoot?: string;
   gameId?: string;
+  stateDir?: string;
   prArchive?: PrArchive;
 }
 
@@ -1178,9 +1179,10 @@ function resolveCodeLocator(
     };
   }
 
-  const checkoutRoot = resolve(
-    handles.checkoutRoot ?? resolve(gameRoot(handles.gameId ?? "melee"), "checkout"),
-  );
+  const checkoutRoot = resolve(handles.checkoutRoot ?? resolveKnowledgeCheckout({
+    gameId: handles.gameId ?? "melee",
+    stateDir: handles.stateDir,
+  }).checkoutRoot);
   const candidate = resolve(checkoutRoot, parsed.path);
   if (!pathInside(checkoutRoot, candidate)) return outsideCheckout(locator);
 

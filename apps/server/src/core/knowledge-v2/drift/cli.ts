@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import { parseLocator } from "../locator.js";
 import { enqueueIndexTask, type SubjectRef } from "../records/index.js";
 import { immediateTransaction, openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
@@ -47,10 +48,17 @@ export async function kg2DriftScan(globals: GlobalArgs, args: Map<string, string
   const limit = optionalNonNegativeIntegerArg(args, "--limit");
   const dryRun = args.get("--dry-run") === true;
   const enqueue = booleanArg(args, "--enqueue", true);
+  const checkout = resolveKnowledgeCheckout({
+    gameId,
+    stateDir: globals.stateDir,
+    explicitCheckoutRoot: optionalStringArg(args, "--checkout-root"),
+  });
+  console.log(`[kg2-drift-scan] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
   const store = openKnowledgeStore({ knowledgeRoot });
   try {
     const summary = scanCodeDrift(store, {
-      checkoutRoot: resolve(globals.repoRoot),
+      checkoutRoot: checkout.checkoutRoot,
+      headRevision: checkout.headRevision,
       limit,
       enqueue: enqueue && !dryRun,
     });
@@ -62,7 +70,7 @@ export async function kg2DriftScan(globals: GlobalArgs, args: Map<string, string
 
 export function scanCodeDrift(
   store: KnowledgeStore,
-  options: { checkoutRoot: string; limit?: number; enqueue?: boolean },
+  options: { checkoutRoot: string; headRevision?: string; limit?: number; enqueue?: boolean },
 ): DriftScanSummary {
   const subjects = subjectsWithCodeEvidence(store, options.limit);
   const summary: DriftScanSummary = {
@@ -71,7 +79,7 @@ export function scanCodeDrift(
     enqueued: 0,
     by_status: { unchanged: 0, drifted: 0, unresolvable: 0 },
   };
-  let headRevision: string | undefined;
+  let headRevision = options.headRevision;
   const flaggedByUnit = new Map<string, UnitRef & { subjects: DriftTaskSubject[] }>();
 
   for (const subject of subjects) {

@@ -16,6 +16,7 @@ import type { LaneOptions, ReconcileResult } from "./types.js";
 
 export interface ReconcileOptions extends LaneOptions {
   reportPath: string;
+  headRevision: string;
 }
 
 interface ReportFunction {
@@ -50,6 +51,7 @@ interface StoredTarget {
   stable_key: string;
   unit: string;
   address: string;
+  unit_entity_id: string;
   identity_status: "current" | "moved" | "unresolved" | "retired";
 }
 
@@ -64,6 +66,11 @@ interface RenameCandidate {
 type RenamePair = ReconcileResult["renames"]["pairs"][number] & {
   fromId: string;
   toId: string;
+};
+
+type MovedUnit = ReconcileResult["renames"]["moved_units"][number] & {
+  fromEntityId: string;
+  toEntityId: string;
 };
 
 function pairRenames(
@@ -98,16 +105,59 @@ function pairRenames(
         toId: to.id,
         from_stable_key: from.stableKey,
         to_stable_key: to.stableKey,
+        from_unit: from.unit,
+        to_unit: to.unit,
         address: group.address,
         moved_rows: { fact: 0, link: 0, worker_run: 0, pull_request: 0, event: 0, subject_index_state: 0 },
         fact_collisions: 0,
       });
+    }
+  }
+  const pairedUnresolvedIds = new Set(pairs.map((pair) => pair.fromId));
+  const pairedInsertedIds = new Set(pairs.map((pair) => pair.toId));
+  const crossUnitCandidates = {
+    unresolved: unresolved
+      .filter((row) => !pairedUnresolvedIds.has(row.id))
+      .map((row) => ({ id: row.id, kind: row.kind, unit: row.unit, stableKey: row.stable_key, address: row.address })),
+    inserted: inserted
+      .filter((row) => !pairedInsertedIds.has(row.id))
+      .map((row) => ({ id: row.id, kind: row.kind, unit: row.unit, stableKey: row.stableKey, address: row.address })),
+  };
+
+  const crossGroups = new Map<string, { address: string; unresolved: RenameCandidate[]; inserted: RenameCandidate[] }>();
+  for (const side of ["unresolved", "inserted"] as const) {
+    for (const row of crossUnitCandidates[side]) {
+      const key = `${row.kind}\u0000${row.address}`;
+      const group = crossGroups.get(key) ?? { address: row.address, unresolved: [], inserted: [] };
+      group[side].push(row);
+      crossGroups.set(key, group);
+    }
+  }
+  for (const [, group] of [...crossGroups].sort(([left], [right]) => left.localeCompare(right))) {
+    if (group.unresolved.length === 0 || group.inserted.length === 0) continue;
+    group.unresolved.sort((left, right) => left.stableKey.localeCompare(right.stableKey));
+    group.inserted.sort((left, right) => left.stableKey.localeCompare(right.stableKey));
+    if (group.unresolved.length === 1 && group.inserted.length === 1) {
+      const from = group.unresolved[0]!;
+      const to = group.inserted[0]!;
+      pairs.push({
+        fromId: from.id, toId: to.id,
+        from_stable_key: from.stableKey, to_stable_key: to.stableKey,
+        from_unit: from.unit, to_unit: to.unit, address: group.address,
+        moved_rows: { fact: 0, link: 0, worker_run: 0, pull_request: 0, event: 0, subject_index_state: 0 },
+        fact_collisions: 0,
+      });
     } else {
+      const spansUnits = new Set([
+        ...group.unresolved.map((row) => row.unit),
+        ...group.inserted.map((row) => row.unit),
+      ]).size > 1;
       ambiguous.push({
-        unit: group.unit,
+        unit: group.unresolved[0]?.unit ?? group.inserted[0]!.unit,
         address: group.address,
         unresolved: group.unresolved.map((row) => row.stableKey),
         inserted: group.inserted.map((row) => row.stableKey),
+        ...(spansUnits ? { cross_unit: true as const } : {}),
       });
     }
   }
@@ -172,6 +222,71 @@ function applyRename(store: KnowledgeStoreHandle, pair: RenamePair, reportRevisi
     .run(pair.toId, reportRevision, pair.fromId);
 }
 
+function applyUnitMove(store: KnowledgeStoreHandle, move: MovedUnit): void {
+  const oldFacts = store.db.query<{ id: string; type: string; updated_at: string }, [string]>(
+    "SELECT id, type, updated_at FROM fact WHERE entity_id = ? ORDER BY type, id",
+  ).all(move.fromEntityId);
+  const newFacts = new Map(store.db.query<{ id: string; type: string; updated_at: string }, [string]>(
+    "SELECT id, type, updated_at FROM fact WHERE entity_id = ? ORDER BY type, id",
+  ).all(move.toEntityId).map((row) => [row.type, row]));
+  for (const oldFact of oldFacts) {
+    const newFact = newFacts.get(oldFact.type);
+    if (newFact === undefined) {
+      move.moved_rows.fact += store.db.query("UPDATE fact SET entity_id = ? WHERE id = ?")
+        .run(move.toEntityId, oldFact.id).changes;
+      continue;
+    }
+    move.fact_collisions += 1;
+    if (oldFact.updated_at > newFact.updated_at) {
+      store.db.query("DELETE FROM fact WHERE id = ?").run(newFact.id);
+      move.moved_rows.fact += store.db.query("UPDATE fact SET entity_id = ? WHERE id = ?")
+        .run(move.toEntityId, oldFact.id).changes;
+    } else {
+      store.db.query("DELETE FROM fact WHERE id = ?").run(oldFact.id);
+    }
+  }
+
+  move.moved_rows.target = store.db.query("UPDATE target SET unit_entity_id = ? WHERE unit_entity_id = ?")
+    .run(move.toEntityId, move.fromEntityId).changes;
+  move.moved_rows.entity += store.db.query("UPDATE entity SET parent_entity_id = ? WHERE parent_entity_id = ?")
+    .run(move.toEntityId, move.fromEntityId).changes;
+  move.moved_rows.entity += store.db.query("UPDATE entity SET merged_into_id = ? WHERE merged_into_id = ?")
+    .run(move.toEntityId, move.fromEntityId).changes;
+  move.moved_rows.link = store.db.query(`UPDATE link SET
+    from_entity_id = CASE WHEN from_entity_id = ? THEN ? ELSE from_entity_id END,
+    to_entity_id = CASE WHEN to_entity_id = ? THEN ? ELSE to_entity_id END
+    WHERE from_entity_id = ? OR to_entity_id = ?`).run(
+    move.fromEntityId, move.toEntityId, move.fromEntityId, move.toEntityId, move.fromEntityId, move.fromEntityId,
+  ).changes;
+  move.moved_rows.pull_request = store.db.query("UPDATE pull_request SET entity_id = ? WHERE entity_id = ?")
+    .run(move.toEntityId, move.fromEntityId).changes;
+
+  const oldStamp = store.db.query<{ indexed_at: string }, [string]>(
+    "SELECT indexed_at FROM subject_index_state WHERE entity_id = ?",
+  ).get(move.fromEntityId);
+  if (oldStamp !== null) {
+    const newStamp = store.db.query<{ indexed_at: string }, [string]>(
+      "SELECT indexed_at FROM subject_index_state WHERE entity_id = ?",
+    ).get(move.toEntityId);
+    if (newStamp === null) {
+      move.moved_rows.subject_index_state = store.db.query(
+        "UPDATE subject_index_state SET entity_id = ? WHERE entity_id = ?",
+      ).run(move.toEntityId, move.fromEntityId).changes;
+    } else {
+      if (oldStamp.indexed_at > newStamp.indexed_at) {
+        store.db.query("UPDATE subject_index_state SET indexed_at = ? WHERE entity_id = ?")
+          .run(oldStamp.indexed_at, move.toEntityId);
+      }
+      move.moved_rows.subject_index_state = store.db.query(
+        "DELETE FROM subject_index_state WHERE entity_id = ?",
+      ).run(move.fromEntityId).changes;
+    }
+  }
+
+  store.db.query("UPDATE entity SET identity_status = 'merged', merged_into_id = ? WHERE id = ?")
+    .run(move.toEntityId, move.fromEntityId);
+}
+
 type ReconcileTargetRow = Omit<TargetRowInput, "unitEntityId" | "symbol" | "address"> & {
   unitEntityId: string | null;
   symbol: string | null;
@@ -202,7 +317,8 @@ export function translationUnitEntity(sourcePath: string): EntityRowInput {
 export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileOptions): ReconcileResult {
   const rawReport = readFileSync(options.reportPath, "utf8");
   const report = JSON.parse(rawReport) as ObjdiffReport;
-  const reportRevision = shortHash(rawReport);
+  const reportDigest = shortHash(rawReport);
+  const reportRevision = options.headRevision;
   const updatedAt = (options.now ?? (() => new Date().toISOString()))();
   const desired: TargetRowInput[] = [];
   const desiredUnitEntities = new Map<string, EntityRowInput>();
@@ -312,7 +428,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
   }
 
   const stored = store.db.query<StoredTarget, []>(
-    "SELECT id, kind, stable_key, unit, address, identity_status FROM target WHERE kind IN ('function', 'data')",
+    "SELECT id, kind, stable_key, unit, address, unit_entity_id, identity_status FROM target WHERE kind IN ('function', 'data')",
   ).all();
   const storedByKey = new Map(stored.map((row) => [`${row.kind}:${row.stable_key}`, row]));
   const seenKeys = new Set([...desired.map((row) => `${row.kind}:${row.stableKey}`), ...refusedKeys]);
@@ -332,6 +448,33 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
     ({ locator }) => !existingUnitLocators.has(locator),
   );
   const renames = pairRenames(unresolved, inserted);
+  const desiredById = new Map(desired.map((row) => [row.id, row]));
+  const pairByFromId = new Map(renames.pairs.map((pair) => [pair.fromId, pair]));
+  const currentByUnitEntity = new Map<string, StoredTarget[]>();
+  for (const row of stored.filter((candidate) => candidate.identity_status === "current")) {
+    const rows = currentByUnitEntity.get(row.unit_entity_id) ?? [];
+    rows.push(row);
+    currentByUnitEntity.set(row.unit_entity_id, rows);
+  }
+  const movedUnits: MovedUnit[] = [];
+  for (const [fromEntityId, currentTargets] of currentByUnitEntity) {
+    const pairs = currentTargets.map((row) => pairByFromId.get(row.id));
+    if (pairs.some((pair) => pair === undefined)) continue;
+    const destinations = new Set(pairs.map((pair) => desiredById.get(pair!.toId)?.unitEntityId));
+    if (destinations.size !== 1) continue;
+    const toEntityId = [...destinations][0];
+    if (toEntityId === undefined || toEntityId === fromEntityId) continue;
+    movedUnits.push({
+      fromEntityId,
+      toEntityId,
+      from_unit: currentTargets[0]!.unit,
+      to_unit: pairs[0]!.to_unit,
+      targets: currentTargets.length,
+      entity_merged: true,
+      moved_rows: { target: 0, entity: 0, fact: 0, link: 0, pull_request: 0, subject_index_state: 0 },
+      fact_collisions: 0,
+    });
+  }
 
   const applyMutations = (): void => {
     insertEntitiesIfMissing(store, unitEntitiesInserted);
@@ -357,6 +500,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
       try {
         applyMutations();
         for (const pair of renames.pairs) applyRename(store, pair, reportRevision);
+        for (const move of movedUnits) applyUnitMove(store, move);
       } catch (error) {
         mutationFailed = true;
         mutationError = error;
@@ -371,10 +515,12 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
   } else {
     immediateTransaction(store.db, applyMutations);
     for (const pair of renames.pairs) immediateTransaction(store.db, () => applyRename(store, pair, reportRevision));
+    for (const move of movedUnits) immediateTransaction(store.db, () => applyUnitMove(store, move));
   }
 
   return {
     reportRevision,
+    report_digest: reportDigest,
     unitsInserted: unitEntitiesInserted.length,
     functionsInserted: inserted.filter((row) => row.kind === "function").length,
     dataInserted: inserted.filter((row) => row.kind === "data").length,
@@ -387,6 +533,7 @@ export function reconcileReport(store: KnowledgeStoreHandle, options: ReconcileO
       applied: renames.pairs.length,
       ambiguous: renames.ambiguous,
       pairs: renames.pairs.map(({ fromId: _fromId, toId: _toId, ...pair }) => pair),
+      moved_units: movedUnits.map(({ fromEntityId: _fromEntityId, toEntityId: _toEntityId, ...move }) => move),
     },
   };
 }

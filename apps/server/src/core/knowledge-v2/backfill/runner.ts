@@ -18,6 +18,7 @@ import {
   type SharedGate,
 } from "../apply/index.js";
 import type { KnowledgeIndexDb } from "../index/db.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import {
   prioritizeTargets,
   type PrioritizedTargetRow,
@@ -93,6 +94,7 @@ export interface BackfillPassDeps {
   sharedWriteGate: SharedGate;
   dryRun?: boolean;
   checkoutRoot?: string;
+  headRevision?: string;
   prsRoot?: string;
   timeoutMs?: number;
   runPiAgent?: typeof runPiAgent;
@@ -113,6 +115,7 @@ export interface BackfillRunOptions {
   dryRun?: boolean;
   stopFile?: string;
   checkoutRoot?: string;
+  headRevision?: string;
   prsRoot?: string;
   timeoutMs?: number;
   runPiAgent?: typeof runPiAgent;
@@ -332,9 +335,17 @@ export async function runPass(
   let modelMs = 0;
   let applyMs = 0;
   try {
+    const checkout = resolveKnowledgeCheckout({
+      gameId: deps.globals.gameId ?? "melee",
+      stateDir: deps.globals.stateDir,
+      explicitCheckoutRoot: deps.checkoutRoot,
+    });
+    const checkoutRoot = checkout.checkoutRoot;
+    const headRevision = deps.headRevision ?? checkout.headRevision;
     const contextStarted = clockMs();
     const context = buildPassContext(store, target, {
-      checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
+      checkoutRoot,
+      checkoutRev: headRevision,
       graphDbPath: deps.globals.graphDbPath,
     });
     contextMs = clockMs() - contextStarted;
@@ -353,7 +364,8 @@ export async function runPass(
     const applyReport = await applyLibrarianPass(store, proposal, {
       scope: context.scope,
       sharedWriteGate: deps.sharedWriteGate,
-      checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
+      checkoutRoot,
+      headRevision,
       prsRoot: deps.prsRoot,
       dryRun: deps.dryRun,
       now: () => indexedAt,
@@ -463,6 +475,11 @@ export async function runBackfill(
   validateRunOptions(options);
   const clockMs = options.clockMs ?? Date.now;
   const startedMs = clockMs();
+  const checkout = resolveKnowledgeCheckout({
+    gameId: options.globals.gameId ?? "melee",
+    stateDir: options.globals.stateDir,
+    explicitCheckoutRoot: options.checkoutRoot,
+  });
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const maxConsecutiveFailures = options.maxConsecutiveFailures ?? 5;
   const stopFile = options.stopFile
@@ -520,7 +537,8 @@ export async function runBackfill(
           globals: options.globals,
           sharedWriteGate,
           dryRun: options.dryRun,
-          checkoutRoot: options.checkoutRoot,
+          checkoutRoot: checkout.checkoutRoot,
+          headRevision: options.headRevision ?? checkout.headRevision,
           prsRoot: options.prsRoot,
           timeoutMs: options.timeoutMs,
           runPiAgent: options.runPiAgent,

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { openKnowledgeStore } from "../storage/store.js";
 import * as entitiesModule from "./entities.js";
@@ -15,6 +16,14 @@ const temporaryRoots: string[] = [];
 function temporaryRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "kg2-ingest-cli-test-"));
   temporaryRoots.push(root);
+  const checkout = join(root, "checkout");
+  mkdirSync(checkout, { recursive: true });
+  execFileSync("git", ["-C", checkout, "init", "-q"]);
+  execFileSync("git", ["-C", checkout, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", checkout, "config", "user.name", "Test"]);
+  writeFileSync(join(checkout, "README"), "fixture");
+  execFileSync("git", ["-C", checkout, "add", "."]);
+  execFileSync("git", ["-C", checkout, "commit", "-qm", "fixture"]);
   return root;
 }
 
@@ -37,8 +46,6 @@ describe("resolveIngestPaths", () => {
       discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
       wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
       prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-      reportPath: resolve("/fixture/game/checkout/build/GALE01/report.json"),
-      checkoutRoot: resolve("/fixture/game/checkout"),
       orchestratorDbPath: resolve("/fixture/game/state/orchestrator.sqlite"),
     });
   });
@@ -54,7 +61,11 @@ describe("kg2Ingest", () => {
     const gameRoot = temporaryRoot();
     const knowledgeRoot = join(gameRoot, "knowledge");
     createEmptyWikiMirror(knowledgeRoot);
-    const paths = resolveIngestPaths(knowledgeRoot);
+    const paths = {
+      ...resolveIngestPaths(knowledgeRoot),
+      checkoutRoot: join(gameRoot, "checkout"),
+      reportPath: join(gameRoot, "checkout/build/GALE01/report.json"),
+    };
     mkdirSync(paths.prsRoot, { recursive: true });
     mkdirSync(resolve(paths.reportPath, ".."), { recursive: true });
     writeFileSync(paths.reportPath, JSON.stringify({ units: [] }));
@@ -92,8 +103,8 @@ describe("kg2Ingest", () => {
       extractEntities.mockRestore();
     }
 
-    expect(JSON.parse(output[0]!)).toMatchObject({ lane: "sync" });
-    expect(JSON.parse(output[0]!).results).not.toHaveProperty("wiki");
+    expect(JSON.parse(output.at(-1)!)).toMatchObject({ lane: "sync" });
+    expect(JSON.parse(output.at(-1)!).results).not.toHaveProperty("wiki");
     expect(errors).toContain("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
   });
 
@@ -115,7 +126,7 @@ describe("kg2Ingest", () => {
       error.mockRestore();
     }
 
-    expect(JSON.parse(output[0]!).results).not.toHaveProperty("wiki");
+    expect(JSON.parse(output.at(-1)!).results).not.toHaveProperty("wiki");
     expect(errors).toContain("[kg2-ingest] wiki skipped by design; run with --lane wiki to import it");
   });
 
@@ -134,7 +145,7 @@ describe("kg2Ingest", () => {
       log.mockRestore();
     }
 
-    expect(JSON.parse(output[0]!).results).toHaveProperty("wiki");
+    expect(JSON.parse(output.at(-1)!).results).toHaveProperty("wiki");
   });
 
   test("resets only wiki archival ingest data before importing wiki", async () => {
@@ -167,7 +178,7 @@ describe("kg2Ingest", () => {
     expect(reopened.db.query("SELECT id FROM index_task ORDER BY id").all()).toEqual([{ id: "discord-task" }]);
     expect(reopened.db.query("SELECT id FROM discord_message").all()).toEqual([{ id: "discord-1" }]);
     reopened.close();
-    expect(JSON.parse(output[0]!)).toMatchObject({
+    expect(JSON.parse(output.at(-1)!)).toMatchObject({
       results: { reset: { source: "wiki", wikiSections: 1, watermarks: 1, indexTasks: 1 } },
     });
   });
@@ -227,7 +238,7 @@ describe("kg2Ingest", () => {
     expect(reopened.db.query("SELECT source FROM source_watermark WHERE source = 'wiki'").all()).toEqual([{ source: "wiki" }]);
     expect(reopened.db.query("SELECT id FROM index_task").all()).toEqual([{ id: "wiki-task" }]);
     reopened.close();
-    expect(JSON.parse(output[0]!)).toMatchObject({
+    expect(JSON.parse(output.at(-1)!)).toMatchObject({
       dryRun: true,
       results: { reset: { source: "wiki", wikiSections: 1, watermarks: 1, indexTasks: 1 } },
     });
@@ -274,8 +285,8 @@ describe("kg2Ingest", () => {
       log.mockRestore();
     }
 
-    expect(output).toHaveLength(1);
-    expect(JSON.parse(output[0]!)).toMatchObject({
+    expect(output).toHaveLength(2);
+    expect(JSON.parse(output.at(-1)!)).toMatchObject({
       lane: "reconcile",
       dryRun: true,
       results: {

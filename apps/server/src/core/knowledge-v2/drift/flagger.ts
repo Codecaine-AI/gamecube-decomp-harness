@@ -5,6 +5,7 @@ import type {
   SubjectRef,
 } from "../records/index.js";
 import { resolveCodeCitation } from "../apply/resolver.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 
 export type DriftEvidenceStatus = "unchanged" | "drifted" | "unresolvable";
 
@@ -28,7 +29,9 @@ export interface DriftReport {
 
 export interface FlagCodeDriftOptions {
   subject: SubjectRef;
-  checkoutRoot: string;
+  checkoutRoot?: string;
+  gameId?: string;
+  stateDir?: string;
   headRevision?: string;
 }
 
@@ -40,7 +43,7 @@ interface CodeEvidenceRow {
   digest: string;
 }
 
-function checkoutRevision(checkoutRoot: string): string {
+export function checkoutRevision(checkoutRoot: string): string {
   try {
     const result = Bun.spawnSync(
       ["git", "-C", checkoutRoot, "rev-parse", "--short", "HEAD"],
@@ -78,7 +81,13 @@ export function flagCodeDrift(
   store: KnowledgeStoreHandle,
   options: FlagCodeDriftOptions,
 ): DriftReport {
-  const headRevision = options.headRevision?.trim() || checkoutRevision(options.checkoutRoot);
+  const resolvedCheckout = options.checkoutRoot === undefined
+    ? resolveKnowledgeCheckout({ gameId: options.gameId ?? "melee", stateDir: options.stateDir })
+    : undefined;
+  const checkoutRoot = options.checkoutRoot ?? resolvedCheckout!.checkoutRoot;
+  const headRevision = options.headRevision?.trim()
+    || resolvedCheckout?.headRevision
+    || checkoutRevision(checkoutRoot);
   const evidence = codeEvidenceRows(store, options.subject).map((row): DriftEvidenceEntry => {
     let parsed: ReturnType<typeof parseLocator>;
     try {
@@ -111,7 +120,7 @@ export function flagCodeDrift(
       parsed.path,
       parsed.startLine,
       parsed.endLine,
-      options.checkoutRoot,
+      checkoutRoot,
     );
     if (!resolution.ok || resolution.digest === null) {
       return {

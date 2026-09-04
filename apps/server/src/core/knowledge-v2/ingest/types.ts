@@ -39,6 +39,7 @@ export interface AttemptsImportResult extends LaneCounts {
 
 export interface ReconcileResult {
   reportRevision: string;
+  report_digest: string;
   unitsInserted: number;
   functionsInserted: number;
   dataInserted: number;
@@ -54,10 +55,13 @@ export interface ReconcileResult {
       address: string;
       unresolved: string[];
       inserted: string[];
+      cross_unit?: true;
     }>;
     pairs: Array<{
       from_stable_key: string;
       to_stable_key: string;
+      from_unit: string;
+      to_unit: string;
       address: string;
       moved_rows: {
         fact: number;
@@ -65,6 +69,21 @@ export interface ReconcileResult {
         worker_run: number;
         pull_request: number;
         event: number;
+        subject_index_state: number;
+      };
+      fact_collisions: number;
+    }>;
+    moved_units: Array<{
+      from_unit: string;
+      to_unit: string;
+      targets: number;
+      entity_merged: boolean;
+      moved_rows: {
+        target: number;
+        entity: number;
+        fact: number;
+        link: number;
+        pull_request: number;
         subject_index_state: number;
       };
       fact_collisions: number;

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import { openKnowledgeStore } from "../storage/store.js";
 import { immediateTransaction } from "../storage/transaction.js";
 import { importAttempts } from "./attempts.js";
@@ -36,15 +37,15 @@ export interface IngestPaths {
   orchestratorDbPath: string;
 }
 
-export function resolveIngestPaths(knowledgeRoot: string): IngestPaths {
+export type IngestSourcePaths = Omit<IngestPaths, "reportPath" | "checkoutRoot">;
+
+export function resolveIngestPaths(knowledgeRoot: string): IngestSourcePaths {
   const gameRoot = dirname(knowledgeRoot);
   return {
     discordRawRoot: resolve(knowledgeRoot, "sources/rag_search/discord_raw/data/raw"),
     discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
     wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
     prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-    reportPath: resolve(gameRoot, "checkout/build/GALE01/report.json"),
-    checkoutRoot: resolve(gameRoot, "checkout"),
     orchestratorDbPath: resolve(gameRoot, "state/orchestrator.sqlite"),
   };
 }
@@ -113,12 +114,21 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     : gameKnowledgeRoot(gameId);
   const knowledgeRoot = resolve(stringArg(args, "--knowledge-root", defaultKnowledgeRoot));
   const defaults = resolveIngestPaths(knowledgeRoot);
+  const checkout = resolveKnowledgeCheckout({
+    gameId,
+    stateDir: globals.stateDir ?? resolve(dirname(knowledgeRoot), "state"),
+    explicitCheckoutRoot: args.has("--checkout-root")
+      ? stringArg(args, "--checkout-root", "")
+      : undefined,
+    explicitReportPath: args.has("--report") ? stringArg(args, "--report", "") : undefined,
+  });
   const paths: IngestPaths = {
     ...defaults,
-    reportPath: resolve(stringArg(args, "--report", defaults.reportPath)),
-    checkoutRoot: resolve(stringArg(args, "--checkout-root", defaults.checkoutRoot)),
+    reportPath: checkout.reportPath,
+    checkoutRoot: checkout.checkoutRoot,
     orchestratorDbPath: resolve(stringArg(args, "--orchestrator-db", defaults.orchestratorDbPath)),
   };
+  console.log(`[kg2-ingest] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
   let temporaryRoot: string | undefined;
   const storeRoot = dryRun && !existsSync(resolve(knowledgeRoot, "knowledge.sqlite"))
     ? (temporaryRoot = mkdtempSync(resolve(tmpdir(), "kg2-ingest-")))
@@ -138,7 +148,11 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     }
     // Reconcile first so rename continuity is available to PR tasks as renamed_from.
     if (selected("reconcile")) {
-      if (existsSync(paths.reportPath)) results.reconcile = reconcileReport(store, { reportPath: paths.reportPath, dryRun });
+      if (existsSync(paths.reportPath)) results.reconcile = reconcileReport(store, {
+        reportPath: paths.reportPath,
+        headRevision: checkout.headRevision,
+        dryRun,
+      });
       else skip("reconcile", paths.reportPath);
     }
     if (selected("entities")) {

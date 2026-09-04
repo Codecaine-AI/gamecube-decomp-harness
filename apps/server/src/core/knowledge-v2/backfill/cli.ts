@@ -2,6 +2,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:f
 import { dirname, resolve } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import {
   KNOWLEDGE_INDEX_DB_FILENAME,
   openKnowledgeIndexDb,
@@ -64,6 +65,12 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
   const concurrency = positiveIntegerArg(args, "--concurrency", 4);
   const maxConsecutiveFailures = positiveIntegerArg(args, "--max-consecutive-failures", 5);
   const minDirectScore = optionalNonNegativeNumberArg(args, "--min-direct-score");
+  const checkout = resolveKnowledgeCheckout({
+    gameId,
+    stateDir: globals.stateDir,
+    explicitCheckoutRoot: optionalStringArg(args, "--checkout-root"),
+  });
+  console.log(`[kg2-backfill] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
   let store: KnowledgeStore | undefined;
   let indexDb: KnowledgeIndexDb | undefined;
   const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
@@ -83,6 +90,8 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
       dryRun,
       stopFile,
       globals,
+      checkoutRoot: checkout.checkoutRoot,
+      headRevision: checkout.headRevision,
       indexDb,
       prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
     });

@@ -57,8 +57,9 @@ describe("reconcileReport", () => {
       }],
     });
 
-    expect(reconcileReport(store, { reportPath, now: () => "2026-01-01T00:00:00.000Z" })).toEqual({
-      reportRevision: revision,
+    expect(reconcileReport(store, { reportPath, headRevision: "fixture-head", now: () => "2026-01-01T00:00:00.000Z" })).toEqual({
+      reportRevision: "fixture-head",
+      report_digest: revision,
       unitsInserted: 1,
       functionsInserted: 2,
       dataInserted: 0,
@@ -67,7 +68,7 @@ describe("reconcileReport", () => {
       statusesUpserted: 2,
       skippedMalformed: 0,
       skippedMalformedSample: [],
-      renames: { applied: 0, ambiguous: [], pairs: [] },
+      renames: { applied: 0, ambiguous: [], pairs: [], moved_units: [] },
     });
     expect(store.db.query("SELECT id, kind, locator FROM entity").all()).toEqual([{
       id: "translation_unit:src/melee/lb/lblanguage.c",
@@ -75,12 +76,12 @@ describe("reconcileReport", () => {
       locator: "src/melee/lb/lblanguage.c",
     }]);
     expect(targets(store)).toEqual([
-      { id: "target:function:main/melee/lb/lblanguage:lbLangGet", kind: "function", stable_key: "main/melee/lb/lblanguage:lbLangGet", address: "0x80005C18", unit_entity_id: "translation_unit:src/melee/lb/lblanguage.c", identity_status: "current", report_revision: revision },
-      { id: "target:function:main/melee/lb/lblanguage:lbLangInit", kind: "function", stable_key: "main/melee/lb/lblanguage:lbLangInit", address: "0x80005C0C", unit_entity_id: "translation_unit:src/melee/lb/lblanguage.c", identity_status: "current", report_revision: revision },
+      { id: "target:function:main/melee/lb/lblanguage:lbLangGet", kind: "function", stable_key: "main/melee/lb/lblanguage:lbLangGet", address: "0x80005C18", unit_entity_id: "translation_unit:src/melee/lb/lblanguage.c", identity_status: "current", report_revision: "fixture-head" },
+      { id: "target:function:main/melee/lb/lblanguage:lbLangInit", kind: "function", stable_key: "main/melee/lb/lblanguage:lbLangInit", address: "0x80005C0C", unit_entity_id: "translation_unit:src/melee/lb/lblanguage.c", identity_status: "current", report_revision: "fixture-head" },
     ]);
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM target WHERE kind = 'unit'").get()?.count).toBe(0);
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM target_status").get()?.count).toBe(2);
-    expect(reconcileReport(store, { reportPath })).toMatchObject({ unitsInserted: 0, functionsInserted: 0, refreshed: 2, statusesUpserted: 2 });
+    expect(reconcileReport(store, { reportPath, headRevision: "fixture-head" })).toMatchObject({ unitsInserted: 0, functionsInserted: 0, refreshed: 2, statusesUpserted: 2 });
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM entity").get()?.count).toBe(1);
   });
 
@@ -103,7 +104,7 @@ describe("reconcileReport", () => {
       }],
     });
 
-    const result = reconcileReport(store, { reportPath, now: () => "2026-03-01T00:00:00.000Z" });
+    const result = reconcileReport(store, { reportPath, headRevision: "fixture-head", now: () => "2026-03-01T00:00:00.000Z" });
     expect(result).toMatchObject({ unitsInserted: 1, functionsInserted: 1, dataInserted: 2, statusesUpserted: 2, skippedMalformed: 2 });
     expect(result.skippedMalformedSample.map(({ symbol }) => symbol)).toEqual(["pad_00_80003298_init", ".init"]);
     expect(result.skippedMalformedSample.every(({ reason }) => reason.includes("address"))).toBe(true);
@@ -121,19 +122,19 @@ describe("reconcileReport", () => {
   test("marks vanished function and data targets unresolved", () => {
     const { store, reportPath } = fixture();
     writeReport(reportPath, { units: [{ name: "main/test/drift", functions: [{ name: "Gone", fuzzy_match_percent: 10, metadata: { virtual_address: "2147491840" } }], sections: [{ name: ".data", fuzzy_match_percent: 20, metadata: { virtual_address: "2147491844" } }], metadata: { source_path: "src/test/drift.c" } }] });
-    reconcileReport(store, { reportPath });
-    const revision = writeReport(reportPath, { units: [{ name: "main/test/drift", functions: [], sections: [], metadata: { source_path: "src/test/drift.c" } }] });
-    expect(reconcileReport(store, { reportPath }).unresolved).toBe(2);
+    reconcileReport(store, { reportPath, headRevision: "fixture-head" });
+    writeReport(reportPath, { units: [{ name: "main/test/drift", functions: [], sections: [], metadata: { source_path: "src/test/drift.c" } }] });
+    expect(reconcileReport(store, { reportPath, headRevision: "fixture-head" }).unresolved).toBe(2);
     expect(targets(store).map(({ identity_status, report_revision }) => ({ identity_status, report_revision }))).toEqual([
-      { identity_status: "unresolved", report_revision: revision },
-      { identity_status: "unresolved", report_revision: revision },
+      { identity_status: "unresolved", report_revision: "fixture-head" },
+      { identity_status: "unresolved", report_revision: "fixture-head" },
     ]);
   });
 
   test("dry run reports entity and target inserts while rolling every mutation back", () => {
     const { store, reportPath } = fixture();
     writeReport(reportPath, { units: [{ name: "main/test/dry", functions: [{ name: "Dry", fuzzy_match_percent: 25, metadata: { virtual_address: "2147483648" } }], metadata: { source_path: "src/test/dry.c" } }] });
-    expect(reconcileReport(store, { reportPath, dryRun: true })).toMatchObject({ unitsInserted: 1, functionsInserted: 1, statusesUpserted: 1 });
+    expect(reconcileReport(store, { reportPath, headRevision: "fixture-head", dryRun: true })).toMatchObject({ unitsInserted: 1, functionsInserted: 1, statusesUpserted: 1 });
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM entity").get()?.count).toBe(0);
     expect(targets(store)).toEqual([]);
   });
@@ -143,7 +144,7 @@ describe("reconcileReport", () => {
     store.db.query(`INSERT INTO entity (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
       VALUES (?, 'translation_unit', ?, NULL, 'retired', NULL)`).run("translation_unit:src/test/existing.c", "src/test/existing.c");
     writeReport(reportPath, { units: [{ name: "main/test/existing", functions: [{ name: "Existing", metadata: { virtual_address: "2147483652" } }], metadata: { source_path: "src/test/existing.c" } }] });
-    expect(reconcileReport(store, { reportPath }).unitsInserted).toBe(0);
+    expect(reconcileReport(store, { reportPath, headRevision: "fixture-head" }).unitsInserted).toBe(0);
     expect(store.db.query("SELECT identity_status FROM entity").get()).toEqual({ identity_status: "retired" });
   });
 
