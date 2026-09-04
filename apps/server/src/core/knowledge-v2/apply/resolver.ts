@@ -25,7 +25,7 @@ export type CitationResolutionReason =
 
 export type CitationResolution =
   | { ok: true; digest: string | null }
-  | { ok: false; reason: CitationResolutionReason };
+  | { ok: false; reason: CitationResolutionReason; lineCount?: number };
 
 function exists(
   store: KnowledgeStoreHandle,
@@ -59,7 +59,7 @@ export function resolveCodeCitation(
   const lines = content.length === 0 ? [] : content.split("\n");
   if (lines.at(-1) === "") lines.pop();
   if (startLine > endLine || endLine > lines.length) {
-    return { ok: false, reason: "code_span_out_of_range" };
+    return { ok: false, reason: "code_span_out_of_range", lineCount: lines.length };
   }
 
   const span = lines.slice(startLine - 1, endLine).join("\n");

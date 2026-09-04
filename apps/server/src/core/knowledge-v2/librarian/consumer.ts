@@ -1,4 +1,5 @@
 import { globalStandardsContext } from "@server/core/knowledge";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -84,12 +85,22 @@ export interface LibrarianPassArtifact {
   model: string;
   dry_run: boolean;
   drift_gate: LibrarianDriftGateResult;
+  validation_gate: LibrarianValidationGateResult;
+  validation_rejections?: LibrarianValidationRejection[];
+  retry_proposal?: LibrarianPassEnvelope;
+  follow_ups_enqueued?: string[];
+  follow_ups_projected?: string[];
   remaining_drift?: LibrarianRemainingDrift[];
   drift_attempts?: number;
   warning?: string;
 }
 
 export type LibrarianDriftGateResult = "skipped" | "clean" | "released" | "warned";
+export type LibrarianValidationGateResult = "clean" | "retried" | "warned";
+
+export type LibrarianValidationRejection =
+  | Pick<Extract<ApplyItemResult, { action: "rejected" }>, "index" | "itemKind" | "item" | "reason" | "message">
+  | ApplyReport["envelope_rejections"][number];
 
 export type LibrarianRemainingDrift = (
   | { target_id: string }
@@ -107,6 +118,9 @@ export interface LibrarianPassResult {
   timings: LibrarianPassTimings;
   artifactPath: string;
   stamped: { targetIds: string[]; entityIds: string[] };
+  driftGate: LibrarianDriftGateResult;
+  validationGate: LibrarianValidationGateResult;
+  followUpsEnqueued: string[];
 }
 
 export interface LibrarianRunLog {
@@ -173,6 +187,9 @@ export interface LibrarianSummary {
   failedTaskIds: string[];
   tasksSplit: number;
   childrenEnqueued: number;
+  driftGates?: Record<LibrarianDriftGateResult, number>;
+  validationGates?: Record<LibrarianValidationGateResult, number>;
+  followUpsEnqueued?: number;
   tasksRemaining: number;
   aborted: boolean;
   stopped: boolean;
@@ -259,6 +276,7 @@ async function modelProposal(
   context: LibrarianTaskContext,
   deps: LibrarianPassDeps,
   outputDir: string,
+  retry?: { previous_proposal: LibrarianPassEnvelope; rejections: LibrarianValidationRejection[] },
 ): Promise<LibrarianPassEnvelope> {
   const timeoutMs = deps.timeoutMs
     ?? (deps.globals.agentTimeoutSeconds || DEFAULT_TIMEOUT_MS / 1_000) * 1_000;
@@ -279,6 +297,8 @@ async function modelProposal(
       touchedSubjects: context.touched,
       supportingSubjects: context.supporting,
       decompStandards: librarianStandardsView(globalStandardsContext()),
+      headRevision: context.head_revision,
+      ...(retry === undefined ? {} : { retry }),
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,
@@ -329,6 +349,84 @@ async function modelProposal(
     throw new Error(parsed.error ?? "librarian-v2 output was not JSON");
   }
   return validateEnvelope(parsed.object);
+}
+
+function validationRejections(report: ApplyReport): LibrarianValidationRejection[] {
+  const rejectedItems: LibrarianValidationRejection[] = [
+    ...report.items,
+    ...report.follow_ups,
+  ].flatMap((item) => item.action === "rejected" ? [{
+    index: item.index,
+    itemKind: item.itemKind,
+    item: item.item,
+    reason: item.reason,
+    message: item.message,
+  }] : []);
+  return [...rejectedItems, ...report.envelope_rejections];
+}
+
+function renamedSubjects(context: LibrarianTaskContext): string[] {
+  return context.touched.flatMap((subject) =>
+    subject.kind === "target" && subject.renamed_from.length > 0
+      ? [subject.target_stable_key]
+      : []);
+}
+
+function hasPendingDriftRecheck(store: KnowledgeStoreHandle, subject: SubjectRef): boolean {
+  const key = subject.targetId !== undefined ? "target_id" : "entity_id";
+  const value = subject.targetId ?? subject.entityId;
+  return store.db.query<{ found: number }, [string]>(`
+    SELECT 1 AS found
+    FROM index_task
+    WHERE pathway = 'drift_recheck'
+      AND done_at IS NULL
+      AND CASE WHEN json_valid(payload)
+        THEN COALESCE(
+          json_extract(payload, '$.${key}'),
+          json_extract(payload, '$.task_payload.${key}')
+        )
+      END = ?
+    LIMIT 1
+  `).get(value) !== null;
+}
+
+function enqueueFollowUps(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+  report: ApplyReport,
+  enqueuedAt: string,
+  dryRun: boolean,
+): string[] {
+  const taskIds: string[] = [];
+  for (const result of report.follow_ups) {
+    if (result.action !== "applied" || result.subject === undefined || !record(result.item)) continue;
+    const subject: SubjectRef = "targetId" in result.subject
+      ? { targetId: result.subject.targetId }
+      : { entityId: result.subject.entityId };
+    const why = String(result.item.why ?? "");
+    const enqueued = immediateTransaction(store.db, () => {
+      if (hasPendingDriftRecheck(store, subject)) return false;
+      const id = `task:drift_recheck:${randomUUID()}`;
+      taskIds.push(id);
+      if (!dryRun) {
+        enqueueIndexTask(store, {
+          id,
+          pathway: "drift_recheck",
+          payload: JSON.stringify({
+            ...(subject.targetId !== undefined
+              ? { target_id: subject.targetId }
+              : { entity_id: subject.entityId }),
+            reason: `follow_up: ${why}`,
+            requested_by_task: task.id,
+          }),
+          enqueuedAt,
+        });
+      }
+      return true;
+    });
+    if (!enqueued) taskIds.pop();
+  }
+  return taskIds;
 }
 
 function subjectLocatorsFromAppliedItems(items: ApplyItemResult[]): {
@@ -506,7 +604,7 @@ export async function runLibrarianPass(
     }
 
     const modelStarted = clockMs();
-    const proposal = await modelProposal(
+    const firstProposal = await modelProposal(
       task,
       context,
       deps,
@@ -514,17 +612,55 @@ export async function runLibrarianPass(
     );
     modelMs = clockMs() - modelStarted;
 
-    const applyStarted = clockMs();
     const indexedAt = now();
-    const applyReport = await applyLibrarianPass(store, proposal, {
+    const baseApplyOptions = {
       scope: context.scope,
       sharedWriteGate: deps.sharedWriteGate,
       checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
       prsRoot: deps.prsRoot,
-      dryRun,
+      headRevision: context.head_revision,
+      renamedSubjects: renamedSubjects(context),
       now: () => indexedAt,
       ...(requiredCitation === undefined ? {} : { requiredCitation }),
+    };
+    let validationStarted = clockMs();
+    const validationReport = await applyLibrarianPass(store, firstProposal, {
+      ...baseApplyOptions,
+      dryRun: true,
     });
+    applyMs += clockMs() - validationStarted;
+    const firstRejections = validationRejections(validationReport);
+    let proposal = firstProposal;
+    let retryProposal: LibrarianPassEnvelope | undefined;
+    if (firstRejections.length > 0) {
+      const retryStarted = clockMs();
+      retryProposal = await modelProposal(
+        task,
+        context,
+        deps,
+        resolve(directory, "agent-output", slug, "retry"),
+        { previous_proposal: firstProposal, rejections: firstRejections },
+      );
+      modelMs += clockMs() - retryStarted;
+      proposal = retryProposal;
+    }
+
+    const applyStarted = clockMs();
+    const applyReport = await applyLibrarianPass(store, proposal, {
+      ...baseApplyOptions,
+      dryRun,
+    });
+    applyMs += clockMs() - applyStarted;
+    const remainingValidationRejections = validationRejections(applyReport);
+    const validationGate: LibrarianValidationGateResult = firstRejections.length === 0
+      ? "clean"
+      : remainingValidationRejections.length === 0 ? "retried" : "warned";
+    if (validationGate === "warned") {
+      console.warn(
+        `kg2-librarian: task ${task.id} still has validation rejections after retry: ${remainingValidationRejections.map(({ reason }) => reason).join(", ")}`,
+      );
+    }
+    const followUpTaskIds = enqueueFollowUps(store, task, applyReport, indexedAt, dryRun);
     let stamped = { targetIds: [] as string[], entityIds: [] as string[] };
     let remainingDrift: LibrarianRemainingDrift[] | undefined;
     let driftAttempts: number | undefined;
@@ -567,8 +703,6 @@ export async function runLibrarianPass(
         completeIndexTask(store, task.id, indexedAt);
       }
     }
-    applyMs = clockMs() - applyStarted;
-
     const endedAt = now();
     const timings: LibrarianPassTimings = {
       startedAt,
@@ -588,6 +722,12 @@ export async function runLibrarianPass(
       model: deps.globals.model,
       dry_run: dryRun,
       drift_gate: driftGate,
+      validation_gate: validationGate,
+      ...(firstRejections.length === 0 ? {} : { validation_rejections: firstRejections }),
+      ...(retryProposal === undefined ? {} : { retry_proposal: retryProposal }),
+      ...(dryRun
+        ? { follow_ups_projected: followUpTaskIds }
+        : { follow_ups_enqueued: followUpTaskIds }),
       ...(remainingDrift === undefined || remainingDrift.length === 0
         ? {}
         : { remaining_drift: remainingDrift }),
@@ -605,6 +745,12 @@ export async function runLibrarianPass(
         : "completed",
       dry_run: dryRun,
       drift_gate: driftGate,
+      validation_gate: validationGate,
+      ...(firstRejections.length === 0 ? {} : { validation_rejections: firstRejections }),
+      ...(retryProposal === undefined ? {} : { retry_proposal: retryProposal }),
+      ...(dryRun
+        ? { follow_ups_projected: followUpTaskIds }
+        : { follow_ups_enqueued: followUpTaskIds }),
       claim,
       stamped,
       apply_report: applyReport,
@@ -616,7 +762,18 @@ export async function runLibrarianPass(
       timings,
       artifact_path: artifactPath,
     });
-    return { task, context, proposal, applyReport, timings, artifactPath, stamped };
+    return {
+      task,
+      context,
+      proposal,
+      applyReport,
+      timings,
+      artifactPath,
+      stamped,
+      driftGate,
+      validationGate,
+      followUpsEnqueued: dryRun ? [] : followUpTaskIds,
+    };
   } catch (error) {
     await runLog.append({
       run_id: deps.runId,
@@ -830,6 +987,18 @@ export async function runLibrarianConsumer(
   const failedTaskIds: string[] = [];
   let tasksSplit = 0;
   let childrenEnqueued = 0;
+  const driftGates: Record<LibrarianDriftGateResult, number> = {
+    skipped: 0,
+    clean: 0,
+    released: 0,
+    warned: 0,
+  };
+  const validationGates: Record<LibrarianValidationGateResult, number> = {
+    clean: 0,
+    retried: 0,
+    warned: 0,
+  };
+  let followUpsEnqueued = 0;
   const passDurations: number[] = [];
 
   const claim = async (): Promise<LibrarianTaskRow | undefined> => {
@@ -925,6 +1094,9 @@ export async function runLibrarianConsumer(
         itemsApplied += counts.applied;
         itemsRejected += counts.rejected;
         itemsSkipped += counts.skipped;
+        driftGates[result.driftGate] += 1;
+        validationGates[result.validationGate] += 1;
+        followUpsEnqueued += result.followUpsEnqueued.length;
       } catch {
         passesFailed += 1;
         failedTaskIds.push(task.id);
@@ -950,6 +1122,9 @@ export async function runLibrarianConsumer(
     failedTaskIds,
     tasksSplit,
     childrenEnqueued,
+    driftGates,
+    validationGates,
+    followUpsEnqueued,
     tasksRemaining: countQueuedTasks(store, options.pathway),
     aborted,
     stopped,

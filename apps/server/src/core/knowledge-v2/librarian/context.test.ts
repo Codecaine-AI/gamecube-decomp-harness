@@ -166,6 +166,8 @@ function fixtureOptions(store: KnowledgeStore, prsRoot?: string) {
 }
 
 function assertOrderingAndScope(context: LibrarianTaskContext): void {
+  expect(context.head_revision).toBeString();
+  expect(context.head_revision.length).toBeGreaterThan(0);
   expect(context.touched.map(({ order }) => order)).toEqual(
     context.touched.map((_, index) => index + 1),
   );
@@ -1013,7 +1015,11 @@ describe("buildTaskContext", () => {
     ];
 
     for (const [pathway, payload] of cases) {
-      const context = buildTaskContext(store, task(pathway, payload), fixtureOptions(store));
+      const context = buildTaskContext(store, task(pathway, payload), {
+        ...fixtureOptions(store),
+        checkoutRev: "fixture-head",
+      });
+      expect(context.head_revision).toBe("fixture-head");
       expect(typeof (context.object as { error?: unknown }).error).toBe("string");
       expect(context.touched).toEqual([]);
       expect(context.supporting).toEqual([]);

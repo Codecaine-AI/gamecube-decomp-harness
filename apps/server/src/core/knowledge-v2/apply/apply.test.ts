@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   applyLibrarianPass,
   createSharedGate,
+  REJECTION_MESSAGES,
   type ApplyOptions,
 } from "./index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
@@ -262,6 +263,7 @@ describe("full happy path", () => {
       links: [link],
       entities: [entity],
       merges: [merge],
+      follow_ups: [],
     };
 
     const report = await applyLibrarianPass(store, proposal, applyOptions(makeTempDir("checkout")));
@@ -269,6 +271,9 @@ describe("full happy path", () => {
     expect(report).toEqual({
       startedAt: FIXED_NOW,
       dryRun: false,
+      envelope_rejections: [],
+      follow_ups: [],
+      follow_up_counts: { applied: 0, rejected: 0, skipped: 0 },
       items: [
         { index: 0, itemKind: "fact", item: writeFact, action: "applied" },
         { index: 1, itemKind: "fact", item: clearFact, action: "applied" },
@@ -521,6 +526,7 @@ describe("every gate", () => {
     await expect(applyLibrarianPass(store, { links: "not-an-array" }, options)).rejects.toThrow();
     await expect(applyLibrarianPass(store, { entities: 1 }, options)).rejects.toThrow();
     await expect(applyLibrarianPass(store, { merges: null }, options)).rejects.toThrow();
+    await expect(applyLibrarianPass(store, { follow_ups: {} }, options)).rejects.toThrow();
   });
 
   test("rejects bad enums, confidence, and missing fields without stopping later items", async () => {
@@ -965,5 +971,163 @@ describe("dryRun", () => {
     expect(countsAfter).toEqual(countsBefore);
     expect(store.db.query("SELECT id FROM entity WHERE locator = 'pattern://dry'").get()).toBeNull();
     expect(store.db.query("SELECT value FROM fact WHERE id = 'fact-to-clear'").get()).toEqual({ value: "old claim" });
+  });
+});
+
+describe("librarian rejection retry contract", () => {
+  test("rejects an envelope with unknown keys without applying known items", async () => {
+    const store = openStore("unknown-envelope-key");
+    seedMechanicalSubjects(store);
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "must not write", rationale: "malformed envelope", confidence: 0.8, evidence: [],
+    };
+    const followUp = {
+      subject: { target_stable_key: "unit-two:func_two" }, why: "Review the related target.",
+    };
+    const report = await applyLibrarianPass(store, {
+      facts: [fact], links: [], entities: [], merges: [], follow_ups: [followUp],
+      fact_writes: [], proposals: [],
+    }, applyOptions(makeTempDir("unknown-envelope-checkout")));
+
+    expect(report.envelope_rejections).toHaveLength(2);
+    expect(report.envelope_rejections[0]).toMatchObject({
+      key: "fact_writes", reason: "unknown_envelope_key",
+    });
+    expect(report.envelope_rejections.every(({ message }) => message.length > 0)).toBe(true);
+    expect(report.items[0]).toMatchObject({ action: "rejected", reason: "malformed_envelope" });
+    expect(report.follow_ups[0]).toMatchObject({ action: "rejected", reason: "malformed_envelope" });
+    expect(rowCount(store, "fact")).toBe(0);
+  });
+
+  test("validates, resolves, deduplicates, and reports follow-ups without writes", async () => {
+    const store = openStore("follow-ups");
+    seedMechanicalSubjects(store);
+    const before = store.db.query<{ version: number }, []>("PRAGMA data_version").get()!.version;
+    const report = await applyLibrarianPass(store, {
+      facts: [], links: [], entities: [], merges: [], follow_ups: [
+        { subject: { target_stable_key: "unit-two:func_two" }, why: "Inspect the sibling." },
+        { subject: { entity_locator: "src/unit-two.c" }, why: "Inspect the unit." },
+        { subject: { target_stable_key: "unit-two:func_two" }, why: "Duplicate." },
+        { subject: { target_stable_key: "unit-one:func_one" }, why: "Already writable." },
+        { subject: { target_stable_key: "missing:target" }, why: "Missing." },
+        { subject: { target_stable_key: "unit-two:func_two" }, why: "   " },
+      ],
+    }, applyOptions(makeTempDir("follow-ups-checkout"), { dryRun: true }));
+
+    expect(report.follow_ups.map(({ action, reason }) => ({ action, reason }))).toEqual([
+      { action: "applied", reason: undefined },
+      { action: "applied", reason: undefined },
+      { action: "skipped", reason: "duplicate" },
+      { action: "rejected", reason: "follow_up_in_scope" },
+      { action: "rejected", reason: "unresolved_subject" },
+      { action: "rejected", reason: "missing_field" },
+    ]);
+    expect(report.follow_ups[0]?.subject).toEqual({
+      targetId: "target-2", targetStableKey: "unit-two:func_two",
+    });
+    expect(report.follow_ups[1]?.subject).toEqual({
+      entityId: "unit-entity-2", entityLocator: "src/unit-two.c",
+    });
+    expect(report.follow_up_counts).toEqual({ applied: 2, rejected: 3, skipped: 1 });
+    expect(store.db.query<{ version: number }, []>("PRAGMA data_version").get()!.version).toBe(before);
+  });
+
+  test("caps accepted follow-ups at ten", async () => {
+    const store = openStore("follow-up-cap");
+    seedMechanicalSubjects(store);
+    for (let index = 0; index < 11; index += 1) {
+      store.db.query(`INSERT INTO target
+        (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+        VALUES (?, 'function', 'unit-two', 'unit-entity-2', ?, ?, ?, 'current', 'fixture-rev')`).run(
+        `extra-target-${index}`, `extra_${index}`, `unit-two:extra_${index}`, `0x80003${index.toString().padStart(3, "0")}`,
+      );
+    }
+    const follow_ups = Array.from({ length: 11 }, (_, index) => ({
+      subject: { target_stable_key: `unit-two:extra_${index}` }, why: `Inspect target ${index}.`,
+    }));
+    const report = await applyLibrarianPass(store, {
+      facts: [], links: [], entities: [], merges: [], follow_ups,
+    }, applyOptions(makeTempDir("follow-up-cap-checkout")));
+
+    expect(report.follow_ups.slice(0, 10).every(({ action }) => action === "applied")).toBe(true);
+    expect(report.follow_ups[10]).toMatchObject({ action: "rejected", reason: "follow_up_cap" });
+  });
+
+  test("waives the PR comment gate only for renamed subjects cited at head revision", async () => {
+    const store = openStore("renamed-head-citation");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("renamed-head-git");
+    const fact = {
+      subject: { target_stable_key: "unit-one:func_one" }, type: "purpose", op: "write",
+      value: "renamed implementation", rationale: "head code", confidence: 0.8,
+      evidence: [{ kind: "code", locator: git.locator, why: "Current implementation." }],
+    };
+    const base = { requiredCitation: { kind: "pr" as const, prNumber: "42" }, headRevision: git.revision };
+    const accepted = await applyLibrarianPass(store, { facts: [fact] }, applyOptions(git.root, {
+      ...base, renamedSubjects: ["unit-one:func_one"],
+    }));
+    const rejected = await applyLibrarianPass(store, { facts: [{ ...fact, type: "data_flow" }] }, applyOptions(git.root, {
+      ...base, renamedSubjects: [],
+    }));
+
+    expect(accepted.items[0]).toMatchObject({ action: "applied" });
+    expect(rejected.items[0]).toMatchObject({ action: "rejected", reason: "missing_pr_citation" });
+  });
+
+  test("applies the renamed-head exception to links", async () => {
+    const store = openStore("renamed-head-link");
+    seedMechanicalSubjects(store);
+    const git = createGitFixture("renamed-head-link-git");
+    const link = {
+      from: { target_stable_key: "unit-one:func_one" },
+      to: { entity_locator: "src/unit-one.c" },
+      role: "implemented_in", why: "The head code locates the target.",
+      kind: "code", locator: git.locator,
+    };
+    const report = await applyLibrarianPass(store, { links: [link] }, applyOptions(git.root, {
+      requiredCitation: { kind: "pr", prNumber: "42" },
+      headRevision: git.revision,
+      renamedSubjects: ["unit-one:func_one"],
+    }));
+
+    expect(report.items[0]).toMatchObject({ action: "applied" });
+  });
+
+  test("writes specific repair instructions into rejection messages", () => {
+    const malformed = REJECTION_MESSAGES.malformed_locator({ locator: "bad" });
+    expect(malformed).toContain("discord://message/<id>");
+    expect(malformed).toContain("pr://<n>[/comment/<i>]");
+    expect(malformed).toContain("wiki://<section-id>");
+    expect(malformed).toContain("attempt://run/<run-id>");
+    expect(malformed).toContain("code://<revision>/<path>#L<start>-L<end>");
+    expect(REJECTION_MESSAGES.out_of_scope({
+      subject: "unit-two:func_two", writableSubjects: ["unit-one:func_one"],
+    })).toContain("[unit-one:func_one]");
+    expect(REJECTION_MESSAGES.code_revision_unresolvable({
+      revision: "report-hash", headRevision: "head-hash",
+    })).toContain("head_revision head-hash");
+    expect(REJECTION_MESSAGES.code_span_out_of_range({
+      locator: "code://head/src/a.c#L1-L9", lineCount: 4,
+    })).toContain("4 lines");
+    expect(REJECTION_MESSAGES.missing_pr_citation({
+      subject: "unit-one:func_one", prNumber: "42",
+    })).toContain("pr://42/comment/<i>");
+    expect(REJECTION_MESSAGES.irrelevant_pr_citation({
+      subject: "unit-one:func_one", prNumber: "42",
+    })).toContain("body or diff hunk");
+  });
+
+  test("has a fix-it template for every rejection reason", () => {
+    const reasons = [
+      "ambiguous_entity_locator", "ambiguous_target", "code_revision_unresolvable",
+      "code_span_out_of_range", "follow_up_cap", "follow_up_in_scope", "internal_error",
+      "invalid_confidence", "invalid_entity_kind", "invalid_fact_type", "invalid_kind", "invalid_op",
+      "irrelevant_pr_citation", "kind_locator_mismatch", "malformed_envelope", "malformed_locator",
+      "mechanical_merge_rejected", "missing_field", "missing_pr_citation", "out_of_scope",
+      "pr_comment_not_found", "pr_comments_unavailable", "submission_not_found", "unknown_envelope_key",
+      "unresolved_locator", "unresolved_subject",
+    ].sort();
+    expect(Object.keys(REJECTION_MESSAGES).sort()).toEqual(reasons);
   });
 });

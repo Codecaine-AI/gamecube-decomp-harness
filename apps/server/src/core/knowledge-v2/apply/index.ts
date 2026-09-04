@@ -46,27 +46,100 @@ export interface ApplyOptions {
   checkoutRoot: string;
   prsRoot?: string;
   requiredCitation?: { kind: "pr"; prNumber: string };
+  headRevision?: string;
+  renamedSubjects?: string[];
   dryRun?: boolean;
   now?: () => string;
 }
 
-export type ApplyItemKind = "fact" | "link" | "entity" | "merge";
+export type ApplyItemKind = "fact" | "link" | "entity" | "merge" | "follow_up";
 export type ApplyAction = "applied" | "rejected" | "skipped";
 
-export interface ApplyItemResult {
+export const APPLY_REJECT_REASONS = [
+  "ambiguous_entity_locator", "ambiguous_target", "code_revision_unresolvable",
+  "code_span_out_of_range", "follow_up_cap", "follow_up_in_scope", "internal_error",
+  "invalid_confidence", "invalid_entity_kind", "invalid_fact_type", "invalid_kind", "invalid_op",
+  "irrelevant_pr_citation", "kind_locator_mismatch", "malformed_envelope", "malformed_locator",
+  "mechanical_merge_rejected", "missing_field", "missing_pr_citation", "out_of_scope",
+  "pr_comment_not_found", "pr_comments_unavailable", "submission_not_found", "unknown_envelope_key",
+  "unresolved_locator", "unresolved_subject",
+] as const;
+export type ApplyRejectReason = typeof APPLY_REJECT_REASONS[number];
+
+export interface RejectionMessageContext {
+  key?: string;
+  item?: unknown;
+  subject?: string;
+  writableSubjects?: string[];
+  locator?: string;
+  revision?: string;
+  headRevision?: string;
+  lineCount?: number;
+  prNumber?: string;
+}
+
+const locatorGrammars = "discord://message/<id>, pr://<n>[/comment/<i>], wiki://<section-id>, attempt://run/<run-id>[/submission/<n>][/transcript/<span>], or code://<revision>/<path>#L<start>-L<end>";
+const shown = (value: string | undefined, fallback = "the supplied value"): string => value ?? fallback;
+
+export const REJECTION_MESSAGES: Record<ApplyRejectReason, (context: RejectionMessageContext) => string> = {
+  ambiguous_entity_locator: ({ subject }) => `Subject ${shown(subject)} matches more than one entity. Use one canonical, unambiguous entity_locator.`,
+  ambiguous_target: ({ subject }) => `Subject ${shown(subject)} matches more than one target. Use the unique current target_stable_key.`,
+  code_revision_unresolvable: ({ revision, headRevision }) => `Revision ${shown(revision)} does not resolve in the checkout; every code:// citation must use head_revision ${shown(headRevision, "from the pass context")}, never a report hash.`,
+  code_span_out_of_range: ({ locator, lineCount }) => `Code span ${shown(locator)} is outside the file${lineCount === undefined ? "" : `, which has ${lineCount} lines`}. Cite an existing inclusive line range.`,
+  follow_up_cap: () => "This pass already accepted 10 follow-ups. Keep the 10 most useful subjects and move this one to a later pass.",
+  follow_up_in_scope: ({ subject }) => `Subject ${shown(subject)} is already writable in this pass. Move the proposed work into facts or links, or drop this follow-up.`,
+  internal_error: () => "Apply failed while processing this item. Resubmit the item unchanged once; if it fails again, drop it and preserve the finding in a follow-up.",
+  invalid_confidence: () => "confidence must be a finite number from 0 through 1. Replace it with a number in that range.",
+  invalid_entity_kind: () => "Curated entity kind must be game_concept or pattern. Use one of those kinds or drop the entity.",
+  invalid_fact_type: () => "Fact type is invalid. Use purpose, inferred_name, inferred_type, data_flow, state_behavior, or game_mapping.",
+  invalid_kind: () => "Citation kind is invalid. Use pr, discord, attempt, wiki, or code and make the locator use the same scheme.",
+  invalid_op: () => "Fact op must be write or clear. Use write with a claim, or clear with an empty value.",
+  irrelevant_pr_citation: ({ subject, prNumber }) => `The cited PR comment does not name ${shown(subject)} in its body or diff hunk. Cite a relevant comment as pr://${shown(prNumber, "<n>")}/comment/<i>.`,
+  kind_locator_mismatch: ({ locator }) => `Citation kind does not match locator ${shown(locator)}. Change the kind to match the locator scheme or replace the locator.`,
+  malformed_envelope: () => "The envelope contains an unknown top-level key, so no items can be applied. Return exactly facts, links, entities, merges, and follow_ups, then resubmit this item.",
+  malformed_locator: ({ locator }) => `Locator ${shown(locator)} is malformed. Use one of these five grammars: ${locatorGrammars}.`,
+  mechanical_merge_rejected: () => "Mechanical entities cannot be merged by a librarian pass. Drop this merge; only game_concept and pattern entities may be merged here.",
+  missing_field: () => "This item is missing a required field or has the wrong field shape. Rebuild it from the schema and supply every required field with the declared type.",
+  missing_pr_citation: ({ subject, prNumber }) => `No cited PR comment names ${shown(subject)} in its body or diff hunk. Add a relevant citation in the form pr://${shown(prNumber, "<n>")}/comment/<i>.`,
+  out_of_scope: ({ subject, writableSubjects = [] }) => `Subject ${shown(subject)} is not a touched subject of this pass; the writable subjects are [${writableSubjects.slice(0, 20).join(", ")}]. Drop this item or move what you learned into follow_ups.`,
+  pr_comment_not_found: ({ locator }) => `PR comment ${shown(locator)} was not found in the archive. Replace it with an existing pr://<n>/comment/<i> locator.`,
+  pr_comments_unavailable: () => "PR comment records are unavailable for this pass. Drop the PR-dependent item or retry with the PR archive attached.",
+  submission_not_found: ({ locator }) => `Attempt submission ${shown(locator)} was not found. Cite an existing attempt://run/<run-id>/submission/<n> record.`,
+  unknown_envelope_key: ({ key }) => `Top-level key ${shown(key)} is not allowed. Return exactly the five keys facts, links, entities, merges, and follow_ups.`,
+  unresolved_locator: ({ locator }) => `Citation ${shown(locator)} does not resolve to an ingested record. Replace it with an existing source locator or drop the unsupported item.`,
+  unresolved_subject: ({ subject }) => `Subject ${shown(subject)} does not resolve to a known target or entity. Use an existing target_stable_key or entity_locator.`,
+};
+
+interface ApplyItemResultBase {
   index: number;
   itemKind: ApplyItemKind;
   item: unknown;
-  action: ApplyAction;
-  reason?: string;
-  note?: string;
 }
+
+export type ApplyItemResult = ApplyItemResultBase & (
+  | { action: "rejected"; reason: ApplyRejectReason; message: string; note?: never; subject?: never }
+  | { action: "skipped"; reason: string; message?: never; note?: never; subject?: never }
+  | {
+    action: "applied";
+    reason?: never;
+    message?: never;
+    note?: string;
+    subject?: ({ targetId: string; targetStableKey: string } | { entityId: string; entityLocator: string });
+  }
+);
 
 export interface ApplyReport {
   startedAt: string;
   dryRun: boolean;
   items: ApplyItemResult[];
+  follow_ups: ApplyItemResult[];
+  envelope_rejections: Array<{ key: string; reason: "unknown_envelope_key"; message: string }>;
   counts: {
+    applied: number;
+    rejected: number;
+    skipped: number;
+  };
+  follow_up_counts: {
     applied: number;
     rejected: number;
     skipped: number;
@@ -93,7 +166,7 @@ interface ResolvedSubject {
   curated: boolean;
 }
 
-type Resolution<T> = { ok: true; value: T } | { ok: false; reason: string };
+type Resolution<T> = { ok: true; value: T } | { ok: false; reason: ApplyRejectReason };
 
 interface ValidFact {
   subject: Record<string, unknown>;
@@ -126,6 +199,11 @@ interface ValidMerge {
   why: string;
 }
 
+interface ValidFollowUp {
+  subject: Record<string, unknown>;
+  why: string;
+}
+
 interface IndexedItem {
   index: number;
   itemKind: ApplyItemKind;
@@ -155,8 +233,26 @@ function hasOwn(record: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key);
 }
 
-function rejected(item: IndexedItem, reason: string): ApplyItemResult {
-  return { ...item, action: "rejected", reason };
+function rawSubjectLabel(item: unknown): string | undefined {
+  if (!isRecord(item)) return undefined;
+  const candidate = isRecord(item.subject) ? item.subject : isRecord(item.from) ? item.from : undefined;
+  if (candidate === undefined) return undefined;
+  return typeof candidate.target_stable_key === "string"
+    ? candidate.target_stable_key
+    : typeof candidate.entity_locator === "string" ? candidate.entity_locator : undefined;
+}
+
+function rejected(
+  item: IndexedItem,
+  reason: ApplyRejectReason,
+  context: RejectionMessageContext = {},
+): ApplyItemResult {
+  return {
+    ...item,
+    action: "rejected",
+    reason,
+    message: REJECTION_MESSAGES[reason]({ item: item.item, subject: rawSubjectLabel(item.item), ...context }),
+  };
 }
 
 function skipped(item: IndexedItem, reason: string): ApplyItemResult {
@@ -291,6 +387,14 @@ function validateMerge(value: unknown): Resolution<ValidMerge> {
   };
 }
 
+function validateFollowUp(value: unknown): Resolution<ValidFollowUp> {
+  if (!isRecord(value) || !validateSubjectShape(value.subject)
+    || typeof value.why !== "string" || value.why.trim().length === 0) {
+    return { ok: false, reason: "missing_field" };
+  }
+  return { ok: true, value: { subject: value.subject, why: value.why } };
+}
+
 function followMergedEntity(store: KnowledgeStoreHandle, row: EntityRow): Resolution<EntityRow> {
   let current = row;
   const visited = new Set<string>();
@@ -415,6 +519,19 @@ function checkRequiredCitation(
   subjects: readonly ResolvedSubject[],
 ): RequiredCitationResult {
   if (requiredCitation === undefined) return { ok: true };
+  const renamed = new Set(options.renamedSubjects ?? []);
+  const hasRenamedSubject = subjects.some((subject) =>
+    subject.targetStableKey !== undefined && renamed.has(subject.targetStableKey));
+  const hasHeadCodeCitation = options.headRevision !== undefined && citations.some((citation) => {
+    if (citation.kind !== "code") return false;
+    try {
+      const parsed = parseLocator(citation.locator);
+      return parsed.kind === "code" && parsed.revision === options.headRevision;
+    } catch {
+      return false;
+    }
+  });
+  if (hasRenamedSubject && hasHeadCodeCitation) return { ok: true };
   const comments = citations.flatMap((citation) => {
     if (citation.kind !== "pr") return [];
     try {
@@ -509,11 +626,16 @@ async function applyFactItem(
   const fact = valid.value;
   const subject = resolveSubject(store, fact.subject, virtualEntities);
   if (!subject.ok) return rejected(item, subject.reason);
-  if (!subjectIsInScope(subject.value, options)) return rejected(item, "out_of_scope");
+  if (!subjectIsInScope(subject.value, options)) return rejected(item, "out_of_scope", {
+    subject: subject.value.targetStableKey ?? subject.value.entityLocator,
+    writableSubjects: [...options.scope.targetStableKeys, ...options.scope.entityLocators],
+  });
   const requiredCitation = checkRequiredCitation(
     store, fact.evidence, options.requiredCitation, options, [subject.value],
   );
-  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason);
+  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason as ApplyRejectReason, {
+    prNumber: options.requiredCitation?.prNumber,
+  });
 
   const evidence: EvidenceInput[] = [];
   for (const citation of fact.evidence) {
@@ -521,7 +643,19 @@ async function applyFactItem(
       checkoutRoot: options.checkoutRoot,
       prsRoot: options.prsRoot,
     });
-    if (!resolution.ok) return rejected(item, resolution.reason);
+    if (!resolution.ok) {
+      let revision: string | undefined;
+      try {
+        const parsed = parseLocator(citation.locator);
+        if (parsed.kind === "code") revision = parsed.revision;
+      } catch {}
+      return rejected(item, resolution.reason, {
+        locator: citation.locator,
+        revision,
+        headRevision: options.headRevision,
+        lineCount: resolution.lineCount,
+      });
+    }
     evidence.push({
       id: `evidence:${randomUUID()}`,
       kind: citation.kind,
@@ -588,17 +722,34 @@ async function applyLinkItem(
   const to = resolveSubject(store, link.to, virtualEntities);
   if (!to.ok) return rejected(item, to.reason);
   if (!subjectIsInScope(from.value, options) || !subjectIsInScope(to.value, options)) {
-    return rejected(item, "out_of_scope");
+    return rejected(item, "out_of_scope", {
+      subject: from.value.targetStableKey ?? from.value.entityLocator,
+      writableSubjects: [...options.scope.targetStableKeys, ...options.scope.entityLocators],
+    });
   }
   const requiredCitation = checkRequiredCitation(
     store, [link], options.requiredCitation, options, [from.value, to.value],
   );
-  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason);
+  if (!requiredCitation.ok) return rejected(item, requiredCitation.reason as ApplyRejectReason, {
+    prNumber: options.requiredCitation?.prNumber,
+  });
   const citation = resolveCitation(store, link, {
     checkoutRoot: options.checkoutRoot,
     prsRoot: options.prsRoot,
   });
-  if (!citation.ok) return rejected(item, citation.reason);
+  if (!citation.ok) {
+    let revision: string | undefined;
+    try {
+      const parsed = parseLocator(link.locator);
+      if (parsed.kind === "code") revision = parsed.revision;
+    } catch {}
+    return rejected(item, citation.reason, {
+      locator: link.locator,
+      revision,
+      headRevision: options.headRevision,
+      lineCount: citation.lineCount,
+    });
+  }
 
   const duplicateKey = JSON.stringify([
     from.value.ref.targetId ?? null,
@@ -665,11 +816,42 @@ async function applyMergeItem(
   });
 }
 
+async function applyFollowUpItem(
+  store: KnowledgeStoreHandle,
+  item: IndexedItem,
+  options: ApplyOptions,
+  virtualEntities: ReadonlyMap<string, readonly EntityRow[]>,
+  acceptedSubjects: Set<string>,
+): Promise<ApplyItemResult> {
+  const valid = validateFollowUp(item.item);
+  if (!valid.ok) return rejected(item, valid.reason);
+  const subject = resolveSubject(store, valid.value.subject, virtualEntities);
+  if (!subject.ok) return rejected(item, subject.reason);
+  const label = subject.value.targetStableKey ?? subject.value.entityLocator;
+  if (subjectIsInScope(subject.value, options)) {
+    return rejected(item, "follow_up_in_scope", { subject: label });
+  }
+  const key = subject.value.ref.targetId !== undefined
+    ? `target:${subject.value.ref.targetId}`
+    : `entity:${subject.value.ref.entityId}`;
+  if (acceptedSubjects.has(key)) return skipped(item, "duplicate");
+  if (acceptedSubjects.size >= 10) return rejected(item, "follow_up_cap", { subject: label });
+  acceptedSubjects.add(key);
+  return {
+    ...item,
+    action: "applied",
+    subject: subject.value.ref.targetId !== undefined
+      ? { targetId: subject.value.ref.targetId, targetStableKey: subject.value.targetStableKey! }
+      : { entityId: subject.value.ref.entityId!, entityLocator: subject.value.entityLocator! },
+  };
+}
+
 function envelopeItems(proposal: Record<string, unknown>): {
   facts: IndexedItem[];
   links: IndexedItem[];
   entities: IndexedItem[];
   merges: IndexedItem[];
+  followUps: IndexedItem[];
 } {
   let index = 0;
   const make = (itemKind: ApplyItemKind, values: unknown[]): IndexedItem[] => values.map((item) => ({
@@ -682,6 +864,7 @@ function envelopeItems(proposal: Record<string, unknown>): {
     links: make("link", (proposal.links as unknown[] | undefined) ?? []),
     entities: make("entity", (proposal.entities as unknown[] | undefined) ?? []),
     merges: make("merge", (proposal.merges as unknown[] | undefined) ?? []),
+    followUps: make("follow_up", (proposal.follow_ups as unknown[] | undefined) ?? []),
   };
 }
 
@@ -692,17 +875,25 @@ export async function applyLibrarianPass(
 ): Promise<ApplyReport> {
   const startedAt = options.now?.() ?? new Date().toISOString();
   if (!isRecord(proposal)) throw new TypeError("Malformed librarian pass envelope");
-  for (const key of ["facts", "links", "entities", "merges"] as const) {
+  const envelopeKeys = ["facts", "links", "entities", "merges", "follow_ups"] as const;
+  for (const key of envelopeKeys) {
     if (Object.prototype.hasOwnProperty.call(proposal, key) && !Array.isArray(proposal[key])) {
       throw new TypeError(`Malformed librarian pass envelope: ${key} must be an array`);
     }
   }
 
   const groups = envelopeItems(proposal);
+  const unknownKeys = Object.keys(proposal).filter((key) => !envelopeKeys.includes(key as typeof envelopeKeys[number]));
+  const envelope_rejections = unknownKeys.map((key) => ({
+    key,
+    reason: "unknown_envelope_key" as const,
+    message: REJECTION_MESSAGES.unknown_envelope_key({ key }),
+  }));
   const results = new Map<number, ApplyItemResult>();
   const virtualEntities = new Map<string, EntityRow[]>();
   const dryRunFacts = new Map<string, { updatedAt: string } | null>();
   const pendingLinks = new Set<string>();
+  const acceptedFollowUpSubjects = new Set<string>();
 
   const runItem = async (item: IndexedItem, operation: () => Promise<ApplyItemResult>): Promise<void> => {
     try {
@@ -711,6 +902,12 @@ export async function applyLibrarianPass(
       results.set(item.index, rejected(item, "internal_error"));
     }
   };
+
+  if (unknownKeys.length > 0) {
+    for (const item of [...groups.facts, ...groups.links, ...groups.entities, ...groups.merges, ...groups.followUps]) {
+      results.set(item.index, rejected(item, "malformed_envelope"));
+    }
+  } else {
 
   // Admissions run first so later proposal items can target entities admitted by this pass.
   for (const item of groups.entities) {
@@ -725,16 +922,28 @@ export async function applyLibrarianPass(
   for (const item of groups.merges) {
     await runItem(item, () => applyMergeItem(store, item, options, virtualEntities));
   }
+  for (const item of groups.followUps) {
+    await runItem(item, () => applyFollowUpItem(
+      store, item, options, virtualEntities, acceptedFollowUpSubjects,
+    ));
+  }
+  }
 
-  const items = [...results.values()].sort((a, b) => a.index - b.index);
+  const orderedResults = [...results.values()].sort((a, b) => a.index - b.index);
+  const follow_ups = orderedResults.filter(({ itemKind }) => itemKind === "follow_up");
+  const items = orderedResults.filter(({ itemKind }) => itemKind !== "follow_up");
+  const count = (values: ApplyItemResult[]) => ({
+    applied: values.filter(({ action }) => action === "applied").length,
+    rejected: values.filter(({ action }) => action === "rejected").length,
+    skipped: values.filter(({ action }) => action === "skipped").length,
+  });
   return {
     startedAt,
     dryRun: options.dryRun === true,
     items,
-    counts: {
-      applied: items.filter(({ action }) => action === "applied").length,
-      rejected: items.filter(({ action }) => action === "rejected").length,
-      skipped: items.filter(({ action }) => action === "skipped").length,
-    },
+    follow_ups,
+    envelope_rejections,
+    counts: count(items),
+    follow_up_counts: count(follow_ups),
   };
 }

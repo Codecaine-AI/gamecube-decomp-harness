@@ -564,6 +564,184 @@ describe("runLibrarianPass", () => {
     ]);
   });
 
+  test("retries an out-of-scope proposal once with the rejection context and applies the correction", async () => {
+    const f = fixture("validation-retry", 2);
+    const id = enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const calls: Parameters<FakeRunPiAgent>[0][] = [];
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "validation-retry-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: (options) => {
+        calls.push(options);
+        return modelResult(calls.length === 1 ? proposal(2) : proposal(1));
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toHaveLength(2);
+    const retryContext = calls[1]!.prompt.kernelContext?.renderedContext ?? "";
+    expect(retryContext).toContain("<retry>");
+    expect(retryContext).toContain("out_of_scope");
+    expect(retryContext).toContain("not a touched subject");
+    expect(result.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(f.store.db.query("SELECT target_id, value FROM fact").all()).toEqual([
+      { target_id: "target-1", value: "Consumer purpose for target 1" },
+    ]);
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      validation_gate: "retried",
+      validation_rejections: [expect.objectContaining({
+        index: 0,
+        itemKind: "fact",
+        reason: "out_of_scope",
+        message: expect.stringContaining("not a touched subject"),
+      })],
+      retry_proposal: proposal(1),
+    });
+    expect(logEntries(f, "validation-retry-run")).toEqual([
+      expect.objectContaining({ task_id: id, validation_gate: "retried" }),
+    ]);
+  });
+
+  test("warns but completes when the retried proposal is still rejected", async () => {
+    const f = fixture("validation-warned", 2);
+    const id = enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    let calls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "validation-warned-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => {
+        calls += 1;
+        return modelResult(proposal(2));
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(2);
+    expect(result.applyReport.counts).toEqual({ applied: 0, rejected: 1, skipped: 0 });
+    expect(rowCount(f.store, "fact")).toBe(0);
+    expect(taskState(f.store, id)).toMatchObject({ done_at: FIXED_NOW });
+    expect(warn.mock.calls.flat().join(" ")).toContain(id);
+    expect(warn.mock.calls.flat().join(" ")).toContain("out_of_scope");
+    warn.mockRestore();
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      validation_gate: "warned",
+      retry_proposal: proposal(2),
+    });
+  });
+
+  test("does not retry a proposal that passes validation", async () => {
+    const f = fixture("validation-clean", 1);
+    enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    let calls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "validation-clean-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => {
+        calls += 1;
+        return modelResult(proposal(1));
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(1);
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      validation_gate: "clean",
+    });
+  });
+
+  test("retries an unknown envelope key and applies the corrected envelope", async () => {
+    const f = fixture("validation-envelope", 1);
+    enqueueRunClosed(f, 1);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    let calls = 0;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "validation-envelope-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: (options) => {
+        calls += 1;
+        if (calls === 2) {
+          expect(options.prompt.kernelContext?.renderedContext).toContain("unknown_envelope_key");
+          expect(options.prompt.kernelContext?.renderedContext).toContain("fact_writes");
+        }
+        return modelResult(calls === 1
+          ? { ...proposal(1), fact_writes: [fact(1)] }
+          : proposal(1));
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(calls).toBe(2);
+    expect(result.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(rowCount(f.store, "fact")).toBe(1);
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      validation_gate: "retried",
+      validation_rejections: expect.arrayContaining([expect.objectContaining({
+        reason: "unknown_envelope_key",
+        message: expect.stringContaining("fact_writes"),
+      })]),
+    });
+  });
+
+  test("enqueues accepted follow-ups once per subject and reports the created task ids", async () => {
+    const f = fixture("follow-up-enqueue", 3);
+    const id = enqueueRunClosed(f, 1);
+    enqueueIndexTask(f.store, {
+      id: "task:drift_recheck:pending-target-2",
+      pathway: "drift_recheck",
+      payload: JSON.stringify({ target_id: "target-2", reason: "existing" }),
+      enqueuedAt: FIXED_NOW,
+    });
+    const claimed = claimNextLibrarianTask(f.store, { taskId: id, now: () => FIXED_NOW })!.task;
+    const withFollowUps = {
+      ...emptyProposal,
+      follow_ups: [
+        { subject: { target_stable_key: "unit:func_2" }, why: "Inspect the sibling." },
+        { subject: { target_stable_key: "unit:func_3" }, why: "Inspect the other sibling." },
+      ],
+    } as unknown as LibrarianPassEnvelope;
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "follow-up-enqueue-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: () => modelResult(withFollowUps),
+      now: () => FIXED_NOW,
+    });
+
+    const pending = f.store.db.query<{ id: string; payload: string }, []>(`
+      SELECT id, payload FROM index_task
+      WHERE pathway = 'drift_recheck' AND done_at IS NULL
+      ORDER BY id
+    `).all();
+    expect(pending).toHaveLength(2);
+    expect(pending.find((task) => task.id === "task:drift_recheck:pending-target-2")).toBeDefined();
+    const created = pending.filter((task) => task.id !== "task:drift_recheck:pending-target-2");
+    expect(created).toHaveLength(1);
+    expect(JSON.parse(created[0]!.payload)).toEqual({
+      target_id: "target-3",
+      reason: "follow_up: Inspect the other sibling.",
+      requested_by_task: id,
+    });
+    expect(JSON.parse(readFileSync(result.artifactPath, "utf8"))).toMatchObject({
+      follow_ups_enqueued: [created[0]!.id],
+    });
+    expect(logEntries(f, "follow-up-enqueue-run")).toEqual([
+      expect.objectContaining({ follow_ups_enqueued: [created[0]!.id] }),
+    ]);
+  });
+
   test("requires the triggering PR citation for pr_imported facts", async () => {
     const f = fixture("pr-citation", 1);
     const prsRoot = join(f.root, "prs");
@@ -761,15 +939,20 @@ describe("runLibrarianConsumer", () => {
     const before = Object.fromEntries(tables.map((table) => [table, rowCount(f.store, table)]));
     const dataVersionBefore = f.store.db.query<{ data_version: number }, []>("PRAGMA data_version").get();
 
+    let calls = 0;
     const summary = await runLibrarianConsumer(f.store, {
       runId: "dry-run",
       globals: f.globals,
       concurrency: 1,
       dryRun: true,
-      runPiAgent: () => modelResult(proposal(1)),
+      runPiAgent: () => {
+        calls += 1;
+        return modelResult(calls === 1 ? proposal(2) : proposal(1));
+      },
       now: () => FIXED_NOW,
     });
 
+    expect(calls).toBe(2);
     expect(summary).toMatchObject({ dryRun: true, passesRun: 1, passesApplied: 1, itemsApplied: 1, passesFailed: 0, tasksRemaining: 1 });
     expect(Object.fromEntries(tables.map((table) => [table, rowCount(f.store, table)]))).toEqual(before);
     expect(f.store.db.query<{ data_version: number }, []>("PRAGMA data_version").get()).toEqual(dataVersionBefore);
@@ -779,6 +962,9 @@ describe("runLibrarianConsumer", () => {
     expect(existsSync(artifactPath)).toBeTrue();
     expect(JSON.parse(readFileSync(artifactPath, "utf8"))).toMatchObject({
       dry_run: true,
+      validation_gate: "retried",
+      retry_proposal: proposal(1),
+      follow_ups_projected: [],
       apply_report: { dryRun: true, counts: { applied: 1, rejected: 0, skipped: 0 } },
     });
     expect(logEntries(f, "dry-run")).toEqual([

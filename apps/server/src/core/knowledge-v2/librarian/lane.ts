@@ -67,8 +67,9 @@ export function startLibrarianConsumerLane(
         for (const taskId of summary.failedTaskIds) failedIds.add(taskId);
 
         if (summary.passesRun > 0 || summary.tasksSplit > 0) {
+          const validation = summary.validationGates ?? { clean: 0, retried: 0, warned: 0 };
           (options.log ?? console.log)(
-            `[librarian-consumer] drained: ${summary.passesRun} passes (${summary.passesApplied} applied, ${summary.passesFailed} failed), ${summary.tasksSplit} split; ${summary.tasksRemaining} remaining`,
+            `[librarian-consumer] drained: ${summary.passesRun} passes (${summary.passesApplied} applied, ${summary.passesFailed} failed), ${summary.tasksSplit} split; validation clean/retried/warned ${validation.clean}/${validation.retried}/${validation.warned}, ${summary.followUpsEnqueued ?? 0} follow-ups enqueued; ${summary.tasksRemaining} remaining`,
           );
         }
 

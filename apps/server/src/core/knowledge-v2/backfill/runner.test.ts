@@ -1,10 +1,12 @@
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -38,6 +40,14 @@ interface RunnerFixture {
 function fixture(name: string, targetCount: number): RunnerFixture {
   const root = mkdtempSync(join(tmpdir(), `knowledge-v2-backfill-${name}-`));
   const stateDir = join(root, "state");
+  const checkoutRoot = join(root, "checkout");
+  mkdirSync(join(checkoutRoot, "src"), { recursive: true });
+  writeFileSync(join(checkoutRoot, "src/main.c"), "void fixture(void) {}\n");
+  execFileSync("git", ["-C", checkoutRoot, "init", "-q"]);
+  execFileSync("git", ["-C", checkoutRoot, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", checkoutRoot, "config", "user.name", "Test"]);
+  execFileSync("git", ["-C", checkoutRoot, "add", "."]);
+  execFileSync("git", ["-C", checkoutRoot, "commit", "-qm", "fixture"]);
   const store = openKnowledgeStore({ knowledgeRoot: join(root, "knowledge") });
   fixtures.push({ root, store });
 
@@ -263,6 +273,9 @@ describe("runPass happy path", () => {
         dryRun: false,
         items: [{ index: 0, itemKind: "fact", item: fact(1), action: "applied" }],
         counts: { applied: 1, rejected: 0, skipped: 0 },
+        envelope_rejections: [],
+        follow_ups: [],
+        follow_up_counts: { applied: 0, rejected: 0, skipped: 0 },
       },
       timings: {
         startedAt: FIXED_NOW,

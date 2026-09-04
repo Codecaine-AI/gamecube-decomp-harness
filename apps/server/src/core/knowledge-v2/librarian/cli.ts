@@ -2,6 +2,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:f
 import { dirname, resolve } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import {
   LIBRARIAN_PATHWAYS,
@@ -22,6 +23,7 @@ export interface LibrarianCliArgs {
   pathway?: LibrarianPathway;
   taskId?: string;
   knowledgeRoot?: string;
+  checkoutRoot?: string;
 }
 
 export interface LibrarianStatus {
@@ -31,6 +33,9 @@ export interface LibrarianStatus {
   passesCompleted: number;
   passesFailed: number;
   tasksSplit: number;
+  driftGates: { skipped: number; clean: number; released: number; warned: number };
+  validationGates: { clean: number; retried: number; warned: number };
+  followUpsEnqueued: number;
   malformedLogLines: number;
   queue: Record<LibrarianPathway, { queued: number; claimed: number; done: number }>;
   indexedTargets: number;
@@ -70,6 +75,7 @@ export function parseLibrarianArgs(args: Map<string, string | true>): LibrarianC
     pathway,
     taskId: optionalStringArg(args, "--task"),
     knowledgeRoot: optionalStringArg(args, "--knowledge-root"),
+    checkoutRoot: optionalStringArg(args, "--checkout-root"),
   };
 }
 
@@ -116,6 +122,13 @@ export async function kg2Librarian(globals: GlobalArgs, args: Map<string, string
     return;
   }
 
+  const checkout = resolveKnowledgeCheckout({
+    gameId,
+    stateDir: globals.stateDir,
+    explicitCheckoutRoot: parsed.checkoutRoot,
+  });
+  console.log(`[kg2-librarian] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
+
   let store: KnowledgeStore | undefined;
   const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
   try {
@@ -130,6 +143,7 @@ export async function kg2Librarian(globals: GlobalArgs, args: Map<string, string
       dryRun: parsed.dryRun,
       stopFile,
       globals,
+      checkoutRoot: checkout.checkoutRoot,
       prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
     });
   } finally {
@@ -146,6 +160,9 @@ export function readStatus(store: KnowledgeStore, stateDir: string, runId: strin
   let passesLogged = 0;
   let passesFailed = 0;
   let tasksSplit = 0;
+  const driftGates = { skipped: 0, clean: 0, released: 0, warned: 0 };
+  const validationGates = { clean: 0, retried: 0, warned: 0 };
+  let followUpsEnqueued = 0;
   let malformedLogLines = 0;
   if (existsSync(logPath)) {
     for (const line of readFileSync(logPath, "utf8").split(/\r?\n/)) {
@@ -162,6 +179,20 @@ export function readStatus(store: KnowledgeStore, stateDir: string, runId: strin
         }
         passesLogged += 1;
         if (entry.status === "failed") passesFailed += 1;
+        if (entry.drift_gate === "skipped"
+          || entry.drift_gate === "clean"
+          || entry.drift_gate === "released"
+          || entry.drift_gate === "warned") {
+          driftGates[entry.drift_gate] += 1;
+        }
+        if (entry.validation_gate === "clean"
+          || entry.validation_gate === "retried"
+          || entry.validation_gate === "warned") {
+          validationGates[entry.validation_gate] += 1;
+        }
+        if (Array.isArray(entry.follow_ups_enqueued)) {
+          followUpsEnqueued += entry.follow_ups_enqueued.length;
+        }
       } catch {
         malformedLogLines += 1;
       }
@@ -195,6 +226,9 @@ export function readStatus(store: KnowledgeStore, stateDir: string, runId: strin
     passesCompleted: passesLogged - passesFailed,
     passesFailed,
     tasksSplit,
+    driftGates,
+    validationGates,
+    followUpsEnqueued,
     malformedLogLines,
     queue,
     indexedTargets: indexed.targets,
@@ -217,6 +251,9 @@ function printStatus(status: LibrarianStatus): void {
     `kg2-librarian ${status.runId}: ${status.passesCompleted} completed, ${status.passesFailed} failed, `
       + `${status.tasksSplit} split, ${status.indexedTargets} targets indexed, `
       + `${status.indexedEntities} entities indexed, ${status.malformedLogLines} malformed log lines; `
+      + `drift skipped/clean/released/warned ${status.driftGates.skipped}/${status.driftGates.clean}/${status.driftGates.released}/${status.driftGates.warned}, `
+      + `validation clean/retried/warned ${status.validationGates.clean}/${status.validationGates.retried}/${status.validationGates.warned}, `
+      + `${status.followUpsEnqueued} follow-ups enqueued; `
       + `queue: ${queue}`,
   );
 }

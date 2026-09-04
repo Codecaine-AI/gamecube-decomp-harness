@@ -20,6 +20,7 @@ import { buildPassContext, type BackfillPassContext } from "@server/core/knowled
 import { librarianStandardsView } from "@server/core/knowledge-v2/backfill/runner.js";
 import { prioritizeTargets } from "@server/core/knowledge-v2/migration/prioritize.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
+import type { DriftReport } from "@server/core/knowledge-v2/drift/flagger.js";
 
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
@@ -269,6 +270,7 @@ function samplePrompt(
       return librarianV2Prompt({
         task: {
           pathway: "run_closed",
+          instruction: "Review the closed run and preserve durable knowledge.",
           payload: { worker_run_id: "kernel-viewer-run-1" },
         },
         object: {
@@ -281,12 +283,39 @@ function samplePrompt(
             order: 1,
             kind: "target",
             target_stable_key: "GALE01:ftDemo_Target",
+            renamed_from: ["GALE01:fn_800D0F30"],
             record: { facts: {}, links: [] },
             material: { source: { locator: null, reason: "sample" }, analogs: { unavailable: true } },
+            drift: {
+              subject: { targetId: "target-kernel-viewer-sample" },
+              head_revision: "1e28b4203b",
+              evidence: [
+                {
+                  fact_id: "fact-kernel-viewer-purpose",
+                  fact_type: "purpose",
+                  evidence_id: "evidence-kernel-viewer-drifted",
+                  locator: "code://1e28b420/src/melee/ft/chara/ftDemo.c#L12-L40",
+                  status: "drifted",
+                  head_digest: "sample-head-digest",
+                  head_locator: "code://1e28b4203b/src/melee/ft/chara/ftDemo.c#L12-L40",
+                },
+                {
+                  fact_id: "fact-kernel-viewer-data-flow",
+                  fact_type: "data_flow",
+                  evidence_id: "evidence-kernel-viewer-unresolvable",
+                  locator: "code://1e28b420/src/melee/ft/chara/ftDemoOld.c#L8-L16",
+                  status: "unresolvable",
+                  head_locator: "code://1e28b4203b/src/melee/ft/chara/ftDemoOld.c#L8-L16",
+                },
+              ],
+              drifted_count: 1,
+              unresolvable_count: 1,
+            } satisfies DriftReport,
           },
         ],
         supportingSubjects: [],
         decompStandards: { standards: [] },
+        headRevision: "1e28b4203b",
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,

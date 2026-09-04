@@ -1,7 +1,8 @@
-import { gameRoot, pastPrsRoot } from "@server/core/knowledge";
+import { pastPrsRoot } from "@server/core/knowledge";
 import { resolve } from "node:path";
 
 import { resolveCitation } from "../apply/resolver.js";
+import { resolveKnowledgeCheckout } from "../checkout.js";
 import {
   buildTargetMaterial,
   buildUnitContext,
@@ -20,6 +21,7 @@ import {
   type TargetRow,
 } from "../backfill/context.js";
 import {
+  checkoutRevision,
   flagCodeDrift,
   type DriftEvidenceEntry,
   type DriftReport,
@@ -93,6 +95,7 @@ export type LibrarianTouchedSubject =
   };
 
 export interface LibrarianTaskContext {
+  head_revision: string;
   drift_gate: boolean;
   task: {
     id: string;
@@ -353,7 +356,7 @@ function subjectDrift(
 ): DriftReport {
   return flagCodeDrift(store, {
     subject,
-    checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout")),
+    checkoutRoot: resolve(options.checkoutRoot ?? resolveKnowledgeCheckout({ gameId: "melee" }).checkoutRoot),
     ...(options.checkoutRev === undefined ? {} : { headRevision: options.checkoutRev }),
   });
 }
@@ -1303,7 +1306,7 @@ function buildDriftSubjectContext(
     drift.evidence.map((entry) => [entry.evidence_id, entry]),
   );
   const resolverOptions = {
-    checkoutRoot: resolve(options.checkoutRoot ?? resolve(gameRoot("melee"), "checkout")),
+    checkoutRoot: resolve(options.checkoutRoot ?? resolveKnowledgeCheckout({ gameId: "melee" }).checkoutRoot),
     prsRoot: options.prsRoot ?? resolve(pastPrsRoot(), "prs"),
   };
   const flaggedFacts = Object.values(record.facts).flatMap((fact) => fact === undefined ? [] : [{
@@ -1358,6 +1361,13 @@ export function buildTaskContext(
   task: LibrarianTaskRow,
   options: LibrarianContextOptions = {},
 ): LibrarianTaskContext {
+  const resolvedCheckout = options.checkoutRoot === undefined
+    ? resolveKnowledgeCheckout({ gameId: "melee" })
+    : undefined;
+  const checkoutRoot = resolve(options.checkoutRoot ?? resolvedCheckout!.checkoutRoot);
+  const headRevision = options.checkoutRev?.trim()
+    || resolvedCheckout?.headRevision
+    || checkoutRevision(checkoutRoot);
   const instruction = instructionFor(task.pathway);
   const payload = unwrapRetryPayload(task.payload);
   let built: BuiltPathwayContext;
@@ -1385,6 +1395,7 @@ export function buildTaskContext(
     built = noOpContext(errorMessage(error));
   }
   return {
+    head_revision: headRevision,
     drift_gate: task.pathway === "run_closed"
       || task.pathway === "pr_imported"
       || task.pathway === "drift_recheck",

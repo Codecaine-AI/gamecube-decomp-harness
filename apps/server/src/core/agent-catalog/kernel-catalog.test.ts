@@ -87,7 +87,11 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
       });
     case "librarian-v2":
       return librarianV2Prompt({
-        task: { pathway: "run_closed", payload: { worker_run_id: "sample-run" } },
+        task: {
+          pathway: "run_closed",
+          instruction: "Review the closed run and preserve durable knowledge.",
+          payload: { worker_run_id: "sample-run" },
+        },
         object: {
           run: { id: "sample-run", target_stable_key: "GALE01:ftDemo_Target" },
           submissions: [{ seq: 1, hypothesis: "Guard order controls branch shape." }],
@@ -108,6 +112,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         ],
         supportingSubjects: [],
         decompStandards: { standards: [] },
+        headRevision: "1e28b4203b",
         repoRoot: sampleRepoRoot,
         stateDir: sampleStateDir,
       });
@@ -142,7 +147,7 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
 describe("meleeKernelAgentCatalog", () => {
   test("keeps librarian sample locators in canonical format", () => {
     const locatorPattern = /(?:discord|wiki|pr|attempt|code):[^\s"'<>\\]+/gu;
-    const documentedLocatorPattern = /&lt;[^&]+&gt;|:\/\/`$/u;
+    const documentedLocatorPattern = /&lt;[^&]+&gt;|:\/\/(?:`|$)|\/$/u;
     const locators: string[] = [];
     const visit = (value: unknown): void => {
       if (typeof value === "string") {
@@ -418,6 +423,13 @@ describe("meleeKernelAgentCatalog", () => {
     expect(librarianV2?.tools).toEqual([...defaultLibrarianToolProfile]);
     expect(librarianV2Rendered).toContain("<touched_subjects>");
     expect(librarianV2Rendered).toContain("<supporting_subjects>");
+    expect(librarianV2Rendered).toContain("<pass>");
+    expect(librarianV2Rendered).toContain("pathway: `run_closed`");
+    expect(librarianV2Rendered).toContain("head_revision: `1e28b4203b`");
+    expect(librarianV2Rendered).toContain('"renamed_from"');
+    expect(librarianV2Rendered).toContain('"status": "drifted"');
+    expect(librarianV2Rendered).toContain('"status": "unresolvable"');
+    expect(librarianV2Rendered).not.toContain("{{");
     expect(librarianV2Rendered).toContain("<output_contract>");
     expect(librarianV2Rendered).toContain("librarian_pass_v1");
     expect(librarianV2Rendered).toContain(
@@ -430,6 +442,22 @@ describe("meleeKernelAgentCatalog", () => {
     expect(backfillRendered).toContain("<output_contract>");
     expect(backfillRendered).toContain("librarian_pass_v1");
     expect(backfillRendered).not.toMatch(unresolvedPlaceholderPattern);
+  });
+
+  test("renders the librarian V2 pass context without unresolved placeholders", () => {
+    const payload = loadKernelAgentsPayload({
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    });
+    const librarian = payload.agents.find((agent) => agent.name === "librarian-v2");
+    const renderedContext = librarian?.context?.renderedContext ?? "";
+
+    expect(renderedContext).toContain("<pass>");
+    expect(renderedContext).toContain("pathway: `run_closed`");
+    expect(renderedContext).toContain("head_revision: `1e28b4203b`");
+    expect(renderedContext).not.toContain("{{");
   });
 
   test("renders the backfill librarian stub when pass context is unavailable", () => {
