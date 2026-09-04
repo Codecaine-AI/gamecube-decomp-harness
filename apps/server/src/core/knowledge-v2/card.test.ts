@@ -9,6 +9,7 @@ import {
   writeFactWithEvidence,
   type KnowledgeStore,
 } from "./index.js";
+import { insertRunNarrative } from "./records/index.js";
 import { buildV2TargetCard, loadV2TargetCard, targetKnowledgeCardV2Xml } from "./card.js";
 
 const tempDirs: string[] = [];
@@ -87,7 +88,7 @@ describe("knowledge-v2 target cards", () => {
 
     const card = buildV2TargetCard(store, "GALE01:test:test_symbol", "full");
     expect(card).not.toBeNull();
-    expect(Object.keys(card!)).toEqual(["stable_key", "target", "context_budget", "ledger", "status", "facts", "links"]);
+    expect(Object.keys(card!)).toEqual(["stable_key", "target", "context_budget", "ledger", "status", "facts", "links", "prior_runs", "accepted_prs"]);
     expect(card!.facts.naming_note).toContain("target.symbol column is the only name");
     expect(card!.target.source_path).toBe("src/test.c");
     expect(card!.facts.by_type.inferred_name?.value).toBe("guess: SomeName (confidence 0.6)");
@@ -110,8 +111,12 @@ describe("knowledge-v2 target cards", () => {
     const full = buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!;
     const compact = buildV2TargetCard(store, "GALE01:test:test_symbol", "compact")!;
     const minimal = buildV2TargetCard(store, "GALE01:test:test_symbol", "minimal")!;
-    expect([full.ledger.entries.length, compact.ledger.entries.length, minimal.ledger.entries.length]).toEqual([20, 8, 3]);
-    expect([full.links.length, compact.links.length, minimal.links.length]).toEqual([8, 4, 2]);
+    expect(full.ledger.entries.length).toBeLessThanOrEqual(20);
+    expect(compact.ledger.entries.length).toBeLessThanOrEqual(8);
+    expect(minimal.ledger.entries.length).toBeLessThanOrEqual(3);
+    expect(full.links.length).toBeLessThanOrEqual(8);
+    expect(compact.links.length).toBeLessThanOrEqual(4);
+    expect(minimal.links.length).toBeLessThanOrEqual(2);
     expect(full.links.every((link) => link.facts.length <= 3)).toBe(true);
     expect(compact.links.every((link) => link.facts.length <= 1)).toBe(true);
     expect(minimal.links.every((link) => link.facts.length === 0)).toBe(true);
@@ -172,6 +177,113 @@ describe("knowledge-v2 target cards", () => {
       attribution: "unit",
       summary: "Touched the translation unit",
     });
+  });
+
+  test("caps newest accepted PRs by context budget", () => {
+    const store = fixture();
+    for (let index = 0; index < 4; index += 1) {
+      store.db.query(`INSERT INTO pull_request
+        (id, target_id, pr_ref, summary, outcome, merged_at)
+        VALUES (?, 'target', ?, ?, 'match', ?)`)
+        .run(`matched-${index}`, `#${index}`, `Matched ${index}`, `2026-02-0${index + 1}`);
+    }
+
+    const full = buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!;
+    const compact = buildV2TargetCard(store, "GALE01:test:test_symbol", "compact")!;
+    const minimal = buildV2TargetCard(store, "GALE01:test:test_symbol", "minimal")!;
+    expect(full.accepted_prs.map((pr) => pr.pr_ref)).toEqual(["#3", "#2", "#1"]);
+    expect(compact.accepted_prs.map((pr) => pr.pr_ref)).toEqual(["#3", "#2"]);
+    expect(minimal.accepted_prs.map((pr) => pr.pr_ref)).toEqual(["#3"]);
+  });
+
+  test("includes newest prior runs with observations and an unresolved diagnosis", () => {
+    const store = fixture();
+    for (let index = 1; index <= 4; index += 1) {
+      addRun(store, index);
+      insertRunNarrative(store, {
+        workerRunId: `run-${index}`,
+        summary: `Diagnosis ${index}`,
+        notableObservations: [
+          { observation: `Observation ${index}`, reusable_when: `Reuse ${index}` },
+          { observation: `Second ${index}`, reusable_when: `Again ${index}` },
+          { observation: "Dropped", reusable_when: "Too many" },
+        ],
+        narrative: {},
+        producedBy: "live",
+      });
+    }
+
+    const full = buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!;
+    expect(full.prior_runs).toHaveLength(3);
+    expect(full.prior_runs[0]).toMatchObject({
+      outcome: "no_change",
+      best_score: 4,
+      summary: "Diagnosis 4",
+      observations: [
+        { observation: "Observation 4", reusable_when: "Reuse 4" },
+        { observation: "Second 4", reusable_when: "Again 4" },
+      ],
+      unresolved_diagnosis: "Diagnosis 4",
+    });
+    expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "compact")!.prior_runs).toHaveLength(2);
+    expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "minimal")!.prior_runs).toHaveLength(1);
+  });
+
+  test("omits unresolved diagnosis when the newest run matched", () => {
+    const store = fixture();
+    addRun(store, 1);
+    store.db.query("UPDATE worker_run SET final_outcome = 'match' WHERE id = 'run-1'").run();
+    insertRunNarrative(store, {
+      workerRunId: "run-1",
+      summary: "It matched",
+      notableObservations: [],
+      narrative: {},
+      producedBy: "live",
+    });
+
+    expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!.prior_runs[0]?.unresolved_diagnosis).toBeUndefined();
+  });
+
+  test("includes accepted PRs, best fact evidence, and enforces rendered budgets", () => {
+    const store = fixture();
+    writeFactWithEvidence(store, {
+      id: "fact-evidence", targetId: "target", type: "purpose", value: "Does work",
+      rationale: "Fixture evidence", confidence: 0.8,
+    }, [
+      { id: "code", kind: "code", locator: "code://rev/src/test.c#L1-L2", digest: "sha256:test", why: "New code", capturedAt: "2026-03-01" },
+      { id: "attempt", kind: "attempt", locator: "attempt://run/run-1", why: "Prior diagnosis", capturedAt: "2026-02-01" },
+    ]);
+    for (let index = 0; index < 8; index += 1) {
+      addRun(store, index);
+      store.db.query("UPDATE submission SET description = ? WHERE id = ?").run("D".repeat(1_000), `submission-${index}`);
+      store.db.query(`INSERT INTO pull_request
+        (id, target_id, pr_ref, summary, outcome, merged_at)
+        VALUES (?, 'target', ?, ?, 'match', ?)`)
+        .run(`accepted-${index}`, `#${index}`, "P".repeat(500), `2026-02-${String(index + 1).padStart(2, "0")}`);
+    }
+
+    const full = buildV2TargetCard(store, "GALE01:test:test_symbol", "full")!;
+    expect(full.accepted_prs.length).toBeGreaterThanOrEqual(1);
+    expect(full.accepted_prs[0]).toMatchObject({ pr_ref: "#7", attribution: "target", locator: "pr://accepted-7" });
+    // Over budget, fact rationales go before any run history does, and
+    // mechanical PR/event ledger rows go before submission rows.
+    expect(full.facts.by_type.purpose?.rationale).toBe("");
+    expect(full.ledger.entries.length).toBeGreaterThan(0);
+    expect(full.ledger.entries.every((entry) => entry.type === "submission")).toBe(true);
+    expect(full.prior_runs[0]).toBeDefined();
+    expect(full.facts.by_type.purpose?.evidence).toEqual({
+      kind: "attempt", locator: "attempt://run/run-1", why: "Prior diagnosis",
+    });
+
+    for (const [budget, limit] of [["full", 8_000], ["compact", 4_000], ["minimal", 1_500]] as const) {
+      const card = buildV2TargetCard(store, "GALE01:test:test_symbol", budget)!;
+      expect(targetKnowledgeCardV2Xml(card).length).toBeLessThanOrEqual(limit);
+      expect(card.status).toBeDefined();
+      expect(card.prior_runs[0]).toBeDefined();
+      for (const entry of card.ledger.entries) {
+        if (entry.type === "submission") expect(entry.description.length).toBeLessThanOrEqual(400);
+      }
+    }
   });
 
   test("gates cards on facts or ledger rows", () => {

@@ -251,7 +251,7 @@ function unitEntityForEvidence(
   const locators = store.db.query<{ locator: string }, [string]>(`
     SELECT evidence.locator
     FROM fact
-    JOIN evidence ON evidence.fact_id = fact.id
+    CROSS JOIN evidence ON evidence.fact_id = fact.id
     WHERE fact.entity_id = ? AND evidence.kind = 'code'
     ORDER BY evidence.id
   `).all(entityId);

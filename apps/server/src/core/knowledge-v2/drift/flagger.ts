@@ -61,25 +61,28 @@ export function checkoutRevision(checkoutRoot: string): string {
   }
 }
 
-function codeEvidenceRows(
-  store: KnowledgeStoreHandle,
-  subject: SubjectRef,
-): CodeEvidenceRow[] {
-  const select = `SELECT
+export function codeEvidenceSql(subject: SubjectRef): string {
+  const subjectColumn = subject.targetId !== undefined ? "target_id" : "entity_id";
+  return `SELECT
       f.id AS fact_id,
       f.type AS fact_type,
       e.id AS evidence_id,
       e.locator,
       e.digest
     FROM fact f
-    JOIN evidence e ON e.fact_id = f.id
-    WHERE e.kind = 'code' AND`;
+    CROSS JOIN evidence e ON e.fact_id = f.id
+    WHERE f.${subjectColumn} = ? AND e.kind = 'code'
+    ORDER BY f.id, e.id`;
+}
+
+function codeEvidenceRows(
+  store: KnowledgeStoreHandle,
+  subject: SubjectRef,
+): CodeEvidenceRow[] {
   if (subject.targetId !== undefined) {
-    return store.db.query<CodeEvidenceRow, [string]>(`${select} f.target_id = ?
-      ORDER BY f.id, e.id`).all(subject.targetId);
+    return store.db.query<CodeEvidenceRow, [string]>(codeEvidenceSql(subject)).all(subject.targetId);
   }
-  return store.db.query<CodeEvidenceRow, [string]>(`${select} f.entity_id = ?
-    ORDER BY f.id, e.id`).all(subject.entityId);
+  return store.db.query<CodeEvidenceRow, [string]>(codeEvidenceSql(subject)).all(subject.entityId);
 }
 
 export function flagCodeDrift(

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createCodeFileCache } from "../apply/resolver.js";
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
-import { flagCodeDrift } from "./flagger.js";
+import { codeEvidenceSql, flagCodeDrift } from "./flagger.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -66,7 +66,26 @@ function storeFixture(): KnowledgeStore {
   return store;
 }
 
+interface QueryPlanRow {
+  detail: string;
+}
+
+function codeEvidencePlan(store: KnowledgeStore, subject: { targetId: string } | { entityId: string }): string[] {
+  return store.db.query<QueryPlanRow, [string]>(`EXPLAIN QUERY PLAN ${codeEvidenceSql(subject)}`)
+    .all("subject-id")
+    .map((row) => row.detail);
+}
+
 describe("flagCodeDrift", () => {
+  test("drives per-subject code evidence queries from the fact subject indexes", () => {
+    const store = storeFixture();
+
+    expect(codeEvidencePlan(store, { targetId: "target-1" })[0])
+      .toStartWith("SEARCH f USING INDEX fact_target_type");
+    expect(codeEvidencePlan(store, { entityId: "entity-1" })[0])
+      .toStartWith("SEARCH f USING INDEX fact_entity_type");
+  });
+
   test("reads one shared file cache entry for two evidence rows on one file", () => {
     const git = gitFixture();
     const store = storeFixture();

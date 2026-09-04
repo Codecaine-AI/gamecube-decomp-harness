@@ -7,6 +7,7 @@ import {
   insertDiscordMessages,
   insertEntitiesIfMissing,
   insertPullRequestEntries,
+  insertRunNarrative,
   insertTargets,
   insertWikiSections,
   insertWorkerRun,
@@ -133,6 +134,34 @@ describe("knowledge-v2 FTS", () => {
     expect(buildAttemptFts(store, indexDb)).toBe(1);
     expect(searchFts(indexDb, "attempt", "branchswap")[0]?.locator).toBe("attempt://run/worker-1");
     expect(searchFts(indexDb, "attempt", "seconddescription")[0]?.locator).toBe("attempt://run/worker-1");
+  });
+
+  test("indexes descriptions without hypotheses and run narrative text", () => {
+    const { store, indexDb } = openFixture("attempt-narrative");
+    insertUnit(store);
+    insertWorkerRun(store, {
+      id: "worker-1", targetId: "unit-1", goal: "match", baseline: "{}", finalOutcome: "improvement",
+      startedAt: "2026-01-01", closedAt: "2026-01-02",
+    }, [
+      { id: "submission-1", seq: 1, description: "nullhypothesisdescription", score: 1, submittedAt: "2026-01-01" },
+    ]);
+    insertRunNarrative(store, {
+      workerRunId: "worker-1",
+      summary: "summarydiagnosis",
+      notableObservations: [{ observation: "registerpressure", reusable_when: "similarfunctions" }],
+      narrative: {},
+      producedBy: "live",
+    });
+
+    expect(buildAttemptFts(store, indexDb)).toBe(1);
+    for (const query of [
+      "nullhypothesisdescription",
+      "summarydiagnosis",
+      "registerpressure",
+      "similarfunctions",
+    ]) {
+      expect(searchFts(indexDb, "attempt", query)[0]?.locator).toBe("attempt://run/worker-1");
+    }
   });
 
   test("quotes path tokens and embedded double quotes safely", () => {

@@ -147,6 +147,16 @@ export interface Kv2AttemptScores {
   submission: number | null;
 }
 
+export interface Kv2NarrativeObservation {
+  observation: string;
+  reusable_when: string;
+}
+
+export interface Kv2AttemptNarrative {
+  summary: string;
+  observations: Kv2NarrativeObservation[];
+}
+
 export interface Kv2AttemptSearchHit {
   locator: string;
   stable_key: string;
@@ -154,6 +164,7 @@ export interface Kv2AttemptSearchHit {
   scores: Kv2AttemptScores;
   description_snippet: string | null;
   hypothesis_snippet: string | null;
+  narrative: Kv2AttemptNarrative | null;
 }
 
 export interface Kv2AttemptSearchResult extends ResultCoverage {
@@ -187,6 +198,13 @@ export interface Kv2SubjectRecordResult extends ResultCoverage {
   record: KnowledgeRecord | null;
   ledger: Kv2SubjectLedger;
   target_status: Kv2TargetStatus | null;
+  prior_runs: Kv2PriorRunNarrative[];
+}
+
+export interface Kv2PriorRunNarrative {
+  worker_run_id: string;
+  summary: string | null;
+  notable_observations: Kv2NarrativeObservation[];
 }
 
 export interface Kv2EntityLookupParams {
@@ -288,6 +306,7 @@ export interface Kv2ResolveLocatorResult extends ResultCoverage {
   archived_comment_body?: string;
   worker_run?: Kv2ResolvedWorkerRun;
   submission?: Kv2ResolvedSubmission;
+  narrative?: Kv2ResolvedRunNarrative;
   revision?: string;
   path?: string;
   start_line?: number;
@@ -295,6 +314,12 @@ export interface Kv2ResolveLocatorResult extends ResultCoverage {
   text?: string;
   reason?: string;
   line_count?: number;
+}
+
+export interface Kv2ResolvedRunNarrative {
+  summary: string;
+  notable_observations: unknown;
+  narrative: unknown;
 }
 
 export interface Kv2UnitContextParams {
@@ -402,6 +427,13 @@ interface AttemptSearchRow {
   submitted_at: string | null;
 }
 
+interface RunNarrativeRow {
+  worker_run_id: string;
+  summary: string | null;
+  notable_observations: unknown;
+  narrative: unknown;
+}
+
 interface EntityRow {
   locator: string;
   kind: EntityKind;
@@ -434,6 +466,9 @@ interface UnitPrRow {
 const DEFAULT_SNIPPET_CHARACTERS = 400;
 const SNIPPET_TRUNCATION_MARKER = "…<truncated>";
 const MAX_CODE_LINES = 120;
+const SEARCH_NARRATIVE_SUMMARY_CHARACTERS = 600;
+const SEARCH_NARRATIVE_OBSERVATION_CHARACTERS = 300;
+const RESOLVED_NARRATIVE_CHARACTERS = 6_000;
 
 /** Truncate a tool-search snippet while making any omitted text explicit. */
 export function truncateKnowledgeSnippet(
@@ -601,10 +636,13 @@ export function kv2AttemptSearch(
     ORDER BY w.closed_at DESC, w.id, s.seq DESC
   `).all();
   const results: Kv2AttemptSearchHit[] = [];
+  const includedRunIds = new Set<string>();
   for (const row of rows) {
     if (matchingRunIds && !matchingRunIds.has(row.run_id)) continue;
     if (params.target_stable_key !== undefined && row.stable_key !== params.target_stable_key) continue;
     if (params.outcome !== undefined && row.final_outcome !== params.outcome) continue;
+    if (includedRunIds.has(row.run_id)) continue;
+    includedRunIds.add(row.run_id);
     results.push({
       locator: formatLocator({
         kind: "attempt",
@@ -623,6 +661,7 @@ export function kv2AttemptSearch(
       hypothesis_snippet: row.hypothesis === null
         ? null
         : truncateKnowledgeSnippet(row.hypothesis),
+      narrative: searchNarrative(handles.store, row.run_id),
     });
     if (results.length > limit) break;
   }
@@ -672,6 +711,7 @@ export function kv2SubjectRecord(
         truncated: ledgerEntries.length > ledgerLimit,
       },
       target_status: status,
+      prior_runs: priorRunNarratives(handles.store, target.id),
       count: 1,
       truncated: ledgerEntries.length > ledgerLimit,
     };
@@ -691,6 +731,7 @@ export function kv2SubjectRecord(
     ),
     ledger: { entries: [], total_count: 0, truncated: false },
     target_status: null,
+    prior_runs: [],
     count: 1,
     truncated: false,
   };
@@ -802,12 +843,14 @@ export function kv2ResolveLocator(
         ...rawRun,
         baseline: parseJsonRecord(rawRun.baseline),
       };
+      const narrative = resolvedRunNarrative(handles.store, parsed.runId);
       if (parsed.submissionSequence === undefined) {
         return {
           status: "ok",
           kind: "attempt",
           locator,
           worker_run: workerRun,
+          narrative,
           count: 1,
           truncated: false,
         };
@@ -822,6 +865,7 @@ export function kv2ResolveLocator(
         locator,
         worker_run: workerRun,
         submission,
+        narrative,
         count: 1,
         truncated: false,
       };
@@ -1260,9 +1304,92 @@ function emptySubject(status: "invalid_subject" | "not_found"): Kv2SubjectRecord
     record: null,
     ledger: { entries: [], total_count: 0, truncated: false },
     target_status: null,
+    prior_runs: [],
     count: 0,
     truncated: false,
   };
+}
+
+function searchNarrative(store: KnowledgeStore, workerRunId: string): Kv2AttemptNarrative | null {
+  const row = store.db.query<RunNarrativeRow, [string]>(`
+    SELECT worker_run_id, summary, notable_observations, narrative
+    FROM run_narrative WHERE worker_run_id = ?
+  `).get(workerRunId);
+  if (!row) return null;
+  return {
+    summary: truncateKnowledgeSnippet(row.summary ?? "", SEARCH_NARRATIVE_SUMMARY_CHARACTERS),
+    observations: parseNarrativeObservations(row.notable_observations, 3),
+  };
+}
+
+function priorRunNarratives(store: KnowledgeStore, targetId: string): Kv2PriorRunNarrative[] {
+  const rows = store.db.query<RunNarrativeRow, [string]>(`
+    SELECT w.id AS worker_run_id, n.summary, n.notable_observations, n.narrative
+    FROM worker_run w
+    LEFT JOIN run_narrative n ON n.worker_run_id = w.id
+    WHERE w.target_id = ?
+    ORDER BY w.closed_at DESC, w.id
+    LIMIT 3
+  `).all(targetId);
+  return rows.map((row) => ({
+    worker_run_id: row.worker_run_id,
+    summary: row.summary === null || row.summary === undefined
+      ? null
+      : truncateKnowledgeSnippet(row.summary, SEARCH_NARRATIVE_SUMMARY_CHARACTERS),
+    notable_observations: parseNarrativeObservations(row.notable_observations, 3),
+  }));
+}
+
+function resolvedRunNarrative(
+  store: KnowledgeStore,
+  workerRunId: string,
+): Kv2ResolvedRunNarrative | undefined {
+  const row = store.db.query<RunNarrativeRow, [string]>(`
+    SELECT worker_run_id, summary, notable_observations, narrative
+    FROM run_narrative WHERE worker_run_id = ?
+  `).get(workerRunId);
+  if (!row) return undefined;
+  const result: Kv2ResolvedRunNarrative = {
+    summary: truncateKnowledgeSnippet(row.summary ?? "", 1_000),
+    notable_observations: parseNarrativeObservations(row.notable_observations, 5),
+    narrative: boundedJsonValue(row.narrative, 3_000),
+  };
+  if (JSON.stringify(result).length <= RESOLVED_NARRATIVE_CHARACTERS) return result;
+  return {
+    ...result,
+    narrative: truncateKnowledgeSnippet(JSON.stringify(result.narrative), 1_000),
+  };
+}
+
+function parseNarrativeObservations(value: unknown, limit: number): Kv2NarrativeObservation[] {
+  const parsed = parseJsonValue(value);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.flatMap((item) => {
+    if (item === null || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    if (typeof record.observation !== "string" || typeof record.reusable_when !== "string") return [];
+    return [{
+      observation: truncateKnowledgeSnippet(record.observation, SEARCH_NARRATIVE_OBSERVATION_CHARACTERS),
+      reusable_when: truncateKnowledgeSnippet(record.reusable_when, SEARCH_NARRATIVE_OBSERVATION_CHARACTERS),
+    }];
+  }).slice(0, limit);
+}
+
+function boundedJsonValue(value: unknown, maxCharacters: number): unknown {
+  const parsed = parseJsonValue(value);
+  const serialized = JSON.stringify(parsed);
+  return serialized.length <= maxCharacters
+    ? parsed
+    : truncateKnowledgeSnippet(serialized, maxCharacters);
+}
+
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
 }
 
 function emptyUnit(status: "invalid_subject" | "not_found"): Kv2UnitContextResult {

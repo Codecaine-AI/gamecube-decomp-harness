@@ -35,8 +35,37 @@ interface WorkerRunRow {
 
 interface SubmissionRow {
   worker_run_id: string;
-  hypothesis: string;
+  hypothesis: string | null;
   description: string;
+}
+
+interface RunNarrativeRow {
+  worker_run_id: string;
+  summary: string;
+  notable_observations: string;
+}
+
+interface NotableObservation {
+  observation: string;
+  reusable_when: string;
+}
+
+function narrativeSearchText(row: RunNarrativeRow): string {
+  let observations: unknown;
+  try {
+    observations = JSON.parse(row.notable_observations);
+  } catch {
+    observations = [];
+  }
+  const observationText = Array.isArray(observations)
+    ? observations.flatMap((value): string[] => {
+      if (value === null || typeof value !== "object") return [];
+      const observation = value as Partial<NotableObservation>;
+      return [observation.observation, observation.reusable_when]
+        .filter((text): text is string => typeof text === "string");
+    })
+    : [];
+  return [row.summary, ...observationText].join("\n");
 }
 
 export function buildDiscordFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb): number {
@@ -109,14 +138,25 @@ export function buildAttemptFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb
   const submissions = store.db.query<SubmissionRow, []>(
     `SELECT worker_run_id, hypothesis, description
      FROM submission
-     WHERE hypothesis IS NOT NULL
      ORDER BY worker_run_id, seq`,
   ).all();
-  const hypothesesByRun = new Map<string, string[]>();
+  const narratives = store.db.query<RunNarrativeRow, []>(
+    "SELECT worker_run_id, summary, notable_observations FROM run_narrative",
+  ).all();
+  const searchTextByRun = new Map<string, string[]>();
   for (const submission of submissions) {
-    const hypotheses = hypothesesByRun.get(submission.worker_run_id) ?? [];
-    hypotheses.push(`${submission.hypothesis}\n${submission.description}`);
-    hypothesesByRun.set(submission.worker_run_id, hypotheses);
+    const searchText = searchTextByRun.get(submission.worker_run_id) ?? [];
+    searchText.push(
+      submission.hypothesis === null
+        ? submission.description
+        : `${submission.hypothesis}\n${submission.description}`,
+    );
+    searchTextByRun.set(submission.worker_run_id, searchText);
+  }
+  for (const narrative of narratives) {
+    const searchText = searchTextByRun.get(narrative.worker_run_id) ?? [];
+    searchText.push(narrativeSearchText(narrative));
+    searchTextByRun.set(narrative.worker_run_id, searchText);
   }
   const insert = indexDb.db.query(
     "INSERT INTO attempt_fts (id, hypotheses, transcript) VALUES (?, ?, ?)",
@@ -126,7 +166,7 @@ export function buildAttemptFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb
       // Transcript indexing is deferred until run-state artifacts are part of knowledge-v2.
       insert.run(
         formatLocator({ kind: "attempt", runId: run.id }),
-        (hypothesesByRun.get(run.id) ?? []).join("\n\n"),
+        (searchTextByRun.get(run.id) ?? []).join("\n\n"),
         "",
       );
     }

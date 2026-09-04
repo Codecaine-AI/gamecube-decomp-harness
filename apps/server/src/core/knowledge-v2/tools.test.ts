@@ -116,6 +116,19 @@ async function openFixture(): Promise<Fixture> {
     (id, target_id, goal, baseline, final_outcome, integration, started_at, ended_at, closed_at)
     VALUES ('run-1', 'target-1', 'Improve shield branch', '{"score":50}', 'improvement', 'integrated',
       '2026-08-03T00:00:00.000Z', '2026-08-03T01:00:00.000Z', '2026-08-03T01:00:00.000Z')`).run();
+  store.db.query(`INSERT INTO run_narrative
+    (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+    VALUES (?, ?, ?, ?, 'live', '2026-08-03T01:01:00.000Z')`).run(
+      "run-1",
+      `Previous diagnosis found the floating-point compare token ${"s".repeat(650)}`,
+      JSON.stringify([
+        { observation: "The compare ordering controls register allocation", reusable_when: "A nearby float compare misses" },
+        { observation: "Keeping the temporary avoids a reload", reusable_when: "The compiler reloads the operand" },
+        { observation: "The branch hint changed the emitted opcode", reusable_when: "Branch shape differs" },
+        { observation: "This fourth observation must be omitted", reusable_when: "Never returned by search" },
+      ]),
+      JSON.stringify({ diagnosis: "Preserve the temporary and reverse the compare", details: "full narrative" }),
+    );
   const insertSubmission = store.db.query(`INSERT INTO submission
     (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref)
     VALUES (?, 'run-1', ?, ?, ?, ?, ?, NULL)`);
@@ -227,7 +240,7 @@ describe("knowledge-v2 librarian tools", () => {
     expectBoundedPayload(prs);
 
     const attempts = await readOnlyCall(fixture.store, () => kv2AttemptSearch(handles, {
-      query: "shield hypothesis token", target_stable_key: "GALE01:fighter_update",
+      query: "floating-point compare token", target_stable_key: "GALE01:fighter_update",
       outcome: "improvement", limit: 10,
     }));
     expect(attempts).toMatchObject({ status: "ok" });
@@ -239,6 +252,17 @@ describe("knowledge-v2 librarian tools", () => {
     expect(attempts.results[0].scores).toBeDefined();
     expect(attempts.results[0].description_snippet).toBeString();
     expect(attempts.results[0].hypothesis_snippet).toBeString();
+    expect(attempts.results).toHaveLength(1);
+    expect(attempts.results[0].narrative?.summary).toBeString();
+    expect(attempts.results[0].narrative!.summary.length).toBeLessThanOrEqual(600);
+    expect(attempts.results[0].narrative).toMatchObject({
+      summary: expect.stringContaining("Previous diagnosis"),
+      observations: [
+        { observation: "The compare ordering controls register allocation", reusable_when: "A nearby float compare misses" },
+        { observation: "Keeping the temporary avoids a reload", reusable_when: "The compiler reloads the operand" },
+        { observation: "The branch hint changed the emitted opcode", reusable_when: "Branch shape differs" },
+      ],
+    });
     expectBoundedPayload(attempts);
 
     const subject = await readOnlyCall(fixture.store, () => kv2SubjectRecord(handles, {
@@ -251,6 +275,13 @@ describe("knowledge-v2 librarian tools", () => {
       target_status: { match_pct: 87.5 },
     });
     expect(subject.ledger.entries).toHaveLength(10);
+    expect(subject.prior_runs).toEqual([expect.objectContaining({
+      worker_run_id: "run-1",
+      summary: expect.stringContaining("Previous diagnosis"),
+      notable_observations: expect.arrayContaining([
+        expect.objectContaining({ observation: "The compare ordering controls register allocation" }),
+      ]),
+    })]);
     assertLocatorRoundTrips(subject);
 
     const entities = await readOnlyCall(fixture.store, () => kv2EntityLookup(handles, {
@@ -270,6 +301,22 @@ describe("knowledge-v2 librarian tools", () => {
     expect(resolved.message).toMatchObject({ id: "discord-hit", author: "Grace" });
     expect(resolved.thread_context).toBeDefined();
     assertLocatorRoundTrips(resolved);
+
+    const resolvedAttempt = await readOnlyCall(fixture.store, () => kv2ResolveLocator(handles, {
+      locator: "attempt://run/run-1/submission/11",
+    }));
+    expect(JSON.stringify(resolvedAttempt.narrative).length).toBeLessThanOrEqual(6_000);
+    expect(resolvedAttempt).toMatchObject({
+      status: "ok",
+      kind: "attempt",
+      narrative: {
+        summary: expect.stringContaining("Previous diagnosis"),
+        notable_observations: expect.arrayContaining([
+          expect.objectContaining({ reusable_when: "A nearby float compare misses" }),
+        ]),
+        narrative: { diagnosis: "Preserve the temporary and reverse the compare" },
+      },
+    });
 
     const unit = await readOnlyCall(fixture.store, () => kv2UnitContext(handles, {
       target_stable_key: "GALE01:fighter_update", pr_limit: 15,
