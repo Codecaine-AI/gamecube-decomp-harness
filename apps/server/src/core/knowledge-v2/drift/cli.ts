@@ -16,6 +16,7 @@ export interface DriftScanSummary {
   scanned: number;
   flagged: number;
   enqueued: number;
+  ungrouped_subjects: number;
   by_status: Record<DriftStatus, number>;
 }
 
@@ -78,11 +79,13 @@ export function scanCodeDrift(
     scanned: 0,
     flagged: 0,
     enqueued: 0,
+    ungrouped_subjects: 0,
     by_status: { unchanged: 0, drifted: 0, unresolvable: 0 },
   };
   let headRevision = options.headRevision;
   const codeFileCache = createCodeFileCache(options.checkoutRoot, { limit: 4096 });
   const flaggedByUnit = new Map<string, UnitRef & { subjects: DriftTaskSubject[] }>();
+  const ungroupedEntityIds = new Set<string>();
 
   for (const subject of subjects) {
     const report = flagCodeDrift(store, {
@@ -102,9 +105,16 @@ export function scanCodeDrift(
     for (const evidence of report.evidence) summary.by_status[evidence.status] += 1;
     if (report.drifted_count + report.unresolvable_count === 0) continue;
     summary.flagged += 1;
-    if (options.enqueue === false) continue;
 
     const entry = unitForSubject(store, subject);
+    if (entry === null) {
+      summary.ungrouped_subjects += 1;
+      if (options.enqueue !== false && subject.entityId !== undefined) {
+        ungroupedEntityIds.add(subject.entityId);
+      }
+      continue;
+    }
+    if (options.enqueue === false) continue;
     const key = `${entry.unitEntityId}\0${entry.unit}`;
     const batch = flaggedByUnit.get(key) ?? {
       unit: entry.unit,
@@ -130,6 +140,20 @@ export function scanCodeDrift(
     });
     const enqueued = immediateTransaction(store.db, () => {
       if (hasPendingDriftTask(store, batch)) return false;
+      enqueueIndexTask(store, {
+        id: `task:drift_recheck:${randomUUID()}`,
+        pathway: "drift_recheck",
+        payload,
+      });
+      return true;
+    });
+    if (enqueued) summary.enqueued += 1;
+  }
+
+  for (const entityId of ungroupedEntityIds) {
+    const payload = JSON.stringify({ entity_id: entityId, reason: "drift" });
+    const enqueued = immediateTransaction(store.db, () => {
+      if (hasPendingSubjectDriftTask(store, entityId)) return false;
       enqueueIndexTask(store, {
         id: `task:drift_recheck:${randomUUID()}`,
         pathway: "drift_recheck",
@@ -184,14 +208,14 @@ export function subjectsWithCodeEvidence(store: KnowledgeStore, limit: number | 
     : { targetId: row.target_id });
 }
 
-function unitForSubject(store: KnowledgeStore, subject: SubjectRef): UnitRef {
+function unitForSubject(store: KnowledgeStore, subject: SubjectRef): UnitRef | null {
   if (subject.targetId !== undefined) {
     const row = store.db.query<{ unit: string; unit_entity_id: string }, [string]>(`
       SELECT unit, unit_entity_id
       FROM target
       WHERE id = ?
     `).get(subject.targetId);
-    if (!row) throw new Error(`Target not found while grouping drift: ${subject.targetId}`);
+    if (!row) return null;
     return { unit: row.unit, unitEntityId: row.unit_entity_id };
   }
 
@@ -209,9 +233,7 @@ function unitForSubject(store: KnowledgeStore, subject: SubjectRef): UnitRef {
     LIMIT 1
   `).get(subject.entityId);
   const unitEntity = ancestor ?? unitEntityForEvidence(store, subject.entityId);
-  if (!unitEntity) {
-    throw new Error(`Translation unit not found while grouping entity drift: ${subject.entityId}`);
-  }
+  if (!unitEntity) return null;
   const target = store.db.query<{ unit: string }, [string]>(`
     SELECT unit
     FROM target
@@ -274,6 +296,22 @@ function hasPendingDriftTask(store: KnowledgeStore, unit: UnitRef): boolean {
       )
     LIMIT 1
   `).get(unit.unitEntityId, unit.unit) !== null;
+}
+
+function hasPendingSubjectDriftTask(store: KnowledgeStore, entityId: string): boolean {
+  return store.db.query<{ found: number }, [string]>(`
+    SELECT 1 AS found
+    FROM index_task
+    WHERE pathway = 'drift_recheck'
+      AND done_at IS NULL
+      AND CASE WHEN json_valid(payload)
+        THEN COALESCE(
+          json_extract(payload, '$.entity_id'),
+          json_extract(payload, '$.task_payload.entity_id')
+        )
+      END = ?
+    LIMIT 1
+  `).get(entityId) !== null;
 }
 
 function optionalStringArg(args: Map<string, string | true>, name: string): string | undefined {

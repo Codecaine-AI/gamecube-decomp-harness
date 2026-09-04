@@ -173,6 +173,7 @@ describe("kg2DriftScan", () => {
       scanned: 2,
       flagged: 2,
       enqueued: 1,
+      ungrouped_subjects: 0,
       by_status: { unchanged: 0, drifted: 1, unresolvable: 1 },
     });
     const tasks = f.store.db.query<{ id: string; pathway: string; payload: string }, []>(
@@ -197,6 +198,56 @@ describe("kg2DriftScan", () => {
     );
     expect(await runScan(f)).toMatchObject({ scanned: 2, flagged: 2, enqueued: 0 });
     expect(f.store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM index_task").get()!.count).toBe(1);
+  });
+
+  test("enqueues an ungrouped curated entity separately while batching unit subjects", async () => {
+    const f = fixture();
+    writeFileSync(join(f.checkoutRoot, "src/curated.c"), "old curated line\n");
+    git(f.checkoutRoot, ["add", "."]);
+    git(f.checkoutRoot, ["commit", "-qm", "curated v1"]);
+    const curatedRevision = git(f.checkoutRoot, ["rev-parse", "HEAD"]);
+    f.store.db.run(`INSERT INTO entity
+      (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
+      VALUES ('concept-curated', 'game_concept', 'game_concept:held-item-visibility', NULL, 'active', NULL)`);
+    writeFactWithEvidence(f.store, {
+      id: "fact-curated",
+      entityId: "concept-curated",
+      type: "purpose",
+      value: "curated concept",
+      rationale: "fixture",
+      confidence: 1,
+    }, [{
+      id: "evidence-curated",
+      kind: "code",
+      locator: `code://${curatedRevision}/src/curated.c#L1-L1`,
+      digest: digest("old curated line"),
+      why: "fixture",
+    }]);
+    writeFileSync(join(f.checkoutRoot, "src/curated.c"), "new curated line\n");
+    git(f.checkoutRoot, ["add", "."]);
+    git(f.checkoutRoot, ["commit", "-qm", "curated v2"]);
+
+    expect(await runScan(f)).toEqual({
+      scanned: 3,
+      flagged: 3,
+      enqueued: 2,
+      ungrouped_subjects: 1,
+      by_status: { unchanged: 0, drifted: 2, unresolvable: 1 },
+    });
+    const payloads = f.store.db.query<{ payload: string }, []>(
+      "SELECT payload FROM index_task ORDER BY payload",
+    ).all().map((task) => JSON.parse(task.payload));
+    expect(payloads).toContainEqual({ entity_id: "concept-curated", reason: "drift" });
+    expect(payloads).toContainEqual(expect.objectContaining({
+      unit_entity_id: "unit-main",
+      subjects: expect.arrayContaining([
+        expect.objectContaining({ target_id: "target-drifted" }),
+        expect.objectContaining({ entity_id: "concept-deleted" }),
+      ]),
+    }));
+
+    expect(await runScan(f)).toMatchObject({ enqueued: 0, ungrouped_subjects: 1 });
+    expect(f.store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM index_task").get()!.count).toBe(2);
   });
 
   test("dry-run reports flagged subjects without enqueueing", async () => {
