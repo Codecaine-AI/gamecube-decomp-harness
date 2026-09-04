@@ -9,6 +9,7 @@ import {
   REJECTION_MESSAGES,
   type ApplyOptions,
 } from "./index.js";
+import { createCodeFileCache, resolveCodeCitation } from "./resolver.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 
 const FIXED_NOW = "2026-04-01T12:00:00.000Z";
@@ -513,6 +514,60 @@ describe("required PR citations", () => {
 
     expect(report.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
     expect(rowCount(store, "fact")).toBe(1);
+  });
+});
+
+describe("code citation cache", () => {
+  test("resolving the same citation twice invokes git show once", () => {
+    const git = createGitFixture("resolver-cache");
+    const oldRevision = git.revision;
+    writeFileSync(join(git.root, "src", "sample.c"), "line one\nline two changed\nline three\nline four\n");
+    runGit(git.root, "add", "src/sample.c");
+    runGit(git.root, "commit", "-m", "head fixture");
+
+    const originalSpawnSync = Bun.spawnSync;
+    let showCalls = 0;
+    const cache = createCodeFileCache(git.root, {
+      spawnSync: (command, options) => {
+        if (command.includes("show")) showCalls += 1;
+        return originalSpawnSync(command, options);
+      },
+    });
+    const first = resolveCodeCitation(oldRevision, "src/sample.c", 2, 3, git.root, cache);
+    const second = resolveCodeCitation(oldRevision, "src/sample.c", 2, 3, git.root, cache);
+
+    expect(first).toEqual(second);
+    expect(first.ok).toBe(true);
+    expect(showCalls).toBe(1);
+  });
+
+  test("uses the checkout worktree for the current HEAD revision", () => {
+    const git = createGitFixture("resolver-head");
+    const headShortRevision = runGit(git.root, "rev-parse", "--short", "HEAD");
+    const worktreeSpan = "working tree line two\nline three";
+    writeFileSync(join(git.root, "src", "sample.c"), `line one\n${worktreeSpan}\nline four\n`);
+    const cache = createCodeFileCache(git.root);
+    const expectedDigest = `sha256:${createHash("sha256").update(worktreeSpan).digest("hex").slice(0, 16)}`;
+
+    expect(resolveCodeCitation(headShortRevision, "src/sample.c", 2, 3, git.root, cache)).toEqual({
+      ok: true,
+      digest: expectedDigest,
+    });
+  });
+
+  test("preserves unresolved revision and out-of-range results", () => {
+    const git = createGitFixture("resolver-errors");
+    const cache = createCodeFileCache(git.root);
+
+    expect(resolveCodeCitation("missing-revision", "src/sample.c", 1, 1, git.root, cache)).toEqual({
+      ok: false,
+      reason: "code_revision_unresolvable",
+    });
+    expect(resolveCodeCitation(git.revision, "src/sample.c", 3, 9, git.root, cache)).toEqual({
+      ok: false,
+      reason: "code_span_out_of_range",
+      lineCount: 4,
+    });
   });
 });
 

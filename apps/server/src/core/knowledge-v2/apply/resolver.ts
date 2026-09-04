@@ -1,7 +1,111 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolvePrComment } from "../ingest/prs.js";
 import { parseLocator } from "../locator.js";
 import type { KnowledgeStoreHandle, SourceKind } from "../records/index.js";
+
+export type CodeFileReadResult =
+  | { ok: true; lines: string[] }
+  | { ok: false; reason: "code_revision_unresolvable" };
+
+export interface CodeFileCache {
+  read(revision: string, path: string): CodeFileReadResult;
+}
+
+export type CodeFileSpawnSync = (
+  command: string[],
+  options: { stdout: "pipe"; stderr: "pipe" },
+) => { exitCode: number; stdout: { toString(): string } };
+
+export interface CodeFileCacheDependencies {
+  spawnSync?: CodeFileSpawnSync;
+}
+
+const CODE_FILE_CACHE_LIMIT = 512;
+
+function splitLines(content: string): string[] {
+  const lines = content.length === 0 ? [] : content.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  return lines;
+}
+
+function readCodeFileAtRevision(
+  checkoutRoot: string,
+  revision: string,
+  path: string,
+  spawnSync: CodeFileSpawnSync,
+): CodeFileReadResult {
+  try {
+    const result = spawnSync(
+      ["git", "-C", checkoutRoot, "show", `${revision}:${path}`],
+      { stdout: "pipe", stderr: "pipe" },
+    );
+    return result.exitCode === 0
+      ? { ok: true, lines: splitLines(result.stdout.toString()) }
+      : { ok: false, reason: "code_revision_unresolvable" };
+  } catch {
+    return { ok: false, reason: "code_revision_unresolvable" };
+  }
+}
+
+export function createCodeFileCache(
+  checkoutRoot: string,
+  dependencies: CodeFileCacheDependencies = {},
+): CodeFileCache {
+  const entries = new Map<string, CodeFileReadResult>();
+  let headRevision: string | null | undefined;
+  const spawnSync: CodeFileSpawnSync = dependencies.spawnSync
+    ?? ((command, options) => Bun.spawnSync(command, options));
+
+  const currentHeadRevision = (): string | null => {
+    if (headRevision !== undefined) return headRevision;
+    try {
+      const result = spawnSync(
+        ["git", "-C", checkoutRoot, "rev-parse", "--short", "HEAD"],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      headRevision = result.exitCode === 0 ? result.stdout.toString().trim() || null : null;
+    } catch {
+      headRevision = null;
+    }
+    return headRevision;
+  };
+
+  const remember = (key: string, result: CodeFileReadResult): CodeFileReadResult => {
+    entries.set(key, result);
+    if (entries.size > CODE_FILE_CACHE_LIMIT) {
+      const oldestKey = entries.keys().next().value;
+      if (oldestKey !== undefined) entries.delete(oldestKey);
+    }
+    return result;
+  };
+
+  return {
+    read(revision: string, path: string): CodeFileReadResult {
+      const key = `${revision}:${path}`;
+      const cached = entries.get(key);
+      if (cached !== undefined) {
+        entries.delete(key);
+        entries.set(key, cached);
+        return cached;
+      }
+
+      if (revision === currentHeadRevision()) {
+        try {
+          return remember(key, {
+            ok: true,
+            lines: splitLines(readFileSync(join(checkoutRoot, path), "utf8")),
+          });
+        } catch {
+          // The path may be absent from the worktree but present at HEAD.
+        }
+      }
+
+      return remember(key, readCodeFileAtRevision(checkoutRoot, revision, path, spawnSync));
+    },
+  };
+}
 
 export interface CitationInput {
   kind: SourceKind;
@@ -11,6 +115,7 @@ export interface CitationInput {
 export interface CitationResolveOptions {
   checkoutRoot: string;
   prsRoot?: string;
+  codeFileCache?: CodeFileCache;
 }
 
 export type CitationResolutionReason =
@@ -41,23 +146,16 @@ export function resolveCodeCitation(
   startLine: number,
   endLine: number,
   checkoutRoot: string,
+  cache?: CodeFileCache,
 ): CitationResolution {
-  let content: string;
-  try {
-    const result = Bun.spawnSync(
-      ["git", "-C", checkoutRoot, "show", `${revision}:${path}`],
-      { stdout: "pipe", stderr: "pipe" },
-    );
-    if (result.exitCode !== 0) {
-      return { ok: false, reason: "code_revision_unresolvable" };
-    }
-    content = result.stdout.toString();
-  } catch {
-    return { ok: false, reason: "code_revision_unresolvable" };
-  }
-
-  const lines = content.length === 0 ? [] : content.split("\n");
-  if (lines.at(-1) === "") lines.pop();
+  const file = cache?.read(revision, path) ?? readCodeFileAtRevision(
+    checkoutRoot,
+    revision,
+    path,
+    (command, options) => Bun.spawnSync(command, options),
+  );
+  if (!file.ok) return file;
+  const lines = file.lines;
   if (startLine > endLine || endLine > lines.length) {
     return { ok: false, reason: "code_span_out_of_range", lineCount: lines.length };
   }
@@ -153,6 +251,7 @@ export function resolveCitation(
         parsed.startLine,
         parsed.endLine,
         options.checkoutRoot,
+        options.codeFileCache,
       );
   }
 }

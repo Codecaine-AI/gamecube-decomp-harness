@@ -4,7 +4,11 @@ import type {
   KnowledgeStoreHandle,
   SubjectRef,
 } from "../records/index.js";
-import { resolveCodeCitation } from "../apply/resolver.js";
+import {
+  createCodeFileCache,
+  resolveCodeCitation,
+  type CodeFileCache,
+} from "../apply/resolver.js";
 import { resolveKnowledgeCheckout } from "../checkout.js";
 
 export type DriftEvidenceStatus = "unchanged" | "drifted" | "unresolvable";
@@ -33,6 +37,7 @@ export interface FlagCodeDriftOptions {
   gameId?: string;
   stateDir?: string;
   headRevision?: string;
+  codeFileCache?: CodeFileCache;
 }
 
 interface CodeEvidenceRow {
@@ -88,6 +93,7 @@ export function flagCodeDrift(
   const headRevision = options.headRevision?.trim()
     || resolvedCheckout?.headRevision
     || checkoutRevision(checkoutRoot);
+  const codeFileCache = options.codeFileCache ?? createCodeFileCache(checkoutRoot);
   const evidence = codeEvidenceRows(store, options.subject).map((row): DriftEvidenceEntry => {
     let parsed: ReturnType<typeof parseLocator>;
     try {
@@ -121,6 +127,7 @@ export function flagCodeDrift(
       parsed.startLine,
       parsed.endLine,
       checkoutRoot,
+      codeFileCache,
     );
     if (!resolution.ok || resolution.digest === null) {
       return {

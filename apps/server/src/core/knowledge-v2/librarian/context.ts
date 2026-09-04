@@ -1,7 +1,11 @@
 import { pastPrsRoot } from "@server/core/knowledge";
 import { resolve } from "node:path";
 
-import { resolveCitation } from "../apply/resolver.js";
+import {
+  createCodeFileCache,
+  resolveCitation,
+  type CodeFileCache,
+} from "../apply/resolver.js";
 import { resolveKnowledgeCheckout } from "../checkout.js";
 import {
   buildTargetMaterial,
@@ -70,6 +74,10 @@ export interface LibrarianContextOptions extends BackfillContextOptions {
   prsRoot?: string;
   messageSliceLimit?: number;
   sectionSliceLimit?: number;
+}
+
+interface LibrarianBuildOptions extends LibrarianContextOptions {
+  codeFileCache: CodeFileCache;
 }
 
 export type LibrarianTouchedSubject =
@@ -335,7 +343,7 @@ function entitySubject(
 function targetSubject(
   store: KnowledgeStoreHandle,
   target: TargetRow,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
   includeMaterial: boolean,
 ): LibrarianTouchedSubject {
   return {
@@ -353,12 +361,13 @@ function targetSubject(
 function subjectDrift(
   store: KnowledgeStoreHandle,
   subject: { targetId: string } | { entityId: string },
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): DriftReport {
   return flagCodeDrift(store, {
     subject,
     checkoutRoot: resolve(options.checkoutRoot ?? resolveKnowledgeCheckout({ gameId: "melee" }).checkoutRoot),
     ...(options.checkoutRev === undefined ? {} : { headRevision: options.checkoutRev }),
+    codeFileCache: options.codeFileCache,
   });
 }
 
@@ -372,7 +381,7 @@ function compactDrift(report: DriftReport): DriftReport {
 function fullTargetPathwaySubjects(
   store: KnowledgeStoreHandle,
   target: TargetRow,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
   includeDrift = false,
 ): LibrarianTouchedSubject[] {
   const entities = linkedMechanicalEntities(store, target);
@@ -468,7 +477,7 @@ function runIdFromPayload(payload: string): string {
 function buildRunClosedContext(
   store: KnowledgeStoreHandle,
   payload: string,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): BuiltPathwayContext {
   const runId = runIdFromPayload(payload);
   const run = readWorkerRun(store, runId);
@@ -633,7 +642,7 @@ function cappedDiscussion(comments: ResolvedPrComment[]): {
 function buildPrImportedContext(
   store: KnowledgeStoreHandle,
   payload: string,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): BuiltPathwayContext {
   const rows = pullRequestRows(store, payload);
   const prRef = rows[0]!.pr_ref;
@@ -827,7 +836,7 @@ export function splitSlicePayload(
 function archivalRows(
   store: KnowledgeStoreHandle,
   payload: LibrarianSlicePayload,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): {
   records: Array<{
     locator: string;
@@ -1061,7 +1070,7 @@ function buildMentionMap(
 function buildArchivalIngestContext(
   store: KnowledgeStoreHandle,
   rawPayload: string,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): BuiltPathwayContext {
   const payload = parseSlicePayload(rawPayload);
   if (!payload) throw new Error("archival_ingest payload is malformed");
@@ -1196,7 +1205,7 @@ function resolvedEventRef(
 function buildRegressionContext(
   store: KnowledgeStoreHandle,
   rawPayload: string,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): BuiltPathwayContext {
   const payload = regressionPayload(rawPayload);
   const event = payload.eventId === undefined
@@ -1282,7 +1291,7 @@ function driftSubject(
 function buildDriftRecheckContext(
   store: KnowledgeStoreHandle,
   rawPayload: string,
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): BuiltPathwayContext {
   const parsedPayload = parsedPayloadForTask(rawPayload);
   if (isRecord(parsedPayload) && Array.isArray(parsedPayload.subjects)) {
@@ -1346,7 +1355,7 @@ function buildDriftRecheckContext(
 function buildDriftSubjectContext(
   store: KnowledgeStoreHandle,
   subject: { target: TargetRow; entity?: never } | { target?: never; entity: EntityRow },
-  options: LibrarianContextOptions,
+  options: LibrarianBuildOptions,
 ): { touched: LibrarianTouchedSubject; object: Record<string, unknown> } {
   const record = subject.target === undefined
     ? knowledgeRecord(store, { entityId: subject.entity.id })
@@ -1365,6 +1374,7 @@ function buildDriftSubjectContext(
   const resolverOptions = {
     checkoutRoot: resolve(options.checkoutRoot ?? resolveKnowledgeCheckout({ gameId: "melee" }).checkoutRoot),
     prsRoot: options.prsRoot ?? resolve(pastPrsRoot(), "prs"),
+    codeFileCache: options.codeFileCache,
   };
   const flaggedFacts = Object.values(record.facts).flatMap((fact) => fact === undefined ? [] : [{
     type: fact.type,
@@ -1425,25 +1435,31 @@ export function buildTaskContext(
   const headRevision = options.checkoutRev?.trim()
     || resolvedCheckout?.headRevision
     || checkoutRevision(checkoutRoot);
+  const buildOptions: LibrarianBuildOptions = {
+    ...options,
+    checkoutRoot,
+    checkoutRev: headRevision,
+    codeFileCache: createCodeFileCache(checkoutRoot),
+  };
   const instruction = instructionFor(task.pathway);
   const payload = unwrapTaskPayload(task.payload);
   let built: BuiltPathwayContext;
   try {
     switch (task.pathway) {
       case "run_closed":
-        built = buildRunClosedContext(store, payload, options);
+        built = buildRunClosedContext(store, payload, buildOptions);
         break;
       case "pr_imported":
-        built = buildPrImportedContext(store, payload, options);
+        built = buildPrImportedContext(store, payload, buildOptions);
         break;
       case "regression":
-        built = buildRegressionContext(store, payload, options);
+        built = buildRegressionContext(store, payload, buildOptions);
         break;
       case "archival_ingest":
-        built = buildArchivalIngestContext(store, payload, options);
+        built = buildArchivalIngestContext(store, payload, buildOptions);
         break;
       case "drift_recheck":
-        built = buildDriftRecheckContext(store, payload, options);
+        built = buildDriftRecheckContext(store, payload, buildOptions);
         break;
       default:
         throw new TypeError(`Unknown librarian pathway: ${String(task.pathway)}`);

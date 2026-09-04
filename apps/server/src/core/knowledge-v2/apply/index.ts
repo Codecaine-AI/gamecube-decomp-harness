@@ -20,7 +20,11 @@ import {
 } from "../records/index.js";
 import { parseLocator } from "../locator.js";
 import { resolvePrComment } from "../ingest/prs.js";
-import { resolveCitation } from "./resolver.js";
+import {
+  createCodeFileCache,
+  resolveCitation,
+  type CodeFileCache,
+} from "./resolver.js";
 
 export interface SharedGate {
   run<T>(operation: () => T | Promise<T>): Promise<T>;
@@ -44,6 +48,7 @@ export interface ApplyOptions {
   };
   sharedWriteGate: SharedGate;
   checkoutRoot: string;
+  codeFileCache?: CodeFileCache;
   prsRoot?: string;
   requiredCitation?: { kind: "pr"; prNumber: string };
   headRevision?: string;
@@ -650,6 +655,7 @@ async function applyFactItem(
     const resolution = resolveCitation(store, citation, {
       checkoutRoot: options.checkoutRoot,
       prsRoot: options.prsRoot,
+      codeFileCache: options.codeFileCache,
     });
     if (!resolution.ok) {
       let revision: string | undefined;
@@ -744,6 +750,7 @@ async function applyLinkItem(
   const citation = resolveCitation(store, link, {
     checkoutRoot: options.checkoutRoot,
     prsRoot: options.prsRoot,
+    codeFileCache: options.codeFileCache,
   });
   if (!citation.ok) {
     let revision: string | undefined;
@@ -890,6 +897,10 @@ export async function applyLibrarianPass(
     }
   }
 
+  const resolvedOptions: ApplyOptions = options.codeFileCache === undefined
+    ? { ...options, codeFileCache: createCodeFileCache(options.checkoutRoot) }
+    : options;
+
   const groups = envelopeItems(proposal);
   const unknownKeys = Object.keys(proposal).filter((key) => !envelopeKeys.includes(key as typeof envelopeKeys[number]));
   const envelope_rejections = unknownKeys.map((key) => ({
@@ -919,20 +930,20 @@ export async function applyLibrarianPass(
 
   // Admissions run first so later proposal items can target entities admitted by this pass.
   for (const item of groups.entities) {
-    await runItem(item, () => applyEntityItem(store, item, options, virtualEntities));
+    await runItem(item, () => applyEntityItem(store, item, resolvedOptions, virtualEntities));
   }
   for (const item of groups.facts) {
-    await runItem(item, () => applyFactItem(store, item, options, startedAt, virtualEntities, dryRunFacts));
+    await runItem(item, () => applyFactItem(store, item, resolvedOptions, startedAt, virtualEntities, dryRunFacts));
   }
   for (const item of groups.links) {
-    await runItem(item, () => applyLinkItem(store, item, options, virtualEntities, pendingLinks));
+    await runItem(item, () => applyLinkItem(store, item, resolvedOptions, virtualEntities, pendingLinks));
   }
   for (const item of groups.merges) {
-    await runItem(item, () => applyMergeItem(store, item, options, virtualEntities));
+    await runItem(item, () => applyMergeItem(store, item, resolvedOptions, virtualEntities));
   }
   for (const item of groups.followUps) {
     await runItem(item, () => applyFollowUpItem(
-      store, item, options, virtualEntities, acceptedFollowUpSubjects,
+      store, item, resolvedOptions, virtualEntities, acceptedFollowUpSubjects,
     ));
   }
   }

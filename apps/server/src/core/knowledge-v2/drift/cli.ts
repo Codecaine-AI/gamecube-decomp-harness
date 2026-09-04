@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { createCodeFileCache } from "../apply/resolver.js";
 import { resolveKnowledgeCheckout } from "../checkout.js";
 import { parseLocator } from "../locator.js";
 import { enqueueIndexTask, type SubjectRef } from "../records/index.js";
@@ -80,6 +81,7 @@ export function scanCodeDrift(
     by_status: { unchanged: 0, drifted: 0, unresolvable: 0 },
   };
   let headRevision = options.headRevision;
+  const codeFileCache = createCodeFileCache(options.checkoutRoot);
   const flaggedByUnit = new Map<string, UnitRef & { subjects: DriftTaskSubject[] }>();
 
   for (const subject of subjects) {
@@ -87,6 +89,7 @@ export function scanCodeDrift(
       subject,
       checkoutRoot: options.checkoutRoot,
       headRevision,
+      codeFileCache,
     });
     headRevision ??= report.head_revision;
     summary.scanned += 1;

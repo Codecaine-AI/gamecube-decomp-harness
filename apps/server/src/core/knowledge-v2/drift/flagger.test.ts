@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
+import { createCodeFileCache } from "../apply/resolver.js";
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { flagCodeDrift } from "./flagger.js";
@@ -66,6 +67,43 @@ function storeFixture(): KnowledgeStore {
 }
 
 describe("flagCodeDrift", () => {
+  test("reads one shared file cache entry for two evidence rows on one file", () => {
+    const git = gitFixture();
+    const store = storeFixture();
+    writeFactWithEvidence(store, {
+      id: "fact-shared",
+      entityId: "entity-1",
+      type: "purpose",
+      value: "fact-shared",
+      rationale: "fixture",
+      confidence: 0.8,
+    }, ["L2-L2", "L2-L3"].map((line, index) => ({
+      id: `evidence-shared-${index}`,
+      kind: "code",
+      locator: `code://${git.v1}/src/same.c#${line}`,
+      digest: digest(line === "L2-L2" ? "two" : "two\nthree"),
+      why: "fixture",
+    })));
+
+    let showCount = 0;
+    const codeFileCache = createCodeFileCache(git.root, {
+      spawnSync(command, options) {
+        if (command.includes("show")) showCount += 1;
+        return Bun.spawnSync(command, options);
+      },
+    });
+
+    const report = flagCodeDrift(store, {
+      subject: { entityId: "entity-1" },
+      checkoutRoot: git.root,
+      headRevision: git.v1,
+      codeFileCache,
+    });
+
+    expect(showCount).toBe(1);
+    expect(report.evidence.map(({ status }) => status)).toEqual(["unchanged", "unchanged"]);
+  });
+
   test("classifies unchanged, drifted, and unresolvable code evidence at checkout HEAD", () => {
     const git = gitFixture();
     const store = storeFixture();
