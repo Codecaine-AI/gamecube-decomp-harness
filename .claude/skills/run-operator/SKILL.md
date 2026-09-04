@@ -41,6 +41,18 @@ repairing and reporting.
   `integration_outcomes`, `pending_integrations`.
 - **Knowledge graph** — `games/melee/graph/graph.sqlite`; the admission guard
   reads `knowledge_graph_metadata.board_report_provenance`.
+- **Knowledge store (V2)** — `games/melee/knowledge/knowledge.sqlite` (facts,
+  evidence, links, the librarian queue `index_task`). Fed by the harness at
+  two seams since 2026-09-03: the operator sync's publish and every epoch
+  boundary's `knowledge_intake` step (after `recompute_report`) call
+  `runKnowledgeIntake`: merged-PR dumps into the canonical past_prs archive,
+  then reconcile → prs → discord → attempts against the CYCLE WORKTREE and
+  its report. Every `kg2-*` command resolves that same checkout
+  (`[kg2-*] checkout <path> @ <head> (active_cycle)` on its first line — if it
+  says `legacy_checkout`, stop: no active cycle was found). The librarian
+  drains the queue (`kg2-librarian --run-id <id> --concurrency 8`, or the
+  run-loop lane `--librarian-consumer`); passes carry a validation gate
+  (dry-run apply, one retry with fix-it messages) and a drift gate.
 - **Logs** — `games/melee/state/ui-processes/melee-live.stderr.log` (scheduler
   + boundary steps), `melee-live.stdout.log`, process record `melee-live.json`.
 - **Worktrees** — cycle worktree `games/melee/worktrees/cycles/<cycle>/current`
@@ -74,6 +86,10 @@ LOG=games/melee/state/ui-processes/melee-live.stderr.log
 
 1. Server up: `lsof -nP -iTCP:8787 -sTCP:LISTEN` shows a `bun` pid. If not,
    ask Ford; do nothing else.
+   If any `job-runner.ts` command fails with `schema is behind this process`,
+   the server is running an older tree than the working tree: only the server
+   applies orchestrator migrations. Ask Ford to restart it (he started it with
+   `bun run ui:dev` from the repo root); never migrate by hand.
 2. Read `objectives/epoch-flow-redesign/current_state.md` top entry and
    `<next_actions>` — any standing directive (e.g. "pause after this epoch")
    lives there. Also `~/.claude/projects/.../memory/MEMORY.md`.
@@ -188,6 +204,33 @@ Do not restart the scheduler mid-epoch to pick up code changes; you drop
 every in-flight attempt. Restart at the tail (few attempts live) or at a
 boundary.
 
+**Knowledge watch** (V2 intake wired 2026-09-03; first live boundary still
+ahead). After each boundary and after any operator sync publish:
+```bash
+sqlite3 -readonly games/melee/knowledge/knowledge.sqlite "SELECT pathway, COUNT(*) FROM index_task WHERE done_at IS NULL GROUP BY pathway; SELECT source, position FROM source_watermark;"
+tail -1 games/melee/state/knowledge_v2/librarian/<run-id>/run-log.jsonl
+```
+- The boundary log must show `knowledge_intake` after `recompute_report` and
+  before `rebuild_knowledge_graph`, with the reconcile line
+  `renames=<n>`. A `Knowledge intake report ... was built for X, but checkout
+  is at Y` error means someone built or moved the cycle worktree between the
+  report and the intake: rerun the boundary, do not point the intake at
+  another checkout.
+- Reconcile `ambiguous` must be 0 or explained; a big `unresolved` count with
+  few `pairs` means a unit move the cross-unit pairing did not catch — stop
+  and report before any librarian drain.
+- Drain results: `validationGates.warned` and `driftGates.warned` should be 0;
+  `retried` is normal (10 of 364 on the first live run). A
+  `context_length_exceeded` failure means a sweeping PR task escaped the
+  claim-time split (>24 rows) — report it. Follow-ups grow `drift_recheck`
+  in the queue; they drain last by priority and are where new facts come from.
+- The `pr` watermark must advance to the newest merged PR after a sync; if it
+  does not, check that `raw/pr.json` exists in the archive dir (the importer
+  no longer reads `counts.json`).
+- Never run two drains with the same run id, and never run a mutating
+  `kg2-*` command while the boundary's intake is executing. Take a
+  `.backup` of knowledge.sqlite before the first drain after an upstream jump.
+
 **Widening watch** (owning-header write-set widening is the default since
 2026-09-01; it had never run live before that). Check once per epoch:
 ```bash
@@ -232,6 +275,12 @@ remain. It takes 10–25 min. Verify each step in the log, in order:
     in the step log; `theirs` is the escape hatch) and rebuilds; a break here
     runs the sync build-fixer once (commit-or-revert, full failure list); if
     it still fails → §5.1, §5.2.
+10b. `knowledge_intake` — runs after `recompute_report`: fetches the merged
+    PRs' dumps (GitHub refuses >300-file diffs; those are rebuilt from the
+    local merge commit, logged as `repaired_prs`), then reconcile / prs /
+    discord / attempts. Report the reconcile `pairs`, `moved_units`,
+    `ambiguous`, and the tasks enqueued. Failure here does not block the PR
+    push but leaves the store behind the head — report it.
 11. `boundary breakage:` lines = master breakage gate vs upstream CI. Any
     `100% -> <100%` is a real breakage of something upstream matched → §5.3.
     Never let that reach the PR.
@@ -399,6 +448,10 @@ resume (the snapshot is applied, including desired_workers — fix 31) → verif
   executed by the shell). Codex cannot build the game — you verify host-side.
 - Killing processes by pattern: match on the pid's argv, not on a substring that
   also appears in your own commands' text (it will kill your codex).
+- Knowledge store: never edit `games/melee/knowledge/knowledge.sqlite` by
+  hand; the librarian and the intake are its only writers. A drain is
+  resumed with the same run id after `--stop`; delete the `<run-id>.stop`
+  file first.
 - Report what happened, not what you hoped: a skipped gate is a skipped gate.
 
 ## 8. Handoff

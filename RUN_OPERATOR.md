@@ -36,12 +36,18 @@ Do this, in order:
    the decomp-dev bot report (must say 0 broken matches). The sync runs a
    per-function policy merge by default (--sync-merge-policy=score) and the
    build-fixer self-commits on green with the full failure list, so manual
-   repairs should be rare; when one is still needed, follow the playbook
+   repairs should be rare; the boundary now also runs knowledge_intake after
+   recompute_report (skill §3 "Knowledge watch": reconcile pairs/ambiguous,
+   watermark advanced, no warned gates); when a repair is still needed, follow the playbook
    (upstream-gospel for functions upstream matched; restore our exact matches
    in Matching units; host-side ninja -k 0 / DOL check / report / clang-tidy
    before committing on the cycle branch), then retry the boundary. Never
    build in the cycle worktree between report_publish and admission. Never
    push the PR branch by hand.
+4b. After each boundary, drain the librarian queue when I say so
+   (`bun apps/server/src/application/jobs/job-runner.ts --game melee
+   kg2-librarian --run-id <id> --concurrency 8`), report passes, validation
+   and drift gate counts, facts by type, rejection reasons, and follow-ups.
 5. Close an epoch tail only after every remaining target has had >=2 attempts
    at the configured thinking level (skill §5.8), and say so.
 6. Honor the Directive exactly as the skill describes (for a pause: full
@@ -56,7 +62,8 @@ Do this, in order:
    End with a one-screen summary: score delta, PR state, run state, what needs
    my decision.
 
-Hard rules: never start the server; never git stash on this tree while the run
+Hard rules: never start the server (if a job-runner command says "schema is
+behind this process", the server needs a restart on the current tree — ask); never git stash on this tree while the run
 is live; never revert worker work or push the PR branch manually; never kill
 processes by a substring that also appears in your own command lines.
 ```
