@@ -392,6 +392,28 @@ describe("buildTaskContext", () => {
     expect(prContext.object).toHaveProperty("pr_ref", "melee#1533");
   });
 
+  test("unwraps imported PR split child payloads", () => {
+    const store = openFixture();
+    const prsRoot = writePrArchive();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, entity_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-split-target', 'target-main', NULL, 'melee#1533',
+        'Split child fixture', 'improvement', '2026-01-21T00:00:00.000Z')`).run();
+
+    const context = buildTaskContext(
+      store,
+      task("pr_imported", JSON.stringify({
+        task_payload: ["pr-split-target"],
+        split_from: "task:pr_imported:parent",
+        split_index: 1,
+        split_total: 3,
+      })),
+      fixtureOptions(store, prsRoot),
+    );
+
+    expect(context.object).toHaveProperty("pr_ref", "melee#1533");
+  });
+
   test("adds rename history to the closed run target", () => {
     const store = openFixture();
     store.db.query(`INSERT INTO target

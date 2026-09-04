@@ -299,6 +299,107 @@ describe("claimNextLibrarianTask", () => {
     expect(rowCount(f.store, "index_task")).toBe(1);
     expect(taskState(f.store, "big")).toMatchObject({ started_at: null, done_at: null });
   });
+
+  test("splits 60 imported PR rows into grouped children and completes the parent with a split note", async () => {
+    const f = fixture("pr-split");
+    const parentId = "task:pr_imported:big";
+    const enqueuedAt = "2026-08-01T00:00:00.000Z";
+    const ids = Array.from({ length: 20 }, (_, unitIndex) => {
+      const unit = `main-test-unit-${String(unitIndex).padStart(2, "0")}`;
+      return [
+        `pr-3178--${unit}`,
+        `pr-3178--fn--${unit}-first--aaaa${unitIndex}`,
+        `pr-3178--fn--${unit}-second--bbbb${unitIndex}`,
+      ];
+    }).flat();
+    enqueueIndexTask(f.store, {
+      id: parentId,
+      pathway: "pr_imported",
+      payload: JSON.stringify({ task_payload: ids }),
+      enqueuedAt,
+    });
+
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "pr-split-run",
+      globals: f.globals,
+      taskId: parentId,
+      concurrency: 1,
+      runPiAgent: () => { throw new Error("split parent must not run a model pass"); },
+      now: () => FIXED_NOW,
+    });
+
+    expect(summary).toMatchObject({ passesRun: 0, tasksSplit: 1, childrenEnqueued: 3 });
+    expect(taskState(f.store, parentId)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(logEntries(f, "pr-split-run")).toEqual([
+      expect.objectContaining({
+        task_id: parentId,
+        status: "split",
+        claim: "completed",
+        note: "oversized imported PR task split into 3 child tasks; parent completed without a model pass",
+        child_counts: [24, 24, 12],
+      }),
+    ]);
+
+    const children = [1, 2, 3].map((index) => `${parentId}/${index}`);
+    const childPayloads = children.map((id) => {
+      expect(taskState(f.store, id)).toEqual({ started_at: null, done_at: null, enqueued_at: enqueuedAt });
+      return JSON.parse(taskRow(f.store, id).payload) as {
+        task_payload: string[];
+        split_from: string;
+        split_index: number;
+        split_total: number;
+      };
+    });
+    expect(childPayloads.map((payload) => payload.task_payload.length)).toEqual([24, 24, 12]);
+    expect(childPayloads.map(({ split_from, split_index, split_total }) => ({ split_from, split_index, split_total }))).toEqual([
+      { split_from: parentId, split_index: 1, split_total: 3 },
+      { split_from: parentId, split_index: 2, split_total: 3 },
+      { split_from: parentId, split_index: 3, split_total: 3 },
+    ]);
+    expect(childPayloads.flatMap((payload) => payload.task_payload)).toEqual(ids);
+    for (const unitRows of Array.from({ length: 20 }, (_, index) => ids.slice(index * 3, index * 3 + 3))) {
+      expect(childPayloads.filter((payload) => unitRows.every((id) => payload.task_payload.includes(id)))).toHaveLength(1);
+    }
+    expect(children.map(() => claimNextLibrarianTask(f.store)?.task.id)).toEqual(children);
+  });
+
+  test("does not split an imported PR task with exactly 24 rows", () => {
+    const f = fixture("pr-split-boundary");
+    const ids = Array.from({ length: 24 }, (_, index) => `pr-3178--unit-${index}`);
+    enqueueIndexTask(f.store, {
+      id: "task:pr_imported:boundary",
+      pathway: "pr_imported",
+      payload: JSON.stringify({ task_payload: ids }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+    expect(claimed?.split).toBeUndefined();
+    expect(taskState(f.store, "task:pr_imported:boundary")).toMatchObject({ started_at: FIXED_NOW, done_at: null });
+  });
+
+  test("projects an imported PR split during dry run without enqueueing children", () => {
+    const f = fixture("pr-split-dry");
+    const ids = Array.from({ length: 60 }, (_, index) => `pr-3304--unit-${String(index).padStart(2, "0")}`);
+    enqueueIndexTask(f.store, {
+      id: "task:pr_imported:dry",
+      pathway: "pr_imported",
+      payload: JSON.stringify({ task_payload: ids }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    const claimed = claimNextLibrarianTask(f.store, { dryRun: true, now: () => FIXED_NOW });
+    expect(claimed?.split?.children).toEqual([
+      "task:pr_imported:dry/1",
+      "task:pr_imported:dry/2",
+      "task:pr_imported:dry/3",
+    ]);
+    expect(claimed?.split?.enqueued).toBeFalse();
+    expect(claimed?.split?.childPayloads.map((payload) =>
+      (JSON.parse(payload) as { task_payload: string[] }).task_payload.length)).toEqual([24, 24, 12]);
+    expect(rowCount(f.store, "index_task")).toBe(1);
+    expect(taskState(f.store, "task:pr_imported:dry")).toMatchObject({ started_at: null, done_at: null });
+  });
 });
 
 describe("runLibrarianPass", () => {

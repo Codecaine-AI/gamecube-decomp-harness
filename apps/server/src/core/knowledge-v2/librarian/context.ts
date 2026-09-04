@@ -244,11 +244,10 @@ function parsedPayloadForTask(payload: string): unknown {
   }
 }
 
-function unwrapRetryPayload(payload: string): string {
+function unwrapTaskPayload(payload: string): string {
   const parsed = parsedPayloadForTask(payload);
   if (!isRecord(parsed)
-    || !("task_payload" in parsed)
-    || typeof parsed.drift_attempts !== "number") {
+    || !("task_payload" in parsed)) {
     return payload;
   }
   return typeof parsed.task_payload === "string"
@@ -1427,7 +1426,7 @@ export function buildTaskContext(
     || resolvedCheckout?.headRevision
     || checkoutRevision(checkoutRoot);
   const instruction = instructionFor(task.pathway);
-  const payload = unwrapRetryPayload(task.payload);
+  const payload = unwrapTaskPayload(task.payload);
   let built: BuiltPathwayContext;
   try {
     switch (task.pathway) {

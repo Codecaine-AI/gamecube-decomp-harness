@@ -45,6 +45,7 @@ const DEFAULT_CONCURRENCY = 4;
 const DEFAULT_TIMEOUT_MS = 900_000;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const CLAIM_CANDIDATE_BATCH = 64;
+const PR_IMPORTED_CHILD_SIZE = 24;
 
 export const LIBRARIAN_PATHWAYS: readonly LibrarianPathway[] = [
   "run_closed",
@@ -868,35 +869,25 @@ export function countQueuedTasks(
   return row?.count ?? 0;
 }
 
-/**
- * Split an oversized archival slice into bounded children that inherit the parent's queue position.
- * Real claims enqueue the children and complete the parent. Dry-run claims only compute the split
- * and release the parent.
- */
-function splitOversizedSlice(
+function finishTaskSplit(
   store: KnowledgeStoreHandle,
   task: LibrarianTaskRow,
+  childPayloads: string[],
   doneAt: string,
   dryRun: boolean,
-): ClaimResult["split"] | null {
-  if (task.pathway !== "archival_ingest") return null;
-  const slice = parseSlicePayload(task.payload);
-  if (slice === null) return null;
-  const children = splitSlicePayload(store, slice);
-  if (children.length === 0) return null;
-  const width = String(children.length).length;
-  const childIds = children.map((_, index) =>
+): ClaimResult["split"] {
+  const width = String(childPayloads.length).length;
+  const childIds = childPayloads.map((_, index) =>
     `${task.id}/${String(index + 1).padStart(width, "0")}`);
-  const childPayloads = [...children];
   if (dryRun) {
     releaseIndexTask(store, task.id);
     return { children: childIds, enqueued: false, childPayloads };
   }
   immediateTransaction(store.db, () => {
-    children.forEach((payload, index) => {
+    childPayloads.forEach((payload, index) => {
       enqueueIndexTask(store, {
         id: childIds[index]!,
-        pathway: "archival_ingest",
+        pathway: task.pathway,
         payload,
         enqueuedAt: task.enqueued_at,
       });
@@ -906,10 +897,97 @@ function splitOversizedSlice(
   return { children: childIds, enqueued: true, childPayloads };
 }
 
+function importedPrRowIds(payload: string): string[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload) as unknown;
+  } catch {
+    return null;
+  }
+  const value = record(parsed) && "task_payload" in parsed ? parsed.task_payload : parsed;
+  if (!Array.isArray(value) || value.some((id) => typeof id !== "string")) return null;
+  return value as string[];
+}
+
+function importedPrUnitSlug(id: string): { slug: string; target: boolean } | null {
+  const marker = id.indexOf("--");
+  if (marker < 0) return null;
+  const suffix = id.slice(marker + 2);
+  if (!suffix.startsWith("fn--")) return { slug: suffix, target: false };
+  return { slug: suffix.slice(4).replace(/--[^-]+$/, ""), target: true };
+}
+
+function groupImportedPrRows(ids: string[]): string[][] {
+  const unitSlugs = ids.flatMap((id) => {
+    const parsed = importedPrUnitSlug(id);
+    return parsed !== null && !parsed.target ? [parsed.slug] : [];
+  }).sort((a, b) => b.length - a.length);
+  const groups = new Map<string, string[]>();
+  ids.forEach((id) => {
+    const parsed = importedPrUnitSlug(id);
+    const matchedUnit = parsed?.target === true
+      ? unitSlugs.find((unit) => parsed.slug === unit || parsed.slug.startsWith(`${unit}-`))
+      : parsed?.slug;
+    const key = matchedUnit ?? id;
+    const group = groups.get(key) ?? [];
+    group.push(id);
+    groups.set(key, group);
+  });
+  return [...groups.values()];
+}
+
+function packImportedPrRows(ids: string[]): string[][] {
+  const chunks: string[][] = [];
+  let chunk: string[] = [];
+  for (const group of groupImportedPrRows(ids)) {
+    if (group.length > PR_IMPORTED_CHILD_SIZE) {
+      if (chunk.length > 0) chunks.push(chunk);
+      chunk = [];
+      for (let offset = 0; offset < group.length; offset += PR_IMPORTED_CHILD_SIZE) {
+        chunks.push(group.slice(offset, offset + PR_IMPORTED_CHILD_SIZE));
+      }
+      continue;
+    }
+    if (chunk.length > 0 && chunk.length + group.length > PR_IMPORTED_CHILD_SIZE) {
+      chunks.push(chunk);
+      chunk = [];
+    }
+    chunk.push(...group);
+  }
+  if (chunk.length > 0) chunks.push(chunk);
+  return chunks;
+}
+
+/** Split oversized archival and imported-PR tasks before any model pass. */
+function splitOversizedTask(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+  doneAt: string,
+  dryRun: boolean,
+): ClaimResult["split"] | null {
+  if (task.pathway === "archival_ingest") {
+    const slice = parseSlicePayload(task.payload);
+    if (slice === null) return null;
+    const children = splitSlicePayload(store, slice);
+    return children.length === 0 ? null : finishTaskSplit(store, task, children, doneAt, dryRun);
+  }
+  if (task.pathway !== "pr_imported") return null;
+  const ids = importedPrRowIds(task.payload);
+  if (ids === null || ids.length <= PR_IMPORTED_CHILD_SIZE) return null;
+  const chunks = packImportedPrRows(ids);
+  const childPayloads = chunks.map((taskPayload, index) => JSON.stringify({
+    task_payload: taskPayload,
+    split_from: task.id,
+    split_index: index + 1,
+    split_total: chunks.length,
+  }));
+  return finishTaskSplit(store, task, childPayloads, doneAt, dryRun);
+}
+
 /**
  * Claim the next queued task in priority order. Returns the task to run, or a split record when the
- * claimed task was an oversized archival slice. Real claims enqueue its children and complete it;
- * dry-run claims return the projected children and release it.
+ * claimed task was oversized. Real claims enqueue its children and complete it; dry-run claims
+ * return the projected children and release it.
  */
 export function claimNextLibrarianTask(
   store: KnowledgeStoreHandle,
@@ -933,7 +1011,7 @@ export function claimNextLibrarianTask(
         continue;
       }
       const task: LibrarianTaskRow = { ...candidate, started_at: claimedAt };
-      const split = splitOversizedSlice(store, task, claimedAt, options.dryRun === true);
+      const split = splitOversizedTask(store, task, claimedAt, options.dryRun === true);
       if (split === null) return { task };
       return { task, split };
     }
@@ -1056,6 +1134,7 @@ export async function runLibrarianConsumer(
         const childCounts = claimed.split.childPayloads.map((payload) => {
           const parsed: unknown = JSON.parse(payload);
           if (!record(parsed)) return 0;
+          if (Array.isArray(parsed.task_payload)) return parsed.task_payload.length;
           if (parsed.source === "discord" && typeof parsed.count === "number") return parsed.count;
           if (parsed.source === "wiki" && Array.isArray(parsed.pages)) return parsed.pages.length;
           return 0;
@@ -1067,9 +1146,13 @@ export async function runLibrarianConsumer(
           status: "split",
           dry_run: dryRun,
           claim: claimed.split.enqueued ? "completed" : "released",
-          note: claimed.split.enqueued
-            ? `oversized archival slice re-chunked into ${claimed.split.children.length} child tasks; parent completed without a model pass`
-            : `dry run: oversized archival slice would be re-chunked into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`,
+          note: claimed.task.pathway === "pr_imported"
+            ? claimed.split.enqueued
+              ? `oversized imported PR task split into ${claimed.split.children.length} child tasks; parent completed without a model pass`
+              : `dry run: oversized imported PR task would split into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`
+            : claimed.split.enqueued
+              ? `oversized archival slice re-chunked into ${claimed.split.children.length} child tasks; parent completed without a model pass`
+              : `dry run: oversized archival slice would be re-chunked into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`,
           children: claimed.split.children,
           child_counts: childCounts,
         });
