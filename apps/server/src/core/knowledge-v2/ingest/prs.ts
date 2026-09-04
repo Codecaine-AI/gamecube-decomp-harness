@@ -17,6 +17,10 @@ export interface PrImportOptions extends LaneOptions {
   reattribute?: boolean;
 }
 
+export type ImportPrsResult = PrImportResult & {
+  prsSkippedNotMerged: number;
+};
+
 export interface BotReportRow {
   unit: string;
   function: string;
@@ -34,6 +38,29 @@ interface CountsFile {
   title: string;
   state: string;
   mergedAt: string | null;
+}
+
+interface RawPrFile {
+  number?: number;
+  title?: string;
+  state?: string;
+  merged?: boolean;
+  merged_at?: string | null;
+  mergedAt?: string | null;
+  user?: { login?: string } | null;
+  author?: { login?: string } | null;
+  html_url?: string;
+  url?: string;
+}
+
+interface PrMetadata {
+  number: number;
+  title: string;
+  state: string;
+  mergedAt: string | null;
+  author: string | null;
+  url: string | null;
+  merged: boolean;
 }
 
 interface ChangedFile {
@@ -172,7 +199,41 @@ function findPrDirectories(prsRoot: string): Array<{ number: number; path: strin
     .sort((a, b) => a.number - b.number);
 }
 
-export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions): PrImportResult {
+function readPrMetadata(directory: { number: number; path: string }): PrMetadata | null {
+  const rawPath = join(directory.path, "raw", "pr.json");
+  if (existsSync(rawPath)) {
+    const raw = JSON.parse(readFileSync(rawPath, "utf8")) as RawPrFile;
+    const mergedAt = typeof raw.merged_at === "string"
+      ? raw.merged_at
+      : typeof raw.mergedAt === "string" ? raw.mergedAt : null;
+    const author = raw.user?.login ?? raw.author?.login ?? null;
+    return {
+      number: typeof raw.number === "number" ? raw.number : directory.number,
+      title: typeof raw.title === "string" ? raw.title : "",
+      state: typeof raw.state === "string" ? raw.state : "",
+      mergedAt,
+      author,
+      url: typeof raw.html_url === "string" ? raw.html_url : typeof raw.url === "string" ? raw.url : null,
+      merged: (raw.merged === true && typeof raw.merged_at === "string" && raw.merged_at.length > 0)
+        || (raw.state === "MERGED" && typeof raw.mergedAt === "string" && raw.mergedAt.length > 0),
+    };
+  }
+
+  const countsPath = join(directory.path, "counts.json");
+  if (!existsSync(countsPath)) return null;
+  const counts = JSON.parse(readFileSync(countsPath, "utf8")) as CountsFile;
+  return {
+    number: counts.number,
+    title: counts.title,
+    state: counts.state,
+    mergedAt: counts.mergedAt,
+    author: null,
+    url: null,
+    merged: counts.state === "MERGED" && typeof counts.mergedAt === "string" && counts.mergedAt.length > 0,
+  };
+}
+
+export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions): ImportPrsResult {
   const storedWatermark = getWatermark(store, "pr");
   const watermarkNumber = storedWatermark === null ? -1 : Number(storedWatermark);
   const directories = findPrDirectories(options.prsRoot).filter(
@@ -195,6 +256,7 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
   const unresolvedSampleKeys = new Set<string>();
   let skipped = 0;
   let prsImported = 0;
+  let prsSkippedNotMerged = 0;
   let prsArchiveSkipped = 0;
   let prsWithBotReport = 0;
   let targetRowsInserted = 0;
@@ -202,9 +264,8 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
   let highestProcessed = watermarkNumber;
 
   for (const directory of directories) {
-    const countsPath = join(directory.path, "counts.json");
-    if (!existsSync(countsPath)) continue;
-    const counts = JSON.parse(readFileSync(countsPath, "utf8")) as CountsFile;
+    const pr = readPrMetadata(directory);
+    if (pr === null) continue;
     highestProcessed = Math.max(highestProcessed, directory.number);
     const issueCommentsPath = join(directory.path, "raw", "issue_comments.json");
     const issueComments: unknown = existsSync(issueCommentsPath)
@@ -212,8 +273,9 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
       : null;
     const botReportBody = findBotReportBody(issueComments);
     if (botReportBody !== null) prsWithBotReport += 1;
-    if (counts.state !== "MERGED" || typeof counts.mergedAt !== "string" || counts.mergedAt.length === 0) {
+    if (!pr.merged || pr.mergedAt === null) {
       skipped += 1;
+      prsSkippedNotMerged += 1;
       continue;
     }
 
@@ -250,7 +312,7 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
 
     const prEntries: PullRequestEntryInput[] = [];
     for (const { entity, files } of filesByEntity.values()) {
-      const id = `pr-${counts.number}--${slugify(entity.stable_key)}`;
+      const id = `pr-${pr.number}--${slugify(entity.stable_key)}`;
       if (existingIds.has(id)) {
         skipped += 1;
         continue;
@@ -261,17 +323,17 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
       const entry: PullRequestEntryInput = {
         id,
         entityId: entity.id,
-        prRef: `melee#${counts.number}`,
-        mergedAt: counts.mergedAt,
+        prRef: `melee#${pr.number}`,
+        mergedAt: pr.mergedAt,
         outcome: "no_change",
-        summary: `[mechanical] PR #${counts.number} '${counts.title}' touched ${touched}; narrative pending librarian pass`,
+        summary: `[mechanical] PR #${pr.number} '${pr.title}' touched ${touched}; narrative pending librarian pass`,
       };
       existingIds.add(id);
       entries.push(entry);
       prEntries.push(entry);
     }
     for (const { row, target } of targetRows) {
-      const id = `pr-${counts.number}--fn--${slugify(target.stable_key)}--${shortHash(target.stable_key)}`;
+      const id = `pr-${pr.number}--fn--${slugify(target.stable_key)}--${shortHash(target.stable_key)}`;
       if (existingIds.has(id)) {
         skipped += 1;
         continue;
@@ -285,10 +347,10 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
       const entry: PullRequestEntryInput = {
         id,
         targetId: target.id,
-        prRef: `melee#${counts.number}`,
-        mergedAt: counts.mergedAt,
+        prRef: `melee#${pr.number}`,
+        mergedAt: pr.mergedAt,
         outcome,
-        summary: `[ci] PR #${counts.number} '${counts.title}' — ${row.unit}:${row.function} ${row.before}% -> ${row.after}% (${row.bytes} bytes), reported by decomp-dev CI as '${row.sectionLabel}'; narrative pending librarian pass`,
+        summary: `[ci] PR #${pr.number} '${pr.title}' — ${row.unit}:${row.function} ${row.before}% -> ${row.after}% (${row.bytes} bytes), reported by decomp-dev CI as '${row.sectionLabel}'; narrative pending librarian pass`,
       };
       existingIds.add(id);
       entries.push(entry);
@@ -324,6 +386,7 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
     skipped,
     tasksEnqueued: taskPayloads.length,
     prsImported,
+    prsSkippedNotMerged,
     prsArchiveSkipped,
     prsWithBotReport,
     targetRowsInserted,

@@ -208,6 +208,7 @@ interface MentionDescriptor {
   subject: "target" | "entity";
   token: string;
   token_class: "symbol" | "address" | "basename";
+  rule: "full_symbol" | "full_entity" | "qualified_field" | "hex_address";
   target_id?: string;
   stable_key?: string;
   entity_id?: string;
@@ -220,6 +221,7 @@ interface MentionEntry {
   entity_locator?: string;
   token: string;
   token_class: "symbol" | "address" | "basename";
+  rule: "full_symbol" | "full_entity" | "qualified_field" | "hex_address";
 }
 
 interface BuiltPathwayContext {
@@ -899,6 +901,21 @@ function finalLocatorSegment(locator: string): string {
   return locator.split(/[/#:\\]/).filter(Boolean).at(-1) ?? locator;
 }
 
+function isBareMentionName(token: string): boolean {
+  return token.length >= 6
+    && (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token)
+      || /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9]+$/.test(token));
+}
+
+function qualifiedFieldNames(locator: string): string[] {
+  const match = /^struct:(?:\/\/)?(.+?)#([^#]+)$/.exec(locator);
+  if (!match) return [];
+  const [, structName, fieldName] = match;
+  if (!structName || !fieldName) return [];
+  return [".", "->", "#", "::"].map((separator) =>
+    `${structName}${separator}${fieldName}`);
+}
+
 function buildMentionMap(
   store: KnowledgeStoreHandle,
   records: Array<{ locator: string; content: string }>,
@@ -919,21 +936,25 @@ function buildMentionMap(
   for (const target of targetRows) {
     const classes = symbolTokensFor({ symbol: target.symbol, unit: target.unit_locator });
     for (const token of classes.symbolTokens) {
+      if (!isBareMentionName(token)) continue;
       addTokenDescriptor(tokenIndex, token, {
         subject: "target",
         target_id: target.id,
         stable_key: target.stable_key,
         token,
         token_class: "symbol",
+        rule: "full_symbol",
       });
     }
     for (const token of classes.unitTokens) {
+      if (!isBareMentionName(token)) continue;
       addTokenDescriptor(tokenIndex, token, {
         subject: "target",
         target_id: target.id,
         stable_key: target.stable_key,
         token,
         token_class: "basename",
+        rule: "full_entity",
       });
     }
     if (target.address !== null) {
@@ -944,6 +965,7 @@ function buildMentionMap(
         stable_key: target.stable_key,
         token: target.address,
         token_class: "address",
+        rule: "hex_address",
       });
     }
   }
@@ -955,14 +977,28 @@ function buildMentionMap(
     ORDER BY locator, id
   `).all();
   for (const entity of entityRows) {
+    if (entity.kind === "struct_field") {
+      for (const token of qualifiedFieldNames(entity.locator)) {
+        addTokenDescriptor(tokenIndex, token, {
+          subject: "entity",
+          entity_id: entity.id,
+          entity_locator: entity.locator,
+          token,
+          token_class: "basename",
+          rule: "qualified_field",
+        });
+      }
+      continue;
+    }
     const token = finalLocatorSegment(entity.locator);
-    if (!token || !tokenize(token).has(token)) continue;
+    if (!isBareMentionName(token)) continue;
     addTokenDescriptor(tokenIndex, token, {
       subject: "entity",
       entity_id: entity.id,
       entity_locator: entity.locator,
       token,
       token_class: "basename",
+      rule: "full_entity",
     });
   }
 
@@ -973,9 +1009,12 @@ function buildMentionMap(
   const mentionMap = records.map((record) => {
     const descriptors: MentionDescriptor[] = [];
     const tokens = tokenize(record.content);
+    for (const match of record.content.matchAll(
+      /[A-Za-z_][A-Za-z0-9_]*(?:->|::|[.#])[A-Za-z_][A-Za-z0-9_]*/g,
+    )) tokens.add(match[0]);
     for (const token of tokens) descriptors.push(...(tokenIndex.get(token) ?? []));
     for (const match of record.content.matchAll(
-      /(?<![A-Za-z0-9_])(?:0x)?([0-9A-Fa-f]+)(?![A-Za-z0-9_])/gi,
+      /(?<![A-Za-z0-9_])0x(8[0-9A-Fa-f]{7})(?![A-Za-z0-9_])/gi,
     )) {
       descriptors.push(...(addressIndex.get(match[1]!.toLowerCase()) ?? []));
     }
@@ -986,7 +1025,7 @@ function buildMentionMap(
       const subjectKey = descriptor.subject === "target"
         ? `target:${descriptor.target_id}`
         : `entity:${descriptor.entity_id}`;
-      const mentionKey = `${subjectKey}:${descriptor.token_class}:${descriptor.token}`;
+      const mentionKey = `${subjectKey}:${descriptor.token_class}:${descriptor.rule}:${descriptor.token}`;
       if (seen.has(mentionKey)) continue;
       seen.add(mentionKey);
       mentions.push({
@@ -999,6 +1038,7 @@ function buildMentionMap(
           : { entity_locator: descriptor.entity_locator }),
         token: descriptor.token,
         token_class: descriptor.token_class,
+        rule: descriptor.rule,
       });
       if (descriptor.subject === "target") {
         const target = targetById.get(descriptor.target_id!);
@@ -1029,13 +1069,22 @@ function buildArchivalIngestContext(
   const loaded = archivalRows(store, payload, options);
   if (loaded.records.length === 0) throw new Error("Archival slice contains no records");
   const mentions = buildMentionMap(store, loaded.records);
-  const rankedTargets = [...mentions.targets.values()].sort((left, right) =>
-    right.records.size - left.records.size
-    || left.row.stable_key.localeCompare(right.row.stable_key));
-  const includedTargets = rankedTargets.slice(0, 12);
-  const omittedTargets = rankedTargets.slice(12);
-  const mentionedEntities = [...mentions.entities.values()].sort((left, right) =>
-    left.row.locator.localeCompare(right.row.locator) || left.row.id.localeCompare(right.row.id));
+  const rankedSubjects = [
+    ...[...mentions.entities.values()].map((value) => ({ kind: "entity" as const, value })),
+    ...[...mentions.targets.values()].map((value) => ({ kind: "target" as const, value })),
+  ].sort((left, right) =>
+    right.value.records.size - left.value.records.size
+    || (left.kind === "entity" ? left.value.row.locator : left.value.row.stable_key).localeCompare(
+      right.kind === "entity" ? right.value.row.locator : right.value.row.stable_key,
+    ));
+  const includedSubjects = rankedSubjects.slice(0, 25);
+  const omittedSubjects = rankedSubjects.slice(25);
+  const mentionedEntities = includedSubjects
+    .filter((subject): subject is Extract<typeof subject, { kind: "entity" }> => subject.kind === "entity")
+    .map(({ value }) => value);
+  const includedTargets = includedSubjects
+    .filter((subject): subject is Extract<typeof subject, { kind: "target" }> => subject.kind === "target")
+    .map(({ value }) => value);
   const touched = [
     ...mentionedEntities.map(({ row, records }) =>
       entitySubject(store, row, row.kind === "translation_unit" && records.size >= 2)),
@@ -1055,11 +1104,20 @@ function buildArchivalIngestContext(
       truncated: loaded.truncated,
       mention_map: mentions.mentionMap,
     },
-    omittedTargets.length === 0
+    omittedSubjects.length === 0
       ? undefined
       : {
         reason: "mention_cap",
-        stable_keys: omittedTargets.map(({ row }) => row.stable_key),
+        ...(() => {
+          const stableKeys = omittedSubjects.flatMap((subject) =>
+            subject.kind === "target" ? [subject.value.row.stable_key] : []);
+          return stableKeys.length === 0 ? {} : { stable_keys: stableKeys };
+        })(),
+        ...(() => {
+          const entityLocators = omittedSubjects.flatMap((subject) =>
+            subject.kind === "entity" ? [subject.value.row.locator] : []);
+          return entityLocators.length === 0 ? {} : { entity_locators: entityLocators };
+        })(),
       },
   );
 }

@@ -46,6 +46,22 @@ function writePr(
   }
 }
 
+function writeRawPr(
+  prsRoot: string,
+  number: number,
+  pullRequest: Record<string, unknown>,
+  changedFiles: Array<Record<string, unknown>>,
+): void {
+  const directory = join(prsRoot, `pr-${number}`);
+  mkdirSync(join(directory, "raw"), { recursive: true });
+  mkdirSync(join(directory, "extracted"), { recursive: true });
+  writeFileSync(join(directory, "raw", "pr.json"), JSON.stringify(pullRequest));
+  writeFileSync(
+    join(directory, "extracted", "changed_files.jsonl"),
+    changedFiles.map((row) => JSON.stringify(row)).join("\n"),
+  );
+}
+
 function botReportComment(body: string, createdAt = "2023-11-03T05:00:00Z") {
   return {
     user: { login: "decomp-dev-bot" },
@@ -203,6 +219,84 @@ function createFixture(issueComments?: unknown) {
 }
 
 describe("importPrs", () => {
+  test("imports a merged REST pull object without counts.json", () => {
+    const { prsRoot, store } = createFixture();
+    writeRawPr(
+      prsRoot,
+      1003,
+      {
+        number: 1003,
+        title: "REST pull object",
+        state: "closed",
+        merged: true,
+        merged_at: "2023-11-05T00:00:00Z",
+        merge_commit_sha: "abc123",
+        created_at: "2023-11-04T00:00:00Z",
+        updated_at: "2023-11-05T00:00:00Z",
+        user: { login: "rest-author" },
+        html_url: "https://github.com/project/melee/pull/1003",
+      },
+      [{ pr: 1003, file: "src/melee/ft/ftcommon.c", added: 2, deleted: 1, hunks: 1 }],
+    );
+
+    const result = importPrs(store, { prsRoot });
+
+    expect(result.prsImported).toBe(2);
+    expect(result.prsSkippedNotMerged).toBe(1);
+    expect(result.watermark).toBe("1003");
+    expect(store.db.query("SELECT pr_ref, summary, merged_at FROM pull_request WHERE pr_ref = 'melee#1003'").all()).toEqual([
+      {
+        pr_ref: "melee#1003",
+        summary: "[mechanical] PR #1003 'REST pull object' touched src/melee/ft/ftcommon.c (+2/−1, 1 hunks); narrative pending librarian pass",
+        merged_at: "2023-11-05T00:00:00Z",
+      },
+    ]);
+  });
+
+  test("still imports a counts.json-only archive", () => {
+    const { prsRoot, store } = createFixture();
+
+    importPrs(store, { prsRoot });
+
+    expect(store.db.query("SELECT pr_ref FROM pull_request WHERE pr_ref = 'melee#1000'").all()).toEqual([
+      { pr_ref: "melee#1000" },
+      { pr_ref: "melee#1000" },
+    ]);
+  });
+
+  test("skips and counts an unmerged REST pull object", () => {
+    const { prsRoot, store } = createFixture();
+    importPrs(store, { prsRoot });
+    writeRawPr(
+      prsRoot,
+      1003,
+      {
+        number: 1003,
+        title: "REST open pull request",
+        state: "closed",
+        merged: false,
+        merged_at: null,
+        merge_commit_sha: null,
+        user: { login: "rest-author" },
+        html_url: "https://github.com/project/melee/pull/1003",
+      },
+      [{ pr: 1003, file: "src/melee/ft/ftcommon.c", added: 2, deleted: 1, hunks: 1 }],
+    );
+
+    const result = importPrs(store, { prsRoot });
+
+    expect(result).toMatchObject({
+      inserted: 0,
+      skipped: 1,
+      tasksEnqueued: 0,
+      prsImported: 0,
+      prsSkippedNotMerged: 1,
+      prsArchiveSkipped: 0,
+      watermark: "1003",
+    });
+    expect(store.db.query("SELECT pr_ref FROM pull_request WHERE pr_ref = 'melee#1003'").all()).toEqual([]);
+  });
+
   test("generates ids that round-trip through PR locators", () => {
     const { prsRoot, store } = createFixture([botReportComment(functionReportBody)]);
     importPrs(store, { prsRoot });
@@ -264,6 +358,7 @@ describe("importPrs", () => {
       skipped: 1,
       tasksEnqueued: 1,
       prsImported: 1,
+      prsSkippedNotMerged: 1,
       prsArchiveSkipped: 1,
       prsWithBotReport: 0,
       targetRowsInserted: 0,
@@ -310,6 +405,7 @@ describe("importPrs", () => {
       skipped: 0,
       tasksEnqueued: 0,
       prsImported: 0,
+      prsSkippedNotMerged: 0,
       prsArchiveSkipped: 0,
       prsWithBotReport: 0,
       targetRowsInserted: 0,
@@ -328,6 +424,7 @@ describe("importPrs", () => {
       skipped: 1,
       tasksEnqueued: 1,
       prsImported: 1,
+      prsSkippedNotMerged: 1,
       prsArchiveSkipped: 1,
       prsWithBotReport: 0,
       targetRowsInserted: 0,
@@ -373,6 +470,7 @@ describe("importPrs", () => {
       skipped: 1,
       tasksEnqueued: 1,
       prsImported: 1,
+      prsSkippedNotMerged: 1,
       prsArchiveSkipped: 1,
       prsWithBotReport: 1,
       targetRowsInserted: 4,
@@ -449,6 +547,7 @@ describe("importPrs", () => {
       skipped: 1,
       tasksEnqueued: 1,
       prsImported: 1,
+      prsSkippedNotMerged: 1,
       prsArchiveSkipped: 1,
       prsWithBotReport: 1,
       targetRowsInserted: 1,

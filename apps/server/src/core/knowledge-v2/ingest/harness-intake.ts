@@ -1,10 +1,20 @@
-import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { getWatermark } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { importAttempts, type AttemptsImportOptions } from "./attempts.js";
 import { importDiscord, type DiscordImportOptions } from "./discord.js";
-import { importPrs, type PrImportOptions } from "./prs.js";
+import { importPrs, type ImportPrsResult, type PrImportOptions } from "./prs.js";
 import { reconcileReport, type ReconcileOptions } from "./reconcile.js";
 import type {
   AttemptsImportResult,
@@ -37,7 +47,7 @@ export interface RunKnowledgeIntakeInput {
 
 export interface KnowledgeIntakeIngestResult {
   reconcile?: ReconcileResult;
-  prs?: PrImportResult;
+  prs?: ImportPrsResult;
   discord?: DiscordImportResult;
   attempts?: AttemptsImportResult;
 }
@@ -45,15 +55,17 @@ export interface KnowledgeIntakeIngestResult {
 export interface KnowledgeIntakeResult {
   fetched_prs: number[];
   skipped_prs: number[];
+  repaired_prs?: number[];
   ingest: KnowledgeIntakeIngestResult;
 }
 
 export interface KnowledgeIntakeDependencies {
   checkoutHead(checkoutRoot: string): Promise<string>;
   runFetch(command: readonly string[]): Promise<void>;
+  prWatermark(store: KnowledgeStore): string | null;
   openStore(options: { knowledgeRoot: string }): KnowledgeStore;
   reconcile(store: KnowledgeStore, options: ReconcileOptions): ReconcileResult;
-  prs(store: KnowledgeStore, options: PrImportOptions): PrImportResult;
+  prs(store: KnowledgeStore, options: PrImportOptions): ImportPrsResult;
   discord(store: KnowledgeStore, options: DiscordImportOptions): DiscordImportResult;
   attempts(store: KnowledgeStore, options: AttemptsImportOptions): AttemptsImportResult;
 }
@@ -96,12 +108,147 @@ async function runFetch(command: readonly string[]): Promise<void> {
 const defaultDependencies: KnowledgeIntakeDependencies = {
   checkoutHead,
   runFetch,
+  prWatermark: (store) => getWatermark(store, "pr"),
   openStore: (options) => openKnowledgeStore(options),
   reconcile: (store, options) => reconcileReport(store, options),
   prs: (store, options) => importPrs(store, options),
   discord: (store, options) => importDiscord(store, options),
   attempts: (store, options) => importAttempts(store, options),
 };
+
+interface RepairPrMetadata {
+  number?: unknown;
+  title?: unknown;
+  merge_commit_sha?: unknown;
+}
+
+interface RepairedChangedFile {
+  pr: number;
+  title: string;
+  file: string;
+  added: number;
+  deleted: number;
+  hunks: number;
+}
+
+function archivedPrNumbersAboveWatermark(prsRoot: string, watermark: string | null): number[] {
+  if (!existsSync(prsRoot)) return [];
+  const parsedWatermark = watermark === null ? -1 : Number(watermark);
+  const watermarkNumber = Number.isFinite(parsedWatermark) ? parsedWatermark : -1;
+  return readdirSync(prsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^pr-\d+$/.test(entry.name))
+    .map((entry) => Number(entry.name.slice(3)))
+    .filter((prNumber) => prNumber > watermarkNumber);
+}
+
+function countDiffHunksByFile(diff: string): number[] {
+  const counts: number[] = [];
+  let currentIndex = -1;
+  for (const line of diff.split(/\r?\n/)) {
+    if (line.startsWith("diff --git ")) {
+      counts.push(0);
+      currentIndex += 1;
+    } else if (currentIndex >= 0 && line.startsWith("@@ ")) {
+      counts[currentIndex] += 1;
+    }
+  }
+  return counts;
+}
+
+function renamedPath(path: string): string {
+  const braceRename = path.replace(/\{[^{}]* => ([^{}]*)\}/g, "$1");
+  const renameMarker = " => ";
+  const markerIndex = braceRename.lastIndexOf(renameMarker);
+  return markerIndex === -1 ? braceRename : braceRename.slice(markerIndex + renameMarker.length);
+}
+
+function parseNumstat(
+  prNumber: number,
+  title: string,
+  numstat: string,
+  hunksByFile: readonly number[],
+): RepairedChangedFile[] {
+  const files: RepairedChangedFile[] = [];
+  for (const line of numstat.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    const fields = line.split("\t");
+    if (fields.length < 3) continue;
+    const [added, deleted, ...pathFields] = fields;
+    files.push({
+      pr: prNumber,
+      title,
+      file: renamedPath(pathFields.join("\t")),
+      added: added === "-" ? 0 : Number(added),
+      deleted: deleted === "-" ? 0 : Number(deleted),
+      hunks: hunksByFile[files.length] ?? 0,
+    });
+  }
+  return files;
+}
+
+async function repairPrArchives(options: {
+  prsRoot: string;
+  checkoutRoot: string;
+  prNumbers: readonly number[];
+  log: (message: string) => void;
+}): Promise<number[]> {
+  const repaired: number[] = [];
+  for (const prNumber of options.prNumbers) {
+    const prRoot = resolve(options.prsRoot, `pr-${prNumber}`);
+    const metadataPath = resolve(prRoot, "raw/pr.json");
+    if (!existsSync(metadataPath)) continue;
+
+    const diffPath = resolve(prRoot, "raw/diff.diff");
+    const changedFilesPath = resolve(prRoot, "extracted/changed_files.jsonl");
+    const needsDiff = !existsSync(diffPath) || statSync(diffPath).size === 0;
+    const needsChangedFiles = !existsSync(changedFilesPath);
+    if (!needsDiff && !needsChangedFiles) continue;
+
+    let metadata: RepairPrMetadata;
+    try {
+      metadata = JSON.parse(readFileSync(metadataPath, "utf8")) as RepairPrMetadata;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      options.log(`[knowledge-intake] PR #${prNumber} repair skipped: ${detail}`);
+      continue;
+    }
+    const sha = typeof metadata.merge_commit_sha === "string" ? metadata.merge_commit_sha.trim() : "";
+    if (sha === "") continue;
+
+    let commit = await runProcess(["git", "-C", options.checkoutRoot, "cat-file", "-e", `${sha}^{commit}`]);
+    if (commit.exitCode !== 0) {
+      await runProcess(["git", "-C", options.checkoutRoot, "fetch", "origin", sha]);
+      commit = await runProcess(["git", "-C", options.checkoutRoot, "cat-file", "-e", `${sha}^{commit}`]);
+    }
+    if (commit.exitCode !== 0) {
+      options.log(
+        `[knowledge-intake] PR #${prNumber} repair skipped: merge commit ${sha} is unavailable locally after git fetch origin`,
+      );
+      continue;
+    }
+
+    const [diff, numstat] = await Promise.all([
+      runProcess(["git", "-C", options.checkoutRoot, "show", "--format=", "--no-color", sha]),
+      runProcess(["git", "-C", options.checkoutRoot, "show", "--format=", "--numstat", "-M", sha]),
+    ]);
+    if (diff.exitCode !== 0 || numstat.exitCode !== 0) {
+      const detail = diff.stderr.trim() || numstat.stderr.trim() || `git show exited ${diff.exitCode || numstat.exitCode}`;
+      options.log(`[knowledge-intake] PR #${prNumber} repair skipped: ${detail}`);
+      continue;
+    }
+
+    const number = typeof metadata.number === "number" ? metadata.number : prNumber;
+    const title = typeof metadata.title === "string" ? metadata.title : "";
+    const changedFiles = parseNumstat(number, title, numstat.stdout, countDiffHunksByFile(diff.stdout));
+    mkdirSync(resolve(prRoot, "raw"), { recursive: true });
+    mkdirSync(resolve(prRoot, "extracted"), { recursive: true });
+    writeFileSync(diffPath, diff.stdout);
+    const jsonLines = changedFiles.map((file) => JSON.stringify(file)).join("\n");
+    writeFileSync(changedFilesPath, jsonLines + (jsonLines === "" ? "" : "\n"));
+    repaired.push(prNumber);
+  }
+  return repaired;
+}
 
 function validateLanes(lanes: readonly KnowledgeIntakeLane[]): void {
   let previousIndex = -1;
@@ -184,8 +331,21 @@ export async function runKnowledgeIntake(
     : knowledgeRoot;
   const store = dependencies.openStore({ knowledgeRoot: storeRoot });
   const ingest: KnowledgeIntakeIngestResult = {};
+  let repairedPrs: number[] = [];
 
   try {
+    if (!input.dryRun && input.lanes.includes("prs")) {
+      const repairNumbers = new Set(prNumbers);
+      for (const prNumber of archivedPrNumbersAboveWatermark(prsRoot, dependencies.prWatermark(store))) {
+        repairNumbers.add(prNumber);
+      }
+      repairedPrs = await repairPrArchives({
+        prsRoot,
+        checkoutRoot,
+        prNumbers: [...repairNumbers].sort((left, right) => left - right),
+        log: input.log,
+      });
+    }
     for (const lane of input.lanes) {
       if (lane === "reconcile") {
         const result = dependencies.reconcile(store, {
@@ -221,5 +381,5 @@ export async function runKnowledgeIntake(
     if (temporaryStoreRoot) rmSync(temporaryStoreRoot, { recursive: true, force: true });
   }
 
-  return { fetched_prs: fetchedPrs, skipped_prs: skippedPrs, ingest };
+  return { fetched_prs: fetchedPrs, skipped_prs: skippedPrs, repaired_prs: repairedPrs, ingest };
 }

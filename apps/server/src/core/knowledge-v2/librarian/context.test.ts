@@ -36,6 +36,11 @@ function openFixture(): KnowledgeStore {
   insertEntity.run("unit-main", "translation_unit", "src/main.c", null);
   insertEntity.run("unit-other", "translation_unit", "src/other.c", null);
   insertEntity.run("struct-fighter", "struct", "struct://Fighter", null);
+  insertEntity.run("field-fighter-x2224", "struct_field", "struct://Fighter#x2224", "struct-fighter");
+  insertEntity.run("struct-css-icon", "struct", "struct://CSSIcon", null);
+  insertEntity.run("field-css-icon-state", "struct_field", "struct://CSSIcon#state", "struct-css-icon");
+  insertEntity.run("struct-pos-array-full", "struct", "struct://PosArrayFull", null);
+  insertEntity.run("field-pos-array-full-a", "struct_field", "struct://PosArrayFull#a", "struct-pos-array-full");
   insertEntity.run("parameter-state", "parameter", "parameter://ftCo/state", null);
   insertEntity.run("concept-guard", "game_concept", "concept://guard", null);
 
@@ -746,6 +751,85 @@ describe("buildTaskContext", () => {
     expect(singleTarget?.material).toBeUndefined();
     expect(unit?.material).toBeDefined();
     assertOrderingAndScope(context);
+  });
+
+  test("admits only symbol-shaped archival mentions and annotates the admitting rule", () => {
+    const store = openFixture();
+    const insertMessage = store.db.query(`INSERT INTO discord_message
+      (id, channel, author, posted_at, content, thread_id, ingested_at)
+      VALUES (?, 'fixture', 'author', ?, ?, NULL, '2026-01-22T00:00:00.000Z')`);
+    insertMessage.run("1", "2026-01-01T00:00:00.000Z", "in other words it's a gcc linting pass");
+    insertMessage.run("2", "2026-01-02T00:00:00.000Z", "Call `ftCo_800BFFD0` here");
+    insertMessage.run("3", "2026-01-03T00:00:00.000Z", "Read Fighter.x2224 before continuing");
+    insertMessage.run("4", "2026-01-04T00:00:00.000Z", "the state remains unchanged");
+
+    const context = buildTaskContext(
+      store,
+      task("archival_ingest", JSON.stringify({
+        source: "discord",
+        channel_id: "fixture",
+        from_id: "1",
+        to_id: "4",
+        count: 4,
+      })),
+      fixtureOptions(store),
+    );
+    const object = context.object as {
+      mention_map: Array<{
+        mentions: Array<{
+          stable_key?: string;
+          entity_locator?: string;
+          token_class: string;
+          rule: string;
+        }>;
+      }>;
+    };
+
+    expect(object.mention_map[0]?.mentions).toEqual([]);
+    expect(object.mention_map[1]?.mentions).toContainEqual(expect.objectContaining({
+      stable_key: "main/melee/ft/ftcommon:ftCo_800BFFD0",
+      token_class: "symbol",
+      rule: "full_symbol",
+    }));
+    expect(object.mention_map[2]?.mentions).toContainEqual(expect.objectContaining({
+      entity_locator: "struct://Fighter#x2224",
+      token_class: "basename",
+      rule: "qualified_field",
+    }));
+    expect(object.mention_map[3]?.mentions).toEqual([]);
+  });
+
+  test("caps archival touched subjects at 25 by mention count and reports omissions", () => {
+    const store = openFixture();
+    const insertEntity = store.db.query(`INSERT INTO entity
+      (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
+      VALUES (?, 'struct', ?, NULL, 'active', NULL)`);
+    const names = Array.from({ length: 26 }, (_, index) => `MentionedStruct${String(index).padStart(2, "0")}`);
+    for (const name of names) insertEntity.run(`cap-${name}`, `struct://${name}`);
+    const insertMessage = store.db.query(`INSERT INTO discord_message
+      (id, channel, author, posted_at, content, thread_id, ingested_at)
+      VALUES (?, 'fixture', 'author', ?, ?, NULL, '2026-01-22T00:00:00.000Z')`);
+    insertMessage.run("1", "2026-01-01T00:00:00.000Z", names.join(" "));
+    insertMessage.run("2", "2026-01-02T00:00:00.000Z", names[25]);
+
+    const context = buildTaskContext(
+      store,
+      task("archival_ingest", JSON.stringify({
+        source: "discord",
+        channel_id: "fixture",
+        from_id: "1",
+        to_id: "2",
+        count: 2,
+      })),
+      fixtureOptions(store),
+    );
+
+    expect(context.touched).toHaveLength(25);
+    expect(context.scope.entityLocators).toContain(`struct://${names[25]}`);
+    expect(context.omitted).toEqual({
+      reason: "mention_cap",
+      entity_locators: [`struct://${names[24]}`],
+    });
   });
 
   test("splits a 100-message Discord slice into 40, 40, 20 and leaves a small slice alone", () => {

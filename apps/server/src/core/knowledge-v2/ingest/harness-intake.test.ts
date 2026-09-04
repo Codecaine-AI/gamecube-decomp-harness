@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { KnowledgeStore } from "../storage/store.js";
-import type {
-  AttemptsImportResult,
-  DiscordImportResult,
-  PrImportResult,
-  ReconcileResult,
-} from "./types.js";
+import type { AttemptsImportResult, DiscordImportResult, ReconcileResult } from "./types.js";
+import type { ImportPrsResult } from "./prs.js";
 import {
   KNOWLEDGE_INTAKE_SYNC_LANES,
   runKnowledgeIntake,
@@ -21,6 +17,17 @@ function temporaryRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "knowledge-intake-test-"));
   temporaryRoots.push(root);
   return root;
+}
+
+function runGit(root: string, ...args: string[]): string {
+  const result = Bun.spawnSync(["git", "-C", root, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr.toString().trim());
+  }
+  return result.stdout.toString().trim();
 }
 
 afterEach(() => {
@@ -54,11 +61,12 @@ const reconcileResult: ReconcileResult = {
   },
 };
 
-const prsResult: PrImportResult = {
+const prsResult: ImportPrsResult = {
   inserted: 2,
   skipped: 0,
   tasksEnqueued: 2,
   prsImported: 2,
+  prsSkippedNotMerged: 0,
   prsArchiveSkipped: 0,
   prsWithBotReport: 1,
   targetRowsInserted: 1,
@@ -87,6 +95,70 @@ const attemptsResult: AttemptsImportResult = {
 };
 
 describe("runKnowledgeIntake", () => {
+  test("repairs an archived PR from its merge commit before the PR lane runs", async () => {
+    const root = temporaryRoot();
+    const knowledgeRoot = join(root, "knowledge");
+    const checkoutRoot = join(root, "checkout");
+    const reportPath = join(checkoutRoot, "build/GALE01/report.json");
+    const prRoot = join(knowledgeRoot, "sources/code_context/past_prs/data/prs/pr-42");
+    const rawRoot = join(prRoot, "raw");
+    mkdirSync(join(checkoutRoot, "src"), { recursive: true });
+    mkdirSync(join(reportPath, ".."), { recursive: true });
+    mkdirSync(rawRoot, { recursive: true });
+    runGit(checkoutRoot, "init");
+    runGit(checkoutRoot, "config", "user.name", "Fixture Author");
+    runGit(checkoutRoot, "config", "user.email", "fixture@example.com");
+    writeFileSync(join(checkoutRoot, "src/fixture.c"), "int first;\nint second;\n");
+    runGit(checkoutRoot, "add", "src/fixture.c");
+    runGit(checkoutRoot, "commit", "-m", "fixture commit");
+    const mergeCommitSha = runGit(checkoutRoot, "rev-parse", "HEAD");
+    writeFileSync(reportPath, JSON.stringify({ units: [] }));
+    writeFileSync(join(rawRoot, "pr.json"), JSON.stringify({
+      number: 42,
+      title: "Repair fixture",
+      state: "closed",
+      merged: true,
+      merged_at: "2026-01-02T03:04:05Z",
+      merge_commit_sha: mergeCommitSha,
+    }));
+    writeFileSync(join(rawRoot, "diff.diff"), "");
+
+    const calls: string[] = [];
+    const store = { close: () => calls.push("close") } as unknown as KnowledgeStore;
+    const result = await runKnowledgeIntake({
+      knowledgeRoot,
+      checkoutRoot,
+      reportPath,
+      expectedHead: mergeCommitSha.slice(0, 7),
+      prNumbers: [42],
+      sourceRoot: join(root, "past_prs"),
+      fetch: { enabled: false },
+      lanes: ["prs"],
+      dryRun: false,
+      log: () => undefined,
+    }, {
+      checkoutHead: async () => mergeCommitSha.slice(0, 7),
+      prWatermark: () => null,
+      openStore: () => store,
+      prs: () => {
+        calls.push("prs");
+        expect(readFileSync(join(rawRoot, "diff.diff"), "utf8")).toContain("+int first;");
+        expect(readFileSync(join(prRoot, "extracted/changed_files.jsonl"), "utf8").trim()).toBe(JSON.stringify({
+          pr: 42,
+          title: "Repair fixture",
+          file: "src/fixture.c",
+          added: 2,
+          deleted: 0,
+          hunks: 1,
+        }));
+        return prsResult;
+      },
+    });
+
+    expect(calls).toEqual(["prs", "close"]);
+    expect(result.repaired_prs).toEqual([42]);
+  });
+
   test("skips archived PRs, fetches missing PRs, and runs sync lanes in order", async () => {
     const root = temporaryRoot();
     const knowledgeRoot = join(root, "knowledge");
@@ -103,6 +175,7 @@ describe("runKnowledgeIntake", () => {
     const store = { close: () => calls.push("close") } as unknown as KnowledgeStore;
     const dependencies: KnowledgeIntakeDependencies = {
       checkoutHead: async () => "abc1234",
+      prWatermark: () => null,
       runFetch: async (command) => {
         calls.push("fetch");
         commands.push([...command]);
@@ -177,6 +250,7 @@ describe("runKnowledgeIntake", () => {
     expect(result).toEqual({
       fetched_prs: [8, 9],
       skipped_prs: [7],
+      repaired_prs: [],
       ingest: {
         reconcile: reconcileResult,
         prs: prsResult,
