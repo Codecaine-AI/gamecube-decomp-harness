@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
@@ -86,6 +86,41 @@ afterEach(() => {
 });
 
 describe("reanchorCodeDrift", () => {
+  test("looks up unit paths once per distinct target while streaming evidence once", () => {
+    const f = fixture();
+    f.store.db.run(`INSERT INTO target
+      (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+      VALUES ('target-moved', 'function', 'new/moved', 'unit-new', 'Moved',
+        'new/moved:Moved', '0x80000000', 'current', 'v1')`);
+    for (const [id, type] of [["first", "purpose"], ["second", "data_flow"]] as const) {
+      writeFactWithEvidence(f.store, {
+        id: `fact-${id}`,
+        targetId: "target-moved",
+        type,
+        value: id,
+        rationale: "fixture",
+        confidence: 1,
+      }, [{
+        id: `evidence-${id}`,
+        kind: "code",
+        locator: `code://${f.oldRevision}/src/old/moved.c#L1-L3`,
+        digest: digest("move one\nmove two\nmove three"),
+        why: "fixture",
+      }]);
+    }
+    const query = spyOn(f.store.db, "query");
+
+    const summary = reanchorCodeDrift(f.store, {
+      checkoutRoot: f.checkoutRoot,
+      headRevision: f.headRevision,
+    });
+
+    const sqlCalls = query.mock.calls.map(([sql]) => String(sql));
+    expect(summary.scanned).toBe(2);
+    expect(sqlCalls.filter((sql) => sql.includes("WITH RECURSIVE lineage")).length).toBe(1);
+    expect(sqlCalls.filter((sql) => sql.includes("JOIN entity current_unit")).length).toBe(1);
+  });
+
   test("rewrites same-path, moved-path, and shifted citations without changing facts", () => {
     const f = fixture();
     addEvidence(f.store, f.oldRevision, "same", "src/same.c", "L1-L1", "same line");

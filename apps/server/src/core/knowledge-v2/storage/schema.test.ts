@@ -24,6 +24,17 @@ function openTempStore(): KnowledgeStore {
 }
 
 describe("knowledge-v2 drizzle schema", () => {
+  test("creates the merged-entity lookup index when opening a store", () => {
+    const store = openTempStore();
+
+    const indexes = store.db
+      .query<{ name: string }, []>("PRAGMA index_list('entity')")
+      .all()
+      .map(({ name }) => name);
+
+    expect(indexes).toContain("entity_merged_into_id");
+  });
+
   test("matches every table, column, and named index in a fresh store", () => {
     const store = openTempStore();
     const drizzleTables = Object.values(knowledgeV2Schema) as SQLiteTable[];

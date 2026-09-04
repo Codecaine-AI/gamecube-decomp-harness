@@ -7,6 +7,12 @@ export function configureConnection(db: Database): void {
   db.run("PRAGMA foreign_keys = ON");
   db.run("PRAGMA temp_store = MEMORY");
   db.run("PRAGMA wal_autocheckpoint = 1000");
+  const hasEntityTable = db.query<{ present: number }, []>(
+    "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'entity'",
+  ).get() !== null;
+  if (hasEntityTable) {
+    db.run("CREATE INDEX IF NOT EXISTS entity_merged_into_id ON entity(merged_into_id)");
+  }
 }
 
 export const KNOWLEDGE_SCHEMA_DDL = `
@@ -46,6 +52,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     CHECK ((identity_status = 'merged') = (merged_into_id IS NOT NULL)),
     UNIQUE (kind, locator)
   );
+  CREATE INDEX IF NOT EXISTS entity_merged_into_id ON entity(merged_into_id);
 
   CREATE TABLE link (
     id TEXT PRIMARY KEY,

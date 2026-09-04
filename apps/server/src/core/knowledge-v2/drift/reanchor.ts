@@ -58,7 +58,7 @@ function digest(span: string): string {
   return `sha256:${createHash("sha256").update(span).digest("hex").slice(0, 16)}`;
 }
 
-function evidenceRows(store: KnowledgeStoreHandle, limit: number | undefined): EvidenceRow[] {
+function evidenceRows(store: KnowledgeStoreHandle, limit: number | undefined): IterableIterator<EvidenceRow> {
   return store.db.query<EvidenceRow, [number]>(`
     WITH RECURSIVE lineage(root_id, id, kind, parent_entity_id) AS (
       SELECT id, id, kind, parent_entity_id FROM entity
@@ -78,7 +78,7 @@ function evidenceRows(store: KnowledgeStoreHandle, limit: number | undefined): E
     WHERE evidence.kind = 'code'
     ORDER BY unit_key, evidence.id
     LIMIT ?
-  `).all(limit ?? -1);
+  `).iterate(limit ?? -1);
 }
 
 function unitMoves(store: KnowledgeStoreHandle): Map<string, string> {
@@ -92,8 +92,13 @@ function unitMoves(store: KnowledgeStoreHandle): Map<string, string> {
   return new Map(rows.map((row) => [row.old_path, row.new_path]));
 }
 
-function targetCurrentUnitPath(store: KnowledgeStoreHandle, targetId: string, citedPath: string): string | undefined {
-  const row = store.db.query<{ current_path: string; old_path: string | null }, [string]>(`
+interface TargetUnitPathRow {
+  current_path: string;
+  old_path: string | null;
+}
+
+function targetUnitPaths(store: KnowledgeStoreHandle, targetId: string): TargetUnitPathRow[] {
+  return store.db.query<TargetUnitPathRow, [string]>(`
     SELECT current_unit.locator AS current_path, old_unit.locator AS old_path
     FROM target
     JOIN entity current_unit ON current_unit.id = target.unit_entity_id
@@ -101,8 +106,7 @@ function targetCurrentUnitPath(store: KnowledgeStoreHandle, targetId: string, ci
       AND old_unit.kind = 'translation_unit' AND old_unit.identity_status = 'merged'
     WHERE target.id = ?
     ORDER BY old_unit.id
-  `).all(targetId).find((candidate) => candidate.old_path === citedPath);
-  return row?.current_path;
+  `).all(targetId);
 }
 
 function normalized(lines: readonly string[]): string[] {
@@ -187,6 +191,7 @@ export function reanchorCodeDrift(
 ): ReanchorSummary {
   const cache = options.codeFileCache ?? createCodeFileCache(options.checkoutRoot);
   const moves = unitMoves(store);
+  const targetPaths = new Map<string, TargetUnitPathRow[]>();
   const summary: ReanchorSummary = {
     scanned: 0,
     reanchored: 0,
@@ -222,7 +227,12 @@ export function reanchorCodeDrift(
     const movedPath = moves.get(parsed.path);
     if (movedPath !== undefined && !candidates.includes(movedPath)) candidates.push(movedPath);
     if (row.target_id !== null) {
-      const targetPath = targetCurrentUnitPath(store, row.target_id, parsed.path);
+      let paths = targetPaths.get(row.target_id);
+      if (paths === undefined) {
+        paths = targetUnitPaths(store, row.target_id);
+        targetPaths.set(row.target_id, paths);
+      }
+      const targetPath = paths.find(({ old_path }) => old_path === parsed.path)?.current_path;
       if (targetPath !== undefined && !candidates.includes(targetPath)) candidates.push(targetPath);
     }
     const result = findMatch(cache, options.headRevision, parsed, originalLines, candidates);
