@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
+import type { CodeFileCache } from "../apply/resolver.js";
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { reanchorCodeDrift } from "./reanchor.js";
@@ -56,11 +57,19 @@ function fixture(): { checkoutRoot: string; store: KnowledgeStore; oldRevision: 
   return { checkoutRoot, store, oldRevision, headRevision };
 }
 
-function addEvidence(store: KnowledgeStore, oldRevision: string, id: string, path: string, lines: string, span: string): void {
+function addEvidence(
+  store: KnowledgeStore,
+  oldRevision: string,
+  id: string,
+  path: string,
+  lines: string,
+  span: string,
+  entityId = "subject",
+): void {
   const type = id === "moved" ? "data_flow" : id === "shifted" ? "state_behavior" : "purpose";
   writeFactWithEvidence(store, {
     id: `fact-${id}`,
-    entityId: "subject",
+    entityId,
     type,
     value: id,
     rationale: "fixture",
@@ -184,5 +193,58 @@ describe("reanchorCodeDrift", () => {
 
     expect(summary.reanchored_same_path).toBe(1);
     expect(evidence(f.store, "same")).toEqual(before);
+  });
+
+  test("reanchors 200 spans in a 5,000-line file in under two seconds", () => {
+    const root = mkdtempSync(join(tmpdir(), "kg2-reanchor-scale-test-"));
+    temporaryRoots.push(root);
+    const store = openKnowledgeStore({ knowledgeRoot: join(root, "knowledge") });
+    stores.push(store);
+    const oldLines = Array.from({ length: 5_000 }, (_, index) => `unique synthetic line ${index + 1}`);
+    const insertedLines = Array.from({ length: 37 }, (_, index) => `inserted prefix ${index + 1}`);
+    const headLines = [...insertedLines, ...oldLines];
+    const oldFile = { ok: true as const, lines: oldLines };
+    const headFile = { ok: true as const, lines: headLines };
+    const cache: CodeFileCache = {
+      read(revision, path) {
+        if (path !== "src/scale.c") return { ok: false, reason: "code_revision_unresolvable" };
+        return revision === "old" ? oldFile : headFile;
+      },
+      stats: () => ({ hits: 0, misses: 0 }),
+    };
+
+    const starts = Array.from({ length: 200 }, (_, index) => 1 + index * 24);
+    for (const [index, startLine] of starts.entries()) {
+      const entityId = `scale-subject-${index}`;
+      store.db.run(`INSERT INTO entity
+        (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
+        VALUES (?, 'pattern', ?, NULL, 'active', NULL)`, [entityId, `pattern://scale/${index}`]);
+      const span = oldLines.slice(startLine - 1, startLine + 3).join("\n");
+      addEvidence(
+        store,
+        "old",
+        `scale-${index}`,
+        "src/scale.c",
+        `L${startLine}-L${startLine + 3}`,
+        span,
+        entityId,
+      );
+    }
+
+    const started = performance.now();
+    const summary = reanchorCodeDrift(store, {
+      checkoutRoot: root,
+      headRevision: "head",
+      codeFileCache: cache,
+    });
+    const elapsedMs = performance.now() - started;
+
+    expect(summary).toMatchObject({ scanned: 200, reanchored: 200, reanchored_shifted: 200 });
+    for (const [index, startLine] of starts.entries()) {
+      expect(evidence(store, `scale-${index}`).locator).toBe(
+        `code://head/src/scale.c#L${startLine + 37}-L${startLine + 40}`,
+      );
+    }
+    expect(elapsedMs).toBeLessThan(2_000);
   });
 });

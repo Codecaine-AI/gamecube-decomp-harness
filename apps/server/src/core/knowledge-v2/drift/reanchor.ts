@@ -109,21 +109,96 @@ function targetUnitPaths(store: KnowledgeStoreHandle, targetId: string): TargetU
   `).all(targetId);
 }
 
-function normalized(lines: readonly string[]): string[] {
-  return lines.map((line) => line.replace(/\s+$/u, ""));
+type ReadableCodeFile = Extract<ReturnType<CodeFileCache["read"]>, { ok: true }>;
+type LineIndex = Map<string, number[]>;
+
+const lineIndexes = new WeakMap<ReadableCodeFile, [LineIndex | undefined, LineIndex | undefined]>();
+const ANCHOR_LINE_LIMIT = 8;
+const COMMENT_ONLY_CANDIDATE_LIMIT = 50;
+
+function comparableLine(line: string, trimTrailing: boolean): string {
+  return trimTrailing ? line.replace(/\s+$/u, "") : line;
 }
 
-function blocksEqual(left: readonly string[], right: readonly string[], trimTrailing = false): boolean {
-  const a = trimTrailing ? normalized(left) : left;
-  const b = trimTrailing ? normalized(right) : right;
-  return a.length === b.length && a.every((line, index) => line === b[index]);
+function lineIndex(file: ReadableCodeFile, trimTrailing: boolean): LineIndex {
+  let indexes = lineIndexes.get(file);
+  if (indexes === undefined) {
+    indexes = [undefined, undefined];
+    lineIndexes.set(file, indexes);
+  }
+  const slot = trimTrailing ? 1 : 0;
+  let index = indexes[slot];
+  if (index !== undefined) return index;
+  index = new Map();
+  for (let lineNumber = 0; lineNumber < file.lines.length; lineNumber += 1) {
+    const text = comparableLine(file.lines[lineNumber]!, trimTrailing);
+    const positions = index.get(text);
+    if (positions === undefined) index.set(text, [lineNumber]);
+    else positions.push(lineNumber);
+  }
+  indexes[slot] = index;
+  return index;
 }
 
-function findBlock(fileLines: readonly string[], spanLines: readonly string[], trimTrailing: boolean): number[] {
+function rangeEqual(
+  fileLines: readonly string[],
+  fileStart: number,
+  spanLines: readonly string[],
+  spanStart: number,
+  spanLength: number,
+  trimTrailing: boolean,
+): boolean {
+  if (fileStart < 0 || fileStart + spanLength > fileLines.length) return false;
+  for (let offset = 0; offset < spanLength; offset += 1) {
+    if (comparableLine(fileLines[fileStart + offset]!, trimTrailing)
+      !== comparableLine(spanLines[spanStart + offset]!, trimTrailing)) return false;
+  }
+  return true;
+}
+
+function commentOnly(line: string): boolean {
+  return /^\s*(?:\/\/.*|\/\*.*\*\/|\/\*.*|\*.*|\*\/)?\s*$/u.test(line);
+}
+
+function findBlock(
+  file: ReadableCodeFile,
+  spanLines: readonly string[],
+  spanStart: number,
+  spanLength: number,
+  trimTrailing: boolean,
+): number[] {
+  const index = lineIndex(file, trimTrailing);
+  let anchorOffset = -1;
+  let anchorPositions: readonly number[] | undefined;
+  let nonBlankSeen = 0;
+  let onlyBlankOrComments = true;
+
+  for (let offset = 0; offset < spanLength; offset += 1) {
+    const rawLine = spanLines[spanStart + offset]!;
+    if (!commentOnly(rawLine)) onlyBlankOrComments = false;
+    const text = comparableLine(rawLine, trimTrailing);
+    if (text.trim().length === 0) continue;
+    const positions = index.get(text) ?? [];
+    if (anchorPositions === undefined || positions.length < anchorPositions.length) {
+      anchorOffset = offset;
+      anchorPositions = positions;
+    }
+    nonBlankSeen += 1;
+    if (nonBlankSeen === ANCHOR_LINE_LIMIT) break;
+  }
+
+  if (anchorPositions === undefined) {
+    anchorOffset = 0;
+    anchorPositions = index.get(comparableLine(spanLines[spanStart]!, trimTrailing)) ?? [];
+  }
+  if (onlyBlankOrComments && anchorPositions.length > COMMENT_ONLY_CANDIDATE_LIMIT) return [];
+
   const matches: number[] = [];
-  for (let index = 0; index + spanLines.length <= fileLines.length; index += 1) {
-    if (blocksEqual(fileLines.slice(index, index + spanLines.length), spanLines, trimTrailing)) {
-      matches.push(index);
+  for (const anchorPosition of anchorPositions) {
+    const candidate = anchorPosition - anchorOffset;
+    if (rangeEqual(file.lines, candidate, spanLines, spanStart, spanLength, trimTrailing)) {
+      matches.push(candidate);
+      if (spanLength >= 3) break;
     }
   }
   return matches;
@@ -133,7 +208,9 @@ function findMatch(
   cache: CodeFileCache,
   headRevision: string,
   parsed: CodeLocator,
-  originalLines: readonly string[],
+  originalFile: ReadableCodeFile,
+  originalStart: number,
+  originalLength: number,
   candidates: readonly string[],
 ): { match?: Match; readablePath: boolean } {
   let readablePath = false;
@@ -141,33 +218,32 @@ function findMatch(
     const file = cache.read(headRevision, path);
     if (!file.ok) continue;
     readablePath = true;
-    const sameRange = file.lines.slice(parsed.startLine - 1, parsed.endLine);
     for (const trimTrailing of [false, true]) {
-      if (sameRange.length === originalLines.length && blocksEqual(sameRange, originalLines, trimTrailing)) {
+      const sameStart = parsed.startLine - 1;
+      if (rangeEqual(file.lines, sameStart, originalFile.lines, originalStart, originalLength, trimTrailing)) {
         return {
           readablePath,
           match: {
             path,
             startLine: parsed.startLine,
             endLine: parsed.endLine,
-            span: sameRange.join("\n"),
+            span: file.lines.slice(sameStart, sameStart + originalLength).join("\n"),
             moved: path !== parsed.path,
             shifted: false,
           },
         };
       }
-      const matches = findBlock(file.lines, originalLines, trimTrailing);
+      const matches = findBlock(file, originalFile.lines, originalStart, originalLength, trimTrailing);
       if (matches.length === 0) continue;
-      if (originalLines.length < 3 && matches.length !== 1) continue;
+      if (originalLength < 3 && matches.length !== 1) continue;
       const start = matches[0]!;
-      const span = file.lines.slice(start, start + originalLines.length);
       return {
         readablePath,
         match: {
           path,
           startLine: start + 1,
-          endLine: start + originalLines.length,
-          span: span.join("\n"),
+          endLine: start + originalLength,
+          span: file.lines.slice(start, start + originalLength).join("\n"),
           moved: path !== parsed.path,
           shifted: start + 1 !== parsed.startLine,
         },
@@ -222,7 +298,8 @@ export function reanchorCodeDrift(
       summary.original_unreadable += 1;
       continue;
     }
-    const originalLines = original.lines.slice(parsed.startLine - 1, parsed.endLine);
+    const originalStart = parsed.startLine - 1;
+    const originalLength = parsed.endLine - originalStart;
     const candidates = [parsed.path];
     const movedPath = moves.get(parsed.path);
     if (movedPath !== undefined && !candidates.includes(movedPath)) candidates.push(movedPath);
@@ -235,7 +312,7 @@ export function reanchorCodeDrift(
       const targetPath = paths.find(({ old_path }) => old_path === parsed.path)?.current_path;
       if (targetPath !== undefined && !candidates.includes(targetPath)) candidates.push(targetPath);
     }
-    const result = findMatch(cache, options.headRevision, parsed, originalLines, candidates);
+    const result = findMatch(cache, options.headRevision, parsed, original, originalStart, originalLength, candidates);
     if (!result.match) {
       summary.left_for_librarian[result.readablePath ? "content_changed" : "path_gone"] += 1;
       continue;
