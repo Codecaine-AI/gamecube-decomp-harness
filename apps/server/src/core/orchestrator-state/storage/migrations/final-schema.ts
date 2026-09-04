@@ -220,7 +220,7 @@ CREATE TABLE integrations (
 
 CREATE TABLE jobs (
   job_id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL,                        -- 'worker' | 'knowledge_absorption' | 'sync_publication' | 'integration'
+  kind TEXT NOT NULL,                        -- 'worker' | 'knowledge_absorption' | 'worker_summary' | 'integration'
   dedupe_key TEXT NOT NULL,                  -- natural key within kind
   game_id TEXT NOT NULL, run_id TEXT,
   status TEXT NOT NULL CHECK (status IN ('queued','claimed','running','waiting','succeeded','failed','cancelled')),
@@ -237,15 +237,6 @@ CREATE TABLE jobs (
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT,
   UNIQUE (kind, dedupe_key)
 );
-
-CREATE TABLE knowledge_revisions (
-    revision INTEGER PRIMARY KEY AUTOINCREMENT,
-    "game_id" TEXT NOT NULL,
-    digest TEXT NOT NULL,
-    sync_id TEXT,
-    caused_by_event_id TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );
 
 CREATE TABLE pending_integrations (
     epoch_id TEXT PRIMARY KEY,
@@ -438,36 +429,6 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     applied_at TEXT NOT NULL
-  );
-
-CREATE TABLE sync_invalidations (
-    invalidation_id TEXT PRIMARY KEY,
-    sync_id TEXT NOT NULL,
-    "game_id" TEXT NOT NULL,
-    "cycle_uuid" TEXT NOT NULL,
-    subject_kind TEXT NOT NULL CONSTRAINT sync_invalidations_subject_kind_check CHECK (
-      subject_kind IN ('target', 'checkpoint', 'pr_snapshot')
-    ),
-    subject_id TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    caused_by_event_id TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    UNIQUE(sync_id, subject_kind, subject_id)
-  );
-
-CREATE TABLE sync_publication_intents (
-    sync_id TEXT PRIMARY KEY,
-    "game_id" TEXT NOT NULL,
-    "cycle_uuid" TEXT NOT NULL,
-    "cycle_worktree_path" TEXT NOT NULL,
-    prior_head TEXT NOT NULL,
-    new_head TEXT NOT NULL,
-    worktree_state_json TEXT NOT NULL,
-    boundary_plan_json TEXT NOT NULL,
-    publishing_event_id TEXT NOT NULL,
-    boundary_event_id TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
   );
 
 CREATE TABLE sync_push_records (
@@ -706,9 +667,6 @@ CREATE INDEX game_upstream_anchors_cycle ON game_upstream_anchors (cycle_uuid);
 
 CREATE INDEX jobs_claim ON jobs (kind, status, next_attempt_at, priority DESC, created_at, job_id);
 
-CREATE INDEX knowledge_revisions_game_revision
-      ON knowledge_revisions (game_id, revision);
-
 CREATE INDEX pending_integrations_run_created
     ON pending_integrations (run_id, created_at);
 
@@ -734,14 +692,6 @@ CREATE INDEX run_recovery_journal_run_created
 
 CREATE INDEX save_points_campaign
       ON save_points (campaign_id, created_at);
-
-CREATE INDEX sync_invalidations_game_subject
-      ON sync_invalidations (game_id, subject_kind, subject_id);
-
-CREATE UNIQUE INDEX sync_invalidations_sync_subject ON sync_invalidations (sync_id, subject_kind, subject_id);
-
-CREATE INDEX sync_publication_intents_game
-      ON sync_publication_intents (game_id, created_at);
 
 CREATE UNIQUE INDEX sync_push_records_sync_series ON sync_push_records (sync_id, series_id);
 

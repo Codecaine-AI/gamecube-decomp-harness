@@ -1,3 +1,5 @@
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 
 export type PolicyMergeSide = "ours" | "upstream";
@@ -64,6 +66,48 @@ export interface PolicyMergeResult {
   scoreMode: PolicyMergeScoreMode;
   decisions: FunctionMergeDecision[];
   fallback: PolicyMergeFallback | null;
+}
+
+export interface PolicyMergeGitResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+export type PolicyMergeGitRunner = (
+  worktreePath: string,
+  args: string[],
+) => Promise<PolicyMergeGitResult>;
+
+export interface PolicyMergeReports {
+  ours: unknown;
+  upstream: unknown;
+  scoreMode: PolicyMergeScoreMode;
+  upstreamReportFallbackReason: string | null;
+}
+
+export interface PolicyMergeFileLog {
+  path: string;
+  message: string;
+  result: PolicyMergeResult | null;
+  wholeFileFallbackReason: string | null;
+  upstreamReportFallbackReason: string | null;
+}
+
+export interface ApplyScoreMergePolicyInput {
+  worktreePath: string;
+  baseRevision: string;
+  oursRevision: string;
+  upstreamRevision: string;
+  upstreamChangedFiles: string[];
+  locallyChangedFiles: string[];
+  reports: PolicyMergeReports;
+  runGit: PolicyMergeGitRunner;
+}
+
+export interface ApplyScoreMergePolicyResult {
+  files: PolicyMergeFileLog[];
+  rewrittenPaths: string[];
 }
 
 interface CFunctionSpan {
@@ -468,4 +512,164 @@ export function functionScoresForSourcePath(report: unknown, sourcePath: string)
     if (sourcePathFromUnitName(unit.name) === wanted) derivedMatch = unit.name;
   }
   return derivedMatch ? functionScoresForUnit(report, derivedMatch) : {};
+}
+
+function gitOutput(result: PolicyMergeGitResult): string {
+  return (result.stderr || result.stdout || "no output").trim();
+}
+
+async function checkedPolicyGit(
+  runGit: PolicyMergeGitRunner,
+  worktreePath: string,
+  args: string[],
+  operation: string,
+): Promise<string> {
+  const result = await runGit(worktreePath, args);
+  if (result.exitCode !== 0) throw new Error(`policy merge ${operation} failed: ${gitOutput(result)}`);
+  return result.stdout.trim();
+}
+
+async function gitFileText(
+  runGit: PolicyMergeGitRunner,
+  worktreePath: string,
+  revision: string,
+  path: string,
+): Promise<{ text: string; exists: boolean; error: string | null }> {
+  const exists = await runGit(worktreePath, ["cat-file", "-e", `${revision}:${path}`]);
+  if (exists.exitCode !== 0) return { text: "", exists: false, error: null };
+  const result = await runGit(worktreePath, ["show", `${revision}:${path}`]);
+  return result.exitCode === 0
+    ? { text: result.stdout, exists: true, error: null }
+    : { text: "", exists: true, error: gitOutput(result) };
+}
+
+export function policyMergeFileMessage(entry: Omit<PolicyMergeFileLog, "message">): string {
+  const wholeFileFallback = entry.wholeFileFallbackReason
+    ? ` fallback=whole_file_upstream:${entry.wholeFileFallbackReason.replace(/\s+/g, " ").trim()}`
+    : "";
+  const reportFallback = entry.upstreamReportFallbackReason
+    ? ` upstream-report-fallback=${entry.upstreamReportFallbackReason.replace(/\s+/g, " ").trim()}`
+    : "";
+  if (!entry.result) {
+    return `${entry.path}: ours=[] upstream=[whole-file] strategy=majority_fallback${wholeFileFallback}${reportFallback}`;
+  }
+  const functions = (side: PolicyMergeSide) => entry.result!.decisions
+    .filter((decision) => decision.side === side)
+    .map((decision) => `${decision.functionName}(${decision.reason})`)
+    .join(", ");
+  const fallback = entry.result.fallback
+    ? ` fallback=${entry.result.fallback.reason}:${entry.result.fallback.side}`
+    : "";
+  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${reportFallback}`;
+}
+
+async function takeUpstreamFileWhole(
+  runGit: PolicyMergeGitRunner,
+  worktreePath: string,
+  upstreamRevision: string,
+  path: string,
+): Promise<void> {
+  const existsUpstream = await runGit(worktreePath, ["cat-file", "-e", `${upstreamRevision}:${path}`]);
+  if (existsUpstream.exitCode === 0) {
+    await checkedPolicyGit(
+      runGit,
+      worktreePath,
+      ["restore", `--source=${upstreamRevision}`, "--staged", "--worktree", "--", path],
+      `whole-file upstream fallback for ${path}`,
+    );
+    return;
+  }
+  await checkedPolicyGit(
+    runGit,
+    worktreePath,
+    ["rm", "-f", "--ignore-unmatch", "--", path],
+    `upstream deletion fallback for ${path}`,
+  );
+}
+
+export function policyContestedPaths(input: {
+  upstreamChangedFiles: string[];
+  locallyChangedFiles: string[];
+}): string[] {
+  const localFiles = new Set(input.locallyChangedFiles);
+  return input.upstreamChangedFiles.filter((path) => localFiles.has(path));
+}
+
+/** Applies the score policy to every path changed on both sides of a merge. */
+export async function applyScoreMergePolicy(
+  input: ApplyScoreMergePolicyInput,
+): Promise<ApplyScoreMergePolicyResult> {
+  const contestedPaths = policyContestedPaths(input);
+  const files: PolicyMergeFileLog[] = [];
+  const rewrittenPaths: string[] = [];
+  for (const path of contestedPaths) {
+    if (!path.endsWith(".c")) {
+      await takeUpstreamFileWhole(input.runGit, input.worktreePath, input.upstreamRevision, path);
+      const partial = {
+        path,
+        result: null,
+        wholeFileFallbackReason: "non-C contested file",
+        upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
+      };
+      files.push({ ...partial, message: policyMergeFileMessage(partial) });
+      continue;
+    }
+    const [base, ours, upstream] = await Promise.all([
+      gitFileText(input.runGit, input.worktreePath, input.baseRevision, path),
+      gitFileText(input.runGit, input.worktreePath, input.oursRevision, path),
+      gitFileText(input.runGit, input.worktreePath, input.upstreamRevision, path),
+    ]);
+    if (base.error || ours.error || upstream.error) {
+      await takeUpstreamFileWhole(input.runGit, input.worktreePath, input.upstreamRevision, path);
+      const unavailable = [
+        base.error ? `base: ${base.error}` : null,
+        ours.error ? `ours: ${ours.error}` : null,
+        upstream.error ? `upstream: ${upstream.error}` : null,
+      ].filter((value): value is string => value !== null).join("; ");
+      const partial = {
+        path,
+        result: null,
+        wholeFileFallbackReason: `parent text unavailable (${unavailable})`,
+        upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
+      };
+      files.push({ ...partial, message: policyMergeFileMessage(partial) });
+      continue;
+    }
+    const result = mergeCFileByPolicy({
+      path,
+      baseText: base.text,
+      oursText: ours.text,
+      upstreamText: upstream.text,
+      oursScores: functionScoresForSourcePath(input.reports.ours, path),
+      upstreamScores: functionScoresForSourcePath(input.reports.upstream, path),
+      scoreMode: input.reports.scoreMode,
+    });
+    const partial = {
+      path,
+      result,
+      wholeFileFallbackReason: null,
+      upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
+    };
+    files.push({ ...partial, message: policyMergeFileMessage(partial) });
+    let mergedText = "";
+    try {
+      mergedText = await readFile(resolve(input.worktreePath, path), "utf8");
+    } catch (error) {
+      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+    }
+    if (mergedText !== result.text) {
+      const selectedSide = result.fallback?.side
+        ?? (result.strategy === "ours_whole" ? "ours" : result.strategy === "upstream_whole" ? "upstream" : null);
+      const selectedParentMissing = selectedSide === "ours"
+        ? !ours.exists
+        : selectedSide === "upstream" ? !upstream.exists : false;
+      if (selectedParentMissing && result.text === "") {
+        await rm(resolve(input.worktreePath, path), { force: true });
+      } else {
+        await writeFile(resolve(input.worktreePath, path), result.text);
+      }
+      rewrittenPaths.push(path);
+    }
+  }
+  return { files, rewrittenPaths };
 }

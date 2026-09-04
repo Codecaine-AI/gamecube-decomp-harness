@@ -23,7 +23,6 @@ import { initializeHarnessState, releaseDispatch, requestDispatch } from "@serve
 import { appendGameEvent, type JsonObject as GameEventJsonObject } from "@server/core/harness-state/events";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import {
-  appendSyncKnowledgeEventInTransaction,
   getSyncState,
   recordSyncRequested,
   syncActionSpanId,
@@ -578,8 +577,7 @@ describe("dashboard read model", () => {
       });
       const staging = {
         workspace_id: "workspace-sync-staged",
-        epochs_total: 4,
-        epochs_applied: 2,
+        commits_behind: 4,
         minor_conflicts_resolved: 3,
         conflicts_awaiting_operator: 0,
         session_head_sha: "session-head",
@@ -631,8 +629,7 @@ describe("dashboard read model", () => {
       expect(view.sync).toMatchObject({
         status: "blocked",
         staging: {
-          epochs_applied: 2,
-          epochs_total: 4,
+          commits_behind: 4,
           minor_auto_resolved_count: 3,
           conflicts_awaiting_operator: 2,
           conflicts: ["src/a.c", "src/b.c"],
@@ -670,7 +667,7 @@ describe("dashboard read model", () => {
         patch: {
           status: "reconciling",
           blockers: [],
-          staging: { ...staging, epochs_applied: 4 },
+          staging: { ...staging, last_durable_stage: "cycle_merged" },
           prReconciliation: [
             { series_id: "series-clean", branch: "series/clean", result: "clean", pushed: false },
             { series_id: "series-conflict", branch: "series/conflict", result: "auto_resolved", pushed: false },
@@ -759,8 +756,16 @@ describe("dashboard read model", () => {
             remote_application_id: "remote-sync-staged",
             prior_head: "session-head",
             new_head: "staging-head",
-            knowledge_revision: "knowledge-9",
-            invalidated_ids: ["target-1"],
+            knowledge_intake: {
+              fetched_prs: [11],
+              skipped_prs: [10],
+              ingest: {
+                reconcile: { renames: { applied: 2 } },
+                prs: { tasksEnqueued: 3 },
+                discord: { tasksEnqueued: 1 },
+                attempts: { tasksEnqueued: 0 },
+              },
+            },
           }),
           JSON.stringify([
             { series_id: "series-clean", branch: "series/clean", result: "clean", pushed: true },
@@ -784,137 +789,18 @@ describe("dashboard read model", () => {
           remote_application_id: "remote-sync-staged",
           prior_head: "session-head",
           new_head: "staging-head",
-          knowledge_revision: "knowledge-9",
-          invalidated_ids: ["target-1"],
+          knowledge_intake: {
+            fetched_prs: 1,
+            skipped_prs: 1,
+            renames_applied: 2,
+            tasks_enqueued: 4,
+            lanes: ["reconcile", "prs", "discord", "attempts"],
+          },
         },
       });
       expect(view.available_actions.find((action) => action.action_id === "sync.start")).toMatchObject({
         subject_id: "sync:new:melee",
         enabled: true,
-      });
-    } finally {
-      store.db.close();
-    }
-  });
-
-  test("projects current sync knowledge job progress from durable events", () => {
-    const { store } = tempState();
-    try {
-      createCycle(store.db, {
-        actor: "operator",
-        gameId: "melee",
-        cycleUuid: "session-sync-knowledge-progress",
-        id: "cycle:session-sync-knowledge-progress",
-        baseSha: "session-head",
-      });
-      initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
-      const sync = recordSyncRequested(store, {
-        gameId: "melee",
-        cycleUuid: "session-sync-knowledge-progress",
-        syncId: "sync-knowledge-progress",
-        commandId: "command-sync-knowledge-progress",
-        correlationId: "sync-knowledge-progress",
-        actor: "external_observer",
-        intake: {
-          upstream_from: "upstream-old",
-          upstream_to: "upstream-new",
-          merged_pr_ids: ["301", "302", "303"],
-          corpus_batch_ids: ["corpus-progress"],
-          knowledge_only: false,
-        },
-      });
-
-      const appendJobEvent = (
-        jobId: string,
-        eventType: "knowledge.job_enqueued" | "knowledge.job_processing" | "knowledge.job_succeeded" | "knowledge.job_failed",
-      ): void => {
-        const commandId = `command-${jobId}-${eventType}`;
-        const sourceId = jobId === "knowledge-job-discord" ? "discord-batch-1" : jobId;
-        const sourceKind = jobId === "knowledge-job-pr" ? "merged_pr" : "corpus";
-        const common = {
-          gameId: "melee",
-          subjectId: jobId,
-          traceId: sync.trace_id,
-          actor: "runner" as const,
-          causationId: commandId,
-          correlationId: sync.sync_id,
-          spanId: syncActionSpanId(commandId),
-        };
-        if (eventType === "knowledge.job_enqueued") {
-          appendSyncKnowledgeEventInTransaction(store.db, {
-            ...common,
-            eventType,
-            payload: {
-              source_class: "sync_stage",
-              provenance: { source_id: sourceId, source_kind: sourceKind },
-              execution_class: "sync_stage",
-            },
-          });
-          return;
-        }
-        const payload = {
-          source_class: "sync_stage" as const,
-          provenance: { pull_request_id: jobId },
-          execution_class: "sync_stage" as const,
-          sync_id: sync.sync_id,
-          source_id: sourceId,
-          source_kind: sourceKind,
-          from_status: "processing" as const,
-          to_status: eventType.slice("knowledge.job_".length) as "processing" | "succeeded" | "failed",
-        };
-        if (eventType === "knowledge.job_processing") {
-          appendSyncKnowledgeEventInTransaction(store.db, {
-            ...common,
-            eventType,
-            payload: { ...payload, from_status: "queued", to_status: "processing" },
-          });
-        } else if (eventType === "knowledge.job_succeeded") {
-          appendSyncKnowledgeEventInTransaction(store.db, {
-            ...common,
-            eventType,
-            payload: { ...payload, to_status: "succeeded", staged_digest: `sha256:${jobId}` },
-          });
-        } else {
-          appendSyncKnowledgeEventInTransaction(store.db, {
-            ...common,
-            eventType,
-            payload: { ...payload, to_status: "failed", error: "test failure" },
-          });
-        }
-      };
-
-      store.db.exec("BEGIN IMMEDIATE");
-      try {
-        for (const jobId of ["knowledge-job-pr", "knowledge-job-discord", "knowledge-job-corpus"]) {
-          appendJobEvent(jobId, "knowledge.job_enqueued");
-          appendJobEvent(jobId, "knowledge.job_processing");
-        }
-        appendJobEvent("knowledge-job-pr", "knowledge.job_succeeded");
-        appendJobEvent("knowledge-job-discord", "knowledge.job_failed");
-        store.db.exec("COMMIT");
-      } catch (error) {
-        store.db.exec("ROLLBACK");
-        throw error;
-      }
-
-      const view = buildHarnessStateReadModel(store, "melee", { aheadOfBase: 0, head: { dirty: false } });
-      expect(view.sync?.knowledge_jobs).toEqual({
-        jobs_total: 3,
-        jobs_succeeded: 1,
-        jobs_failed: 1,
-        jobs_processing: 1,
-        prs: {
-          jobs_total: 1,
-          jobs_succeeded: 1,
-          jobs_failed: 0,
-          jobs_processing: 0,
-        },
-        discord: {
-          jobs_total: 1,
-          jobs_succeeded: 0,
-          jobs_failed: 1,
-          jobs_processing: 0,
-        },
       });
     } finally {
       store.db.close();

@@ -411,13 +411,10 @@ const savePoints = createSavePointRuntime({
 });
 
 const syncRuntime = createSyncRuntime({
-  kernelEnabled: kernelRuntime.enabled,
   hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
   packageRoot,
   resolveDashboardGame: gameContext.resolveDashboardGame,
-  runCli: commandRunner.runCli,
   runGit: commandRunner.runGit,
-  serverJobPath,
   sourceRoot,
   stopManaged: (body) => processControlRuntime.stopManaged(body),
   withOperation: operationState.withOperation,

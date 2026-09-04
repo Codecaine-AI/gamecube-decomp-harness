@@ -79,6 +79,18 @@ function nullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function knowledgeIntakeSummary(value: unknown) {
+  const summary = asObject(value);
+  if (Object.keys(summary).length === 0) return null;
+  return {
+    fetched_prs: numberValue(summary.fetched_prs),
+    skipped_prs: numberValue(summary.skipped_prs),
+    renames_applied: numberValue(summary.renames_applied),
+    tasks_enqueued: numberValue(summary.tasks_enqueued),
+    lanes: asArray(summary.lanes).map((lane) => text(lane)).filter(Boolean),
+  };
+}
+
 function harnessStateBlocker(value: unknown): HarnessStateBlocker {
   const blocker = asObject(value);
   return {
@@ -275,8 +287,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
           : null,
         staging: Object.keys(syncStagingRaw).length > 0
           ? {
-              epochs_applied: numberValue(syncStagingRaw.epochs_applied),
-              epochs_total: numberValue(syncStagingRaw.epochs_total),
+              commits_behind: numberValue(syncStagingRaw.commits_behind),
               minor_auto_resolved_count: numberValue(syncStagingRaw.minor_auto_resolved_count),
               conflicts_awaiting_operator: numberValue(syncStagingRaw.conflicts_awaiting_operator),
               conflicts: asArray(syncStagingRaw.conflicts).map((path) => text(path)).filter(Boolean),
@@ -302,8 +313,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
                 : {}),
               prior_head: text(syncPublicationRaw.prior_head),
               new_head: text(syncPublicationRaw.new_head),
-              knowledge_revision: text(syncPublicationRaw.knowledge_revision),
-              invalidated_ids: asArray(syncPublicationRaw.invalidated_ids).map((id) => text(id)).filter(Boolean),
+              knowledge_intake: knowledgeIntakeSummary(syncPublicationRaw.knowledge_intake),
             }
           : null,
         staleness: {
@@ -357,7 +367,6 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
     repo_sync: repoSync,
     knowledge: {
       ...knowledgeRaw,
-      published_revision: text(knowledgeRaw.published_revision) || null,
       queued: numberValue(knowledgeRaw.queued),
       processing: numberValue(knowledgeRaw.processing),
       waiting: numberValue(knowledgeRaw.waiting),

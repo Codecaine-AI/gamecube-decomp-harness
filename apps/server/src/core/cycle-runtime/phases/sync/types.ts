@@ -1,3 +1,4 @@
+import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import type { EventActor, JsonObject } from "@server/core/harness-state/events.js";
 import type { Blocker } from "@server/core/harness-state/types.js";
 
@@ -35,24 +36,8 @@ export const SYNC_WORKFLOW_EVENT_TYPES = [
   "sync.published",
 ] as const;
 
-export const SYNC_KNOWLEDGE_EVENT_TYPES = [
-  "knowledge.job_enqueued",
-  "knowledge.job_processing",
-  "knowledge.job_waiting",
-  "knowledge.job_succeeded",
-  "knowledge.job_failed",
-  "knowledge.job_cancelled",
-  "knowledge.revision_advanced",
-] as const;
-
-export const SYNC_EVENT_TYPES = [
-  ...SYNC_WORKFLOW_EVENT_TYPES,
-  ...SYNC_KNOWLEDGE_EVENT_TYPES,
-] as const;
-
 export type SyncWorkflowEventType = (typeof SYNC_WORKFLOW_EVENT_TYPES)[number];
-export type SyncKnowledgeEventType = (typeof SYNC_KNOWLEDGE_EVENT_TYPES)[number];
-export type SyncEventType = (typeof SYNC_EVENT_TYPES)[number];
+export type SyncEventType = SyncWorkflowEventType;
 
 export interface SyncReconciliationBlockedPayload extends JsonObject {
   conflict_identities: string[];
@@ -91,95 +76,9 @@ export interface SyncSubmodulePointer extends JsonObject {
 
 export interface SyncBoundaryPublishedPayload extends JsonObject {
   upstream_revision: string;
-  knowledge_revision: string;
-  invalidations: string[];
+  knowledge_intake: JsonObject;
   validation_evidence: JsonObject;
 }
-
-interface SyncKnowledgeEventContext {
-  gameId: string;
-  subjectId: string;
-  traceId: string;
-  actor: EventActor;
-  causationId: string;
-  correlationId: string;
-  spanId: string;
-  parentSpanId?: string;
-  occurredAt?: string;
-}
-
-export type KnowledgeJobExecutionFacts =
-  | {
-      execution_class: "sync_stage";
-      sync_id: string;
-      source_class: string;
-      provenance: JsonObject;
-      source_kind: string;
-      source_id: string;
-    }
-  | {
-      execution_class: "background_safe";
-      sync_id: null;
-      source_class: string;
-      provenance: JsonObject;
-      source_kind: string;
-      source_id: string;
-    };
-
-type KnowledgeJobTransitionPayload<
-  TFrom extends string,
-  TTo extends string,
-  TFacts extends object = Record<never, never>,
-> = KnowledgeJobExecutionFacts & {
-  from_status: TFrom;
-  to_status: TTo;
-} & TFacts;
-
-export type SyncKnowledgeEventInput =
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_enqueued";
-      payload: {
-        source_class: string;
-        provenance: JsonObject;
-        execution_class: "sync_stage" | "background_safe";
-      };
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_processing";
-      payload: KnowledgeJobTransitionPayload<"queued" | "waiting", "processing">;
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_waiting";
-      payload: KnowledgeJobTransitionPayload<
-        "processing" | "succeeded" | "failed",
-        "waiting",
-        { reason: string }
-      >;
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_succeeded";
-      payload: KnowledgeJobTransitionPayload<"processing", "succeeded", { staged_digest: string }>;
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_failed";
-      payload: KnowledgeJobTransitionPayload<"processing", "failed", { error: string }>;
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.job_cancelled";
-      payload: KnowledgeJobTransitionPayload<
-        "queued" | "processing" | "waiting" | "succeeded" | "failed",
-        "cancelled",
-        { reason: string }
-      >;
-    })
-  | (SyncKnowledgeEventContext & {
-      eventType: "knowledge.revision_advanced";
-      payload: {
-        old_revision: string;
-        new_revision: string;
-        accepted_job_ids: string[];
-      };
-    });
 
 export interface SyncIntake {
   upstream_from: string;
@@ -191,8 +90,8 @@ export interface SyncIntake {
 
 export interface SyncStagingProgress {
   workspace_id: string;
-  epochs_total: number;
-  epochs_applied: number;
+  commits_behind: number;
+  merge_policy?: SyncMergePolicy;
   minor_conflicts_resolved: number;
   conflicts_awaiting_operator: number;
   auto_resolved_paths?: string[];
@@ -201,8 +100,8 @@ export interface SyncStagingProgress {
   staging_head_sha?: string;
   observed_upstream?: string;
   validated_upstream?: string;
-  last_durable_stage?: "workspace_created" | "cycle_rebased" | "pr_series_reconciled" | "validated";
-  rebase_in_progress?: boolean;
+  last_durable_stage?: "workspace_created" | "cycle_merged" | "pr_series_reconciled" | "validated";
+  merge_in_progress?: boolean;
   conflicting_paths?: string[];
   pr_workspaces?: Array<{
     series_id: string;
@@ -210,7 +109,6 @@ export interface SyncStagingProgress {
     workspace_path: string;
     source_head: string;
     staging_head?: string;
-    commits_total?: number;
     auto_resolved_paths?: string[];
     conflicting_paths?: string[];
   }>;
@@ -230,8 +128,7 @@ export interface SyncPublication {
   remote_application_id?: string;
   prior_head: string;
   new_head: string;
-  knowledge_revision: string;
-  invalidated_ids: string[];
+  knowledge_intake: JsonObject;
 }
 
 export interface SyncState {

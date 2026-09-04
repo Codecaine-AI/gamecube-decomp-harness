@@ -228,25 +228,6 @@ export const syncPushRecords = sqliteTable(
   ],
 );
 
-export const syncPublicationIntents = sqliteTable(
-  "sync_publication_intents",
-  {
-    syncId: text("sync_id").primaryKey(),
-    gameId: text("game_id").notNull(),
-    cycleUuid: text("cycle_uuid").notNull(),
-    cycleWorktreePath: text("cycle_worktree_path").notNull(),
-    priorHead: text("prior_head").notNull(),
-    newHead: text("new_head").notNull(),
-    worktreeStateJson: text("worktree_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
-    boundaryPlanJson: text("boundary_plan_json", { mode: "json" }).$type<JsonObject>().notNull(),
-    publishingEventId: text("publishing_event_id").notNull(),
-    boundaryEventId: text("boundary_event_id"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [index("sync_publication_intents_game").on(table.gameId, table.createdAt)],
-);
-
 export const prBatchPublications = sqliteTable(
   "pr_batch_publications",
   {
@@ -298,42 +279,6 @@ export const prBatchPublicationSeries = sqliteTable(
       sql`${table.status} IN ('pending', 'publishing', 'published')`,
     ),
   ],
-);
-
-export const syncInvalidations = sqliteTable(
-  "sync_invalidations",
-  {
-    invalidationId: text("invalidation_id").primaryKey(),
-    syncId: text("sync_id").notNull(),
-    gameId: text("game_id").notNull(),
-    cycleUuid: text("cycle_uuid").notNull(),
-    subjectKind: text("subject_kind").$type<"target" | "checkpoint" | "pr_snapshot">().notNull(),
-    subjectId: text("subject_id").notNull(),
-    reason: text("reason").notNull(),
-    causedByEventId: text("caused_by_event_id").notNull(),
-    createdAt: text("created_at").notNull(),
-  },
-  (table) => [
-    uniqueIndex("sync_invalidations_sync_subject").on(table.syncId, table.subjectKind, table.subjectId),
-    index("sync_invalidations_game_subject").on(table.gameId, table.subjectKind, table.subjectId),
-    check(
-      "sync_invalidations_subject_kind_check",
-      sql`${table.subjectKind} IN ('target', 'checkpoint', 'pr_snapshot')`,
-    ),
-  ],
-);
-
-export const knowledgeRevisions = sqliteTable(
-  "knowledge_revisions",
-  {
-    revision: integer("revision").primaryKey({ autoIncrement: true }),
-    gameId: text("game_id").notNull(),
-    digest: text("digest").notNull(),
-    syncId: text("sync_id"),
-    causedByEventId: text("caused_by_event_id").notNull(),
-    createdAt: text("created_at").notNull(),
-  },
-  (table) => [index("knowledge_revisions_game_revision").on(table.gameId, table.revision)],
 );
 
 export const directorCycles = sqliteTable("director_cycles", {
@@ -823,7 +768,6 @@ export const orchestratorStateSchema = {
   events,
   facts,
   integrations,
-  knowledgeRevisions,
   piSessions,
   pendingIntegrations,
   prBatchPublicationSeries,
@@ -835,7 +779,6 @@ export const orchestratorStateSchema = {
   harnessState,
   gameUpstreamAnchors,
   syncState,
-  syncInvalidations,
   syncPushRecords,
   runCheckpoints,
   runs,
@@ -852,10 +795,7 @@ export const orchestratorStateSchema = {
 
 export type RunRow = typeof runs.$inferSelect;
 export type NewRunRow = typeof runs.$inferInsert;
-export type KnowledgeRevisionRow = typeof knowledgeRevisions.$inferSelect;
-export type NewKnowledgeRevisionRow = typeof knowledgeRevisions.$inferInsert;
 export type GameUpstreamAnchorRow = typeof gameUpstreamAnchors.$inferSelect;
-export type SyncInvalidationRow = typeof syncInvalidations.$inferSelect;
 export type SyncPushRecordRow = typeof syncPushRecords.$inferSelect;
 export type SyncStateRow = typeof syncState.$inferSelect;
 export type NewSyncStateRow = typeof syncState.$inferInsert;

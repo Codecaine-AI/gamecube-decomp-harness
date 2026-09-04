@@ -1,7 +1,15 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
+import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import { runCommand } from "@server/infrastructure/shell/index.js";
+import {
+  applyScoreMergePolicy,
+  policyContestedPaths,
+  type PolicyMergeFileLog,
+  type PolicyMergeGitRunner,
+  type PolicyMergeReports,
+} from "../running/epochs/policy-merge.js";
 
 export interface SyncGitResult {
   exitCode: number | null;
@@ -24,7 +32,7 @@ export interface SyncWorktreeInspection {
   exists: boolean;
   head: string | null;
   path: string;
-  rebaseInProgress: boolean;
+  mergeInProgress: boolean;
   status: string;
   conflictingPaths: string[];
 }
@@ -44,14 +52,13 @@ export interface RecursiveWorktreeState {
   repositories: RecursiveRepositoryState[];
 }
 
-export interface SyncRebaseResult {
+export interface SyncMergeResult {
   status: "clean" | "auto_resolved" | "needs_operator";
   head: string;
-  commitsTotal: number;
-  commitsApplied: number;
   minorConflictsResolved: number;
   autoResolvedPaths: string[];
   conflictingPaths: string[];
+  policyMergeFiles: PolicyMergeFileLog[];
 }
 
 export const defaultSyncGitRunner: SyncGitRunner = async (cwd, args, options = {}) => {
@@ -215,7 +222,7 @@ export async function captureRecursiveWorktreeState(input: {
   const runner = input.runGit ?? defaultSyncGitRunner;
   const inspection = await inspectSyncWorktree(input);
   if (!inspection.exists || !inspection.head) throw new Error(`Worktree is missing: ${input.worktreePath}`);
-  if (inspection.rebaseInProgress || inspection.conflictingPaths.length > 0) {
+  if (inspection.mergeInProgress || inspection.conflictingPaths.length > 0) {
     throw new Error(`Worktree has an in-progress operation: ${input.worktreePath}`);
   }
   const recursiveStatus = await checkedGit(
@@ -308,17 +315,16 @@ export async function inspectSyncWorktree(input: {
       exists: false,
       head: null,
       path: input.worktreePath,
-      rebaseInProgress: false,
+      mergeInProgress: false,
       status: "",
       conflictingPaths: [],
     };
   }
-  const [head, status, conflicts, rebaseMerge, rebaseApply] = await Promise.all([
+  const [head, status, conflicts, mergeHead] = await Promise.all([
     runner(input.worktreePath, ["rev-parse", "--verify", "HEAD"], { check: false }),
     runner(input.worktreePath, ["status", "--porcelain=v1", "--untracked-files=all"], { check: false }),
     unmergedPaths(runner, input.worktreePath),
-    gitPathExists(runner, input.worktreePath, "rebase-merge"),
-    gitPathExists(runner, input.worktreePath, "rebase-apply"),
+    gitPathExists(runner, input.worktreePath, "MERGE_HEAD"),
   ]);
   if (head.exitCode !== 0 || status.exitCode !== 0) {
     throw new Error(`Unable to inspect sync worktree ${input.worktreePath}: ${outputTail(head.stderr || status.stderr)}`);
@@ -327,7 +333,7 @@ export async function inspectSyncWorktree(input: {
     exists: true,
     head: head.stdout.trim(),
     path: input.worktreePath,
-    rebaseInProgress: rebaseMerge || rebaseApply,
+    mergeInProgress: mergeHead,
     status: status.stdout,
     conflictingPaths: conflicts,
   };
@@ -369,13 +375,13 @@ export async function discardSyncStaging(input: {
   return { discarded, workspaceId: input.syncId };
 }
 
-/** Aborts any in-progress rebase and removes one staged worktree.
+/** Aborts any in-progress merge and removes one staged worktree.
  *
  * Used when a staged PR-series workspace becomes moot (its series merged or
  * closed upstream while the sync was blocked). Mirrors discardSyncStaging's
  * cleanup — `git worktree remove --force` from the repo root with an rm -rf
  * fallback plus a prune — but scoped to a single workspace and tolerant of a
- * workspace that is not mid-rebase or already gone. */
+ * workspace that is not mid-merge or already gone. */
 export async function abortAndRemoveSyncWorktree(input: {
   repoRoot: string;
   worktreePath: string;
@@ -383,7 +389,7 @@ export async function abortAndRemoveSyncWorktree(input: {
 }): Promise<void> {
   const runner = input.runGit ?? defaultSyncGitRunner;
   if (existsSync(resolve(input.worktreePath, ".git"))) {
-    await runner(input.worktreePath, ["rebase", "--abort"], { check: false });
+    await runner(input.worktreePath, ["merge", "--abort"], { check: false });
   }
   const removed = await runner(
     input.repoRoot,
@@ -416,7 +422,8 @@ export function resolveTrivialConflictMarkers(content: string): { content: strin
     const current = lines.slice(index + 1, divider).join("");
     const incoming = lines.slice(divider + 1, end).join("");
     if (normalizedMechanicalText(current) !== normalizedMechanicalText(incoming)) return null;
-    // During rebase, the incoming side is the cycle commit being replayed.
+    // Either side is equivalent after whitespace normalization. Keep incoming
+    // so the mechanical resolution agrees with the upstream merge direction.
     output.push(incoming);
     resolved += 1;
     index = end + 1;
@@ -446,111 +453,153 @@ async function tryResolveMechanicalConflicts(
   return resolvedPaths;
 }
 
-async function rebaseCommitCounts(
-  runner: SyncGitRunner,
-  worktreePath: string,
-  newBase: string,
-  total: number,
-): Promise<{ applied: number; head: string }> {
-  const [head, applied] = await Promise.all([
-    checkedGit(runner, worktreePath, ["rev-parse", "--verify", "HEAD"], "Unable to resolve staged sync HEAD"),
-    runner(worktreePath, ["rev-list", "--count", `${newBase}..HEAD`], { check: false }),
-  ]);
-  const count = applied.exitCode === 0 ? Number.parseInt(applied.stdout.trim(), 10) : 0;
-  return { applied: Math.min(total, Number.isFinite(count) ? count : 0), head: head.stdout.trim() };
+function policyGitRunner(runner: SyncGitRunner): PolicyMergeGitRunner {
+  return (worktreePath, args) => runner(worktreePath, args, { check: false });
 }
 
-async function advanceRebase(input: {
-  runner: SyncGitRunner;
+async function changedPaths(
+  runner: SyncGitRunner,
+  worktreePath: string,
+  fromRevision: string,
+  toRevision: string,
+): Promise<string[]> {
+  const changed = await checkedGit(
+    runner,
+    worktreePath,
+    ["diff", "--name-only", "-z", fromRevision, toRevision],
+    `Unable to inspect sync merge changes from ${fromRevision} to ${toRevision}`,
+  );
+  return [...new Set(changed.stdout.split("\0").filter(Boolean))].sort();
+}
+
+async function syncHead(runner: SyncGitRunner, worktreePath: string): Promise<string> {
+  return (await checkedGit(
+    runner,
+    worktreePath,
+    ["rev-parse", "--verify", "HEAD"],
+    "Unable to resolve staged sync HEAD",
+  )).stdout.trim();
+}
+
+const DEFAULT_POLICY_INPUTS: PolicyMergeReports = {
+  ours: {},
+  upstream: {},
+  scoreMode: "upstream-diff-fallback",
+  upstreamReportFallbackReason: "operator sync policy reports unavailable",
+};
+
+export async function mergeSyncWorktree(input: {
   worktreePath: string;
   newBase: string;
-  total: number;
-  initialResult: SyncGitResult;
+  mergePolicy?: SyncMergePolicy;
+  policyInputs?: PolicyMergeReports;
+  runGit?: SyncGitRunner;
   revalidateLease: () => void;
-}): Promise<SyncRebaseResult> {
-  let command = input.initialResult;
+}): Promise<SyncMergeResult> {
+  const runner = input.runGit ?? defaultSyncGitRunner;
+  const mergePolicy = input.mergePolicy ?? "score";
+  const oursRevision = await syncHead(runner, input.worktreePath);
+  const baseRevision = (await checkedGit(
+    runner,
+    input.worktreePath,
+    ["merge-base", oursRevision, input.newBase],
+    `Unable to identify the sync merge base for ${input.newBase}`,
+  )).stdout.trim();
+  const [upstreamChangedFiles, locallyChangedFiles] = await Promise.all([
+    changedPaths(runner, input.worktreePath, baseRevision, input.newBase),
+    changedPaths(runner, input.worktreePath, baseRevision, oursRevision),
+  ]);
+  input.revalidateLease();
+  const mergeArgs = [
+    "merge",
+    "--no-ff",
+    "--no-edit",
+    "--no-commit",
+    ...(mergePolicy === "theirs" ? ["-X", "theirs"] : []),
+    input.newBase,
+  ];
+  const started = await runner(input.worktreePath, mergeArgs, { check: false });
+  const mergeInProgress = await gitPathExists(runner, input.worktreePath, "MERGE_HEAD");
+  if (!mergeInProgress) {
+    if (started.exitCode !== 0) {
+      throw new Error(`Staged merge failed without MERGE_HEAD: ${outputTail(started.stderr || started.stdout || "no output")}`);
+    }
+    return {
+      status: "clean",
+      head: await syncHead(runner, input.worktreePath),
+      minorConflictsResolved: 0,
+      autoResolvedPaths: [],
+      conflictingPaths: [],
+      policyMergeFiles: [],
+    };
+  }
+
   let minorConflictsResolved = 0;
-  const autoResolvedPaths: string[] = [];
-  for (let attempts = 0; attempts < input.total + 100; attempts += 1) {
-    if (command.exitCode === 0) {
-      const counts = await rebaseCommitCounts(input.runner, input.worktreePath, input.newBase, input.total);
-      return {
-        status: minorConflictsResolved > 0 ? "auto_resolved" : "clean",
-        head: counts.head,
-        commitsTotal: input.total,
-        commitsApplied: input.total,
-        minorConflictsResolved,
-        autoResolvedPaths,
-        conflictingPaths: [],
-      };
+  let autoResolvedPaths: string[] = [];
+  let policyMergeFiles: PolicyMergeFileLog[] = [];
+  try {
+    const initialConflicts = await unmergedPaths(runner, input.worktreePath);
+    autoResolvedPaths = await tryResolveMechanicalConflicts(runner, input.worktreePath, initialConflicts);
+    minorConflictsResolved = autoResolvedPaths.length;
+
+    if (mergePolicy === "score" && policyContestedPaths({ upstreamChangedFiles, locallyChangedFiles }).length > 0) {
+      const applied = await applyScoreMergePolicy({
+        worktreePath: input.worktreePath,
+        baseRevision,
+        oursRevision,
+        upstreamRevision: input.newBase,
+        upstreamChangedFiles,
+        locallyChangedFiles,
+        reports: input.policyInputs ?? DEFAULT_POLICY_INPUTS,
+        runGit: policyGitRunner(runner),
+      });
+      policyMergeFiles = applied.files;
+      if (applied.rewrittenPaths.length > 0) {
+        await checkedGit(
+          runner,
+          input.worktreePath,
+          ["add", "--", ...applied.rewrittenPaths],
+          "Unable to stage score-policy sync merge results",
+        );
+      }
     }
-    const conflicts = await unmergedPaths(input.runner, input.worktreePath);
-    if (conflicts.length === 0) {
-      throw new Error(`Staged rebase failed without unmerged paths: ${outputTail(command.stderr || command.stdout || "no output")}`);
-    }
-    const resolved = await tryResolveMechanicalConflicts(input.runner, input.worktreePath, conflicts);
-    minorConflictsResolved += resolved.length;
-    autoResolvedPaths.push(...resolved);
-    const remaining = await unmergedPaths(input.runner, input.worktreePath);
-    if (remaining.length > 0) {
-      const counts = await rebaseCommitCounts(input.runner, input.worktreePath, input.newBase, input.total);
+
+    const conflictingPaths = await unmergedPaths(runner, input.worktreePath);
+    if (conflictingPaths.length > 0) {
       return {
         status: "needs_operator",
-        head: counts.head,
-        commitsTotal: input.total,
-        commitsApplied: counts.applied,
+        head: await syncHead(runner, input.worktreePath),
         minorConflictsResolved,
         autoResolvedPaths,
-        conflictingPaths: remaining,
+        conflictingPaths,
+        policyMergeFiles,
       };
     }
     input.revalidateLease();
-    const staged = await input.runner(input.worktreePath, ["diff", "--cached", "--quiet"], { check: false });
-    const nextArgs = staged.exitCode === 0 ? ["rebase", "--skip"] : ["-c", "core.editor=true", "rebase", "--continue"];
-    command = await input.runner(input.worktreePath, nextArgs, { check: false });
+    await checkedGit(runner, input.worktreePath, ["commit", "--no-edit"], "Unable to commit staged sync merge");
+    return {
+      status: started.exitCode === 0 && minorConflictsResolved === 0 ? "clean" : "auto_resolved",
+      head: await syncHead(runner, input.worktreePath),
+      minorConflictsResolved,
+      autoResolvedPaths,
+      conflictingPaths: [],
+      policyMergeFiles,
+    };
+  } catch (error) {
+    await runner(input.worktreePath, ["merge", "--abort"], { check: false });
+    throw error;
   }
-  throw new Error(`Staged rebase exceeded its bounded continuation count (${input.total + 100})`);
 }
 
-export async function rebaseSyncWorktree(input: {
-  worktreePath: string;
-  oldBase: string;
-  newBase: string;
-  runGit?: SyncGitRunner;
-  revalidateLease: () => void;
-}): Promise<SyncRebaseResult> {
-  const runner = input.runGit ?? defaultSyncGitRunner;
-  const count = await checkedGit(
-    runner,
-    input.worktreePath,
-    ["rev-list", "--count", `${input.oldBase}..HEAD`],
-    `Unable to count staged commits after ${input.oldBase}`,
-  );
-  const total = Number.parseInt(count.stdout.trim(), 10);
-  if (!Number.isFinite(total)) throw new Error(`Invalid staged commit count: ${count.stdout.trim()}`);
-  input.revalidateLease();
-  const start = await runner(input.worktreePath, ["rebase", "--onto", input.newBase, input.oldBase], { check: false });
-  return advanceRebase({
-    runner,
-    worktreePath: input.worktreePath,
-    newBase: input.newBase,
-    total,
-    initialResult: start,
-    revalidateLease: input.revalidateLease,
-  });
-}
-
-export async function continueSyncRebaseAfterOperator(input: {
+export async function continueSyncMergeAfterOperator(input: {
   worktreePath: string;
   expectedConflictPaths: string[];
-  newBase: string;
-  commitsTotal: number;
   runGit?: SyncGitRunner;
   revalidateLease: () => void;
-}): Promise<SyncRebaseResult> {
+}): Promise<SyncMergeResult> {
   const runner = input.runGit ?? defaultSyncGitRunner;
   const inspection = await inspectSyncWorktree({ worktreePath: input.worktreePath, runGit: runner });
-  if (!inspection.rebaseInProgress) throw new Error(`No rebase is in progress at ${input.worktreePath}`);
+  if (!inspection.mergeInProgress) throw new Error(`No merge is in progress at ${input.worktreePath}`);
   for (const path of input.expectedConflictPaths) {
     const absolutePath = resolve(input.worktreePath, path);
     if (existsSync(absolutePath) && hasConflictMarkers(readFileSync(absolutePath, "utf8"))) {
@@ -569,15 +618,13 @@ export async function continueSyncRebaseAfterOperator(input: {
     throw new Error(`Operator resolution is incomplete; unmerged paths remain: ${remaining.join(", ")}`);
   }
   input.revalidateLease();
-  const staged = await runner(input.worktreePath, ["diff", "--cached", "--quiet"], { check: false });
-  const args = staged.exitCode === 0 ? ["rebase", "--skip"] : ["-c", "core.editor=true", "rebase", "--continue"];
-  const continued = await runner(input.worktreePath, args, { check: false });
-  return advanceRebase({
-    runner,
-    worktreePath: input.worktreePath,
-    newBase: input.newBase,
-    total: input.commitsTotal,
-    initialResult: continued,
-    revalidateLease: input.revalidateLease,
-  });
+  await checkedGit(runner, input.worktreePath, ["commit", "--no-edit"], "Unable to commit the operator's sync merge resolution");
+  return {
+    status: "clean",
+    head: await syncHead(runner, input.worktreePath),
+    minorConflictsResolved: 0,
+    autoResolvedPaths: [],
+    conflictingPaths: [],
+    policyMergeFiles: [],
+  };
 }

@@ -74,7 +74,6 @@ export {
   policyRevisionForConfiguration,
   setRunDesiredWorkers,
   setRunSchedulerCondition,
-  startingKnowledgeRevision,
   StaleRunRevisionError,
   transitionRun,
   updateRunStatus,

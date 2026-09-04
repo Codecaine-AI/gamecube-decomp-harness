@@ -1,13 +1,14 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import { fetchUpstreamMasterReport } from "./breakage-gate.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 import {
-  functionScoresForSourcePath,
-  mergeCFileByPolicy,
-  type PolicyMergeResult,
+  applyScoreMergePolicy,
+  policyContestedPaths,
+  type PolicyMergeFileLog,
+  type PolicyMergeReports,
 } from "./policy-merge.js";
 
 export const BOUNDARY_OVERRIDE_VERDICT = "overridden_by_upstream_requeued" as const;
@@ -107,20 +108,7 @@ export interface BoundarySyncInput {
   ) => void;
 }
 
-export interface BoundaryPolicyFileLog {
-  path: string;
-  message: string;
-  result: PolicyMergeResult | null;
-  wholeFileFallbackReason: string | null;
-  upstreamReportFallbackReason: string | null;
-}
-
-interface BoundaryPolicyReports {
-  ours: unknown;
-  upstream: unknown;
-  scoreMode: "reports" | "upstream-diff-fallback";
-  upstreamReportFallbackReason: string | null;
-}
+export type BoundaryPolicyFileLog = PolicyMergeFileLog;
 
 function boundaryBuildFixerPrompt(failure: unknown, anchorBefore: string, anchorAfter: string): string {
   const errors = buildFixerFailureOutput(failure);
@@ -208,7 +196,7 @@ function reportVersion(reportRelPath: string): string {
   return reportIndex > 0 ? parts[reportIndex - 1]! : parts[1] || "GALE01";
 }
 
-async function preparePolicyReports(input: BoundarySyncInput, upstreamHeadSha: string): Promise<BoundaryPolicyReports> {
+async function preparePolicyReports(input: BoundarySyncInput, upstreamHeadSha: string): Promise<PolicyMergeReports> {
   const reportRelPath = input.reportRelPath ?? "build/GALE01/report.json";
   await input.prepareMergeReport?.();
   const oursPath = resolve(input.repoRoot, reportRelPath);
@@ -256,140 +244,6 @@ async function preparePolicyReports(input: BoundarySyncInput, upstreamHeadSha: s
       upstreamReportFallbackReason: `could not parse upstream report ${fetched.path}: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
-}
-
-async function gitFileText(
-  runGit: BoundaryGitRunner,
-  repoRoot: string,
-  revision: string,
-  path: string,
-): Promise<{ text: string; exists: boolean; error: string | null }> {
-  const exists = await runGit(repoRoot, ["cat-file", "-e", `${revision}:${path}`]);
-  if (exists.exitCode !== 0) return { text: "", exists: false, error: null };
-  const result = await runGit(repoRoot, ["show", `${revision}:${path}`]);
-  return result.exitCode === 0
-    ? { text: result.stdout, exists: true, error: null }
-    : { text: "", exists: true, error: output(result) };
-}
-
-function policyFileMessage(entry: Omit<BoundaryPolicyFileLog, "message">): string {
-  const wholeFileFallback = entry.wholeFileFallbackReason
-    ? ` fallback=whole_file_upstream:${entry.wholeFileFallbackReason.replace(/\s+/g, " ").trim()}`
-    : "";
-  const reportFallback = entry.upstreamReportFallbackReason
-    ? ` upstream-report-fallback=${entry.upstreamReportFallbackReason.replace(/\s+/g, " ").trim()}`
-    : "";
-  if (!entry.result) {
-    return `${entry.path}: ours=[] upstream=[whole-file] strategy=majority_fallback${wholeFileFallback}${reportFallback}`;
-  }
-  const functions = (side: "ours" | "upstream") => entry.result!.decisions
-    .filter((decision) => decision.side === side)
-    .map((decision) => `${decision.functionName}(${decision.reason})`)
-    .join(", ");
-  const fallback = entry.result.fallback
-    ? ` fallback=${entry.result.fallback.reason}:${entry.result.fallback.side}`
-    : "";
-  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${reportFallback}`;
-}
-
-async function takeUpstreamFileWhole(
-  runGit: BoundaryGitRunner,
-  repoRoot: string,
-  upstreamHeadSha: string,
-  path: string,
-): Promise<void> {
-  const existsUpstream = await runGit(repoRoot, ["cat-file", "-e", `${upstreamHeadSha}:${path}`]);
-  if (existsUpstream.exitCode === 0) {
-    await checkedGit(
-      runGit,
-      repoRoot,
-      ["restore", `--source=${upstreamHeadSha}`, "--staged", "--worktree", "--", path],
-      `whole-file upstream fallback for ${path}`,
-    );
-    return;
-  }
-  await checkedGit(runGit, repoRoot, ["rm", "-f", "--ignore-unmatch", "--", path], `upstream deletion fallback for ${path}`);
-}
-
-async function applyScoreMergePolicy(input: {
-  boundary: BoundarySyncInput;
-  plan: BoundarySyncPlan;
-  reports: BoundaryPolicyReports;
-  runGit: BoundaryGitRunner;
-}): Promise<{ files: BoundaryPolicyFileLog[]; rewrittenPaths: string[] }> {
-  const contestedPaths = policyContestedPaths(input.plan);
-  const files: BoundaryPolicyFileLog[] = [];
-  const rewrittenPaths: string[] = [];
-  for (const path of contestedPaths) {
-    if (!path.endsWith(".c")) {
-      await takeUpstreamFileWhole(input.runGit, input.boundary.repoRoot, input.plan.upstreamHeadSha, path);
-      const partial = {
-        path,
-        result: null,
-        wholeFileFallbackReason: "non-C contested file",
-        upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
-      };
-      files.push({ ...partial, message: policyFileMessage(partial) });
-      continue;
-    }
-    const [base, ours, upstream] = await Promise.all([
-      gitFileText(input.runGit, input.boundary.repoRoot, input.plan.mergeBaseSha ?? input.plan.anchorSha, path),
-      gitFileText(input.runGit, input.boundary.repoRoot, input.plan.localHeadSha, path),
-      gitFileText(input.runGit, input.boundary.repoRoot, input.plan.upstreamHeadSha, path),
-    ]);
-    if (base.error || ours.error || upstream.error) {
-      await takeUpstreamFileWhole(input.runGit, input.boundary.repoRoot, input.plan.upstreamHeadSha, path);
-      const unavailable = [
-        base.error ? `base: ${base.error}` : null,
-        ours.error ? `ours: ${ours.error}` : null,
-        upstream.error ? `upstream: ${upstream.error}` : null,
-      ].filter((value): value is string => value !== null).join("; ");
-      const partial = {
-        path,
-        result: null,
-        wholeFileFallbackReason: `parent text unavailable (${unavailable})`,
-        upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
-      };
-      files.push({ ...partial, message: policyFileMessage(partial) });
-      continue;
-    }
-    const result = mergeCFileByPolicy({
-      path,
-      baseText: base.text,
-      oursText: ours.text,
-      upstreamText: upstream.text,
-      oursScores: functionScoresForSourcePath(input.reports.ours, path),
-      upstreamScores: functionScoresForSourcePath(input.reports.upstream, path),
-      scoreMode: input.reports.scoreMode,
-    });
-    const partial = {
-      path,
-      result,
-      wholeFileFallbackReason: null,
-      upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
-    };
-    files.push({ ...partial, message: policyFileMessage(partial) });
-    let mergedText = "";
-    try {
-      mergedText = await readFile(resolve(input.boundary.repoRoot, path), "utf8");
-    } catch (error) {
-      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
-    }
-    if (mergedText !== result.text) {
-      const selectedSide = result.fallback?.side
-        ?? (result.strategy === "ours_whole" ? "ours" : result.strategy === "upstream_whole" ? "upstream" : null);
-      const selectedParentMissing = selectedSide === "ours" ? !ours.exists : selectedSide === "upstream" ? !upstream.exists : false;
-      if (selectedParentMissing && result.text === "") await rm(resolve(input.boundary.repoRoot, path), { force: true });
-      else await writeFile(resolve(input.boundary.repoRoot, path), result.text);
-      rewrittenPaths.push(path);
-    }
-  }
-  return { files, rewrittenPaths };
-}
-
-function policyContestedPaths(plan: BoundarySyncPlan): string[] {
-  const localFiles = new Set(plan.locallyChangedFiles);
-  return plan.upstreamChangedFiles.filter((path) => localFiles.has(path));
 }
 
 function policyAdjustedPlan(plan: BoundarySyncPlan, files: BoundaryPolicyFileLog[]): BoundarySyncPlan {
@@ -549,7 +403,7 @@ export async function planBoundarySync(input: Omit<BoundarySyncInput, "hooks">):
     targetsToRequeue,
     ledgerNotes: targetsToRequeue,
     actions: drifted
-      ? [input.mergePolicy === "theirs" ? "merge_upstream_theirs" : "merge_upstream_score", "ingest_merged_prs", "append_override_notes", "requeue_displaced_targets", "recompute_report", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_cycle_head"]
+      ? [input.mergePolicy === "theirs" ? "merge_upstream_theirs" : "merge_upstream_score", "append_override_notes", "requeue_displaced_targets", "recompute_report", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_cycle_head"]
       : [],
   };
 }
@@ -580,7 +434,16 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
           ["merge", "--no-edit", "--no-ff", "--no-commit", "-X", "theirs", plan.upstreamHeadSha],
           "score-policy merge preparation",
         );
-        const applied = await applyScoreMergePolicy({ boundary: input, plan, reports, runGit });
+        const applied = await applyScoreMergePolicy({
+          worktreePath: input.repoRoot,
+          baseRevision: plan.mergeBaseSha ?? plan.anchorSha,
+          oursRevision: plan.localHeadSha,
+          upstreamRevision: plan.upstreamHeadSha,
+          upstreamChangedFiles: plan.upstreamChangedFiles,
+          locallyChangedFiles: plan.locallyChangedFiles,
+          reports,
+          runGit,
+        });
         policyMergeFiles = applied.files;
         if (applied.rewrittenPaths.length > 0) {
           await checkedGit(runGit, input.repoRoot, ["add", "--", ...applied.rewrittenPaths], "score-policy staging");
@@ -607,10 +470,6 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       : policyAdjustedPlan(plan, policyMergeFiles)
     : plan;
 
-  await input.hooks.ingestMergedUpstream({
-    previousAnchorSha: effectivePlan.anchorSha,
-    upstreamHeadSha: effectivePlan.upstreamHeadSha,
-  });
   for (const displacement of effectivePlan.targetsToRequeue) {
     await input.hooks.appendOverrideNote(displacement);
     await input.hooks.requeueTarget(displacement);
@@ -639,6 +498,10 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       throw fixerError;
     }
   }
+  await input.hooks.ingestMergedUpstream({
+    previousAnchorSha: effectivePlan.anchorSha,
+    upstreamHeadSha: effectivePlan.upstreamHeadSha,
+  });
   await input.hooks.rebuildKnowledgeGraph();
   await input.hooks.writePrSyncSavePoint({
     kind: "pr_sync",

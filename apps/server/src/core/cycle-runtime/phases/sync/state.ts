@@ -13,7 +13,6 @@ import {
   SYNC_STATUSES,
   type RecordSyncRequestedInput,
   type SyncIntake,
-  type SyncKnowledgeEventInput,
   type SyncObservationRefreshedPayload,
   type SyncPublication,
   type SyncPrReconciliation,
@@ -295,7 +294,6 @@ function durableStagingStage(sync: SyncState): string {
   if (sync.pr_reconciliation.length > 0 || (staging.pr_workspaces?.length ?? 0) > 0) {
     return "pr_series_reconciled";
   }
-  if (staging.epochs_total > 0 && staging.epochs_applied >= staging.epochs_total) return "cycle_rebased";
   return "workspace_created";
 }
 
@@ -348,8 +346,7 @@ function canonicalSyncEventPayload(
     return {
       staging_workspace_id: requiredText(staging.workspace_id, "staging.workspace_id"),
       durable_stage: durableStagingStage(next),
-      epochs_total: staging.epochs_total,
-      epochs_applied: staging.epochs_applied,
+      commits_behind: staging.commits_behind,
       minor_conflicts_resolved: staging.minor_conflicts_resolved,
       conflicts_awaiting_operator: staging.conflicts_awaiting_operator,
       pr_series_reconciliation_summary: prSeriesReconciliationSummary(next),
@@ -390,8 +387,7 @@ function canonicalSyncEventPayload(
     if (!next.validation_evidence) throw new Error("sync.boundary_published requires durable validation evidence");
     return {
       upstream_revision: next.intake.upstream_to,
-      knowledge_revision: next.publication.knowledge_revision,
-      invalidations: next.publication.invalidated_ids,
+      knowledge_intake: next.publication.knowledge_intake,
       validation_evidence: next.validation_evidence,
     };
   }
@@ -510,8 +506,7 @@ function assertSemanticEventPayload(
       throw new Error("sync.staging_progressed durable stage must match accepted staging state");
     }
     for (const [field, accepted] of [
-      ["epochs_total", staging.epochs_total],
-      ["epochs_applied", staging.epochs_applied],
+      ["commits_behind", staging.commits_behind],
       ["minor_conflicts_resolved", staging.minor_conflicts_resolved],
       ["conflicts_awaiting_operator", staging.conflicts_awaiting_operator],
       ["state_revision", current.revision + 1],
@@ -615,8 +610,9 @@ function assertSemanticEventPayload(
   if (eventType === "sync.boundary_published") {
     const value = payloadObject(payload, eventType);
     requiredText(String(value.upstream_revision ?? ""), "upstream_revision");
-    requiredText(String(value.knowledge_revision ?? ""), "knowledge_revision");
-    stringArray(value.invalidations, "invalidations");
+    if (!value.knowledge_intake || typeof value.knowledge_intake !== "object" || Array.isArray(value.knowledge_intake)) {
+      throw new Error("sync.boundary_published requires knowledge_intake");
+    }
     if (!value.validation_evidence || typeof value.validation_evidence !== "object" || Array.isArray(value.validation_evidence)) {
       throw new Error("sync.boundary_published requires validation_evidence");
     }
@@ -624,11 +620,8 @@ function assertSemanticEventPayload(
     if (value.upstream_revision !== next.intake.upstream_to) {
       throw new Error("sync.boundary_published upstream revision must match intake");
     }
-    if (value.knowledge_revision !== next.publication.knowledge_revision) {
-      throw new Error("sync.boundary_published knowledge revision must match publication state");
-    }
-    if (canonicalJson(value.invalidations) !== canonicalJson(next.publication.invalidated_ids)) {
-      throw new Error("sync.boundary_published invalidations must match publication state");
+    if (canonicalJson(value.knowledge_intake) !== canonicalJson(next.publication.knowledge_intake)) {
+      throw new Error("sync.boundary_published knowledge intake must match publication state");
     }
     if (canonicalJson(value.validation_evidence) !== canonicalJson(next.validation_evidence)) {
       throw new Error("sync.boundary_published validation evidence must match durable validation state");
@@ -716,8 +709,8 @@ function assertStateInvariants(current: SyncState, next: SyncState, eventType: S
   }
   if (next.status === "published") {
     if (!next.publication) throw new Error(`Published sync ${current.sync_id} requires a publication record`);
-    if (next.publication.knowledge_revision.trim() === "") {
-      throw new Error(`Published sync ${current.sync_id} requires a knowledge revision`);
+    if (!next.publication.knowledge_intake || typeof next.publication.knowledge_intake !== "object") {
+      throw new Error(`Published sync ${current.sync_id} requires a knowledge intake result`);
     }
     if (next.intake.knowledge_only) {
       if (next.publication.remote_application_id !== undefined) {
@@ -935,97 +928,6 @@ function assertOwningCycle(db: Database, gameId: string, cycleUuid: string): voi
   if (!row.head_revision?.trim()) {
     throw new Error(`Game cycle ${cycleUuid} has no canonical head for a sync request`);
   }
-}
-
-/** Appends a typed knowledge-stage fact inside the caller's state transaction. */
-export function appendSyncKnowledgeEventInTransaction(
-  db: Database,
-  input: SyncKnowledgeEventInput,
-): AppendedGameEvent {
-  if (!db.inTransaction) throw new Error(`${input.eventType} must be appended inside a state transaction`);
-  requiredText(input.gameId, "gameId");
-  requiredText(input.subjectId, "subjectId");
-  requiredText(input.causationId, "causationId");
-  requiredText(input.correlationId, "correlationId");
-  requiredText(input.traceId, "traceId");
-  requiredText(input.spanId, "spanId");
-  if (input.eventType === "knowledge.job_enqueued") {
-    if (!input.payload.provenance || typeof input.payload.provenance !== "object") {
-      throw new Error("knowledge.job_enqueued requires provenance");
-    }
-    requiredText(input.payload.source_class, "source_class");
-    if (input.payload.execution_class !== "sync_stage" && input.payload.execution_class !== "background_safe") {
-      throw new Error("knowledge.job_enqueued requires execution_class sync_stage or background_safe");
-    }
-  } else if (input.eventType === "knowledge.revision_advanced") {
-    requiredText(input.payload.old_revision, "old_revision");
-    requiredText(input.payload.new_revision, "new_revision");
-    stringArray(input.payload.accepted_job_ids, "accepted_job_ids");
-  } else {
-    requiredText(input.payload.source_class, "source_class");
-    if (!input.payload.provenance || typeof input.payload.provenance !== "object" || Array.isArray(input.payload.provenance)) {
-      throw new Error(`${input.eventType} requires provenance`);
-    }
-    if (input.payload.execution_class === "sync_stage") {
-      requiredText(input.payload.sync_id, "sync_id");
-    } else if (input.payload.execution_class === "background_safe") {
-      if (input.payload.sync_id !== null) {
-        throw new Error(`${input.eventType} requires sync_id null for background_safe execution`);
-      }
-    } else {
-      throw new Error(`${input.eventType} requires execution_class sync_stage or background_safe`);
-    }
-    requiredText(input.payload.source_id, "source_id");
-    requiredText(input.payload.source_kind, "source_kind");
-    if (input.eventType === "knowledge.job_processing") {
-      if (!(["queued", "waiting"] as const).includes(input.payload.from_status)) {
-        throw new Error("knowledge.job_processing requires queued or waiting from_status");
-      }
-      if (input.payload.to_status !== "processing") {
-        throw new Error("knowledge.job_processing requires processing to_status");
-      }
-    } else if (input.eventType === "knowledge.job_waiting") {
-      if (
-        !(["processing", "succeeded", "failed"] as const).includes(input.payload.from_status) ||
-        input.payload.to_status !== "waiting"
-      ) {
-        throw new Error("knowledge.job_waiting requires processing, succeeded, or failed -> waiting");
-      }
-      requiredText(input.payload.reason, "reason");
-    } else if (input.eventType === "knowledge.job_succeeded") {
-      if (input.payload.from_status !== "processing" || input.payload.to_status !== "succeeded") {
-        throw new Error("knowledge.job_succeeded requires processing -> succeeded");
-      }
-      requiredText(input.payload.staged_digest, "staged_digest");
-    } else if (input.eventType === "knowledge.job_cancelled") {
-      if (
-        !(["queued", "processing", "waiting", "succeeded", "failed"] as const)
-          .includes(input.payload.from_status) ||
-        input.payload.to_status !== "cancelled"
-      ) {
-        throw new Error("knowledge.job_cancelled requires a non-cancelled from_status -> cancelled");
-      }
-      requiredText(input.payload.reason, "reason");
-    } else {
-      if (input.payload.from_status !== "processing" || input.payload.to_status !== "failed") {
-        throw new Error("knowledge.job_failed requires processing -> failed");
-      }
-      requiredText(input.payload.error, "error");
-    }
-  }
-  return appendGameEvent(db, {
-    eventType: input.eventType,
-    gameId: input.gameId,
-    subjectKind: input.eventType === "knowledge.revision_advanced" ? "game_knowledge" : "knowledge_job",
-    subjectId: input.subjectId,
-    correlationId: input.correlationId,
-    causationId: input.causationId,
-    traceId: input.traceId,
-    ...eventSpan(input.parentSpanId ?? input.spanId),
-    actor: input.actor,
-    occurredAt: input.occurredAt,
-    payload: input.payload,
-  });
 }
 
 type SyncDiscordEventInput = {

@@ -39,7 +39,6 @@ import { gameToSummary as defaultGameToSummary, type GameRuntimeContext, type Re
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
 import {
   getSyncState,
-  type SyncPublication,
   type SyncState,
   type SyncStatus,
 } from "@server/core/cycle-runtime/phases/sync";
@@ -187,8 +186,7 @@ export interface DashboardSyncSummary {
     } | null;
   } | null;
   staging: {
-    epochs_applied: number;
-    epochs_total: number;
+    commits_behind: number;
     minor_auto_resolved_count: number;
     conflicts_awaiting_operator: number;
     conflicts: string[];
@@ -206,7 +204,7 @@ export interface DashboardSyncSummary {
     new_head: string;
     series_pushes: number;
   };
-  publication: SyncPublication | null;
+  publication: DashboardSyncPublication | null;
   staleness: {
     stale: boolean;
     validated_upstream: string | null;
@@ -221,6 +219,21 @@ interface DashboardKnowledgeJobCounts {
   jobs_succeeded: number;
   jobs_failed: number;
   jobs_processing: number;
+}
+
+export interface DashboardKnowledgeIntakeSummary {
+  fetched_prs: number;
+  skipped_prs: number;
+  renames_applied: number;
+  tasks_enqueued: number;
+  lanes: string[];
+}
+
+export interface DashboardSyncPublication {
+  remote_application_id?: string;
+  prior_head: string;
+  new_head: string;
+  knowledge_intake: DashboardKnowledgeIntakeSummary | null;
 }
 
 /**
@@ -284,7 +297,6 @@ export interface HarnessStateView {
   /** Legacy compatibility key. PR campaign projection has been retired. */
   pr_work: [];
   knowledge: {
-    published_revision: string | null;
     queued: number;
     processing: number;
     waiting: number;
@@ -325,6 +337,43 @@ export interface DashboardReadModelDependencies {
 }
 
 let readModelDependencies: DashboardReadModelDependencies | null = null;
+
+const KNOWLEDGE_INTAKE_LANE_ORDER = ["reconcile", "prs", "discord", "attempts"] as const;
+
+function objectValue(value: unknown): JsonObject {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function numericCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.length;
+  return 0;
+}
+
+function syncKnowledgeIntakeSummary(value: unknown): DashboardKnowledgeIntakeSummary | null {
+  const raw = objectValue(value);
+  if (Object.keys(raw).length === 0) return null;
+
+  const ingest = objectValue(raw.ingest);
+  const reconcile = objectValue(ingest.reconcile);
+  const renames = objectValue(reconcile.renames);
+  const lanes = KNOWLEDGE_INTAKE_LANE_ORDER.filter((lane) => Object.keys(objectValue(ingest[lane])).length > 0);
+  const tasksEnqueued = ["prs", "discord", "attempts"]
+    .map((lane) => numericCount(objectValue(ingest[lane]).tasksEnqueued))
+    .reduce((sum, count) => sum + count, 0);
+
+  return {
+    fetched_prs: arrayValue(raw.fetched_prs).length,
+    skipped_prs: arrayValue(raw.skipped_prs).length,
+    renames_applied: numericCount(renames.applied),
+    tasks_enqueued: tasksEnqueued,
+    lanes,
+  };
+}
 
 function dashboardDeps(): DashboardReadModelDependencies {
   if (!readModelDependencies) throw new Error("Dashboard read model dependencies have not been configured.");
@@ -1157,8 +1206,7 @@ function syncSummaryProjection(
     discord,
     staging: sync.staging
       ? {
-          epochs_applied: sync.staging.epochs_applied,
-          epochs_total: sync.staging.epochs_total,
+          commits_behind: sync.staging.commits_behind,
           minor_auto_resolved_count: sync.staging.minor_conflicts_resolved,
           conflicts_awaiting_operator: sync.staging.conflicts_awaiting_operator,
           conflicts: [...(sync.staging.conflicting_paths ?? [])],
@@ -1177,7 +1225,16 @@ function syncSummaryProjection(
       new_head: newHead,
       series_pushes: sync.pr_reconciliation.length,
     },
-    publication: sync.publication,
+    publication: sync.publication
+      ? {
+          ...(sync.publication.remote_application_id
+            ? { remote_application_id: sync.publication.remote_application_id }
+            : {}),
+          prior_head: sync.publication.prior_head,
+          new_head: sync.publication.new_head,
+          knowledge_intake: syncKnowledgeIntakeSummary(sync.publication.knowledge_intake),
+        }
+      : null,
     staleness: {
       stale,
       validated_upstream: validatedUpstream,
@@ -1368,7 +1425,6 @@ function canonicalActiveWorkflow(lease: DispatchLease | null): HarnessStateView[
 function gameKnowledgeSummary(store: ReturnType<typeof openState>, gameId: string): HarnessStateView["knowledge"] {
   const summary = queryBackgroundKnowledgeSummary(store, gameId);
   return {
-    published_revision: summary.publishedRevision,
     queued: summary.queued,
     processing: summary.processing,
     waiting: summary.waiting,

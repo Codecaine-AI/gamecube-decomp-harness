@@ -14,6 +14,8 @@ import {
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { createCycle, recordSavePointAnchor } from "@server/core/cycle";
+import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import type { RunKnowledgeIntakeInput } from "@server/core/knowledge-v2/ingest/harness-intake.js";
 import { openKnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 import { runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
 
@@ -326,6 +328,83 @@ describe("runEpochBoundary", () => {
         section_measures: { ".data": { sizeBytes: 4, fuzzyMatchPercent: 72.5, exactRows: 0, totalRows: 1 } },
       });
     } finally { value.store.db.close(); }
+  });
+
+  test("runs knowledge intake after report recompute with merged PRs from the upstream range", async () => {
+    const value = fixture([]);
+    git(value.globals.repoRoot, ["init"]);
+    git(value.globals.repoRoot, ["config", "user.email", "epoch-boundary@example.invalid"]);
+    git(value.globals.repoRoot, ["config", "user.name", "Epoch Boundary Test"]);
+    git(value.globals.repoRoot, ["add", "."]);
+    git(value.globals.repoRoot, ["commit", "-m", "boundary anchor"]);
+    const previousAnchorSha = git(value.globals.repoRoot, ["rev-parse", "HEAD"]);
+    writeFileSync(resolve(value.globals.repoRoot, "first.txt"), "first\n");
+    git(value.globals.repoRoot, ["add", "first.txt"]);
+    git(value.globals.repoRoot, ["commit", "-m", "Land first change (#1234)"]);
+    writeFileSync(resolve(value.globals.repoRoot, "second.txt"), "second\n");
+    git(value.globals.repoRoot, ["add", "second.txt"]);
+    git(value.globals.repoRoot, ["commit", "-m", "Merge pull request #5678 from test/topic"]);
+    const upstreamHeadSha = git(value.globals.repoRoot, ["rev-parse", "HEAD"]);
+    const expectedHead = git(value.globals.repoRoot, ["rev-parse", "--short", "HEAD"]);
+    const cycleUuid = attachCycle(value, "cycle-knowledge-intake");
+    value.store.db.query(`INSERT INTO game_upstream_anchors
+      (game_id, cycle_uuid, upstream_revision, sync_id, caused_by_event_id, updated_at)
+      VALUES ('test', ?, ?, 'sync-test', 'event-test', '2026-08-26T00:00:00.000Z')`).run(cycleUuid, previousAnchorSha);
+    const order: string[] = [];
+    let intakeInput: RunKnowledgeIntakeInput | undefined;
+    try {
+      const input = params(value, {
+        globals: { ...value.globals, dryRunAgents: false, gameId: "test" },
+        dependencies: {
+          reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+          runEpochCycle: async () => completedBoundary(value) as never,
+          forceReportRun: async () => {
+            order.push("recompute_report");
+            return {} as never;
+          },
+          runKnowledgeIntake: async (knowledgeInput) => {
+            order.push("knowledge_intake");
+            intakeInput = knowledgeInput;
+            return { fetched_prs: [], skipped_prs: [], ingest: {} };
+          },
+          productionRunBoundarySync: async (boundaryInput) => {
+            await boundaryInput.hooks!.recomputeReport();
+            await boundaryInput.hooks!.ingestMergedUpstream({ previousAnchorSha, upstreamHeadSha });
+            return {
+              changed: true,
+              headSha: upstreamHeadSha,
+              plan: {
+                anchorSha: previousAnchorSha,
+                upstreamHeadSha,
+                drifted: true,
+                upstreamTakenFiles: [],
+                targetsToRequeue: [],
+              } as never,
+            };
+          },
+          closeSchedulerEpochWithEvidence: (() => {}) as never,
+          ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 }, priorityRefreshes: 0 })) as never,
+        },
+      });
+      input.config.boundarySyncEnabled = true;
+
+      expect((await runEpochBoundary(input)).ok).toBe(true);
+      expect(order).toEqual(["recompute_report", "knowledge_intake"]);
+      const knowledgeRoot = gameKnowledgeRoot("test");
+      expect(intakeInput).toEqual(expect.objectContaining({
+        knowledgeRoot,
+        checkoutRoot: value.globals.repoRoot,
+        reportPath: resolve(value.globals.repoRoot, "build/GALE01/report.json"),
+        expectedHead,
+        prNumbers: [1234, 5678],
+        sourceRoot: resolve(knowledgeRoot, "sources/code_context/past_prs"),
+        fetch: { enabled: true },
+        lanes: ["reconcile", "prs", "discord", "attempts"],
+        dryRun: false,
+      }));
+    } finally {
+      value.store.db.close();
+    }
   });
 
   test("writes an upstream override to the V2 target ledger", async () => {

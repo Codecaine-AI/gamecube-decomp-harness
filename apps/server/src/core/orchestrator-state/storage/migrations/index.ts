@@ -4,6 +4,7 @@ import { baselineMigration } from "./001-baseline.js";
 import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
 import { addEpochBoundaryRetryMigration } from "./003-add-epoch-boundary-retry.js";
 import { addTargetInfraFailureCountMigration } from "./004-add-target-infra-failure-count.js";
+import { dropLegacySyncKnowledgeTablesMigration } from "./005-drop-legacy-sync-knowledge-tables.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -14,6 +15,7 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   dropLegacyEpochColumnsMigration,
   addEpochBoundaryRetryMigration,
   addTargetInfraFailureCountMigration,
+  dropLegacySyncKnowledgeTablesMigration,
 ]);
 
 interface AppliedMigrationRow {

@@ -7,9 +7,8 @@ import { createCycle } from "@server/core/cycle/store.js";
 import { eventsForSubject, listGameEvents } from "@server/core/harness-state/events.js";
 import { getHarnessState, initializeHarnessState, requestDispatch } from "@server/core/harness-state/lease.js";
 import {
-  SYNC_EVENT_TYPES,
   SYNC_STATUSES,
-  appendSyncKnowledgeEventInTransaction,
+  SYNC_WORKFLOW_EVENT_TYPES,
   assertSyncStatusTransition,
   getSyncBlockedOriginStatus,
   getSyncState,
@@ -120,7 +119,7 @@ describe("SyncState", () => {
       "blocked",
       "cancelled",
     ]);
-    expect(SYNC_EVENT_TYPES).toEqual([
+    expect(SYNC_WORKFLOW_EVENT_TYPES).toEqual([
       "sync.requested",
       "sync.observation_refreshed",
       "sync.discord_refresh_requested",
@@ -137,13 +136,6 @@ describe("SyncState", () => {
       "sync.cancelled",
       "sync.boundary_published",
       "sync.published",
-      "knowledge.job_enqueued",
-      "knowledge.job_processing",
-      "knowledge.job_waiting",
-      "knowledge.job_succeeded",
-      "knowledge.job_failed",
-      "knowledge.job_cancelled",
-      "knowledge.revision_advanced",
     ]);
   });
 
@@ -274,8 +266,7 @@ describe("SyncState", () => {
       expectedRevision: ingesting.revision,
       patch: { staging: {
         workspace_id: "staging-conventions",
-        epochs_total: 1,
-        epochs_applied: 0,
+        commits_behind: 1,
         minor_conflicts_resolved: 0,
         conflicts_awaiting_operator: 0,
       } },
@@ -286,8 +277,7 @@ describe("SyncState", () => {
     expect(events[1]!.payload).toEqual({
       staging_workspace_id: "staging-conventions",
       durable_stage: "workspace_created",
-      epochs_total: 1,
-      epochs_applied: 0,
+      commits_behind: 1,
       minor_conflicts_resolved: 0,
       conflicts_awaiting_operator: 0,
       pr_series_reconciliation_summary: {
@@ -752,8 +742,7 @@ describe("SyncState", () => {
     let sync = requested(store);
     const staging = {
       workspace_id: "staging-sync-1",
-      epochs_total: 2,
-      epochs_applied: 0,
+      commits_behind: 2,
       minor_conflicts_resolved: 0,
       conflicts_awaiting_operator: 0,
     };
@@ -816,7 +805,7 @@ describe("SyncState", () => {
       patch: {
         status: "reconciling",
         blockers: [],
-        staging: { ...staging, epochs_applied: 2 },
+        staging: { ...staging, last_durable_stage: "cycle_merged" as const },
       },
     });
     advance("validating", "command-validate");
@@ -826,7 +815,7 @@ describe("SyncState", () => {
         validationEvidence: { report: "validation.json" },
         staging: {
           ...staging,
-          epochs_applied: 2,
+          last_durable_stage: "cycle_merged",
           validation_evidence: { report: "validation.json" },
         },
       },
@@ -842,14 +831,20 @@ describe("SyncState", () => {
           remote_application_id: "remote-1",
           prior_head: "cycle-head",
           new_head: "upstream-new",
-          knowledge_revision: "knowledge-1",
-          invalidated_ids: ["target-1"],
+          knowledge_intake: {
+            fetched_prs: [101],
+            skipped_prs: [],
+            ingest: {},
+          },
         },
       },
       payload: {
         upstream_revision: "upstream-new",
-        knowledge_revision: "knowledge-1",
-        invalidations: ["target-1"],
+        knowledge_intake: {
+          fetched_prs: [101],
+          skipped_prs: [],
+          ingest: {},
+        },
         validation_evidence: { report: "validation.json" },
       },
     });
@@ -860,7 +855,12 @@ describe("SyncState", () => {
         actor: "runner",
         commandId: "command-rewrite-boundary",
         expectedRevision: sync.revision,
-        patch: { publication: { ...sync.publication!, knowledge_revision: "knowledge-rewritten" } },
+        patch: {
+          publication: {
+            ...sync.publication!,
+            knowledge_intake: { fetched_prs: [202], skipped_prs: [], ingest: {} },
+          },
+        },
       }),
     ).toThrow("publication is immutable after sync.boundary_published");
     expect(() =>
@@ -926,7 +926,7 @@ describe("SyncState", () => {
     ]);
   });
 
-  test("records recovery and knowledge-stage events through their typed APIs", () => {
+  test("records recovery through the typed sync API", () => {
     const store = setup();
     let sync = requested(store);
     sync = transitionSync(store, sync.sync_id, {
@@ -942,8 +942,7 @@ describe("SyncState", () => {
       patch: {
         staging: {
           workspace_id: "staging-recovery",
-          epochs_total: 1,
-          epochs_applied: 0,
+          commits_behind: 1,
           minor_conflicts_resolved: 0,
           conflicts_awaiting_operator: 0,
         },
@@ -987,45 +986,8 @@ describe("SyncState", () => {
       recovery_reason: "runner process exited",
     });
 
-    store.db.exec("BEGIN IMMEDIATE");
-    try {
-      appendSyncKnowledgeEventInTransaction(store.db, {
-        eventType: "knowledge.job_enqueued",
-        gameId: "melee",
-        subjectId: "knowledge-job-1",
-        traceId: sync.trace_id,
-        actor: "runner",
-        causationId: "command-enqueue-knowledge",
-        correlationId: sync.sync_id,
-        spanId: syncActionSpanId("command-enqueue-knowledge"),
-        payload: {
-          source_class: "sync_stage",
-          provenance: { corpus_batch_id: "corpus-1" },
-          execution_class: "sync_stage",
-        },
-      });
-      appendSyncKnowledgeEventInTransaction(store.db, {
-        eventType: "knowledge.revision_advanced",
-        gameId: "melee",
-        subjectId: "melee",
-        traceId: sync.trace_id,
-        actor: "runner",
-        causationId: "command-advance-knowledge",
-        correlationId: sync.sync_id,
-        spanId: syncActionSpanId("command-advance-knowledge"),
-        payload: {
-          old_revision: "knowledge-1",
-          new_revision: "knowledge-2",
-          accepted_job_ids: ["knowledge-job-1"],
-        },
-      });
-      store.db.exec("COMMIT");
-    } catch (error) {
-      store.db.exec("ROLLBACK");
-      throw error;
-    }
     expect(listGameEvents(store.db, { gameId: "melee" }).map((event) => event.eventType)).toEqual(
-      expect.arrayContaining(["sync.recovered", "knowledge.job_enqueued", "knowledge.revision_advanced"]),
+      expect.arrayContaining(["sync.recovered"]),
     );
   });
 
@@ -1101,8 +1063,7 @@ describe("SyncState", () => {
     });
     const staging = {
       workspace_id: "staging-conflict-test",
-      epochs_total: 1,
-      epochs_applied: 0,
+      commits_behind: 1,
       minor_conflicts_resolved: 0,
       conflicts_awaiting_operator: 0,
     };
@@ -1152,8 +1113,7 @@ describe("SyncState", () => {
     let sync = requested(store);
     const staging = {
       workspace_id: "staging-publish-block",
-      epochs_total: 1,
-      epochs_applied: 1,
+      commits_behind: 1,
       minor_conflicts_resolved: 0,
       conflicts_awaiting_operator: 0,
       validation_evidence: { report: "validation.json" },

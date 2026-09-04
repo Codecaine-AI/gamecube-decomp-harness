@@ -1,7 +1,6 @@
 import type { StateStore } from "@server/core/orchestrator-state";
 
 export interface BackgroundKnowledgeSummary {
-  publishedRevision: string | null;
   queued: number;
   processing: number;
   waiting: number;
@@ -66,15 +65,7 @@ export function queryBackgroundKnowledgeSummary(
     attempts: number;
     updated_at: string;
   }>;
-  const revision = store.db
-    .query(
-      "SELECT revision FROM knowledge_revisions WHERE game_id = ? ORDER BY revision DESC LIMIT 1",
-    )
-    .get(gameId) as { revision: number } | null;
   return {
-    publishedRevision: revision
-      ? `knowledge-${Number(revision.revision)}`
-      : null,
     queued: counts.queued ?? 0,
     processing: (counts.claimed ?? 0) + (counts.running ?? 0),
     waiting: counts.waiting ?? 0,

@@ -134,6 +134,26 @@
             "Entity extractor: translation_unit, struct, struct_field, parameter from the report and checkout",
             "done",
             "translation_unit (from report.units[], locator = source path), struct, struct_field from headers; file kind removed; parameter deferred"
+          ],
+          [
+            "Harness knowledge intake: sync publish + epoch boundary feed V2",
+            "done",
+            "2026-09-03: the boundary's ingestMergedUpstream hook was a no-op and the operator sync staged PR postmortems only the deleted legacy path read, so the store sat at the Aug 11 checkout (242 PRs behind). runKnowledgeIntake (harness-intake.ts) now fetches merged-PR dumps into the canonical archive and runs the kg2-ingest sync lane at both seams; legacy sync knowledge tables dropped by orchestrator migration 005; operator sync merges upstream with the boundary's policy merge instead of rebasing (phases/running/epochs/policy-merge.ts shared)"
+          ],
+          [
+            "Reconcile: cross-unit rename continuity",
+            "done",
+            "2026-09-03: pairing was per unit, so a file move (melee#3304 moved 516 units holding 10,071 targets / 51,781 facts) would have stranded them. Second pass pairs by (kind, address) across units when unique on both sides, and a unit whose targets all land in one new unit merges its translation_unit entity into the new one (facts, links, PR rows, index stamps re-pointed; reported as renames.moved_units)"
+          ],
+          [
+            "Knowledge checkout: one resolver",
+            "done",
+            "2026-09-03: kg2-ingest, kg2-librarian, drift, backfill, and the kv2 tools resolve the checkout through knowledge-v2/checkout.ts (explicit flag → active cycle worktree → legacy games/melee/checkout with a warning); kg2-librarian no longer defaults to process.cwd(); target.report_revision is the git head, report_digest kept for logs"
+          ],
+          [
+            "PR archive backlog 2823–3266",
+            "open",
+            "The canonical past_prs archive stops at PR 2822 (the old watermark). The intake only fetches PRs merged in the sync/boundary it runs for; the gap between 2822 and the first wired sync must be fetched once by hand (fetch_recent_pr_dump.py --postmortem-mode off) and drained as pr_imported tasks"
           ]
         ]
       },
@@ -281,6 +301,11 @@
             "Post-build validation: librarian prompt audit, sync batch, new cycle",
             "in flight",
             "2026-09-03: queue cleared (1836 pr_imported + 33 archival_ingest closed as covered by backfill-01-20260901). Next: operator audits librarian-v2 / backfill-librarian prompts against the new context fields (renamed_from, drift, integration outcomes) and the backfill prompt-evidence list; then boundary sync + kg2-ingest --lane sync + kg2-librarian drain on the net-new tasks as the live test; then a new cycle."
+          ],
+          [
+            "Fact re-cite without rewrite (op: recite)",
+            "open",
+            "Backfill finding: 22,542 unit-entity fact writes for 4,140 entity/type pairs because 'confirmed → re-cite' had only op write, and apply does not dedupe a same-value write. Prompt-side fix landed 2026-09-03 (confirmed = propose nothing). Mechanical fix still open: an op that attaches new evidence to the standing fact row without replacing it, in schema.json and apply/index.ts"
           ]
         ]
       },

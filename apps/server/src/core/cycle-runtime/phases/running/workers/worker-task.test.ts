@@ -7,6 +7,7 @@ import { initializeHarnessState, requestDispatch } from "@server/core/harness-st
 import { cancelJob } from "@server/core/job-queue/kernel.js";
 import { FakeSandboxProvider, type SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { storageMigrations } from "@server/core/orchestrator-state/storage/migrations/index.js";
 import {
   admitEpochTargets,
   createRun,
@@ -115,13 +116,14 @@ describe("worker task file", () => {
   test("never applies migrations when the child schema is behind", async () => {
     const f = await fixture();
     const taskPath = join(f.globals.stateDir, "behind_task_spec.json");
+    const requiredVersion = storageMigrations.at(-1)?.version;
     f.store.db.run("DELETE FROM schema_migrations WHERE version > 1");
     f.store.db.close();
     writeFileSync(taskPath, JSON.stringify(f.task));
 
     await expect(
       runWorkerCycleFromTask(f.globals, new Map([["--task-file", taskPath]])),
-    ).rejects.toThrow("schema is behind this process: applied through v1, this build requires v4");
+    ).rejects.toThrow(`schema is behind this process: applied through v1, this build requires v${requiredVersion}`);
 
     const db = new Database(join(f.globals.stateDir, "orchestrator.sqlite"));
     try {

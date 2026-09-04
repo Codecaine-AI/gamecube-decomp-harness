@@ -98,7 +98,17 @@ describe("boundary sync", () => {
       ledgerNotes: [{ targetKey: "main/melee/ty/toy::Toy_80310324", verdict: BOUNDARY_OVERRIDE_VERDICT }],
     });
     expect(plan.upstreamChangedFiles).toEqual(["src/melee/ty/toy.c", "upstream.c"]);
-    expect(plan.actions[0]).toBe("merge_upstream_score");
+    expect(plan.actions).toEqual([
+      "merge_upstream_score",
+      "append_override_notes",
+      "requeue_displaced_targets",
+      "recompute_report",
+      "knowledge_intake",
+      "rebuild_knowledge_graph",
+      "write_pr_sync_save_point",
+      "advance_anchor",
+      "advance_cycle_head",
+    ]);
     expect(git(fixture.repo, ["rev-parse", "HEAD"])).toBe(before);
     expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
   });
@@ -156,10 +166,21 @@ describe("boundary sync", () => {
     });
     expect(result.changed).toBe(true);
     expect(result.plan.actions[0]).toBe("merge_upstream_theirs");
+    expect(result.plan.actions).toEqual([
+      "merge_upstream_theirs",
+      "append_override_notes",
+      "requeue_displaced_targets",
+      "recompute_report",
+      "knowledge_intake",
+      "rebuild_knowledge_graph",
+      "write_pr_sync_save_point",
+      "advance_anchor",
+      "advance_cycle_head",
+    ]);
     expect(reportPreparations).toBe(0);
     expect(upstreamReportFetches).toBe(0);
     await expect(Bun.file(join(fixture.repo, "src", "melee", "ty", "toy.c")).text()).resolves.toContain("return 2");
-    expect(calls.map(([name]) => name)).toEqual(["ingest", "note", "requeue", "report", "kg", "save", "anchor", "head"]);
+    expect(calls.map(([name]) => name)).toEqual(["note", "requeue", "report", "ingest", "kg", "save", "anchor", "head"]);
     expect(calls.find(([name]) => name === "save")?.[1]).toMatchObject({
       kind: "pr_sync",
       anchorSha: fixture.anchor,

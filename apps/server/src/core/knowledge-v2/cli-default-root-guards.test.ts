@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,9 +14,17 @@ import { kg2DriftScan } from "./drift/cli.js";
 
 const roots: string[] = [];
 
-function fixture(): { globals: GlobalArgs; knowledgeRoot: string } {
+function fixture(): { globals: GlobalArgs; knowledgeRoot: string; checkoutRoot: string } {
   const root = mkdtempSync(join(tmpdir(), "kg2-cli-guard-"));
   roots.push(root);
+  const checkoutRoot = join(root, "checkout");
+  mkdirSync(checkoutRoot);
+  execFileSync("git", ["-C", checkoutRoot, "init", "-q"]);
+  execFileSync("git", ["-C", checkoutRoot, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", checkoutRoot, "config", "user.name", "Test"]);
+  writeFileSync(join(checkoutRoot, "README"), "fixture");
+  execFileSync("git", ["-C", checkoutRoot, "add", "."]);
+  execFileSync("git", ["-C", checkoutRoot, "commit", "-qm", "fixture"]);
   return {
     globals: {
       repoRoot: root,
@@ -27,6 +36,7 @@ function fixture(): { globals: GlobalArgs; knowledgeRoot: string } {
       thinkingLevel: "medium",
     },
     knowledgeRoot: join(root, "knowledge"),
+    checkoutRoot,
   };
 }
 
@@ -49,7 +59,7 @@ describe("knowledge-v2 default-root guards", () => {
   });
 
   test("accepts explicit temporary roots", async () => {
-    const { globals, knowledgeRoot } = fixture();
+    const { globals, knowledgeRoot, checkoutRoot } = fixture();
     await kg2Index(globals, new Map<string, string | true>([
       ["--knowledge-root", knowledgeRoot],
       ["--fts", true],
@@ -69,11 +79,13 @@ describe("knowledge-v2 default-root guards", () => {
       ["--run-id", "explicit-root"],
       ["--limit", "0"],
       ["--dry-run", true],
+      ["--checkout-root", checkoutRoot],
     ]));
     await kg2DriftScan(globals, new Map<string, string | true>([
       ["--knowledge-root", knowledgeRoot],
       ["--limit", "0"],
       ["--dry-run", true],
+      ["--checkout-root", checkoutRoot],
     ]));
   });
 });

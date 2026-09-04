@@ -269,8 +269,7 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
   "sync.staging_progressed": v1(["sync_workflow"], "progress", ["operator", "runner"], {
     staging_workspace_id: required("string"),
     durable_stage: required("string"),
-    epochs_total: required("integer"),
-    epochs_applied: required("integer"),
+    commits_behind: required("integer"),
     minor_conflicts_resolved: required("integer"),
     conflicts_awaiting_operator: required("integer"),
     pr_series_reconciliation_summary: required("object"),
@@ -297,8 +296,7 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
   }),
   "sync.boundary_published": v1(["sync_workflow"], "coordination", ["operator", "runner"], {
     upstream_revision: required("string"),
-    knowledge_revision: required("string"),
-    invalidations: required("string[]"),
+    knowledge_intake: required("object"),
     validation_evidence: required("object"),
   }),
   "sync.pr_push_started": status("sync_push", ["operator", "runner"], {

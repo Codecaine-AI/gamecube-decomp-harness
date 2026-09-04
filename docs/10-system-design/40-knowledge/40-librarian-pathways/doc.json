@@ -134,7 +134,7 @@
                 }
               }
             ],
-            "A pull request is imported",
+            "A pull request lands in the checkout: the harness knowledge intake (knowledge-v2/ingest/harness-intake.ts runKnowledgeIntake) runs after every operator-sync publication and after every epoch boundary's report recompute — it fetches the merged PRs' dumps into the canonical past_prs archive (postmortems off), then runs the kg2-ingest sync lane (reconcile → prs → discord → attempts) against the active cycle worktree and its report",
             "PR importer, then the librarian",
             [
               {
@@ -274,6 +274,12 @@
         },
         {
           "insert": " ledger row — touched files and targets, outcome, summary — through the same summary prompt the worker summary agent uses. Pure enrichment, so the librarian starts from what the PR touched; it never writes facts."
+        },
+        {
+          "insert": " Both seams call the same intake: the operator sync at publish, the epoch boundary after recompute_report (plan step knowledge_intake). The legacy sync knowledge stage — staged postmortems, knowledge-N revisions, sync_knowledge_jobs — was deleted on 2026-09-03; nothing feeds the graph except this intake and the librarian."
+        },
+        {
+          "insert": " Every V2 command resolves one checkout (knowledge-v2/checkout.ts resolveKnowledgeCheckout): explicit flags, else the active cycle worktree from the orchestrator state, else games/<game>/checkout with a warning; report_revision on targets is that checkout's git head."
         }
       ],
       "children": []
@@ -1600,16 +1606,22 @@
             "kind": "note"
           },
           {
-            "text": "Assemble — the pathway's context: the triggering object (run with its narrative, PR with its discussion and CI rows, source slice with a mechanical mention map, the drift scan's flagged subjects with the flagger's verdicts; on pr_imported and run_closed, renamed_from and the drift report per touched subject) plus the touched subjects — entities first, targets last — each with its record and material (source span, analogs, grouped ledger)."
+            "text": "Assemble — the pathway's context: a <pass> block naming the pathway and head_revision (the checkout head, the only revision a code:// citation may carry), the triggering object (run with its narrative, PR with its discussion and CI rows, source slice with a mechanical mention map, the drift scan's flagged subjects with the flagger's verdicts; on pr_imported and run_closed, renamed_from and the drift report per touched subject) plus the touched subjects — entities first, targets last — each with its record and material (source span, analogs, grouped ledger). The touched subjects are the writable scope; everything else is read-only context."
           },
           {
-            "text": "Propose — librarian-v2 decides per touched subject: new, confirmed, or nothing; returns one machine-processable JSON object."
+            "text": "Propose — librarian-v2 runs the rename and drift audit first, then decides per touched subject: new, confirmed (propose nothing), or nothing; returns one JSON object with exactly five keys — facts, links, entities, merges, follow_ups."
+          },
+          {
+            "text": "Validate — the rejection gate: the proposal is applied in dry run first; every rejected item and every unknown envelope key comes back with a reason and a fix-it message (apply/index.ts REJECTION_MESSAGES). Rejections trigger exactly one retry turn: the model receives its previous proposal and the rejections in a <retry> block and answers with the full corrected proposal. The artifact records validation_gate as clean (no rejections first time) | retried (retry applied clean) | warned (rejections remained; they are dropped and logged)."
           },
           {
             "text": "Apply — the same validation and write gates as the backfill pass; subjects written are stamped in subject_index_state; the task's done_at is set."
           },
           {
             "text": "Gate — on pr_imported, run_closed, and drift_recheck the flagger re-runs on the touched subjects after apply: clean completes; drift left releases the task once (drift_attempts=1); drift left again completes with the warning 'drift left unresolved after retry' in the pass artifact. The artifact records drift_gate as skipped | clean | released | warned."
+          },
+          {
+            "text": "Follow-ups — accepted follow_ups (at most 10 per pass, each a subject outside the writable scope) enqueue one drift_recheck task per subject with payload reason 'follow_up: <why>' and requested_by_task, deduplicated against pending drift_recheck tasks on the same subject; the artifact lists follow_ups_enqueued (follow_ups_projected in dry run)."
           },
           {
             "text": "A failed pass or a dry run releases the claim (started_at back to null) so the task is retried later; more than five consecutive failures abort the run; a stop file halts new claims and lets in-flight passes finish.",

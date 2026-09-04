@@ -1,23 +1,26 @@
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { immediateTransaction, openState, type StateStore } from "@server/core/orchestrator-state";
 import { getActiveCycle, getCycleByUuid } from "@server/core/cycle/store.js";
 import {
   getHarnessState,
   initializeHarnessState,
   requestDispatch,
-  requireLease,
   type Blocker,
 } from "@server/core/harness-state";
-import type { JsonValue } from "@server/core/harness-state/events.js";
+import type { JsonObject } from "@server/core/harness-state/events.js";
 import { getRun } from "@server/core/cycle-runtime/run-state";
-import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
 import { sourceDataRoot } from "@server/core/knowledge/paths.js";
+import {
+  KNOWLEDGE_INTAKE_SYNC_LANES,
+  runKnowledgeIntake,
+} from "@server/core/knowledge-v2/ingest/harness-intake.js";
+import { forceReportRun } from "@server/core/validation/report/index.js";
 import type { ResolvedGame } from "@server/core/game-registry";
+import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { activateAcquiredSync } from "./activation.js";
@@ -29,22 +32,20 @@ import {
   getSyncBlockedOriginStatus,
   getNonTerminalSyncForGame,
   getSyncState,
-  listSyncKnowledgeJobs,
   markSyncRecoveryRequired,
   publishSync,
   reconcileInterruptedSyncPublication,
   reconcileSync,
   recordSyncRequested,
-  recoverConfirmedOrphanSyncIngest,
   recoverSync,
   resolveSyncConflict,
   refreshSyncUpstreamObservation,
   syncActionSpanId,
+  validateKnowledgeOnlySync,
   validateSync,
-  completeSyncKnowledgeIngest,
   continueSyncPublication,
   type SyncEngineContext,
-  type SyncKnowledgeProcessors,
+  type SyncPublicationContext,
   type SyncStagingProgress,
   type SyncState,
   type SyncValidationResult,
@@ -75,42 +76,47 @@ export interface SyncRuntimeGameContext {
 }
 
 export interface SyncRuntimeDeps {
-  kernelEnabled?: () => Promise<boolean>;
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   now?: () => Date | number | string;
   packageRoot: string;
+  mergePolicy?: SyncMergePolicy;
   resolveDashboardGame: (
     input: Record<string, unknown>,
     options: { useDefaultGame?: boolean },
   ) => SyncRuntimeGameContext;
-  runCli: (command: string[], cwd?: string) => Promise<CliResult>;
   runGit: (
     repoRoot: string,
     args: string[],
     options?: { check?: boolean; failureHint?: string },
   ) => Promise<CliResult>;
-  serverJobPath: string;
   stopManaged: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
   /**
    * Optional kernel workflow-trace writer. Absent in tests and CLI contexts,
    * where sync behaves exactly as it did before the trace existed.
    */
   submitWorkflowEvent?: SubmitSyncWorkflowEvent<SyncRuntimeGameContext>;
-  /** Injectable backoff delay for retries; defaults to setTimeout. */
-  sleep?: (ms: number) => Promise<void>;
   sourceRoot: (sourceId: string) => string;
   refreshDiscordMirror?: typeof refreshDiscordMirror;
+  forceReportRun?: typeof forceReportRun;
+  runKnowledgeIntake?: typeof runKnowledgeIntake;
   withOperation?: <T>(name: string, label: string, stepNames: string[], fn: () => Promise<T>) => Promise<T>;
-  processors?: (input: {
-    body: Record<string, unknown>;
-    paths: SyncRuntimeGameContext;
-    sync: SyncState;
-  }) => SyncKnowledgeProcessors;
   validate?: (
     worktreePath: string,
     context: SyncEngineContext,
     staging: SyncStagingProgress,
   ) => Promise<SyncValidationResult>;
+}
+
+function syncMergePolicy(
+  body: Record<string, unknown>,
+  deps: SyncRuntimeDeps,
+  sync?: SyncState | null,
+): SyncMergePolicy {
+  const value = body.mergePolicy ?? sync?.staging?.merge_policy ?? deps.mergePolicy ?? "score";
+  if (value !== "score" && value !== "theirs") {
+    throw new Error("mergePolicy must be one of: score, theirs");
+  }
+  return value;
 }
 
 export interface SyncStartDecision {
@@ -352,7 +358,7 @@ export function gameSyncAction(
 
   const blockers = [...missingSync, ...leaseRequired];
   // A stale validated candidate with durable staging can be revalidated in
-  // place through sync.recover (rebase staging onto the new tip, re-run the
+  // place through sync.recover (merge the new tip into staging, re-run the
   // incremental validation); only a stale candidate without staging still
   // forces a cancel.
   const staleBlockedRevalidatable = Boolean(
@@ -379,38 +385,6 @@ export function gameSyncAction(
       subjectId,
       blockers,
       "stale candidate → cancel → new sync",
-      true,
-    );
-  }
-  const processingOrphan = sync?.status === "ingesting" &&
-    listSyncKnowledgeJobs(store.db, sync.sync_id).some((job) => job.status === "processing");
-  if (processingOrphan) {
-    const staleness = runDispatchLeaseStaleness({
-      hasActiveProcess: options.hasActiveProcess,
-      lease,
-      now: options.now,
-      stateDir: options.stateDir ?? store.stateDir,
-    });
-    if (staleness === "process_liveness_unknown") {
-      blockers.push(blocker(
-        "process_liveness_unknown",
-        "The managed process liveness could not be determined.",
-        "sync",
-        sync.sync_id,
-      ));
-    } else if (staleness !== "stale") {
-      blockers.push(blocker(
-        "dispatch_lease_not_stale",
-        "The sync dispatch lease is not stale or its managed process is still active.",
-        "sync",
-        sync.sync_id,
-      ));
-    }
-    return actionResult(
-      actionId,
-      subjectId,
-      blockers,
-      "orphaned ingesting → ingesting with processing jobs requeued",
       true,
     );
   }
@@ -477,19 +451,53 @@ function syncLeaseContext(
   store: StateStore,
   sync: SyncState,
   deps: SyncRuntimeDeps,
-): SyncEngineContext {
+  mergePolicy?: SyncMergePolicy,
+): SyncPublicationContext {
   const lease = getHarnessState(store, sync.game_id)?.active_workflow;
   if (!lease || lease.kind !== "sync" || lease.workflow_id !== sync.sync_id) {
     throw new Error(`Sync ${sync.sync_id} does not own the dispatch lease`);
   }
+  const cycleWorktreePath = durableCycleWorktreePath(paths, store, sync);
   return {
     store,
     stateDir: paths.stateDir,
     repoRoot: paths.repoRoot,
-    cycleWorktreePath: durableCycleWorktreePath(paths, store, sync),
-    game: paths.game ? { baseRef: paths.game.baseRef } : null,
+    cycleWorktreePath,
+    game: paths.game ? {
+      baseRef: paths.game.baseRef,
+      reportPath: paths.game.validation?.reportPath,
+    } : null,
     leaseId: lease.lease_id,
     runGit: deps.runGit,
+    mergePolicy: mergePolicy ?? sync.staging?.merge_policy ?? deps.mergePolicy ?? "score",
+    runKnowledgeIntake: async ({ checkoutRoot, expectedHead, prNumbers }) => {
+      const configuredReportPath = paths.game?.validation?.reportPath ?? "build/GALE01/report.json";
+      const reportPath = isAbsolute(configuredReportPath)
+        ? configuredReportPath
+        : resolve(checkoutRoot, configuredReportPath);
+      if (!sync.intake.knowledge_only || !existsSync(reportPath)) {
+        await (deps.forceReportRun ?? forceReportRun)(checkoutRoot, {
+          resetBaseline: false,
+          generateChanges: false,
+        });
+      }
+      if (!existsSync(reportPath)) {
+        throw new Error(`V2 knowledge intake report was not produced at ${reportPath} for ${expectedHead}`);
+      }
+      const result = await (deps.runKnowledgeIntake ?? runKnowledgeIntake)({
+        knowledgeRoot: resolve(deps.packageRoot, "games", sync.game_id, "knowledge"),
+        checkoutRoot,
+        reportPath,
+        expectedHead,
+        prNumbers,
+        sourceRoot: deps.sourceRoot("past_prs"),
+        fetch: { enabled: true },
+        lanes: KNOWLEDGE_INTAKE_SYNC_LANES,
+        dryRun: false,
+        log: (message) => uiLog("stdout", `[sync ${sync.sync_id}] ${message}`),
+      });
+      return result as unknown as JsonObject;
+    },
   };
 }
 
@@ -505,9 +513,13 @@ function requestedSyncContext(
     stateDir: paths.stateDir,
     repoRoot: paths.repoRoot,
     cycleWorktreePath: durableCycleWorktreePath(paths, store, sync),
-    game: paths.game ? { baseRef: paths.game.baseRef } : null,
+    game: paths.game ? {
+      baseRef: paths.game.baseRef,
+      reportPath: paths.game.validation?.reportPath,
+    } : null,
     leaseId: "requested-sync-has-no-lease",
     runGit: deps.runGit,
+    mergePolicy: deps.mergePolicy ?? "score",
   };
 }
 
@@ -516,231 +528,6 @@ function syncActionOptions(paths: SyncRuntimeGameContext, deps: SyncRuntimeDeps)
     hasActiveProcess: deps.hasActiveProcess,
     now: deps.now?.(),
     stateDir: paths.stateDir,
-  };
-}
-
-function parseCliOutput(result: CliResult): Record<string, unknown> {
-  const value = result.stdout.trim();
-  if (!value) return {};
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : { output: parsed };
-  } catch {
-    return { output: value };
-  }
-}
-
-const FAILURE_TAIL_CHARS = 200;
-const FAILURE_EARLIER_OUTPUT_CHARS = 3800;
-
-function failureOutput(result: CliResult): string {
-  return (result.stderr || result.stdout || "").trim() || "no output";
-}
-
-/** Leads with the tail of the output (the actual error), then earlier context.
- * Kernel-runtime init failures echo kilobytes of migration SQL before the real
- * error line; a plain slice buried the error under that SQL. */
-function commandFailure(name: string, result: CliResult): void {
-  if (result.exitCode === 0) return;
-  const output = failureOutput(result);
-  const tail = output.slice(-FAILURE_TAIL_CHARS);
-  const earlier = output.slice(0, output.length - tail.length).slice(-FAILURE_EARLIER_OUTPUT_CHARS);
-  const suffix = earlier ? `\n--- earlier output (truncated) ---\n${earlier}` : "";
-  throw new Error(`${name} failed (${String(result.exitCode)}): ${tail}${suffix}`);
-}
-
-const SYNC_CLI_MAX_ATTEMPTS = 3;
-const SYNC_CLI_BACKOFF_BASE_MS = 1500;
-
-function cliExitFailure(result: CliResult): string | null {
-  return result.exitCode === 0 ? null : `exit ${String(result.exitCode)}`;
-}
-
-/** Runs a per-PR sync subprocess, retrying transient failures.
- *
- * Both per-PR subprocesses flake transiently on 1 PR of hundreds and block
- * the whole sync: the intake job's kernel runtime bootstrap used to collide
- * on the idempotent schema migration, and the fetch step's pi postmortem
- * agent can exit 0 without producing postmortem.json. Both commands are
- * idempotent per PR (curated.jsonl appends dedupe by record id; the fetch
- * skips already-complete raw data and existing postmortems), so retrying is
- * safe. `commandForAttempt` lets a retry adjust flags; `failureFor` lets a
- * caller treat a zero-exit result with missing outputs as a failure.
- * Exported for tests. */
-export async function runSyncCliWithRetry(
-  deps: Pick<SyncRuntimeDeps, "packageRoot" | "runCli" | "sleep">,
-  label: string,
-  commandForAttempt: (attempt: number) => string[],
-  failureFor: (result: CliResult) => string | null = cliExitFailure,
-): Promise<CliResult> {
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolveSleep) => setTimeout(resolveSleep, ms)));
-  let result = await deps.runCli(commandForAttempt(1), deps.packageRoot);
-  let failure = failureFor(result);
-  for (let attempt = 2; failure && attempt <= SYNC_CLI_MAX_ATTEMPTS; attempt += 1) {
-    const delayMs = Math.round(SYNC_CLI_BACKOFF_BASE_MS * (attempt - 1) * (1 + Math.random()));
-    uiLog(
-      "stderr",
-      `${label} attempt ${attempt - 1}/${SYNC_CLI_MAX_ATTEMPTS} failed (${failure}); retrying in ${delayMs}ms: ${failureOutput(result).slice(-FAILURE_TAIL_CHARS)}`,
-    );
-    await sleep(delayMs);
-    result = await deps.runCli(commandForAttempt(attempt), deps.packageRoot);
-    failure = failureFor(result);
-  }
-  return result;
-}
-
-const SYNC_INGEST_CONCURRENCY_DEFAULT = 16;
-
-/**
- * Pool size for per-PR knowledge ingest (fetch dump + intake subprocess per
- * merged PR). Per-PR learnings are independent, so the pool has no ordering
- * requirement. Configured with ORCH_SYNC_INGEST_CONCURRENCY (>= 1); wiring a
- * games/<id>/game.json knob would require game-registry resolver changes
- * outside the sync surface, so the env var is the single knob. Exported for
- * tests.
- */
-export function syncIngestConcurrency(
-  env: Record<string, string | undefined> = process.env,
-  override?: unknown,
-): number {
-  const requested = Number(override);
-  if (Number.isInteger(requested) && requested >= 1) return requested;
-  const parsed = Number.parseInt(env.ORCH_SYNC_INGEST_CONCURRENCY ?? "", 10);
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : SYNC_INGEST_CONCURRENCY_DEFAULT;
-}
-
-let ghTokenEnvReady: Promise<void> | null = null;
-
-const GH_TOKEN_RESOLUTION_TIMEOUT_MS = 15_000;
-
-/**
- * Resolves the gh auth token once per server process and exports it as
- * GH_TOKEN so every child process (the per-PR fetch script and anything it
- * spawns) authenticates from env instead of hammering the macOS keyring —
- * parallel gh invocations hit keyring timeouts even at low concurrency.
- * Soft-fails: if gh is missing, exits non-zero, or hangs past the timeout,
- * the env is left unchanged and children fall back to gh's own auth path.
- * Deliberately avoids deps.runCli, which streams child stdout (the token)
- * into the sync log.
- */
-function ensureGhTokenEnv(): Promise<void> {
-  if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return Promise.resolve();
-  ghTokenEnvReady ??= new Promise<void>((resolveReady) => {
-    let child: ReturnType<typeof spawn>;
-    try {
-      child = spawn("gh", ["auth", "token"], { stdio: ["ignore", "pipe", "ignore"] });
-    } catch {
-      resolveReady();
-      return;
-    }
-    const chunks: string[] = [];
-    child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk) => chunks.push(String(chunk)));
-    const timer = setTimeout(() => child.kill("SIGKILL"), GH_TOKEN_RESOLUTION_TIMEOUT_MS);
-    timer.unref?.();
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolveReady();
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      const token = chunks.join("").trim();
-      if (code === 0 && token) {
-        process.env.GH_TOKEN = token;
-      } else {
-        uiLog("stderr", "gh auth token resolution failed; per-PR fetches fall back to gh keyring auth");
-      }
-      resolveReady();
-    });
-  });
-  return ghTokenEnvReady;
-}
-
-function within(root: string, path: string): boolean {
-  const normalizedRoot = resolve(root);
-  const normalizedPath = resolve(path);
-  return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}${sep}`);
-}
-
-function defaultProcessors(
-  deps: SyncRuntimeDeps,
-  paths: SyncRuntimeGameContext,
-  body: Record<string, unknown>,
-  sync: SyncState,
-): SyncKnowledgeProcessors {
-  const dryRunAgents = body.dryRunAgents === true;
-  return {
-    async processMergedPr({ artifactDirectory, job }) {
-      const number = Number(job.sourceId.replace(/^pr-/, ""));
-      if (!Number.isInteger(number) || number <= 0) throw new Error(`Invalid merged PR id: ${job.sourceId}`);
-      await ensureGhTokenEnv();
-      const dataRoot = resolve(artifactDirectory, "data");
-      const kernelEnabled = !dryRunAgents && await deps.kernelEnabled?.().catch(() => false);
-      const fetchCommand = (postmortemScope: "fetched" | "all") => [
-        "python3",
-        resolve(deps.sourceRoot("past_prs"), "commands/fetch_recent_pr_dump.py"),
-        "--dump-root",
-        dataRoot,
-        "--postmortem-mode",
-        kernelEnabled ? "pi" : "scaffold",
-        "--postmortem-scope",
-        postmortemScope,
-        "--postmortem-jobs",
-        "1",
-        "--fetch-jobs",
-        "1",
-        "--orchestrator-state-dir",
-        paths.stateDir,
-        "--orchestrator-run-id",
-        sync.sync_id,
-        "--orchestrator-project-id",
-        sync.game_id,
-        "--orchestrator-prepare-intake",
-        "--pr",
-        String(number),
-      ];
-      const postmortem = resolve(dataRoot, "prs", `pr-${number}`, "postmortem", "postmortem.json");
-      const fetched = await runSyncCliWithRetry(
-        deps,
-        `Merged PR #${number} staged fetch`,
-        // Retries widen the postmortem scope to "all": the raw PR data from a
-        // prior attempt makes the script report "nothing to fetch", and with
-        // scope "fetched" that skips postmortem generation entirely, so a
-        // missing postmortem.json would never regenerate. Scope "all" selects
-        // from the per-PR dump index and only rebuilds missing postmortems.
-        (attempt) => fetchCommand(attempt === 1 ? "fetched" : "all"),
-        // The postmortem agent can flake with a zero exit; treat a missing
-        // postmortem.json as a retryable failure too.
-        (result) => cliExitFailure(result) ?? (existsSync(postmortem) ? null : "postmortem.json was not produced"),
-      );
-      commandFailure(`Merged PR #${number} staged fetch`, fetched);
-      if (!existsSync(postmortem)) throw new Error(`Merged PR #${number} staged postmortem was not produced`);
-      return {
-        pr: number,
-        postmortem_path: postmortem,
-        postmortem: JSON.parse(readFileSync(postmortem, "utf8")) as JsonValue,
-      };
-    },
-    async processCorpus({ job }): Promise<JsonValue> {
-      const stagedRoot = resolve(paths.stateDir, "staged_corpora");
-      const candidates = [
-        resolve(stagedRoot, `${job.sourceId}.json`),
-        resolve(stagedRoot, `${job.sourceId}.jsonl`),
-        resolve(stagedRoot, job.sourceId),
-      ].filter((candidate) => within(stagedRoot, candidate));
-      const source = candidates.find((candidate) => existsSync(candidate));
-      if (!source) throw new Error(`Staged corpus batch ${job.sourceId} was not found below ${stagedRoot}`);
-      const content = readFileSync(source, "utf8");
-      let parsed: JsonValue;
-      try {
-        parsed = JSON.parse(content) as JsonValue;
-      } catch {
-        return { corpus_batch_id: job.sourceId, source_path: source, content };
-      }
-      return { corpus_batch_id: job.sourceId, source_path: source, content: parsed };
-    },
   };
 }
 
@@ -916,29 +703,17 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           knowledgeOnly: sync.intake.knowledge_only,
         },
       });
-      const context = syncLeaseContext(paths, store, sync, deps);
+      const context = syncLeaseContext(paths, store, sync, deps, syncMergePolicy(body, deps, sync));
       context.actor = body.actor === "operator" ? "operator" : "runner";
-      const revalidateOwnership = (): void => {
-        const lease = requireLease(store, context.leaseId, sync!.game_id);
-        if (lease.kind !== "sync" || lease.workflow_id !== sync!.sync_id) {
-          throw new Error(`Dispatch lease ${lease.lease_id} no longer belongs to sync ${sync!.sync_id}`);
-        }
-      };
       try {
-        const knowledge = await completeSyncKnowledgeIngest({
-          store,
-          stateDir: paths.stateDir,
-          syncId: sync.sync_id,
-          expectedRevision: sync.revision,
-          commandId,
-          actor: context.actor,
-          processors: deps.processors?.({ body, paths, sync }) ?? defaultProcessors(deps, paths, body, sync),
-          revalidateOwnership,
-          concurrency: syncIngestConcurrency(process.env, body.syncIngestConcurrency),
-        });
-        sync = knowledge.sync;
-        if (sync.intake.knowledge_only || sync.status !== "ingesting") {
-          if (sync.status === "validated") await emitSyncMilestone(paths, sync, "validated");
+        if (sync.intake.knowledge_only) {
+          sync = validateKnowledgeOnlySync({
+            context,
+            syncId: sync.sync_id,
+            expectedRevision: sync.revision,
+            commandId,
+          });
+          await emitSyncMilestone(paths, sync, "validated");
           await emitSettledMilestone(paths, sync);
           return sync;
         }
@@ -999,7 +774,12 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
     const gameId = requiredGameId(paths, body);
     const commandId = text(body.commandId, text(body.command_id)) || `command-sync-start-${randomUUID()}`;
     const actionSpanId = syncActionSpanId(commandId);
-    const actionBody = { ...body, actor: "operator", commandId };
+    const actionBody = {
+      ...body,
+      actor: "operator",
+      commandId,
+      mergePolicy: syncMergePolicy(body, deps),
+    };
     let store = openState(paths.stateDir);
     let sync = currentSync(store, gameId, text(body.syncId, text(body.sync_id)) || undefined);
     let action = gameSyncAction(store, gameId, "sync.start", sync?.sync_id, syncActionOptions(paths, deps));
@@ -1160,7 +940,7 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
           metadata: {
             priorHead: published.publication?.prior_head ?? null,
             newHead: published.publication?.new_head ?? null,
-            knowledgeRevision: published.publication?.knowledge_revision ?? null,
+            knowledgeIntake: published.publication?.knowledge_intake ?? null,
           },
         });
       }
@@ -1239,27 +1019,14 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
         if (!action.enabled) throw new SyncActionBlockedError(action);
       }
       const recoveryReason = text(body.recoveryReason, text(body.recovery_reason, "operator recovered sync"));
-      if (sync!.status === "ingesting") {
-        if (choice !== "resume") throw new Error("Confirmed orphan ingest recovery requires choice 'resume'");
-        recovered = recoverConfirmedOrphanSyncIngest({
-          context: syncLeaseContext(paths, store, sync!, deps),
-          syncId: sync!.sync_id,
-          expectedRevision: sync!.revision,
-          commandId,
-          recoveryReason,
-          hasActiveProcess: deps.hasActiveProcess,
-          now: deps.now?.(),
-        });
-      } else {
-        recovered = await recoverSync({
-          context: syncLeaseContext(paths, store, sync!, deps),
-          syncId: sync!.sync_id,
-          expectedRevision: sync!.revision,
-          commandId,
-          choice,
-          recoveryReason,
-        });
-      }
+      recovered = await recoverSync({
+        context: syncLeaseContext(paths, store, sync!, deps),
+        syncId: sync!.sync_id,
+        expectedRevision: sync!.revision,
+        commandId,
+        choice,
+        recoveryReason,
+      });
       await emitSyncMilestone(paths, recovered, "recovered", {
         detail: recoveryReason,
         metadata: { choice, resumeStatus: recovered.status },

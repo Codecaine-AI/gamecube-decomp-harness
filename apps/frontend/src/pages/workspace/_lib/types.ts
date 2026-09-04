@@ -158,8 +158,7 @@ export interface HarnessStateSyncReadModel {
     } | null;
   } | null;
   staging: {
-    epochs_applied: number;
-    epochs_total: number;
+    commits_behind: number;
     minor_auto_resolved_count: number;
     conflicts_awaiting_operator: number;
     conflicts: string[];
@@ -181,8 +180,7 @@ export interface HarnessStateSyncReadModel {
     remote_application_id?: string;
     prior_head: string;
     new_head: string;
-    knowledge_revision: string;
-    invalidated_ids: string[];
+    knowledge_intake: HarnessStateKnowledgeIntakeSummary | null;
   } | null;
   staleness: {
     stale: boolean;
@@ -280,8 +278,15 @@ export interface HarnessStateKnowledgeFailure extends JsonObject {
   updated_at: string;
 }
 
+export interface HarnessStateKnowledgeIntakeSummary {
+  fetched_prs: number;
+  skipped_prs: number;
+  renames_applied: number;
+  tasks_enqueued: number;
+  lanes: string[];
+}
+
 export interface HarnessStateKnowledgeFreshness extends JsonObject {
-  published_revision: string | null;
   queued: number;
   processing: number;
   waiting: number;

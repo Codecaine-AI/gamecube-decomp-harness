@@ -21,19 +21,12 @@ import {
   syncActionSpanId,
   transitionSync,
 } from "./state.js";
-import {
-  publishSyncKnowledgeInTransaction,
-  readSyncKnowledgeManifest,
-  type SyncKnowledgeManifest,
-} from "./knowledge.js";
 import type {
   SyncPrReconciliation,
   SyncPublication,
   SyncState,
 } from "./types.js";
 import type { SyncEngineContext } from "./engine.js";
-
-type SqlValue = bigint | boolean | null | number | string | Uint8Array;
 
 interface PushRecordRow {
   push_id: string;
@@ -50,13 +43,6 @@ interface PushRecordRow {
   caused_by_event_id: string;
 }
 
-interface InvalidationRecord {
-  invalidationId: string;
-  subjectKind: "target" | "checkpoint" | "pr_snapshot";
-  subjectId: string;
-  reason: string;
-}
-
 interface PlannedPush {
   pushId: string;
   seriesId: string;
@@ -67,8 +53,6 @@ interface PlannedPush {
 }
 
 export interface BoundaryPlan {
-  invalidations: InvalidationRecord[];
-  knowledgeManifest: SyncKnowledgeManifest;
   newHead: string;
   priorHead: string;
   pushes: PlannedPush[];
@@ -83,37 +67,14 @@ interface PublicationWorktreeStates {
   target: RecursiveWorktreeState;
 }
 
-interface PublicationIntentRow {
-  sync_id: string;
-  game_id: string;
-  cycle_uuid: string;
-  cycle_worktree_path: string;
-  prior_head: string;
-  new_head: string;
-  worktree_state_json: string;
-  boundary_plan_json: string;
-  publishing_event_id: string;
-  boundary_event_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SyncPublicationIntent {
-  syncId: string;
-  gameId: string;
-  cycleUuid: string;
-  cycleWorktreePath: string;
-  priorHead: string;
-  newHead: string;
-  worktreeStates: PublicationWorktreeStates;
-  boundaryPlan: BoundaryPlan;
-  publishingEventId: string;
-  boundaryEventId: string | null;
-}
-
 export interface SyncPublicationContext extends SyncEngineContext {
   /** Open Melee PR branches live on fork by default; tests/local mirrors may override it. */
   prRemoteName?: string;
+  runKnowledgeIntake?: (input: {
+    checkoutRoot: string;
+    expectedHead: string;
+    prNumbers: number[];
+  }) => Promise<JsonObject>;
 }
 
 export interface PublishSyncInput {
@@ -225,97 +186,6 @@ function validationEvidence(db: Database, sync: SyncState): JsonObject {
   return sync.validation_evidence;
 }
 
-function placeholders(values: readonly unknown[]): string {
-  return values.map(() => "?").join(", ");
-}
-
-function invalidationId(syncId: string, kind: string, subjectId: string): string {
-  return stableId("invalidation", syncId, kind, subjectId);
-}
-
-async function changedPaths(context: SyncPublicationContext, sync: SyncState, priorHead: string, newHead: string): Promise<string[]> {
-  if (sync.intake.knowledge_only) return [];
-  const output = await checkedGit(
-    context,
-    context.cycleWorktreePath,
-    ["diff", "--name-status", "-z", "--find-renames", priorHead, newHead],
-    "Unable to derive sync invalidations",
-  );
-  if (!output) return [];
-  const fields = output.split("\0");
-  if (fields.at(-1) === "") fields.pop();
-  const paths = new Set<string>();
-  for (let index = 0; index < fields.length;) {
-    const status = fields[index++];
-    const oldPath = fields[index++];
-    if (!status || oldPath === undefined) {
-      throw new Error("Unable to parse sync invalidations: incomplete git name-status record");
-    }
-    paths.add(oldPath);
-    if (status.startsWith("R") || status.startsWith("C")) {
-      const newPath = fields[index++];
-      if (newPath === undefined) {
-        throw new Error(`Unable to parse sync invalidations: ${status} record is missing its destination path`);
-      }
-      paths.add(newPath);
-    }
-  }
-  return [...paths].sort();
-}
-
-function deriveInvalidations(
-  db: Database,
-  sync: SyncState,
-  paths: string[],
-): InvalidationRecord[] {
-  if (sync.intake.knowledge_only) return [];
-  const records = new Map<string, InvalidationRecord>();
-  const add = (subjectKind: InvalidationRecord["subjectKind"], subjectId: string, reason: string): void => {
-    const key = `${subjectKind}:${subjectId}`;
-    records.set(key, {
-      invalidationId: invalidationId(sync.sync_id, subjectKind, subjectId),
-      subjectKind,
-      subjectId,
-      reason,
-    });
-  };
-  if (paths.length > 0) {
-    const bindings: SqlValue[] = [sync.cycle_uuid, ...paths];
-    const targets = db
-      .query(
-        `SELECT DISTINCT targets.id
-         FROM targets JOIN runs ON runs.id = targets.run_id
-         WHERE runs.cycle_uuid = ? AND targets.source_path IN (${placeholders(paths)})`,
-      )
-      .all(...bindings) as Array<{ id: string }>;
-    for (const target of targets) add("target", target.id, "remote application changed the target source path");
-    const epochTargets = db
-      .query(
-        `SELECT DISTINCT epoch_targets.id
-         FROM epoch_targets JOIN runs ON runs.id = epoch_targets.run_id
-         WHERE runs.cycle_uuid = ? AND epoch_targets.source_path IN (${placeholders(paths)})`,
-      )
-      .all(...bindings) as Array<{ id: string }>;
-    for (const target of epochTargets) add("target", target.id, "remote application changed the active epoch target source path");
-    const checkpoints = db
-      .query(
-        `SELECT DISTINCT checkpoint_items.checkpoint_id AS id
-         FROM checkpoint_items JOIN runs ON runs.id = checkpoint_items.run_id
-         WHERE runs.cycle_uuid = ? AND checkpoint_items.source_path IN (${placeholders(paths)})`,
-      )
-      .all(...bindings) as Array<{ id: string }>;
-    for (const checkpoint of checkpoints) {
-      add("checkpoint", checkpoint.id, "remote application invalidated checkpoint source evidence");
-    }
-  }
-  for (const series of sync.pr_reconciliation) {
-    add("pr_snapshot", series.series_id, "sync rebased the open PR series");
-  }
-  return [...records.values()].sort((left, right) =>
-    `${left.subjectKind}:${left.subjectId}`.localeCompare(`${right.subjectKind}:${right.subjectId}`),
-  );
-}
-
 async function remoteBranchHead(
   context: SyncPublicationContext,
   remoteName: string,
@@ -359,8 +229,7 @@ async function plannedPushes(context: SyncPublicationContext, sync: SyncState): 
   return pushes;
 }
 
-async function buildBoundaryPlan(context: SyncPublicationContext, sync: SyncState): Promise<BoundaryPlan> {
-  revalidatePublicationLease(context, sync);
+function publicationHeads(context: SyncPublicationContext, sync: SyncState): Pick<BoundaryPlan, "newHead" | "priorHead"> {
   const priorHeadRow = context.store.db
     .query("SELECT head_revision FROM cycles WHERE cycle_uuid = ?")
     .get(sync.cycle_uuid) as { head_revision: string | null } | null;
@@ -368,17 +237,19 @@ async function buildBoundaryPlan(context: SyncPublicationContext, sync: SyncStat
   const newHead = sync.intake.knowledge_only
     ? priorHead
     : requiredText(sync.staging?.staging_head_sha ?? "", `staging head for ${sync.sync_id}`);
+  return { newHead, priorHead };
+}
+
+async function buildBoundaryPlan(context: SyncPublicationContext, sync: SyncState): Promise<BoundaryPlan> {
+  revalidatePublicationLease(context, sync);
+  const { newHead, priorHead } = publicationHeads(context, sync);
   if (!sync.intake.knowledge_only) {
     const staging = await inspectSyncWorktree({ worktreePath: sync.staging!.workspace_path!, runGit: runner(context) });
-    if (!staging.exists || staging.head !== newHead || staging.rebaseInProgress || staging.status.trim()) {
+    if (!staging.exists || staging.head !== newHead || staging.mergeInProgress || staging.status.trim()) {
       throw new Error(`Sync ${sync.sync_id} staging workspace is not the validated clean head ${newHead}`);
     }
   }
-  const knowledgeManifest = readSyncKnowledgeManifest(context.stateDir, sync.sync_id);
-  const paths = await changedPaths(context, sync, priorHead, newHead);
   return {
-    invalidations: deriveInvalidations(context.store.db, sync, paths),
-    knowledgeManifest,
     newHead,
     priorHead,
     pushes: await plannedPushes(context, sync),
@@ -386,47 +257,6 @@ async function buildBoundaryPlan(context: SyncPublicationContext, sync: SyncStat
     resolvedConflicts: [...sync.resolved_conflict_paths].sort(),
     validationEvidence: validationEvidence(context.store.db, sync),
   };
-}
-
-function parsePublicationIntent(row: PublicationIntentRow): SyncPublicationIntent {
-  const worktreeStates = JSON.parse(row.worktree_state_json) as PublicationWorktreeStates;
-  const boundaryPlan = JSON.parse(row.boundary_plan_json) as BoundaryPlan;
-  if (worktreeStates.schema_version !== 1 || !worktreeStates.prior || !worktreeStates.target) {
-    throw new Error(`Sync ${row.sync_id} has an invalid recursive publication intent`);
-  }
-  if (boundaryPlan.priorHead !== row.prior_head || boundaryPlan.newHead !== row.new_head) {
-    throw new Error(`Sync ${row.sync_id} publication intent heads disagree with its boundary plan`);
-  }
-  return {
-    syncId: row.sync_id,
-    gameId: row.game_id,
-    cycleUuid: row.cycle_uuid,
-    cycleWorktreePath: row.cycle_worktree_path,
-    priorHead: row.prior_head,
-    newHead: row.new_head,
-    worktreeStates,
-    boundaryPlan,
-    publishingEventId: row.publishing_event_id,
-    boundaryEventId: row.boundary_event_id,
-  };
-}
-
-export function getSyncPublicationIntent(db: Database, syncId: string): SyncPublicationIntent | null {
-  const row = db.query("SELECT * FROM sync_publication_intents WHERE sync_id = ?").get(syncId) as
-    | PublicationIntentRow
-    | null;
-  return row ? parsePublicationIntent(row) : null;
-}
-
-function assertIntentContext(context: SyncPublicationContext, sync: SyncState, intent: SyncPublicationIntent): void {
-  if (intent.gameId !== sync.game_id || intent.cycleUuid !== sync.cycle_uuid) {
-    throw new Error(`Sync ${sync.sync_id} publication intent has the wrong owner`);
-  }
-  if (intent.cycleWorktreePath !== context.cycleWorktreePath) {
-    throw new Error(
-      `Sync ${sync.sync_id} publication intent names ${intent.cycleWorktreePath}, not ${context.cycleWorktreePath}`,
-    );
-  }
 }
 
 function assertSameRecursiveLayout(prior: RecursiveWorktreeState, target: RecursiveWorktreeState): void {
@@ -491,34 +321,21 @@ async function buildPublicationWorktreeStates(
   return { schema_version: 1, prior, target };
 }
 
-function insertPublicationIntent(
+async function publicationTargetState(
   context: SyncPublicationContext,
   sync: SyncState,
   plan: BoundaryPlan,
-  states: PublicationWorktreeStates,
-  publishingEventId: string,
-): SyncPublicationIntent {
-  const at = operationTime(context);
-  context.store.db.query(
-    `INSERT INTO sync_publication_intents (
-       sync_id, game_id, cycle_uuid, cycle_worktree_path, prior_head, new_head,
-       worktree_state_json, boundary_plan_json, publishing_event_id, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    sync.sync_id,
-    sync.game_id,
-    sync.cycle_uuid,
-    context.cycleWorktreePath,
-    plan.priorHead,
-    plan.newHead,
-    JSON.stringify(states),
-    JSON.stringify(plan),
-    publishingEventId,
-    at,
-    at,
-  );
-  return getSyncPublicationIntent(context.store.db, sync.sync_id)!;
+): Promise<RecursiveWorktreeState> {
+  const target = sync.intake.knowledge_only
+    ? await captureRecursiveWorktreeState({ worktreePath: context.cycleWorktreePath, runGit: runner(context) })
+    : await captureRecursiveWorktreeState({ worktreePath: sync.staging!.workspace_path!, runGit: runner(context) });
+  assertRecursiveWorktreeClean(target, "Validated staging worktree");
+  if (target.root_head !== plan.newHead) {
+    throw new Error(`Validated staging worktree is at ${target.root_head}, not target head ${plan.newHead}`);
+  }
+  return target;
 }
+
 
 async function observedUpstream(context: SyncPublicationContext, sync: SyncState): Promise<string> {
   revalidatePublicationLease(context, sync);
@@ -529,13 +346,6 @@ async function observedUpstream(context: SyncPublicationContext, sync: SyncState
     { upstreamFrom: sync.intake.upstream_from },
   );
   return discovery.afterRef;
-}
-
-function nextKnowledgeRevision(db: Database): number {
-  const row = db.query("SELECT COALESCE(MAX(revision), 0) + 1 AS revision FROM knowledge_revisions").get() as {
-    revision: number;
-  };
-  return Number(row.revision);
 }
 
 function insertBoundaryRecords(
@@ -557,25 +367,6 @@ function insertBoundaryRecords(
          caused_by_event_id = excluded.caused_by_event_id,
          updated_at = excluded.updated_at`,
     ).run(sync.game_id, sync.cycle_uuid, sync.intake.upstream_to, sync.sync_id, boundaryEventId, occurredAt);
-  }
-  const insertInvalidation = db.query(
-    `INSERT INTO sync_invalidations (
-       invalidation_id, sync_id, game_id, cycle_uuid, subject_kind,
-       subject_id, reason, caused_by_event_id, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
-  for (const record of plan.invalidations) {
-    insertInvalidation.run(
-      record.invalidationId,
-      sync.sync_id,
-      sync.game_id,
-      sync.cycle_uuid,
-      record.subjectKind,
-      record.subjectId,
-      record.reason,
-      boundaryEventId,
-      occurredAt,
-    );
   }
   const insertPush = db.query(
     `INSERT INTO sync_push_records (
@@ -604,93 +395,74 @@ export async function repointSyncPublication(
   syncId: string,
 ): Promise<void> {
   const sync = requireCurrentSync(context, syncId);
-  const intent = getSyncPublicationIntent(context.store.db, syncId);
-  if (!intent) throw new Error(`Sync ${syncId} has no durable publication intent`);
-  assertIntentContext(context, sync, intent);
+  const plan = await buildBoundaryPlan(context, sync);
   if (sync.intake.knowledge_only) return;
   revalidatePublicationLease(context, sync);
   const worktree = context.cycleWorktreePath;
   const before = await captureRecursiveWorktreeState({ worktreePath: worktree, runGit: runner(context) });
-  if (recursiveWorktreeStatesEqual(before, intent.worktreeStates.target)) return;
-  if (!recursiveWorktreeStatesEqual(before, intent.worktreeStates.prior)) {
-    throw new Error(`Cycle worktree moved outside sync publication intent: ${worktree}`);
+  const target = await publicationTargetState(context, sync, plan);
+  if (recursiveWorktreeStatesEqual(before, target)) return;
+  assertRecursiveWorktreeClean(before, "Cycle worktree before publication");
+  if (before.root_head !== plan.priorHead) {
+    throw new Error(`Cycle worktree moved outside the sync publication heads: ${worktree}`);
   }
+  assertSameRecursiveLayout(before, target);
+  await ensureRecursiveTargetObjects(context, before, target);
   await checkedGit(
     context,
     worktree,
-    ["reset", "--hard", "--recurse-submodules", intent.newHead],
-    `Unable to point the cycle worktree at ${intent.newHead}`,
+    ["reset", "--hard", "--recurse-submodules", plan.newHead],
+    `Unable to point the cycle worktree at ${plan.newHead}`,
   );
   const after = await captureRecursiveWorktreeState({ worktreePath: worktree, runGit: runner(context) });
-  if (!recursiveWorktreeStatesEqual(after, intent.worktreeStates.target)) {
-    throw new Error(`Cycle worktree did not settle at recursive published state ${intent.newHead}`);
+  if (!recursiveWorktreeStatesEqual(after, target)) {
+    throw new Error(`Cycle worktree did not settle at recursive published state ${plan.newHead}`);
   }
 }
 
 async function compensateCycleHead(
   context: SyncPublicationContext,
   sync: SyncState,
-  intent: SyncPublicationIntent,
+  plan: Pick<BoundaryPlan, "newHead" | "priorHead">,
 ): Promise<void> {
   if (sync.intake.knowledge_only) return;
   const worktree = context.cycleWorktreePath;
   const before = await captureRecursiveWorktreeState({ worktreePath: worktree, runGit: runner(context) });
-  if (recursiveWorktreeStatesEqual(before, intent.worktreeStates.prior)) return;
-  const priorByPath = new Map(intent.worktreeStates.prior.repositories.map((repository) => [repository.path, repository]));
-  const targetByPath = new Map(intent.worktreeStates.target.repositories.map((repository) => [repository.path, repository]));
-  if (before.repositories.length !== priorByPath.size) {
-    throw new Error(`Refusing to compensate changed recursive worktree layout: ${worktree}`);
+  if (before.root_head !== plan.priorHead && before.root_head !== plan.newHead) {
+    throw new Error(`Refusing to compensate cycle worktree at unexpected head ${before.root_head}`);
   }
   for (const repository of before.repositories) {
-    const prior = priorByPath.get(repository.path);
-    const target = targetByPath.get(repository.path);
-    if (!prior || !target || repository.local_status ||
-      (repository.head !== prior.head && repository.head !== target.head)) {
+    if (repository.local_status) {
       throw new Error(`Refusing to compensate changed publication repository ${repository.path || "."}`);
     }
   }
-  // Reset one repository at a time in deterministic parent-first order. A
-  // process may stop between any two steps; the next fresh-store pass accepts
-  // the resulting prior/target mixture and resumes idempotently.
-  for (const repository of intent.worktreeStates.prior.repositories) {
-    revalidatePublicationLease(context, sync);
-    const repositoryPath = repository.path ? resolve(worktree, repository.path) : worktree;
-    await checkedGit(
-      context,
-      repositoryPath,
-      ["reset", "--hard", repository.head],
-      `Unable to compensate publication repository ${repository.path || "."} to ${repository.head}`,
-    );
-  }
+  revalidatePublicationLease(context, sync);
+  await checkedGit(
+    context,
+    worktree,
+    ["reset", "--hard", "--recurse-submodules", plan.priorHead],
+    `Unable to compensate publication to ${plan.priorHead}`,
+  );
   const after = await captureRecursiveWorktreeState({ worktreePath: worktree, runGit: runner(context) });
-  if (!recursiveWorktreeStatesEqual(after, intent.worktreeStates.prior)) {
-    throw new Error(`Cycle compensation did not restore recursive state ${intent.priorHead}`);
-  }
+  assertRecursiveWorktreeClean(after, "Compensated cycle worktree");
+  if (after.root_head !== plan.priorHead) throw new Error(`Cycle compensation did not restore ${plan.priorHead}`);
 }
 
 function durableBoundary(
   context: SyncPublicationContext,
   sync: SyncState,
   plan: BoundaryPlan,
+  knowledgeIntake: JsonObject,
   commandId: string,
   scoreDelta: number | null | undefined,
   actor: EventActor = "operator",
 ): SyncState {
   return immediateTransaction(context.store.db, () => {
-    const intent = getSyncPublicationIntent(context.store.db, sync.sync_id);
-    if (!intent) throw new Error(`Sync ${sync.sync_id} has no durable publication intent`);
-    assertIntentContext(context, sync, intent);
-    if (intent.boundaryEventId !== null) {
-      throw new Error(`Sync ${sync.sync_id} publication intent already names boundary ${intent.boundaryEventId}`);
-    }
-    const knowledgeRevisionNumber = nextKnowledgeRevision(context.store.db);
-    const knowledgeRevision = `knowledge-${knowledgeRevisionNumber}`;
     const publication: SyncPublication = {
       ...(plan.remoteApplicationId ? { remote_application_id: plan.remoteApplicationId } : {}),
       prior_head: plan.priorHead,
       new_head: plan.newHead,
-      knowledge_revision: knowledgeRevision,
-      invalidated_ids: plan.invalidations.map((record) => record.invalidationId),
+      knowledge_intake: knowledgeIntake,
     };
     const boundary = transitionSync(context.store, sync.sync_id, {
       actor,
@@ -702,26 +474,11 @@ function durableBoundary(
       patch: { publication },
       payload: {
         upstream_revision: sync.intake.upstream_to,
-        knowledge_revision: knowledgeRevision,
-        invalidations: publication.invalidated_ids,
+        knowledge_intake: knowledgeIntake,
         validation_evidence: plan.validationEvidence,
       },
     });
     const occurredAt = operationTime(context);
-    const knowledge = publishSyncKnowledgeInTransaction(context.store.db, {
-      actor,
-      commandId: boundary.caused_by_event_id,
-      correlationId: sync.sync_id,
-      manifest: plan.knowledgeManifest,
-      gameId: sync.game_id,
-      spanId: syncActionSpanId(commandId),
-      syncId: sync.sync_id,
-      traceId: sync.trace_id,
-      occurredAt,
-    });
-    if (knowledge.revisionId !== knowledgeRevision) {
-      throw new Error(`Knowledge revision allocation changed during sync boundary (${knowledgeRevision} -> ${knowledge.revisionId})`);
-    }
     if (plan.remoteApplicationId) {
       recordRemoteApplicationInTransaction(context.store.db, {
         actor,
@@ -740,33 +497,81 @@ function durableBoundary(
       });
     }
     insertBoundaryRecords(context.store.db, sync, plan, boundary.caused_by_event_id, occurredAt);
-    const intentUpdate = context.store.db.query(
-      `UPDATE sync_publication_intents
-       SET boundary_event_id = ?, updated_at = ?
-       WHERE sync_id = ? AND boundary_event_id IS NULL`,
-    ).run(boundary.caused_by_event_id, occurredAt, sync.sync_id);
-    if (intentUpdate.changes !== 1) {
-      throw new Error(`Sync ${sync.sync_id} publication intent boundary CAS failed`);
-    }
     return boundary;
   });
 }
 
-export function commitSyncPublicationBoundary(input: {
+function mergedPrNumbers(sync: SyncState): number[] {
+  return sync.intake.merged_pr_ids.map((value) => {
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+      throw new Error(`Sync ${sync.sync_id} has invalid merged PR number: ${value}`);
+    }
+    return parsed;
+  });
+}
+
+async function runPublicationKnowledgeIntake(
+  context: SyncPublicationContext,
+  sync: SyncState,
+  plan: BoundaryPlan,
+): Promise<JsonObject> {
+  if (!context.runKnowledgeIntake) {
+    throw new Error(`Sync ${sync.sync_id} cannot publish without a V2 knowledge intake callback`);
+  }
+  const fullHead = await checkedGit(
+    context,
+    context.cycleWorktreePath,
+    ["rev-parse", "HEAD"],
+    "Unable to verify the cycle worktree before V2 knowledge intake",
+  );
+  if (fullHead !== plan.newHead) {
+    throw new Error(`Cycle worktree is at ${fullHead}, not publication head ${plan.newHead}`);
+  }
+  const expectedHead = await checkedGit(
+    context,
+    context.cycleWorktreePath,
+    ["rev-parse", "--short", "HEAD"],
+    "Unable to derive the V2 knowledge intake report revision",
+  );
+  return context.runKnowledgeIntake({
+    checkoutRoot: context.cycleWorktreePath,
+    expectedHead,
+    prNumbers: sync.intake.knowledge_only ? [] : mergedPrNumbers(sync),
+  });
+}
+
+export async function commitSyncPublicationBoundary(input: {
   context: SyncPublicationContext;
   syncId: string;
   expectedRevision: number;
   commandId: string;
   scoreDelta?: number | null;
   actor?: EventActor;
-}): SyncState {
+}): Promise<SyncState> {
   const sync = requireCurrentSync(input.context, input.syncId, input.expectedRevision);
   if (sync.status !== "publishing" || sync.publication) {
     throw new Error(`Sync ${sync.sync_id} is not a raw publishing boundary`);
   }
-  const intent = getSyncPublicationIntent(input.context.store.db, sync.sync_id);
-  if (!intent) throw new Error(`Sync ${sync.sync_id} has no durable publication intent`);
-  return durableBoundary(input.context, sync, intent.boundaryPlan, input.commandId, input.scoreDelta, input.actor);
+  const plan = await buildBoundaryPlan(input.context, sync);
+  const observed = await captureRecursiveWorktreeState({
+    worktreePath: input.context.cycleWorktreePath,
+    runGit: runner(input.context),
+  });
+  const target = await publicationTargetState(input.context, sync, plan);
+  if (!recursiveWorktreeStatesEqual(observed, target)) {
+    throw new Error(`Cycle worktree is not at recursive publication head ${plan.newHead}`);
+  }
+  const knowledgeIntake = await runPublicationKnowledgeIntake(input.context, sync, plan);
+  return durableBoundary(
+    input.context,
+    sync,
+    plan,
+    knowledgeIntake,
+    input.commandId,
+    input.scoreDelta,
+    input.actor,
+  );
 }
 
 function selectPushRecords(db: Database, syncId: string): PushRecordRow[] {
@@ -1047,12 +852,6 @@ function finalizePublication(
       spanId: syncActionSpanId(commandId),
       now: operationTime(context),
     });
-    const deleted = context.store.db.query(
-      "DELETE FROM sync_publication_intents WHERE sync_id = ? AND boundary_event_id IS NOT NULL",
-    ).run(current.sync_id);
-    if (deleted.changes !== 1) {
-      throw new Error(`Sync ${current.sync_id} durable publication intent was not finalized`);
-    }
     return published;
   });
 }
@@ -1064,17 +863,9 @@ async function continuePublishing(
   const actor = input.actor ?? "runner";
   let sync = initial;
   if (!sync.publication) {
-    let intent = getSyncPublicationIntent(input.context.store.db, sync.sync_id);
-    if (!intent) {
-      const plan = await buildBoundaryPlan(input.context, sync);
-      const states = await buildPublicationWorktreeStates(input.context, sync, plan);
-      intent = immediateTransaction(input.context.store.db, () =>
-        insertPublicationIntent(input.context, sync, plan, states, sync.caused_by_event_id));
-    }
-    assertIntentContext(input.context, sync, intent);
     try {
       await repointSyncPublication(input.context, sync.sync_id);
-      sync = commitSyncPublicationBoundary({
+      sync = await commitSyncPublicationBoundary({
         context: input.context,
         syncId: sync.sync_id,
         expectedRevision: sync.revision,
@@ -1107,7 +898,7 @@ async function continuePublishing(
   return finalizePublication(input.context, sync, input.commandId, actor, causationId);
 }
 
-/** Persists exact recursive repoint intent in the same transaction as validated -> publishing. */
+/** Confirms the publication preflight before validated -> publishing. */
 export async function prepareSyncPublication(input: PrepareSyncPublicationInput): Promise<SyncState> {
   if (input.confirmed !== true) throw new Error("sync.publish requires explicit confirmation");
   const sync = requireCurrentSync(input.context, input.syncId, input.expectedRevision);
@@ -1115,10 +906,11 @@ export async function prepareSyncPublication(input: PrepareSyncPublicationInput)
   if (sync.status !== "validated") {
     throw new Error(`sync.publish requires validated status; ${sync.sync_id} is ${sync.status}`);
   }
-  let plan: BoundaryPlan;
-  let states: PublicationWorktreeStates;
   try {
-    plan = await buildBoundaryPlan(input.context, sync);
+    if (!input.context.runKnowledgeIntake) {
+      throw new Error(`Sync ${sync.sync_id} cannot publish without a V2 knowledge intake callback`);
+    }
+    const plan = await buildBoundaryPlan(input.context, sync);
     const observed = await observedUpstream(input.context, sync);
     if (observed !== sync.intake.upstream_to) {
       return blockSync(
@@ -1130,28 +922,27 @@ export async function prepareSyncPublication(input: PrepareSyncPublicationInput)
         actor,
       );
     }
-    states = await buildPublicationWorktreeStates(input.context, sync, plan);
+    await buildPublicationWorktreeStates(input.context, sync, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     blockSync(input.context, sync, input.commandId, "publication_preflight_failed", message, actor);
     throw new Error(`Sync publication preflight failed: ${message}`, { cause: error });
   }
   return immediateTransaction(input.context.store.db, () => {
-    const publishing = transitionSync(input.context.store, sync.sync_id, {
+    return transitionSync(input.context.store, sync.sync_id, {
       actor,
       commandId: input.commandId,
       correlationId: sync.sync_id,
       expectedRevision: sync.revision,
       patch: { status: "publishing", blockers: [] },
     });
-    insertPublicationIntent(input.context, publishing, plan, states, publishing.caused_by_event_id);
-    return publishing;
   });
 }
 
 /**
  * Fresh-process reconciliation for raw or boundary-committed publishing.
- * Raw state compensates and blocks; committed state moves forward through pushes/finalization.
+ * Raw state restores the durable prior head and blocks. Committed state moves
+ * forward through pushes and finalization.
  */
 export async function reconcileInterruptedSyncPublication(input: {
   context: SyncPublicationContext;
@@ -1163,31 +954,16 @@ export async function reconcileInterruptedSyncPublication(input: {
   if (sync.status !== "publishing") {
     throw new Error(`Sync ${sync.sync_id} is ${sync.status}; publishing reconciliation is not applicable`);
   }
-  const intent = getSyncPublicationIntent(input.context.store.db, sync.sync_id);
-  if (!intent) {
-    return blockSync(
-      input.context,
-      sync,
-      input.commandId,
-      "publication_intent_missing",
-      "Publishing state has no durable repoint intent; no worktree mutation was attempted",
-      input.actor ?? "runner",
-    );
-  }
-  assertIntentContext(input.context, sync, intent);
-  const boundaryEvent = intent.boundaryEventId
-    ? input.context.store.db.query(
-        `SELECT event_id FROM game_events
-         WHERE event_id = ? AND subject_kind = 'sync_workflow'
-           AND subject_id = ? AND event_type = 'sync.boundary_published'`,
-      ).get(intent.boundaryEventId, sync.sync_id) as { event_id: string } | null
-    : null;
-  const raw = sync.publication === null && intent.boundaryEventId === null && boundaryEvent === null;
-  const committed = sync.publication !== null && intent.boundaryEventId !== null && boundaryEvent?.event_id === intent.boundaryEventId;
-  if (!raw && !committed) {
-    throw new Error(`Sync ${sync.sync_id} has inconsistent publication intent/boundary durability`);
-  }
-  if (committed) {
+  if (sync.publication) {
+    const boundaryEvent = input.context.store.db.query(
+      `SELECT event_id FROM game_events
+       WHERE subject_kind = 'sync_workflow' AND subject_id = ?
+         AND event_type = 'sync.boundary_published'
+       ORDER BY sequence DESC LIMIT 1`,
+    ).get(sync.sync_id) as { event_id: string } | null;
+    if (!boundaryEvent) {
+      throw new Error(`Sync ${sync.sync_id} has a publication without a canonical boundary event`);
+    }
     return continuePublishing({
       context: input.context,
       syncId: sync.sync_id,
@@ -1196,7 +972,7 @@ export async function reconcileInterruptedSyncPublication(input: {
       actor: input.actor ?? "runner",
     }, sync);
   }
-  await compensateCycleHead(input.context, sync, intent);
+  await compensateCycleHead(input.context, sync, publicationHeads(input.context, sync));
   const current = requireCurrentSync(input.context, sync.sync_id);
   return blockSync(
     input.context,

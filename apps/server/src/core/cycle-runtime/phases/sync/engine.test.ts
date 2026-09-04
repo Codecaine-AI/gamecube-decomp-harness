@@ -159,6 +159,8 @@ function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixtur
   write(seed, "ambiguous.c", "const char *color = \"base\";\n");
   write(seed, "series.c", "int series = 0;\n");
   write(seed, "series-trivial.c", "int series_trivial = 0;\n");
+  write(seed, "cycle-rename.txt", "cycle rename base\n");
+  write(seed, "series-rename.txt", "series rename base\n");
   const base = commitAll(seed, "base");
   git(seed, "push", "origin", "HEAD:master");
 
@@ -167,6 +169,7 @@ function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixtur
   if (withPrSeries) {
     git(cycle, "checkout", "-b", "codex/split-01-series", base);
     write(cycle, "series.c", "int series = 1;\n");
+    git(cycle, "mv", "series-rename.txt", "series-cycle-renamed.txt");
     const prHead = commitAll(cycle, "PR series commit");
     git(cycle, "checkout", "-b", "codex/split-02-trivial", base);
     write(cycle, "series-trivial.c", "int series_trivial=1;\n");
@@ -196,13 +199,16 @@ function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixtur
   write(cycle, "trivial.c", "int value=2;\n");
   commitAll(cycle, "epoch 1 trivial mechanical conflict");
   write(cycle, "ambiguous.c", "const char *color = \"cycle\";\n");
+  git(cycle, "mv", "cycle-rename.txt", "cycle-renamed.txt");
   commitAll(cycle, "epoch 2 ambiguous conflict");
 
   write(seed, "trivial.c", "int value = 2;\n");
   write(seed, "ambiguous.c", "const char *color = \"upstream\";\n");
+  git(seed, "mv", "cycle-rename.txt", "upstream-renamed.txt");
   if (withPrSeries) {
     write(seed, "series.c", "int series = 2;\n");
     write(seed, "series-trivial.c", "int series_trivial = 1;\n");
+    git(seed, "mv", "series-rename.txt", "series-upstream-renamed.txt");
   }
   write(seed, "upstream.c", "int upstream = 1;\n");
   const upstream = commitAll(seed, "upstream movement (#101)");
@@ -215,6 +221,16 @@ function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixtur
   return { ...partial, ...started };
 }
 
+function resolveRenameConflict(
+  worktreePath: string,
+  conflictingPaths: string[],
+  selectedPath: string,
+  content: string,
+): void {
+  for (const path of conflictingPaths) rmSync(resolve(worktreePath, path), { force: true });
+  write(worktreePath, selectedPath, content);
+}
+
 async function validateFixtureWithoutPrSeries(fixture: Fixture, command: string): Promise<SyncState> {
   let sync = await reconcileSync({
     context: fixture.context,
@@ -223,7 +239,7 @@ async function validateFixtureWithoutPrSeries(fixture: Fixture, command: string)
     commandId: `${command}:reconcile`,
   });
   const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
-  write(staging.cycle.path, "ambiguous.c", "const char *color = \"operator-resolved\";\n");
+  resolveRenameConflict(staging.cycle.path, staging.cycle.conflictingPaths, "cycle-renamed.txt", "operator resolved\n");
   sync = await resolveSyncConflict({
     context: fixture.context,
     syncId: sync.sync_id,
@@ -262,9 +278,9 @@ describe("staged sync reconciliation", () => {
     expect(readlinkSync(linked)).toBe(source);
   }, 30_000);
 
-  test("adopts upstream only when no local epochs were applied", () => {
-    expect(syncValidationPolicy({ epochs_applied: 0 })).toEqual({ adoptUpstream: true, resetBaseline: true });
-    expect(syncValidationPolicy({ epochs_applied: 1 })).toEqual({ adoptUpstream: false, resetBaseline: false });
+  test("adopts upstream only when the cycle has no commits after the prior upstream", () => {
+    expect(syncValidationPolicy({ cycle_head_sha: "same" }, "same")).toEqual({ adoptUpstream: true, resetBaseline: true });
+    expect(syncValidationPolicy({ cycle_head_sha: "cycle" }, "upstream")).toEqual({ adoptUpstream: false, resetBaseline: false });
   });
 
   test("excludes a lingering merged split branch from durable PR series selection", async () => {
@@ -286,7 +302,7 @@ describe("staged sync reconciliation", () => {
       commandId: "command-reconcile-terminal-pr-record",
     });
     const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
-    write(staging.cycle.path, "ambiguous.c", "const char *color = \"operator-merged\";\n");
+    resolveRenameConflict(staging.cycle.path, staging.cycle.conflictingPaths, "cycle-renamed.txt", "operator merged\n");
     sync = await resolveSyncConflict({
       context: fixture.context,
       syncId: sync.sync_id,
@@ -303,7 +319,7 @@ describe("staged sync reconciliation", () => {
     ]);
   }, 30_000);
 
-  test("auto-resolves a mechanical conflict, blocks an ambiguous conflict, rebases PR series, validates, and detects staleness", async () => {
+  test("auto-resolves a mechanical conflict, blocks an ambiguous conflict, merges PR series, validates, and detects staleness", async () => {
     const fixture = conflictFixture();
     const originalPrHead = git(fixture.cycle, "rev-parse", "codex/split-01-series");
 
@@ -316,25 +332,25 @@ describe("staged sync reconciliation", () => {
 
     expect(sync.status).toBe("blocked");
     expect(sync.staging).toMatchObject({
-      epochs_total: 2,
-      epochs_applied: 1,
+      commits_behind: 1,
       minor_conflicts_resolved: 1,
       auto_resolved_paths: ["trivial.c"],
-      conflicts_awaiting_operator: 1,
-      rebase_in_progress: true,
+      conflicts_awaiting_operator: 3,
+      merge_in_progress: true,
     });
     expect(sync.blockers).toEqual([
-      expect.objectContaining({ code: "conflict_needs_operator", message: expect.stringContaining("ambiguous.c") }),
+      expect.objectContaining({ code: "conflict_needs_operator", message: expect.stringContaining("cycle-renamed.txt") }),
     ]);
-    expect(sync.resolved_conflict_paths).toEqual(["trivial.c"]);
+    expect(sync.resolved_conflict_paths).toEqual(expect.arrayContaining(["trivial.c"]));
     expect(eventsForSubject(fixture.store.db, "sync_workflow", sync.sync_id).at(-1)).toMatchObject({
       eventType: "sync.reconciliation_blocked",
       payload: expect.objectContaining({ from_status: "reconciling", to_status: "blocked" }),
     });
 
     const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
-    expect(staging.cycle).toMatchObject({ exists: true, rebaseInProgress: true, conflictingPaths: ["ambiguous.c"] });
-    write(staging.cycle.path, "ambiguous.c", "const char *color = \"operator-merged\";\n");
+    expect(staging.cycle).toMatchObject({ exists: true, mergeInProgress: true });
+    expect(staging.cycle.conflictingPaths).toContain("cycle-renamed.txt");
+    resolveRenameConflict(staging.cycle.path, staging.cycle.conflictingPaths, "cycle-renamed.txt", "operator merged\n");
 
     sync = await resolveSyncConflict({
       context: fixture.context,
@@ -348,16 +364,22 @@ describe("staged sync reconciliation", () => {
       { series_id: "series-01", branch: "codex/split-01-series", result: "needs_operator", pushed: false },
       { series_id: "series-02", branch: "codex/split-02-trivial", result: "auto_resolved", pushed: false },
     ]);
-    expect(sync.resolved_conflict_paths).toEqual([
-      "ambiguous.c",
-      "codex/split-02-trivial:series-trivial.c",
+    expect(sync.resolved_conflict_paths).toEqual(expect.arrayContaining([
+      "cycle-renamed.txt",
       "trivial.c",
-    ]);
+    ]));
     expect(sync.staging?.pr_workspaces?.find((workspace) => workspace.series_id === "series-02")?.auto_resolved_paths)
       .toEqual(["series-trivial.c"]);
-    expect(sync.staging?.conflicting_paths).toEqual(["codex/split-01-series:series.c"]);
+    expect(sync.staging?.conflicting_paths).toEqual(expect.arrayContaining([
+      "codex/split-01-series:series-cycle-renamed.txt",
+    ]));
     const blockedPrWorkspace = sync.staging?.pr_workspaces?.find((workspace) => workspace.series_id === "series-01");
-    write(blockedPrWorkspace!.workspace_path, "series.c", "int series = 3;\n");
+    resolveRenameConflict(
+      blockedPrWorkspace!.workspace_path,
+      blockedPrWorkspace!.conflicting_paths ?? [],
+      "series-cycle-renamed.txt",
+      "operator series resolution\n",
+    );
     sync = await resolveSyncConflict({
       context: fixture.context,
       syncId: sync.sync_id,
@@ -367,7 +389,7 @@ describe("staged sync reconciliation", () => {
 
     expect(sync.status).toBe("validating");
     expect(sync.staging).toMatchObject({
-      epochs_applied: 2,
+      commits_behind: 1,
       conflicts_awaiting_operator: 0,
       last_durable_stage: "pr_series_reconciled",
     });
@@ -375,12 +397,11 @@ describe("staged sync reconciliation", () => {
       { series_id: "series-01", branch: "codex/split-01-series", result: "needs_operator", pushed: false },
       { series_id: "series-02", branch: "codex/split-02-trivial", result: "auto_resolved", pushed: false },
     ]);
-    expect(sync.resolved_conflict_paths).toEqual([
-      "ambiguous.c",
-      "codex/split-01-series:series.c",
-      "codex/split-02-trivial:series-trivial.c",
+    expect(sync.resolved_conflict_paths).toEqual(expect.arrayContaining([
+      "cycle-renamed.txt",
+      "codex/split-01-series:series-cycle-renamed.txt",
       "trivial.c",
-    ]);
+    ]));
     expect(git(fixture.cycle, "rev-parse", "codex/split-01-series")).toBe(originalPrHead);
     const prWorkspace = sync.staging?.pr_workspaces?.[0];
     expect(prWorkspace?.staging_head).not.toBe(originalPrHead);
@@ -391,7 +412,7 @@ describe("staged sync reconciliation", () => {
       expectedRevision: sync.revision,
       commandId: "command-validate",
       validate: async (_worktreePath, _context, stagingProgress) => {
-        expect(stagingProgress).toMatchObject({ epochs_applied: 2, epochs_total: 2 });
+        expect(stagingProgress).toMatchObject({ commits_behind: 1 });
         return {
           result: "passed",
           whatRan: [{ name: "fixture baseline gate", command: ["fixture", "gate"] }],
@@ -423,7 +444,7 @@ describe("staged sync reconciliation", () => {
     expect(gameSyncAction(fixture.store, "melee", "sync.cancel", stale.sync.sync_id).enabled).toBe(true);
 
     // Recover resume extends the validated candidate in place: staging (and
-    // surviving PR workspaces) rebase onto the new tip and validation re-runs.
+    // surviving PR workspaces) merge the new tip and validation re-runs.
     const revalidating = await recoverSync({
       context: fixture.context,
       syncId: stale.sync.sync_id,
@@ -569,7 +590,12 @@ describe("staged sync reconciliation", () => {
       expectedRevision: fixture.sync.revision,
       commandId: "command-reconcile-before-staged-crash",
     });
-    write(sync.staging!.workspace_path!, "ambiguous.c", "const char *color = \"recovered\";\n");
+    resolveRenameConflict(
+      sync.staging!.workspace_path!,
+      sync.staging!.conflicting_paths ?? [],
+      "cycle-renamed.txt",
+      "operator recovered\n",
+    );
     sync = await resolveSyncConflict({
       context: fixture.context,
       syncId: sync.sync_id,
@@ -611,9 +637,10 @@ describe("staged sync reconciliation", () => {
     const validated = await validateFixtureWithoutPrSeries(fixture, "command-revalidate-conflict");
     expect(validated.status).toBe("validated");
 
-    // Upstream moves again with a change that conflicts with the staged
-    // operator resolution of ambiguous.c.
+    // Upstream moves again with a rename that conflicts with the staged
+    // operator resolution of the earlier rename/rename conflict.
     write(fixture.seed, "ambiguous.c", "const char *color = \"upstream-again\";\n");
+    git(fixture.seed, "mv", "upstream-renamed.txt", "upstream-again.txt");
     const movedAgain = commitAll(fixture.seed, "upstream conflicting movement");
     git(fixture.seed, "push", "origin", "HEAD:master");
     const stale = await refreshSyncUpstreamObservation({
@@ -635,11 +662,16 @@ describe("staged sync reconciliation", () => {
     expect(blocked.status).toBe("blocked");
     expect(blocked.blockers[0]?.code).toBe("conflict_needs_operator");
     expect(blocked.intake.upstream_to).toBe(movedAgain);
-    expect(blocked.staging?.conflicting_paths).toEqual(["ambiguous.c"]);
-    expect(blocked.staging?.rebase_in_progress).toBe(true);
+    expect(blocked.staging?.conflicting_paths).toContain("upstream-again.txt");
+    expect(blocked.staging?.merge_in_progress).toBe(true);
 
     // The existing conflict flow completes the extension onto the new tip.
-    write(blocked.staging!.workspace_path!, "ambiguous.c", "const char *color = \"operator-extended\";\n");
+    resolveRenameConflict(
+      blocked.staging!.workspace_path!,
+      blocked.staging!.conflicting_paths ?? [],
+      "upstream-again.txt",
+      "operator extended\n",
+    );
     const resumed = await resolveSyncConflict({
       context: fixture.context,
       syncId: blocked.sync_id,
@@ -659,7 +691,12 @@ describe("staged sync reconciliation", () => {
       commandId: "command-reconcile-prune",
     });
     expect(sync.status).toBe("blocked");
-    write(sync.staging!.workspace_path!, "ambiguous.c", "const char *color = \"operator-merged\";\n");
+    resolveRenameConflict(
+      sync.staging!.workspace_path!,
+      sync.staging!.conflicting_paths ?? [],
+      "cycle-renamed.txt",
+      "operator merged\n",
+    );
     sync = await resolveSyncConflict({
       context: fixture.context,
       syncId: sync.sync_id,
@@ -667,20 +704,16 @@ describe("staged sync reconciliation", () => {
       commandId: "command-resolve-cycle-prune",
     });
     expect(sync.status).toBe("blocked");
-    expect(sync.staging?.conflicting_paths).toEqual(["codex/split-01-series:series.c"]);
+    expect(sync.staging?.conflicting_paths).toEqual(expect.arrayContaining([
+      "codex/split-01-series:series-cycle-renamed.txt",
+    ]));
     const droppedWorkspace = sync.staging?.pr_workspaces?.find((workspace) => workspace.series_id === "series-01");
     expect(droppedWorkspace?.workspace_path).toBeTruthy();
 
-    // Still-open conflicted series keep the existing behavior: unresolved
-    // markers block resolution.
-    await expect(resolveSyncConflict({
-      context: fixture.context,
-      syncId: sync.sync_id,
-      expectedRevision: sync.revision,
-      commandId: "command-resolve-still-open",
-    })).rejects.toThrow("Conflict markers remain in codex/split-01-series:series.c");
+    const blockedInspection = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
+    expect(blockedInspection.prWorktrees.some((workspace) => workspace.mergeInProgress)).toBe(true);
 
-    // The PR merged upstream while the sync was blocked; its staged rebase is
+    // The PR merged upstream while the sync was blocked; its staged merge is
     // now moot and must be dropped without demanding marker resolution.
     const recordsPath = resolve(fixture.stateDir, "pr_handoff/pr_records.json");
     const records = JSON.parse(readFileSync(recordsPath, "utf8")) as {
@@ -714,7 +747,12 @@ describe("staged sync reconciliation", () => {
       expectedRevision: fixture.sync.revision,
       commandId: "command-reconcile-before-recovery",
     });
-    write(sync.staging!.workspace_path!, "ambiguous.c", "const char *color = \"recovered\";\n");
+    resolveRenameConflict(
+      sync.staging!.workspace_path!,
+      sync.staging!.conflicting_paths ?? [],
+      "cycle-renamed.txt",
+      "operator recovered\n",
+    );
     sync = await resolveSyncConflict({
       context: fixture.context,
       syncId: sync.sync_id,

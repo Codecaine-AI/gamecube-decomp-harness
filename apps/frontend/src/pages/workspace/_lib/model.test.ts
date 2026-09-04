@@ -47,7 +47,7 @@ describe("canonical HarnessState DTO", () => {
         }],
         run: null,
         knowledge: {
-          published_revision: "knowledge-381", queued: 6, processing: 1, waiting: 2, failed: 1,
+          queued: 6, processing: 1, waiting: 2, failed: 1,
           oldest_pending_at: "2026-08-14T09:00:00Z",
           active_lease: { id: "knowledge-lease-1", expires_at: "2026-08-14T10:05:00Z", fence: 7 },
           retry: { next_attempt_at: "2026-08-14T10:03:00Z", attempts: 2 },
@@ -150,8 +150,7 @@ describe("workspace cycle view", () => {
             knowledge_only: false,
           },
           staging: {
-            epochs_applied: 4,
-            epochs_total: 6,
+            commits_behind: 6,
             minor_auto_resolved_count: 2,
             conflicts_awaiting_operator: 1,
             conflicts: ["src/melee/example.c"],
@@ -302,8 +301,7 @@ describe("workspace cycle view", () => {
         knowledge_only: false,
       },
       staging: {
-        epochs_applied: 4,
-        epochs_total: 6,
+        commits_behind: 6,
         minor_auto_resolved_count: 2,
         conflicts_awaiting_operator: 1,
         conflicts: ["src/melee/example.c"],
@@ -401,8 +399,13 @@ describe("workspace cycle view", () => {
             remote_application_id: "remote-30",
             prior_head: "old-head",
             new_head: "new-head",
-            knowledge_revision: "knowledge-30",
-            invalidated_ids: ["target-30"],
+            knowledge_intake: {
+              fetched_prs: 2,
+              skipped_prs: 1,
+              renames_applied: 4,
+              tasks_enqueued: 3,
+              lanes: ["reconcile", "prs", "discord", "attempts"],
+            },
           },
           staleness: {
             stale: false,
@@ -421,8 +424,13 @@ describe("workspace cycle view", () => {
       remote_application_id: "remote-30",
       prior_head: "old-head",
       new_head: "new-head",
-      knowledge_revision: "knowledge-30",
-      invalidated_ids: ["target-30"],
+      knowledge_intake: {
+        fetched_prs: 2,
+        skipped_prs: 1,
+        renames_applied: 4,
+        tasks_enqueued: 3,
+        lanes: ["reconcile", "prs", "discord", "attempts"],
+      },
     });
   });
 

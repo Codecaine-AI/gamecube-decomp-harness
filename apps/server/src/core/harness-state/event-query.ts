@@ -151,7 +151,7 @@ const SAFE_SUMMARY_KEYS = new Set([
   "corpus_batch_ids", "count", "counts", "current_lease_holder", "details",
   "desired_workers", "enabled", "execution_class", "failed", "forced",
   "goal_kind", "goal_value", "handoff_snapshot_id", "headline_score", "id",
-  "ids", "index", "items", "kind", "knowledge_revision", "label", "lease_id",
+  "ids", "index", "items", "kind", "knowledge_intake", "label", "lease_id",
   "merged_pr_ids", "message", "metadata", "name", "new_head", "new_revision",
   "old_revision", "open_obligations", "operation_id", "operator", "outcome",
   "pending", "phase", "previous_desired_workers", "previous_phase",

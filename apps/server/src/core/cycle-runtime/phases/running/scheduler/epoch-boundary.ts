@@ -2,9 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
+import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import {
+  KNOWLEDGE_INTAKE_SYNC_LANES,
+  runKnowledgeIntake as runKnowledgeIntakeDefault,
+} from "@server/core/knowledge-v2/ingest/harness-intake.js";
 import { insertEvent, type EventRefInput } from "@server/core/knowledge-v2/records/index.js";
 import { openKnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
-import { forceReportRun } from "@server/core/validation/report";
+import { forceReportRun as forceReportRunDefault } from "@server/core/validation/report";
 import {
   runCiParityGate as runCiParityGateDefault,
   runPreCommitGate as runPreCommitGateDefault,
@@ -12,6 +17,7 @@ import {
 } from "@server/core/validation/ci-parity/index.js";
 import { sectionMeasuresFromReport } from "@server/core/validation/objdiff/section-measures.js";
 import { addSavePoint, ensureCampaign, latestSavePointByTrigger, mergeSavePointPayload } from "@server/core/cycle-runtime/phases/pr/state";
+import { mergedPullRequestNumbers } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
 import { runMasterBreakageGate as runMasterBreakageGateDefault, type MasterBreakageGateResult } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 import { recordSavePointAnchor, reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/cycle";
@@ -97,6 +103,8 @@ export interface EpochBoundaryDependencies {
   writeBoundaryBreakageDeferrals?: WriteBoundaryBreakageDeferrals;
   runBoundaryBuildFixer?: (input: BoundaryBuildFixerInput) => Promise<BoundaryBuildFixerResult>;
   deferBoundaryFindings?: (input: BoundaryDeferredFinding[]) => Promise<void> | void;
+  forceReportRun?: typeof forceReportRunDefault;
+  runKnowledgeIntake?: typeof runKnowledgeIntakeDefault;
   now?: () => Date;
 }
 
@@ -156,6 +164,19 @@ export interface EpochBoundaryOutcome {
 function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
   const parsed = JSON.parse(readFileSync(resolve(repoRoot, reportRelPath), "utf8")) as Record<string, unknown>;
   return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
+}
+
+async function boundaryGitOutput(repoRoot: string, args: string[]): Promise<string> {
+  const proc = Bun.spawn(["git", "-C", repoRoot, ...args], { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`boundary knowledge intake git ${args[0] ?? "command"} failed: ${(stderr || stdout).trim() || `exit ${exitCode}`}`);
+  }
+  return stdout.trim();
 }
 
 function boundaryKnowledgeTargets(
@@ -277,6 +298,8 @@ async function productionBoundarySync(
   let pendingAnchorSha: string | null = null;
   const runBoundarySync = params.dependencies?.productionRunBoundarySync ?? runBoundarySyncDefault;
   const writeSavePointAnchor = params.dependencies?.recordSavePointAnchor ?? recordSavePointAnchor;
+  const forceReportRun = params.dependencies?.forceReportRun ?? forceReportRunDefault;
+  const runKnowledgeIntake = params.dependencies?.runKnowledgeIntake ?? runKnowledgeIntakeDefault;
   return runBoundarySync({
     repoRoot: params.globals.repoRoot,
     stateDir: params.globals.stateDir,
@@ -342,9 +365,26 @@ async function productionBoundarySync(
       created_by: "epoch-cycle",
     }),
     hooks: {
-      // The full boundary knowledge pass below owns merged-PR indexing. It is
-      // deliberately outside operator-sync publication and confirmation.
-      ingestMergedUpstream: async () => {},
+      ingestMergedUpstream: async ({ previousAnchorSha, upstreamHeadSha }) => {
+        const range = `${previousAnchorSha}..${upstreamHeadSha}`;
+        const [logText, expectedHead] = await Promise.all([
+          boundaryGitOutput(params.globals.repoRoot, ["log", "--first-parent", "--format=%s%n%b", range]),
+          boundaryGitOutput(params.globals.repoRoot, ["rev-parse", "--short", "HEAD"]),
+        ]);
+        const knowledgeRoot = gameKnowledgeRoot(gameId);
+        await runKnowledgeIntake({
+          knowledgeRoot,
+          checkoutRoot: params.globals.repoRoot,
+          reportPath: resolve(params.globals.repoRoot, reportRelPath),
+          expectedHead,
+          prNumbers: mergedPullRequestNumbers(logText),
+          sourceRoot: resolve(knowledgeRoot, "sources/code_context/past_prs"),
+          fetch: { enabled: true },
+          lanes: KNOWLEDGE_INTAKE_SYNC_LANES,
+          dryRun: false,
+          log: (message) => console.error(`[run-loop] boundary knowledge intake: ${message}`),
+        });
+      },
       appendOverrideNote: (item) => {
         const id = createHash("sha256").update(`${run.cycle_uuid}:${item.targetKey}:${item.upstreamLandedSha}`).digest("hex");
         writeBoundaryKnowledgeEvents(gameId, [{

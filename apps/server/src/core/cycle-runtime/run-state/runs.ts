@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { Database } from "bun:sqlite";
 import type {
   RunBlocker,
   RunInputs,
@@ -19,7 +18,6 @@ import {
   type JsonValue,
 } from "@server/core/harness-state/events.js";
 import { getHarnessState } from "@server/core/harness-state/lease.js";
-import { latestPublishedKnowledgeRevision } from "@server/core/cycle-runtime/phases/sync/knowledge.js";
 
 type SqlValue = bigint | boolean | null | number | string | Uint8Array;
 
@@ -54,6 +52,7 @@ interface CycleRunContext {
   cycleUuid: string;
   baseRevision: string | null;
   headRevision: string | null;
+  worktreePath: string | null;
 }
 
 export interface CreateRunOptions {
@@ -206,24 +205,6 @@ export function policyRevisionForConfiguration(configurationSnapshot: Record<str
   return `policy-${sha256(canonicalJson(configurationSnapshot))}`;
 }
 
-export function startingKnowledgeRevision(graphDbPath: string | undefined): string {
-  if (!graphDbPath || !existsSync(graphDbPath)) return "kg-empty";
-  const db = new Database(graphDbPath, { readonly: true });
-  try {
-    const table = db
-      .query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'resource_versions'")
-      .get();
-    if (!table) return "kg-empty";
-    const rows = db
-      .query("SELECT source_id, content_hash FROM resource_versions ORDER BY source_id ASC, content_hash ASC")
-      .all() as Array<{ source_id: string; content_hash: string }>;
-    if (rows.length === 0) return "kg-empty";
-    return `kg-${sha256(rows.map((row) => `${row.source_id}:${row.content_hash}`).join("\n"))}`;
-  } finally {
-    db.close();
-  }
-}
-
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
@@ -295,7 +276,7 @@ function activeCycleContext(store: StateStore, gameId?: string, cycleUuid?: stri
   }
   const rows = store.db
     .query(
-      `SELECT game_id, cycle_uuid, base_sha, head_revision
+      `SELECT game_id, cycle_uuid, base_sha, head_revision, preparing_state_json
        FROM cycles
        WHERE ${clauses.join(" AND ")}
        ORDER BY updated_at DESC
@@ -307,11 +288,20 @@ function activeCycleContext(store: StateStore, gameId?: string, cycleUuid?: stri
   }
   const row = rows[0];
   if (!row) return null;
+  const preparing = parseJson<Record<string, unknown>>(row.preparing_state_json, {}, "preparing_state");
+  const sync = preparing.sync && typeof preparing.sync === "object"
+    ? preparing.sync as Record<string, unknown>
+    : {};
   return {
     gameId: String(row.game_id),
     cycleUuid: String(row.cycle_uuid),
     baseRevision: nullableString(row.base_sha),
     headRevision: nullableString(row.head_revision) ?? nullableString(row.base_sha),
+    worktreePath:
+      nullableString(sync.cycleCurrentWorktreePath)
+      ?? nullableString(sync.cycleWorktreePath)
+      ?? nullableString(sync.cycle_current_worktree_path)
+      ?? nullableString(sync.cycle_worktree_path),
   };
 }
 
@@ -583,11 +573,11 @@ export function createRun(
   const commandId = options.commandId ?? `command-run-create-${id}`;
   const actionSpanId = options.spanId ?? newSpanId();
   const run = immediateTransaction(store.db, () => {
-    const publishedKnowledge = latestPublishedKnowledgeRevision(store.db, gameId);
+    const startingRevision = gitHead(cycle?.worktreePath ?? game?.repoRoot) ?? baseRevision;
     const inputs: RunInputs = {
       base_revision: baseRevision,
       policy_revision: policyRevisionForConfiguration(configurationSnapshot),
-      starting_knowledge_revision: publishedKnowledge?.revisionId ?? startingKnowledgeRevision(game?.graphDbPath),
+      starting_knowledge_revision: startingRevision,
       configuration_snapshot: configurationSnapshot,
     };
     const event = appendGameEvent(store.db, {

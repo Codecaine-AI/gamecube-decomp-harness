@@ -236,8 +236,7 @@ describe("game event registry", () => {
     const staging = {
       staging_workspace_id: "staging-1",
       durable_stage: "session_rebased",
-      epochs_total: 3,
-      epochs_applied: 2,
+      commits_behind: 3,
       minor_conflicts_resolved: 1,
       conflicts_awaiting_operator: 0,
       pr_series_reconciliation_summary: { series_total: 1, clean: 1 },
@@ -299,8 +298,7 @@ describe("game event registry", () => {
 
       expect(Object.keys(gameEventContract("sync.boundary_published").payloadFields)).toEqual([
         "upstream_revision",
-        "knowledge_revision",
-        "invalidations",
+        "knowledge_intake",
         "validation_evidence",
       ]);
       expect(gameEventContract("sync.pr_push_started").allowedActors).toEqual(["operator", "runner"]);

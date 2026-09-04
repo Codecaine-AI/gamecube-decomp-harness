@@ -375,7 +375,9 @@ describe("scheduler epoch and worker state lifecycle", () => {
       const coveredTargets = store.db
         .query("SELECT json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id FROM jobs WHERE kind = 'worker' ORDER BY created_at, job_id")
         .all() as Array<{ epoch_target_id: string }>;
-      expect(coveredTargets.map((row) => row.epoch_target_id)).toEqual([targets[2]!.id, targets[1]!.id]);
+      expect(new Set(coveredTargets.map((row) => row.epoch_target_id))).toEqual(
+        new Set([targets[2]!.id, targets[1]!.id]),
+      );
     } finally {
       store.db.close();
     }

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { configureConnection, ensureSchema } from "../ddl.js";
 import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns.js";
+import { dropLegacySyncKnowledgeTablesMigration } from "./005-drop-legacy-sync-knowledge-tables.js";
 import { FINAL_SCHEMA_DDL, SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import { classifyMigrationBookkeeping, runStorageMigrations } from "./index.js";
 
@@ -45,6 +46,7 @@ describe("squashed storage baseline", () => {
       { version: 2, name: "drop_legacy_epoch_columns" },
       { version: 3, name: "add_epoch_boundary_retry" },
       { version: 4, name: "add_target_infra_failure_count" },
+      { version: 5, name: "drop_legacy_sync_knowledge_tables" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -58,6 +60,20 @@ describe("squashed storage baseline", () => {
       .all() as Array<{ type: string; name: string }>;
     expect(names.filter(({ name }) => /project/i.test(name))).toEqual([]);
     expect(names.filter(({ name }) => /session/i.test(name) && name !== "pi_sessions")).toEqual([]);
+    expect(
+      names.filter(({ name }) =>
+        [
+          "sync_invalidations",
+          "sync_invalidations_game_subject",
+          "sync_invalidations_sync_subject",
+          "sync_publication_intents",
+          "sync_publication_intents_game",
+          "knowledge_revisions",
+          "knowledge_revisions_game_revision",
+          "sync_knowledge_jobs",
+        ].includes(name),
+      ),
+    ).toEqual([]);
     expect(names.filter(({ name }) => name.startsWith("integration_outcomes"))).toEqual([
       { type: "table", name: "integration_outcomes" },
       { type: "index", name: "integration_outcomes_run_status" },
@@ -119,7 +135,7 @@ describe("squashed storage baseline", () => {
     ensureSchema(db);
     db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
     db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-      5,
+      6,
       "future_additive_migration",
       "2026-08-27T23:09:00.000Z",
     );
@@ -129,7 +145,7 @@ describe("squashed storage baseline", () => {
       runStorageMigrations(db);
 
       expect(warning).toHaveBeenCalledWith(
-        "schema is ahead of this process: applied through v5, this build knows v4",
+        "schema is ahead of this process: applied through v6, this build knows v5",
       );
       expect(
         db
@@ -143,7 +159,8 @@ describe("squashed storage baseline", () => {
         { version: 2, name: "drop_legacy_epoch_columns" },
         { version: 3, name: "add_epoch_boundary_retry" },
         { version: 4, name: "add_target_infra_failure_count" },
-        { version: 5, name: "future_additive_migration" },
+        { version: 5, name: "drop_legacy_sync_knowledge_tables" },
+        { version: 6, name: "future_additive_migration" },
       ]);
     } finally {
       warning.mockRestore();
@@ -214,6 +231,7 @@ describe("legacy epoch column migration", () => {
       { version: 2, name: "drop_legacy_epoch_columns" },
       { version: 3, name: "add_epoch_boundary_retry" },
       { version: 4, name: "add_target_infra_failure_count" },
+      { version: 5, name: "drop_legacy_sync_knowledge_tables" },
     ]);
   });
 
@@ -225,5 +243,72 @@ describe("legacy epoch column migration", () => {
     dropLegacyEpochColumnsMigration.up(db);
 
     expect(db.query("SELECT sql FROM sqlite_schema WHERE name = 'epochs'").get()).toEqual(before);
+  });
+});
+
+describe("legacy sync knowledge table migration", () => {
+  test("drops the legacy sync knowledge tables from a v4 database", () => {
+    const db = database("storage-legacy-sync-knowledge");
+    db.exec(SCHEMA_MIGRATIONS_DDL);
+    db.exec(FINAL_SCHEMA_DDL);
+    db.exec("CREATE TABLE sync_invalidations (invalidation_id TEXT PRIMARY KEY, sync_id TEXT NOT NULL, game_id TEXT NOT NULL, cycle_uuid TEXT NOT NULL, subject_kind TEXT NOT NULL, subject_id TEXT NOT NULL, reason TEXT NOT NULL, caused_by_event_id TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(sync_id, subject_kind, subject_id))");
+    db.exec("CREATE INDEX sync_invalidations_game_subject ON sync_invalidations (game_id, subject_kind, subject_id)");
+    db.exec("CREATE TABLE sync_publication_intents (sync_id TEXT PRIMARY KEY, game_id TEXT NOT NULL, cycle_uuid TEXT NOT NULL, cycle_worktree_path TEXT NOT NULL, prior_head TEXT NOT NULL, new_head TEXT NOT NULL, worktree_state_json TEXT NOT NULL, boundary_plan_json TEXT NOT NULL, publishing_event_id TEXT NOT NULL, boundary_event_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
+    db.exec("CREATE INDEX sync_publication_intents_game ON sync_publication_intents (game_id, created_at)");
+    db.exec("CREATE TABLE knowledge_revisions (revision INTEGER PRIMARY KEY AUTOINCREMENT, game_id TEXT NOT NULL, digest TEXT NOT NULL, sync_id TEXT, caused_by_event_id TEXT NOT NULL, created_at TEXT NOT NULL)");
+    db.exec("CREATE INDEX knowledge_revisions_game_revision ON knowledge_revisions (game_id, revision)");
+    db.exec("CREATE TABLE sync_knowledge_jobs (job_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL CHECK (source_kind IN ('merged_pr', 'corpus')), staged_artifact_path TEXT NOT NULL, staged_digest TEXT NOT NULL)");
+    db.query(
+      `INSERT INTO jobs (job_id, kind, dedupe_key, game_id, status, payload_json, created_at, updated_at)
+       VALUES ('legacy-sync-job', 'sync_publication', 'legacy-sync-job', 'melee', 'queued', '{}', '2026-09-03T00:00:00.000Z', '2026-09-03T00:00:00.000Z')`,
+    ).run();
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      1,
+      "baseline",
+      "2026-09-03T00:00:00.000Z",
+    );
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      2,
+      "drop_legacy_epoch_columns",
+      "2026-09-03T00:00:01.000Z",
+    );
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      3,
+      "add_epoch_boundary_retry",
+      "2026-09-03T00:00:02.000Z",
+    );
+    db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+      4,
+      "add_target_infra_failure_count",
+      "2026-09-03T00:00:03.000Z",
+    );
+
+    runStorageMigrations(db);
+
+    expect(
+      db
+        .query(
+          "SELECT name FROM sqlite_schema WHERE name IN ('knowledge_revisions', 'sync_invalidations', 'sync_knowledge_jobs', 'sync_publication_intents') ORDER BY name",
+        )
+        .all(),
+    ).toEqual([]);
+    expect(db.query("SELECT job_id FROM jobs WHERE kind = 'sync_publication'").all()).toEqual([]);
+    expect(db.query("SELECT version, name FROM schema_migrations ORDER BY version").all()).toEqual([
+      { version: 1, name: "baseline" },
+      { version: 2, name: "drop_legacy_epoch_columns" },
+      { version: 3, name: "add_epoch_boundary_retry" },
+      { version: 4, name: "add_target_infra_failure_count" },
+      { version: 5, name: "drop_legacy_sync_knowledge_tables" },
+    ]);
+  });
+
+  test("no-ops when the legacy tables are already gone", () => {
+    const db = database("storage-clean-sync-knowledge");
+    db.exec(FINAL_SCHEMA_DDL);
+    const before = db.query("SELECT name, sql FROM sqlite_schema WHERE name = 'sync_state'").get();
+
+    dropLegacySyncKnowledgeTablesMigration.up(db);
+
+    expect(db.query("SELECT name, sql FROM sqlite_schema WHERE name = 'sync_state'").get()).toEqual(before);
   });
 });

@@ -69,6 +69,21 @@ function progressPercent(applied: number, total: number): number {
   return Math.max(0, Math.min(100, Math.round((applied / total) * 100)));
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${num(count)} ${count === 1 ? singular : plural}`;
+}
+
+function knowledgeIntakeLabel(sync: HarnessStateSyncReadModel): string {
+  const intake = sync.publication?.knowledge_intake;
+  if (!intake) return "-";
+  const parts = [
+    pluralize(intake.fetched_prs, "PR"),
+    pluralize(intake.tasks_enqueued, "task"),
+  ];
+  if (intake.renames_applied > 0) parts.push(pluralize(intake.renames_applied, "rename"));
+  return parts.join(" · ");
+}
+
 export function SyncProjectedButton({
   action,
   busy,
@@ -431,22 +446,11 @@ export function SyncIngestFlow({
 
 export function SyncStagingProgress({ staging }: { staging: HarnessStateSyncReadModel["staging"] }) {
   if (!staging) return null;
-  const percent = progressPercent(staging.epochs_applied, staging.epochs_total);
   return (
     <div className="mt-3 border border-line bg-card p-3">
       <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.08em] text-dim">
         <span>Staging progress</span>
-        <span className="text-soft">{num(staging.epochs_applied)} / {num(staging.epochs_total)} epochs</span>
-      </div>
-      <div
-        aria-label={`Staging ${percent}%`}
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={percent}
-        className="h-1.5 overflow-hidden bg-raised"
-        role="progressbar"
-      >
-        <div className="h-full bg-up" style={{ width: `${percent}%` }} />
+        <span className="text-soft">{pluralize(staging.commits_behind, "upstream commit")} merged</span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-dim">
         <span>{num(staging.minor_auto_resolved_count)} minor auto-resolved</span>
@@ -545,12 +549,16 @@ export function SyncPublicationCard({ sync }: { sync: HarnessStateSyncReadModel 
       <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
         <StatCard label="Prior head" value={shortId(sync.publication.prior_head)} />
         <StatCard label="New head" value={shortId(sync.publication.new_head)} />
-        <StatCard label="Knowledge" value={sync.publication.knowledge_revision} wrap />
+        <StatCard label="Knowledge intake" value={knowledgeIntakeLabel(sync)} wrap />
         <StatCard label="Series pushed" value={num(sync.pr_reconciliation.pushed)} />
       </div>
       <div className="mt-1.5 text-[11px] text-dim">
-        {sync.publication.remote_application_id ? `Remote application ${sync.publication.remote_application_id} · ` : ""}
-        {num(sync.publication.invalidated_ids.length)} invalidated records
+        {sync.publication.remote_application_id
+          ? `Remote application ${sync.publication.remote_application_id}${sync.publication.knowledge_intake ? " · " : ""}`
+          : ""}
+        {sync.publication.knowledge_intake
+          ? `${pluralize(sync.publication.knowledge_intake.skipped_prs, "archived PR")} skipped`
+          : ""}
       </div>
     </div>
   );

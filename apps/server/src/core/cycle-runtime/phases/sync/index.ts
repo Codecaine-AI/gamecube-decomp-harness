@@ -2,11 +2,9 @@ export { casSyncEnvelope, type SyncEnvelopeCasInput } from "./cas.js";
 export { activateAcquiredSync, type ActivateAcquiredSyncInput } from "./activation.js";
 export * from "./engine.js";
 export * from "./git.js";
-export * from "./knowledge.js";
 export * from "./publication.js";
 export {
   assertSyncStatusTransition,
-  appendSyncKnowledgeEventInTransaction,
   eventTypeForSyncStatus,
   getNonTerminalSyncForGame,
   getSyncBlockedOriginStatus,

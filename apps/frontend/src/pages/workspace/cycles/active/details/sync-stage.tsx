@@ -110,9 +110,8 @@ function ValidationDetail({
         onAction={onAction}
         staleness={sync.staleness}
       />
-      <div className="mt-3 grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
-        <StatCard label="Epochs applied" value={staging ? num(staging.epochs_applied) : "-"} />
-        <StatCard label="Epochs total" value={staging ? num(staging.epochs_total) : "-"} />
+      <div className="mt-3 grid grid-cols-2 gap-2 @[760px]:grid-cols-3">
+        <StatCard label="Upstream commits merged" value={staging ? num(staging.commits_behind) : "-"} />
         <StatCard label="Minor auto-resolved" value={staging ? num(staging.minor_auto_resolved_count) : "-"} />
         <StatCard
           label="Awaiting operator"

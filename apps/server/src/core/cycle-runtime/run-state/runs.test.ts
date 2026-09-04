@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Database } from "bun:sqlite";
 import { casRunEnvelope } from "@server/core/orchestrator-state";
 import { createCycle } from "@server/core/cycle/store.js";
 import { eventsForSubject } from "@server/core/harness-state";
@@ -17,7 +15,6 @@ import {
   setRunDesiredWorkers,
   setRunSchedulerCondition,
   StaleRunRevisionError,
-  startingKnowledgeRevision,
   transitionRun,
   updateRunStatus,
   type StateStore,
@@ -277,35 +274,20 @@ describe("run state contract", () => {
     }
   });
 
-  test("derives deterministic knowledge and policy revisions from canonical inputs", () => {
-    const { dir, store } = testStore();
-    const graphDbPath = join(dir, "knowledge.sqlite");
-    const emptyGraphDbPath = join(dir, "empty-knowledge.sqlite");
-    const emptyGraph = new Database(emptyGraphDbPath);
-    emptyGraph.exec("CREATE TABLE resource_versions (id TEXT PRIMARY KEY, source_id TEXT NOT NULL, content_hash TEXT NOT NULL)");
-    emptyGraph.close();
-    const graph = new Database(graphDbPath);
-    graph.exec("CREATE TABLE resource_versions (id TEXT PRIMARY KEY, source_id TEXT NOT NULL, content_hash TEXT NOT NULL)");
-    graph.query("INSERT INTO resource_versions VALUES (?, ?, ?)").run("2", "zeta", "hash-z");
-    graph.query("INSERT INTO resource_versions VALUES (?, ?, ?)").run("1", "alpha", "hash-a");
-    graph.close();
-
-    const expectedKnowledge = `kg-${createHash("sha256").update("alpha:hash-a\nzeta:hash-z").digest("hex")}`;
+  test("derives deterministic policy revisions from canonical inputs", () => {
+    const { store } = testStore();
     const configuration = { zeta: 2, alpha: { delta: 4, beta: 3 } };
     const run = createRun(
       store,
       "matched_code_percent",
       100,
       4,
-      { gameId: "melee", graphDbPath },
+      { gameId: "melee" },
       { baseRevision: "base-abc", configurationSnapshot: configuration, requireReady: true },
     );
 
-    expect(startingKnowledgeRevision(graphDbPath)).toBe(expectedKnowledge);
-    expect(startingKnowledgeRevision(emptyGraphDbPath)).toBe("kg-empty");
-    expect(startingKnowledgeRevision(join(dir, "absent.sqlite"))).toBe("kg-empty");
     expect(run.inputs).toMatchObject({
-      starting_knowledge_revision: expectedKnowledge,
+      starting_knowledge_revision: "base-abc",
       policy_revision: policyRevisionForConfiguration(configuration),
     });
     expect(policyRevisionForConfiguration({ alpha: { beta: 3, delta: 4 }, zeta: 2 })).toBe(
@@ -313,26 +295,39 @@ describe("run state contract", () => {
     );
   });
 
-  test("records the latest published knowledge revision for its game", () => {
-    const { store } = testStore();
-    const insert = store.db.query(
-      `INSERT INTO knowledge_revisions (game_id, digest, sync_id, caused_by_event_id, created_at)
-       VALUES (?, ?, NULL, ?, ?)`,
+  test("records the active cycle worktree HEAD as its starting knowledge revision", () => {
+    const { dir, store } = testStore();
+    const worktree = join(dir, "cycle-current");
+    Bun.spawnSync(["git", "init", worktree]);
+    Bun.spawnSync(["git", "-C", worktree, "config", "user.email", "test@example.com"]);
+    Bun.spawnSync(["git", "-C", worktree, "config", "user.name", "Test"]);
+    writeFileSync(join(worktree, "README.md"), "cycle worktree\n");
+    Bun.spawnSync(["git", "-C", worktree, "add", "README.md"]);
+    Bun.spawnSync(["git", "-C", worktree, "commit", "-m", "initial"]);
+    const head = new TextDecoder().decode(
+      Bun.spawnSync(["git", "-C", worktree, "rev-parse", "HEAD"], { stdout: "pipe" }).stdout,
+    ).trim();
+    const cycle = createCycle(store.db, {
+      actor: "operator",
+      gameId: "melee",
+      cycleUuid: "cycle-worktree-head",
+      baseSha: "cycle-base",
+    });
+    store.db.query("UPDATE cycles SET preparing_state_json = ? WHERE id = ?").run(
+      JSON.stringify({ sync: { cycleCurrentWorktreePath: worktree } }),
+      cycle.id,
     );
-    insert.run("melee", "digest-melee-1", "event-melee-1", "2026-08-13T18:00:00.000Z");
-    insert.run("other-game", "digest-other", "event-other", "2026-08-13T18:01:00.000Z");
-    insert.run("melee", "digest-melee-2", "event-melee-2", "2026-08-13T18:02:00.000Z");
 
     const run = createRun(
       store,
       "matched_code_percent",
       100,
       4,
-      { gameId: "melee" },
-      { baseRevision: "base-abc", requireReady: true },
+      { gameId: "melee", repoRoot: dir },
+      { requireReady: true },
     );
 
-    expect(run.inputs?.starting_knowledge_revision).toBe("knowledge-3");
+    expect(run.inputs?.starting_knowledge_revision).toBe(head);
   });
 
   test("updates scheduler_condition without changing revision, cause, or event count", () => {

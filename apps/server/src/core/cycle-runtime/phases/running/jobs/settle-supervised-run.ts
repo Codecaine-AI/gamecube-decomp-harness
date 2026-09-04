@@ -4,14 +4,10 @@ import { hardStopRun, settleStoppedRun } from "@server/core/cycle-runtime/phases
 import { getLatestRun, getRun, openState } from "@server/core/cycle-runtime/run-state";
 import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime.js";
 import { resolveGame } from "@server/core/game-registry";
-import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { stringArg, syncMergePolicyArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { getHarnessState } from "@server/core/harness-state";
 import { packageRoot, sourceRoot } from "@server/core/knowledge";
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
-
-function packageBin(): string {
-  return resolve(packageRoot(), "apps/server/src/job-runner.ts");
-}
 
 export async function settleRunOnExit(params: {
   globals: GlobalArgs;
@@ -75,8 +71,8 @@ export async function settleRunOnExit(params: {
     };
     const syncRuntime = createSyncRuntime({
       packageRoot: packageRoot(),
+      mergePolicy: syncMergePolicyArg(args),
       resolveDashboardGame: () => paths,
-      runCli: async (command, cwd = packageRoot()) => runCommand(cwd, command),
       runGit: async (repoRoot, args, options = {}) => {
         const result = await runCommand(repoRoot, ["git", ...args]);
         if (options.check !== false && result.exitCode !== 0) {
@@ -84,7 +80,6 @@ export async function settleRunOnExit(params: {
         }
         return result;
       },
-      serverJobPath: packageBin(),
       stopManaged: async () => {
         throw new Error("A successor sync cannot request another run stop during exit settlement");
       },

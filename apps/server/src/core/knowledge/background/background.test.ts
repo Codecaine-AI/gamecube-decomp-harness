@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe("background knowledge summary", () => {
-  test("derives publication, queue, lease, retry, and failure state", () => {
+  test("derives queue, lease, retry, and failure state", () => {
     const store = fixture();
     const seeded = [
       ["processing", "2026-08-14T00:01:00.000Z"],
@@ -64,18 +64,9 @@ describe("background knowledge summary", () => {
         WHERE kind = 'knowledge_absorption' AND dedupe_key = 'failed'`,
       )
       .run();
-    store.db
-      .query(
-        `INSERT INTO knowledge_revisions
-          (game_id, digest, sync_id, caused_by_event_id, created_at)
-        VALUES ('melee', 'digest-1', NULL, 'event-1', '2026-08-14T00:06:00.000Z')`,
-      )
-      .run();
-
     const summary = queryBackgroundKnowledgeSummary(store, "melee");
 
     expect(summary).toMatchObject({
-      publishedRevision: "knowledge-1",
       queued: 1,
       processing: 1,
       waiting: 1,
