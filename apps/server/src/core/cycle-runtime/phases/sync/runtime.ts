@@ -477,8 +477,9 @@ function syncLeaseContext(
         ? configuredReportPath
         : resolve(checkoutRoot, configuredReportPath);
       if (!sync.intake.knowledge_only || !existsSync(reportPath)) {
+        const baselinePath = resolve(checkoutRoot, "build/GALE01/baseline.json");
         await (deps.forceReportRun ?? forceReportRun)(checkoutRoot, {
-          resetBaseline: false,
+          resetBaseline: !existsSync(baselinePath),
           generateChanges: false,
         });
       }

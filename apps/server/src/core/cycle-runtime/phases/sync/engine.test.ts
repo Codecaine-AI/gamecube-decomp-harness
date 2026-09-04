@@ -260,6 +260,60 @@ afterEach(() => {
 });
 
 describe("staged sync reconciliation", () => {
+  test("seeds a missing cycle baseline before copying the build into staging", async () => {
+    const fixture = conflictFixture("sync-seeds-cycle-baseline", false);
+    let sync = await reconcileSync({
+      context: fixture.context,
+      syncId: fixture.sync.sync_id,
+      expectedRevision: fixture.sync.revision,
+      commandId: "command-seed-baseline-reconcile",
+    });
+    const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
+    resolveRenameConflict(staging.cycle.path, staging.cycle.conflictingPaths, "cycle-renamed.txt", "operator resolved\n");
+    sync = await resolveSyncConflict({
+      context: fixture.context,
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-seed-baseline-resolve",
+    });
+    write(fixture.cycle, "build.ninja", "# fixture build\n");
+    write(fixture.cycle, "build/GALE01/report.json", "{}");
+    const calls: Array<{ root: string; options: Record<string, unknown> }> = [];
+    fixture.context.forceReportRun = async (root, options) => {
+      calls.push({ root, options });
+      if (root === fixture.cycle) {
+        write(root, "build/GALE01/baseline.json", "{}");
+      } else {
+        expect(existsSync(resolve(root, "build/GALE01/baseline.json"))).toBe(true);
+        write(root, "build/GALE01/report.changes.json", JSON.stringify({
+          from: {},
+          to: {},
+          units: [],
+        }));
+      }
+      return {
+        baselinePath: resolve(root, "build/GALE01/baseline.json"),
+        reportChangesPath: resolve(root, "build/GALE01/report.changes.json"),
+        reportPath: resolve(root, "build/GALE01/report.json"),
+        resetBaseline: options.resetBaseline ?? false,
+        steps: [],
+        timestamps: {},
+      };
+    };
+
+    const validated = await validateSync(fixture.context, {
+      syncId: sync.sync_id,
+      expectedRevision: sync.revision,
+      commandId: "command-seed-baseline-validate",
+    });
+
+    expect(validated.status).toBe("validated");
+    expect(calls).toEqual([
+      { root: fixture.cycle, options: { resetBaseline: true, generateChanges: false } },
+      { root: sync.staging?.workspace_path, options: { resetBaseline: false } },
+    ]);
+  }, 30_000);
+
   test("links canonical game assets into a newly created sync staging worktree", async () => {
     const fixture = conflictFixture("sync-links-assets", false);
     writeFileSync(resolve(fixture.cycle, ".git/info/exclude"), "orig/\n", "utf8");

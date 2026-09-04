@@ -67,6 +67,7 @@ export interface SyncEngineContext {
   runGit?: SyncGitRunner;
   mergePolicy?: SyncMergePolicy;
   policyInputs?: PolicyMergeReports;
+  forceReportRun?: typeof forceReportRun;
   now?: () => string;
   /** One actor owns every event emitted by the current action. */
   actor?: EventActor;
@@ -1049,10 +1050,15 @@ async function defaultValidation(
   const cycleBuild = resolve(cycleWorktree, "build");
   const cycleBuildNinja = resolve(cycleWorktree, "build.ninja");
   const cycleBaseline = resolve(cycleBuild, "GALE01/baseline.json");
-  if (!existsSync(cycleBuildNinja) || !existsSync(cycleBaseline)) {
+  if (!existsSync(cycleBuildNinja)) {
     throw new Error(
-      `Incremental sync validation requires the existing cycle baseline cache (${cycleBaseline}); refusing a full rebuild`,
+      `Incremental sync validation requires the existing cycle build (${cycleBuildNinja}); refusing a full rebuild`,
     );
+  }
+  const runReport = context.forceReportRun ?? forceReportRun;
+  if (!existsSync(cycleBaseline)) {
+    await runReport(cycleWorktree, { resetBaseline: true, generateChanges: false });
+    uiLog("stdout", `sync validation: seeded cycle baseline at ${cycleBaseline}`);
   }
   const stagingBuild = resolve(worktreePath, "build");
   if (!existsSync(resolve(stagingBuild, "GALE01/baseline.json"))) {
@@ -1064,7 +1070,7 @@ async function defaultValidation(
     if (existsSync(source) && !existsSync(target)) copyFileSync(source, target, constants.COPYFILE_FICLONE);
   }
   const { adoptUpstream, resetBaseline } = syncValidationPolicy(staging, upstreamFrom);
-  const report = await forceReportRun(worktreePath, { resetBaseline });
+  const report = await runReport(worktreePath, { resetBaseline });
   if (adoptUpstream) {
     return {
       result: "passed",

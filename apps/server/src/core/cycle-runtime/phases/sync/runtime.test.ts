@@ -392,7 +392,7 @@ describe("S4 sync operator runtime", () => {
     }
   });
 
-  test("publishes through distinct control, durable cycle, and staging worktrees", async () => {
+  test.each([false, true])("publishes through distinct worktrees with baselineExists=%s", async (baselineExists) => {
     const root = tempDir();
     const gameDir = resolve(root, "game");
     const control = resolve(gameDir, "control");
@@ -411,6 +411,7 @@ describe("S4 sync operator runtime", () => {
     mkdirSync(resolve(cycle, ".."), { recursive: true });
     git(control, "worktree", "add", "-b", `orchestrator/cycle/${cycleUuid}`, cycle, base);
     write(cycle, "local.c", "int local_epoch = 1;\n");
+    if (baselineExists) write(cycle, "build/GALE01/baseline.json", "{}");
     const localHead = commitAll(cycle, "local epoch");
     write(control, "upstream.c", "int upstream = 2;\n");
     const upstreamHead = commitAll(control, "upstream movement (#711)");
@@ -456,6 +457,7 @@ describe("S4 sync operator runtime", () => {
     const gitRoots: string[] = [];
     const gitCommands: string[][] = [];
     const intakeCalls: Array<Parameters<NonNullable<SyncRuntimeDeps["runKnowledgeIntake"]>>[0]> = [];
+    const reportRunOptions: Array<Parameters<NonNullable<SyncRuntimeDeps["forceReportRun"]>>[1]> = [];
     const runtime = createSyncRuntime({
       packageRoot: root,
       resolveDashboardGame: () => paths,
@@ -466,7 +468,8 @@ describe("S4 sync operator runtime", () => {
       },
       stopManaged: async () => ({ stopped: true }),
       sourceRoot: () => root,
-      forceReportRun: async (checkoutRoot) => {
+      forceReportRun: async (checkoutRoot, options) => {
+        reportRunOptions.push(options);
         const reportPath = resolve(checkoutRoot, "build/GALE01/report.json");
         write(checkoutRoot, "build/GALE01/report.json", "{}");
         return {
@@ -519,6 +522,7 @@ describe("S4 sync operator runtime", () => {
       expectedHead: publishedHead.slice(0, 7),
       prNumbers: [711],
     });
+    expect(reportRunOptions).toEqual([{ resetBaseline: !baselineExists, generateChanges: false }]);
     const anchored = openState(stateDir);
     expect(anchored.db.query(
       "SELECT trigger_kind, commit_sha FROM save_points WHERE trigger_kind = 'sync'",
