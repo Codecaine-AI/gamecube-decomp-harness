@@ -1029,15 +1029,31 @@ export async function resolveSyncConflict(input: {
   });
 }
 
-export function syncValidationPolicy(
+export async function syncValidationPolicy(
   staging: Pick<SyncStagingProgress, "cycle_head_sha">,
   upstreamFrom: string,
-): {
+  cycleWorktreePath: string,
+  runGit: SyncGitRunner,
+): Promise<{
   adoptUpstream: boolean;
   resetBaseline: boolean;
-} {
-  const adoptUpstream = staging.cycle_head_sha === upstreamFrom;
-  return { adoptUpstream, resetBaseline: adoptUpstream };
+  localCommits: number;
+}> {
+  if (staging.cycle_head_sha === upstreamFrom) {
+    return { adoptUpstream: true, resetBaseline: true, localCommits: 0 };
+  }
+  const result = await runGit(cycleWorktreePath, [
+    "rev-list",
+    "--count",
+    "--no-merges",
+    `${upstreamFrom}..${staging.cycle_head_sha}`,
+  ]);
+  const localCommits = Number.parseInt(result.stdout.trim(), 10);
+  if (!Number.isSafeInteger(localCommits) || localCommits < 0) {
+    throw new Error(`Invalid local commit count from git rev-list: ${result.stdout.trim()}`);
+  }
+  const adoptUpstream = localCommits === 0;
+  return { adoptUpstream, resetBaseline: adoptUpstream, localCommits };
 }
 
 async function defaultValidation(
@@ -1069,7 +1085,12 @@ async function defaultValidation(
     const target = resolve(worktreePath, name);
     if (existsSync(source) && !existsSync(target)) copyFileSync(source, target, constants.COPYFILE_FICLONE);
   }
-  const { adoptUpstream, resetBaseline } = syncValidationPolicy(staging, upstreamFrom);
+  const { adoptUpstream, resetBaseline, localCommits } = await syncValidationPolicy(
+    staging,
+    upstreamFrom,
+    cycleWorktree,
+    runner(context),
+  );
   const report = await runReport(worktreePath, { resetBaseline });
   if (adoptUpstream) {
     return {
@@ -1081,6 +1102,7 @@ async function defaultValidation(
         reused_report: report.reusedReport ?? false,
         incremental_cache_seeded_from: cycleWorktree,
         upstream_adopted: true,
+        local_commits: localCommits,
         commits_behind: staging.commits_behind,
         ...(report.summary ? { report_summary: report.summary as unknown as JsonObject } : {}),
       },
@@ -1100,6 +1122,8 @@ async function defaultValidation(
       moved_units: regression.movedUnits,
       reused_report: report.reusedReport ?? false,
       incremental_cache_seeded_from: cycleWorktree,
+      upstream_adopted: false,
+      local_commits: localCommits,
     },
   };
 }

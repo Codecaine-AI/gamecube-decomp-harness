@@ -308,6 +308,10 @@ describe("staged sync reconciliation", () => {
     });
 
     expect(validated.status).toBe("validated");
+    expect(validated.staging?.validation_evidence).toMatchObject({
+      upstream_adopted: false,
+      local_commits: 2,
+    });
     expect(calls).toEqual([
       { root: fixture.cycle, options: { resetBaseline: true, generateChanges: false } },
       { root: sync.staging?.workspace_path, options: { resetBaseline: false } },
@@ -332,9 +336,54 @@ describe("staged sync reconciliation", () => {
     expect(readlinkSync(linked)).toBe(source);
   }, 30_000);
 
-  test("adopts upstream only when the cycle has no commits after the prior upstream", () => {
-    expect(syncValidationPolicy({ cycle_head_sha: "same" }, "same")).toEqual({ adoptUpstream: true, resetBaseline: true });
-    expect(syncValidationPolicy({ cycle_head_sha: "cycle" }, "upstream")).toEqual({ adoptUpstream: false, resetBaseline: false });
+  test("adopts upstream when the cycle head equals upstream", async () => {
+    let called = false;
+    const policy = await syncValidationPolicy({ cycle_head_sha: "same" }, "same", "/unused", async () => {
+      called = true;
+      return { exitCode: 0, stdout: "1\n", stderr: "" };
+    });
+    expect(policy).toEqual({ adoptUpstream: true, resetBaseline: true, localCommits: 0 });
+    expect(called).toBe(false);
+  });
+
+  test("adopts upstream after a merge-only cycle history", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "sync-validation-policy-"));
+    tempDirs.push(repo);
+    git(repo, "init", "-b", "main");
+    configureGit(repo);
+    write(repo, "base.txt", "base\n");
+    const base = commitAll(repo, "base");
+    git(repo, "checkout", "-b", "upstream");
+    write(repo, "upstream.txt", "upstream\n");
+    const upstream = commitAll(repo, "upstream");
+    git(repo, "checkout", "-b", "cycle", base);
+    git(repo, "merge", "--no-ff", "upstream", "-m", "merge upstream");
+    const cycleHead = git(repo, "rev-parse", "HEAD");
+
+    const policy = await syncValidationPolicy({ cycle_head_sha: cycleHead }, upstream, repo, async (cwd, args) => ({
+      exitCode: 0,
+      stdout: git(cwd, ...args),
+      stderr: "",
+    }));
+    expect(policy).toEqual({ adoptUpstream: true, resetBaseline: true, localCommits: 0 });
+  });
+
+  test("does not adopt upstream when the cycle has a local non-merge commit", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "sync-validation-policy-"));
+    tempDirs.push(repo);
+    git(repo, "init", "-b", "main");
+    configureGit(repo);
+    write(repo, "base.txt", "base\n");
+    const upstream = commitAll(repo, "upstream");
+    write(repo, "local.txt", "local\n");
+    const cycleHead = commitAll(repo, "local cycle work");
+
+    const policy = await syncValidationPolicy({ cycle_head_sha: cycleHead }, upstream, repo, async (cwd, args) => ({
+      exitCode: 0,
+      stdout: git(cwd, ...args),
+      stderr: "",
+    }));
+    expect(policy).toEqual({ adoptUpstream: false, resetBaseline: false, localCommits: 1 });
   });
 
   test("excludes a lingering merged split branch from durable PR series selection", async () => {
