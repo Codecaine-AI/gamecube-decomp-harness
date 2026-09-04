@@ -11,11 +11,16 @@ import {
 import type { Blocker } from "@server/core/harness-state";
 import { activeCycleProjection } from "@server/core/cycle/store";
 import { statusSnapshot } from "@server/core/cycle-runtime/run-state";
+import { bootstrapCycleWorktrees } from "@server/core/cycle-runtime/phases/preparing/subphases/bootstrap.js";
+import { getCycleByUuid } from "@server/core/cycle";
+import type { CliResult } from "@server/core/cycle-runtime/phases/preparing/runtime-shared.js";
+import type { ResolvedGame } from "@server/core/game-registry";
 
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
 interface CycleRoutePaths {
-  game?: unknown;
+  graphDbPath: string;
+  game: ResolvedGame | null;
   repoRoot: string;
   stateDir: string;
   usePathOverrides: boolean;
@@ -31,6 +36,7 @@ export interface CycleApiRouteDeps {
   json: JsonResponder;
   gameIdForGame: (game: unknown) => string;
   requestPaths: (url: URL, options: { useDefaultGame?: boolean }) => CycleRoutePaths;
+  runGit?: (repoRoot: string, args: string[], options?: { check?: boolean; failureHint?: string }) => Promise<CliResult>;
   submitCycleStartedTrace?: (
     paths: CycleRoutePaths,
     cycle: {
@@ -191,21 +197,30 @@ export async function handleCycleApiRoute(req: Request, url: URL, deps: CycleApi
       baseRef: deps.baseRefForGame(paths.game),
       force: url.pathname.endsWith("/force-pr"),
     });
+    if (command === "create" && !result.status) {
+      let cycle = asObject(asObject(result.payload).cycle);
+      const cycleUuid = text(cycle.cycleUuid);
+      if (cycleUuid && !text(body.baseSha) && deps.runGit) {
+        const record = getCycleByUuid(store.db, cycleUuid);
+        if (!record) throw new Error(`Game cycle not found after creation: ${cycleUuid}`);
+        await bootstrapCycleWorktrees(store, paths, record, { runGit: deps.runGit }, {
+          actor: "operator",
+          commandId: text(body.commandId, text(body.command_id)) || undefined,
+        });
+        result = handleCycleCommand(store.db, "read", { gameId, body: {} });
+        cycle = asObject(asObject(result.payload).cycle);
+      }
+      if (cycleUuid) {
+        await deps.submitCycleStartedTrace?.(paths, {
+          baseRef: text(cycle.baseRef) || null,
+          baseSha: text(cycle.baseSha) || null,
+          gameId,
+          cycleUuid,
+        });
+      }
+    }
   } finally {
     store.db.close();
-  }
-
-  if (command === "create" && !result.status) {
-    const cycle = asObject(asObject(result.payload).cycle);
-    const cycleUuid = text(cycle.cycleUuid);
-    if (cycleUuid) {
-      await deps.submitCycleStartedTrace?.(paths, {
-        baseRef: text(cycle.baseRef) || null,
-        baseSha: text(cycle.baseSha) || null,
-        gameId,
-        cycleUuid,
-      });
-    }
   }
 
   return deps.json(result.payload, result.status ? { status: result.status } : undefined);

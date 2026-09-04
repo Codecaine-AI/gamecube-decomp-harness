@@ -13,6 +13,7 @@ import type { JsonObject } from "@server/core/harness-state/events.js";
 import { getRun } from "@server/core/cycle-runtime/run-state";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
 import { prepareWorktreePaths } from "@server/core/cycle-runtime/phases/preparing/subphases/worktrees.js";
+import { bootstrapCycleWorktrees } from "@server/core/cycle-runtime/phases/preparing/subphases/bootstrap.js";
 import { sourceDataRoot } from "@server/core/knowledge/paths.js";
 import {
   KNOWLEDGE_INTAKE_SYNC_LANES,
@@ -781,6 +782,33 @@ export function createSyncRuntime(deps: SyncRuntimeDeps) {
       mergePolicy: syncMergePolicy(body, deps),
     };
     let store = openState(paths.stateDir);
+    const owningCycle = getActiveCycle(store.db, gameId);
+    if (owningCycle && owningCycle.status !== "active") {
+      store.db.close();
+      throw new Error(`Game cycle ${owningCycle.cycle_uuid} cannot accept a sync request while ${owningCycle.status}`);
+    }
+    if (owningCycle) {
+      const preparation = owningCycle.preparing_state_json.sync;
+      const persistedWorktree = preparation && typeof preparation === "object"
+        ? text(
+            preparation.cycleCurrentWorktreePath,
+            text(preparation.cycleWorktreePath),
+          )
+        : "";
+      const cycleWorktreePath = persistedWorktree ||
+        prepareWorktreePaths(paths, owningCycle.cycle_uuid).cycleCurrentWorktreePath || "";
+      if (!owningCycle.head_revision?.trim() || !cycleWorktreePath || !existsSync(resolve(cycleWorktreePath, ".git"))) {
+        try {
+          await bootstrapCycleWorktrees(store, paths, owningCycle, { runGit: deps.runGit }, {
+            actor: "operator",
+            commandId,
+          });
+        } finally {
+          store.db.close();
+        }
+        store = openState(paths.stateDir);
+      }
+    }
     let sync = currentSync(store, gameId, text(body.syncId, text(body.sync_id)) || undefined);
     let action = gameSyncAction(store, gameId, "sync.start", sync?.sync_id, syncActionOptions(paths, deps));
     store.db.close();

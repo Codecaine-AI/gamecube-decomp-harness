@@ -754,6 +754,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     gameIdForGame: (game) => (game as ResolvedGame | null)?.gameId ?? "",
     requestPaths: gameContext.requestPaths,
+    runGit: commandRunner.runGit,
     submitCycleStartedTrace: async (paths, cycle) => {
       const runtimePaths = paths as GameRuntimeContext;
       const gameId = kernelRuntime.gameId(runtimePaths);

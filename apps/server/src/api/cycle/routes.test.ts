@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { getActiveCycle, recordSavePointAnchor, transitionCycle } from "@server/core/cycle";
 import { initializeHarnessState, listGameEvents, releaseDispatch, requestDispatch } from "@server/core/harness-state";
 import { createRun, openState } from "@server/core/cycle-runtime/run-state";
 import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
+import { defaultSyncGitRunner } from "@server/core/cycle-runtime/phases/sync/git";
 import { handleCycleApiRoute } from "./routes.js";
 
 let tempDirs: string[] = [];
@@ -14,6 +16,14 @@ function tempStateDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "cycle-api-"));
   tempDirs.push(dir);
   return dir;
+}
+
+function git(cwd: string, ...args: string[]): string {
+  const result = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed (${String(result.status)}): ${result.stderr || result.stdout}`);
+  }
+  return (result.stdout ?? "").trim();
 }
 
 afterEach(() => {
@@ -84,6 +94,64 @@ function seedNamedAnchor(stateDir: string, commitSha = "head-sha"): void {
 }
 
 describe("cycle API routes", () => {
+  test("create bootstraps the cycle baseline, worktrees, and upstream anchor", async () => {
+    const root = tempStateDir();
+    const gameDir = resolve(root, "game");
+    const repoRoot = resolve(gameDir, "checkout");
+    const remoteRoot = resolve(root, "remote.git");
+    const stateDir = resolve(root, "state");
+    mkdirSync(repoRoot, { recursive: true });
+    git(root, "init", "--bare", remoteRoot);
+    git(repoRoot, "init", "-b", "master");
+    git(repoRoot, "config", "user.email", "cycle-route@example.com");
+    git(repoRoot, "config", "user.name", "Cycle Route Test");
+    writeFileSync(resolve(repoRoot, "base.c"), "int base = 1;\n", "utf8");
+    git(repoRoot, "add", "base.c");
+    git(repoRoot, "commit", "-m", "cycle base");
+    const baseSha = git(repoRoot, "rev-parse", "HEAD");
+    git(repoRoot, "remote", "add", "origin", remoteRoot);
+    git(repoRoot, "push", "-u", "origin", "master");
+
+    const created = await routeJson(
+      stateDir,
+      "/api/cycle/new?gameId=melee",
+      { method: "POST" },
+      {
+        requestPaths: () => ({
+          game: { gameId: "melee", gameDir, baseRef: "origin/master" },
+          repoRoot,
+          stateDir,
+          usePathOverrides: false,
+        }),
+        runGit: defaultSyncGitRunner,
+      },
+    );
+
+    const cycle = created.data.cycle as Record<string, unknown>;
+    const cycleUuid = String(cycle.cycleUuid);
+    const cycleWorktreePath = resolve(gameDir, "worktrees", "cycles", cycleUuid, "current");
+    const upstreamWorktreePath = resolve(gameDir, "worktrees", "upstream-current");
+    expect(created.response.status).toBe(200);
+    expect(cycle).toMatchObject({ baseSha, headRevision: baseSha });
+    expect(git(cycleWorktreePath, "rev-parse", "HEAD")).toBe(baseSha);
+    expect(git(upstreamWorktreePath, "rev-parse", "HEAD")).toBe(baseSha);
+
+    const store = openState(stateDir);
+    try {
+      const saved = getActiveCycle(store.db, "melee");
+      expect(saved?.preparing_state_json.sync).toMatchObject({
+        cycleCurrentWorktreePath: cycleWorktreePath,
+        cycleWorktreePath,
+        upstreamWorktreePath,
+      });
+      expect(store.db.query(
+        "SELECT cycle_uuid, upstream_revision FROM game_upstream_anchors WHERE game_id = ?",
+      ).get("melee")).toEqual({ cycle_uuid: cycleUuid, upstream_revision: baseSha });
+    } finally {
+      store.db.close();
+    }
+  }, 30_000);
+
   test("creates and projects canonical cycle state", async () => {
     const stateDir = tempStateDir();
     const empty = await routeJson(stateDir, "/api/cycle?gameId=melee");

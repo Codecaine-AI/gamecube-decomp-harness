@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { openState } from "@server/core/orchestrator-state";
-import { createCycle } from "@server/core/cycle/store.js";
+import { createCycle, getActiveCycle } from "@server/core/cycle/store.js";
 import { getHarnessState, initializeHarnessState, listGameEvents, newSpanId, requestDispatch } from "@server/core/harness-state";
 import { createRun, getRun, updateRunStatus } from "@server/core/cycle-runtime/run-state";
 import { settleStoppedRun } from "@server/core/cycle-runtime/phases/running/run-control.js";
@@ -124,6 +124,63 @@ function requested(
 }
 
 describe("S4 sync kernel trace", () => {
+  test("sync.start bootstraps a head-less active cycle before observation", async () => {
+    const root = tempDir();
+    const gameDir = resolve(root, "game");
+    const repoRoot = resolve(gameDir, "checkout");
+    const remoteRoot = resolve(root, "remote.git");
+    const stateDir = resolve(root, "state");
+    mkdirSync(repoRoot, { recursive: true });
+    git(root, "init", "--bare", remoteRoot);
+    git(repoRoot, "init", "-b", "master");
+    git(repoRoot, "config", "user.email", "sync-bootstrap@example.com");
+    git(repoRoot, "config", "user.name", "Sync Bootstrap Test");
+    write(repoRoot, "base.c", "int base = 1;\n");
+    const baseSha = commitAll(repoRoot, "bootstrap base");
+    git(repoRoot, "remote", "add", "origin", remoteRoot);
+    git(repoRoot, "push", "-u", "origin", "master");
+
+    const store = openState(stateDir);
+    createCycle(store.db, {
+      actor: "operator",
+      baseRef: "origin/master",
+      gameId: "melee",
+      cycleUuid: "cycle-headless",
+      id: "cycle:cycle-headless",
+    });
+    initializeHarnessState(store, { gameId: "melee", traceId: "trace-game-melee" });
+    store.db.close();
+
+    const paths: SyncRuntimeGameContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      game: { gameId: "melee", gameDir, baseRef: "origin/master" } as SyncRuntimeGameContext["game"],
+      repoRoot,
+      stateDir,
+    };
+    const runtime = createSyncRuntime({
+      packageRoot: root,
+      resolveDashboardGame: () => paths,
+      runGit: defaultSyncGitRunner,
+      stopManaged: async () => ({ stopped: true }),
+      sourceRoot: () => root,
+      refreshDiscordMirror: async () => ({ ok: true, detail: "discord mirror test fixture" }),
+    });
+
+    const decision = await runtime.start({ gameId: "melee" });
+
+    expect(decision.sync.status).toBe("validated");
+    const reopened = openState(stateDir);
+    try {
+      expect(getActiveCycle(reopened.db, "melee")).toMatchObject({
+        base_sha: baseSha,
+        head_revision: baseSha,
+      });
+    } finally {
+      reopened.db.close();
+    }
+    expect(existsSync(resolve(gameDir, "worktrees", "cycles", "cycle-headless", "current", ".git"))).toBe(true);
+  }, 30_000);
+
   test("files each milestone into the cycle's sync-intake container with its game event", async () => {
     const emitted: Array<{ paths: SyncRuntimeGameContext; input: SyncWorkflowEventInput }> = [];
     const current = fixture(defaultSyncGitRunner, {
