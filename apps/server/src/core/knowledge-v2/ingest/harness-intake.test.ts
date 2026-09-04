@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { KnowledgeStore } from "../storage/store.js";
 import type { AttemptsImportResult, DiscordImportResult, ReconcileResult } from "./types.js";
 import type { ImportPrsResult } from "./prs.js";
+import type { ReanchorSummary } from "../drift/reanchor.js";
 import {
   KNOWLEDGE_INTAKE_SYNC_LANES,
   runKnowledgeIntake,
@@ -92,6 +93,21 @@ const attemptsResult: AttemptsImportResult = {
   skippedNoTarget: 0,
   skippedNoSignal: 0,
   watermark: "fixture-attempt-watermark",
+};
+
+const reanchorResult: ReanchorSummary = {
+  scanned: 4,
+  reanchored: 3,
+  original_unreadable: 0,
+  reanchored_same_path: 1,
+  reanchored_moved_path: 1,
+  reanchored_shifted: 1,
+  left_for_librarian: { content_changed: 1, path_gone: 0 },
+  touched_subjects: 3,
+  by_status: {
+    before: { unchanged: 1, drifted: 2, unresolvable: 1 },
+    after: { unchanged: 4, drifted: 0, unresolvable: 0 },
+  },
 };
 
 describe("runKnowledgeIntake", () => {
@@ -186,6 +202,11 @@ describe("runKnowledgeIntake", () => {
         expect(options).toEqual({ reportPath, headRevision: "abc1234", dryRun: false });
         return reconcileResult;
       },
+      reanchor: (_store, options) => {
+        calls.push("reanchor");
+        expect(options).toEqual({ checkoutRoot, headRevision: "abc1234", dryRun: false });
+        return reanchorResult;
+      },
       prs: (_store, options) => {
         calls.push("prs");
         expect(options).toEqual({
@@ -240,7 +261,7 @@ describe("runKnowledgeIntake", () => {
       "--pr",
       "9",
     ]]);
-    expect(calls).toEqual(["fetch", "reconcile", "prs", "discord", "attempts", "close"]);
+    expect(calls).toEqual(["fetch", "reconcile", "reanchor", "prs", "discord", "attempts", "close"]);
     expect(logs).toEqual([
       "[knowledge-intake] reconcile: report=abc1234 renames=1",
       "[knowledge-intake] prs: inserted=2 skipped=0 tasks_enqueued=2",
@@ -253,6 +274,7 @@ describe("runKnowledgeIntake", () => {
       repaired_prs: [],
       ingest: {
         reconcile: reconcileResult,
+        reanchor: reanchorResult,
         prs: prsResult,
         discord: discordResult,
         attempts: attemptsResult,

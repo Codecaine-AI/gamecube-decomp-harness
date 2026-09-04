@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { getWatermark } from "../records/index.js";
+import { reanchorCodeDrift, type ReanchorSummary } from "../drift/reanchor.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { importAttempts, type AttemptsImportOptions } from "./attempts.js";
 import { importDiscord, type DiscordImportOptions } from "./discord.js";
@@ -47,6 +48,7 @@ export interface RunKnowledgeIntakeInput {
 
 export interface KnowledgeIntakeIngestResult {
   reconcile?: ReconcileResult;
+  reanchor?: ReanchorSummary;
   prs?: ImportPrsResult;
   discord?: DiscordImportResult;
   attempts?: AttemptsImportResult;
@@ -65,6 +67,7 @@ export interface KnowledgeIntakeDependencies {
   prWatermark(store: KnowledgeStore): string | null;
   openStore(options: { knowledgeRoot: string }): KnowledgeStore;
   reconcile(store: KnowledgeStore, options: ReconcileOptions): ReconcileResult;
+  reanchor(store: KnowledgeStore, options: { checkoutRoot: string; headRevision: string; dryRun: boolean }): ReanchorSummary;
   prs(store: KnowledgeStore, options: PrImportOptions): ImportPrsResult;
   discord(store: KnowledgeStore, options: DiscordImportOptions): DiscordImportResult;
   attempts(store: KnowledgeStore, options: AttemptsImportOptions): AttemptsImportResult;
@@ -111,6 +114,7 @@ const defaultDependencies: KnowledgeIntakeDependencies = {
   prWatermark: (store) => getWatermark(store, "pr"),
   openStore: (options) => openKnowledgeStore(options),
   reconcile: (store, options) => reconcileReport(store, options),
+  reanchor: (store, options) => reanchorCodeDrift(store, options),
   prs: (store, options) => importPrs(store, options),
   discord: (store, options) => importDiscord(store, options),
   attempts: (store, options) => importAttempts(store, options),
@@ -355,6 +359,11 @@ export async function runKnowledgeIntake(
         });
         ingest.reconcile = result;
         input.log(laneLog(lane, result));
+        ingest.reanchor = dependencies.reanchor(store, {
+          checkoutRoot,
+          headRevision: input.expectedHead,
+          dryRun: input.dryRun,
+        });
       } else if (lane === "prs") {
         const result = dependencies.prs(store, { prsRoot, dryRun: input.dryRun });
         ingest.prs = result;

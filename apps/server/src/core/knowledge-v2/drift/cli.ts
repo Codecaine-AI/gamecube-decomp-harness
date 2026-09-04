@@ -9,6 +9,7 @@ import { parseLocator } from "../locator.js";
 import { enqueueIndexTask, type SubjectRef } from "../records/index.js";
 import { immediateTransaction, openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { flagCodeDrift } from "./flagger.js";
+import { reanchorCodeDrift } from "./reanchor.js";
 
 type DriftStatus = "unchanged" | "drifted" | "unresolvable";
 
@@ -65,6 +66,34 @@ export async function kg2DriftScan(globals: GlobalArgs, args: Map<string, string
       enqueue: enqueue && !dryRun,
     });
     console.log(JSON.stringify(summary));
+  } finally {
+    store.close();
+  }
+}
+
+export async function kg2DriftReanchor(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+  const explicitRoot = optionalStringArg(args, "--knowledge-root");
+  if (explicitRoot === undefined && isTestRunner()) {
+    throw new Error(
+      "kg2-drift-reanchor refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>",
+    );
+  }
+  const gameId = globals.game?.gameId ?? globals.gameId ?? "melee";
+  const knowledgeRoot = explicitRoot === undefined ? gameKnowledgeRoot(gameId) : resolve(explicitRoot);
+  const checkout = resolveKnowledgeCheckout({
+    gameId,
+    stateDir: globals.stateDir,
+    explicitCheckoutRoot: optionalStringArg(args, "--checkout-root"),
+  });
+  console.log(`[kg2-drift-reanchor] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
+  const store = openKnowledgeStore({ knowledgeRoot });
+  try {
+    console.log(JSON.stringify(reanchorCodeDrift(store, {
+      checkoutRoot: checkout.checkoutRoot,
+      headRevision: checkout.headRevision,
+      limit: optionalNonNegativeIntegerArg(args, "--limit"),
+      dryRun: args.get("--dry-run") === true,
+    })));
   } finally {
     store.close();
   }

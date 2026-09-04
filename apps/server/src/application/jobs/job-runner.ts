@@ -10,7 +10,7 @@ import { kg2Index } from "@server/core/knowledge-v2/index/job.js";
 import { kg2Prioritize } from "@server/core/knowledge-v2/migration/prioritize.js";
 import { kg2Renarrate } from "@server/core/knowledge-v2/renarrate/cli.js";
 import { kg2Librarian } from "@server/core/knowledge-v2/librarian/cli.js";
-import { kg2DriftScan } from "@server/core/knowledge-v2/drift/cli.js";
+import { kg2DriftReanchor, kg2DriftScan } from "@server/core/knowledge-v2/drift/cli.js";
 import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
 import { savePoint } from "@server/core/cycle-runtime/phases/pr/jobs/save-point.js";
 import {
@@ -79,6 +79,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "kg2-renarrate") await kg2Renarrate(globals, args);
     else if (command === "kg2-librarian") await kg2Librarian(globals, args);
     else if (command === "kg2-drift-scan") await kg2DriftScan(globals, args);
+    else if (command === "kg2-drift-reanchor") await kg2DriftReanchor(globals, args);
     else if (command === "status") await status(globals);
     else throw new Error(`Unknown server job: ${command}`);
   } finally {
