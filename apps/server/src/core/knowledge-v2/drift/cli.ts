@@ -81,7 +81,7 @@ export function scanCodeDrift(
     by_status: { unchanged: 0, drifted: 0, unresolvable: 0 },
   };
   let headRevision = options.headRevision;
-  const codeFileCache = createCodeFileCache(options.checkoutRoot);
+  const codeFileCache = createCodeFileCache(options.checkoutRoot, { limit: 4096 });
   const flaggedByUnit = new Map<string, UnitRef & { subjects: DriftTaskSubject[] }>();
 
   for (const subject of subjects) {
@@ -93,6 +93,12 @@ export function scanCodeDrift(
     });
     headRevision ??= report.head_revision;
     summary.scanned += 1;
+    if (summary.scanned % 1_000 === 0) {
+      const cacheStats = codeFileCache.stats();
+      console.error(
+        `[kg2-drift-scan] ${summary.scanned}/${subjects.length} subjects, cache hits ${cacheStats.hits} / misses ${cacheStats.misses}`,
+      );
+    }
     for (const evidence of report.evidence) summary.by_status[evidence.status] += 1;
     if (report.drifted_count + report.unresolvable_count === 0) continue;
     summary.flagged += 1;
@@ -137,15 +143,39 @@ export function scanCodeDrift(
   return summary;
 }
 
-function subjectsWithCodeEvidence(store: KnowledgeStore, limit: number | undefined): SubjectRef[] {
+export function subjectsWithCodeEvidence(store: KnowledgeStore, limit: number | undefined): SubjectRef[] {
   const rows = store.db.query<SubjectRow, [number]>(`
+    WITH RECURSIVE entity_lineage(entity_id, id, kind, locator, parent_entity_id) AS (
+      SELECT id, id, kind, locator, parent_entity_id
+      FROM entity
+      UNION ALL
+      SELECT child.entity_id, parent.id, parent.kind, parent.locator, parent.parent_entity_id
+      FROM entity_lineage child
+      JOIN entity parent ON parent.id = child.parent_entity_id
+    ), entity_unit AS (
+      SELECT entity_id, MIN(locator) AS locator
+      FROM entity_lineage
+      WHERE kind = 'translation_unit'
+      GROUP BY entity_id
+    )
     SELECT fact.target_id, fact.entity_id
     FROM fact
     JOIN evidence ON evidence.fact_id = fact.id
+    LEFT JOIN target ON target.id = fact.target_id
+    LEFT JOIN entity ON entity.id = fact.entity_id
+    LEFT JOIN entity_unit ON entity_unit.entity_id = fact.entity_id
     WHERE evidence.kind = 'code'
     GROUP BY fact.target_id, fact.entity_id
     ORDER BY
+      CASE WHEN fact.target_id IS NOT NULL
+        THEN target.unit
+        ELSE COALESCE(entity_unit.locator, entity.parent_entity_id, entity.locator, fact.entity_id)
+      END,
       CASE WHEN fact.target_id IS NOT NULL THEN 0 ELSE 1 END,
+      CASE WHEN fact.target_id IS NOT NULL
+        THEN target.stable_key
+        ELSE COALESCE(entity.parent_entity_id, entity.locator, fact.entity_id)
+      END,
       COALESCE(fact.target_id, fact.entity_id)
     LIMIT ?
   `).all(limit ?? -1);

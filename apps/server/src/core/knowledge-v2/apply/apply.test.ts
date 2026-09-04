@@ -539,6 +539,30 @@ describe("code citation cache", () => {
     expect(first).toEqual(second);
     expect(first.ok).toBe(true);
     expect(showCalls).toBe(1);
+    expect(cache.stats()).toEqual({ hits: 1, misses: 1 });
+  });
+
+  test("honors the configured cache limit", () => {
+    let showCalls = 0;
+    const cache = createCodeFileCache("/unused", {
+      limit: 2,
+      spawnSync: (command) => {
+        if (command.includes("rev-parse")) {
+          return { exitCode: 0, stdout: { toString: () => "head\n" } };
+        }
+        showCalls += 1;
+        return { exitCode: 0, stdout: { toString: () => "line\n" } };
+      },
+    });
+
+    cache.read("old", "one.c");
+    cache.read("old", "two.c");
+    cache.read("old", "one.c");
+    cache.read("old", "three.c");
+    cache.read("old", "two.c");
+
+    expect(showCalls).toBe(4);
+    expect(cache.stats()).toEqual({ hits: 1, misses: 4 });
   });
 
   test("uses the checkout worktree for the current HEAD revision", () => {

@@ -9,7 +9,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
-import { kg2DriftScan } from "./cli.js";
+import { kg2DriftScan, subjectsWithCodeEvidence } from "./cli.js";
 
 const temporaryRoots: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -131,6 +131,41 @@ afterEach(() => {
 });
 
 describe("kg2DriftScan", () => {
+  test("orders targets by unit and stable key before scanning", () => {
+    const f = fixture();
+    const insertTarget = f.store.db.query(`INSERT INTO target
+      (id, kind, unit, unit_entity_id, symbol, stable_key, address, identity_status, report_revision)
+      VALUES (?, 'function', ?, 'unit-main', ?, ?, ?, 'current', 'v1')`);
+    const cases = [
+      { id: "target-alpha-z", unit: "alpha", symbol: "Zed", stableKey: "alpha:Zed", address: "0x80000030" },
+      { id: "target-beta-a", unit: "beta", symbol: "Able", stableKey: "beta:Able", address: "0x80000020" },
+      { id: "target-alpha-a", unit: "alpha", symbol: "Able", stableKey: "alpha:Able", address: "0x80000010" },
+    ];
+    for (const entry of cases) {
+      insertTarget.run(entry.id, entry.unit, entry.symbol, entry.stableKey, entry.address);
+      writeFactWithEvidence(f.store, {
+        id: `fact-${entry.id}`,
+        targetId: entry.id,
+        type: "purpose",
+        value: "ordering fixture",
+        rationale: "fixture",
+        confidence: 1,
+      }, [{
+        id: `evidence-${entry.id}`,
+        kind: "code",
+        locator: "code://fixture/src/order.c#L1-L1",
+        digest: "fixture",
+        why: "fixture",
+      }]);
+    }
+
+    expect(subjectsWithCodeEvidence(f.store, undefined).slice(0, 3)).toEqual([
+      { targetId: "target-alpha-a" },
+      { targetId: "target-alpha-z" },
+      { targetId: "target-beta-a" },
+    ]);
+  });
+
   test("batches flagged target and entity subjects per unit, then deduplicates the unit task", async () => {
     const f = fixture();
 

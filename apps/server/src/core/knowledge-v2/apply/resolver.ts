@@ -11,6 +11,7 @@ export type CodeFileReadResult =
 
 export interface CodeFileCache {
   read(revision: string, path: string): CodeFileReadResult;
+  stats(): { hits: number; misses: number };
 }
 
 export type CodeFileSpawnSync = (
@@ -20,9 +21,10 @@ export type CodeFileSpawnSync = (
 
 export interface CodeFileCacheDependencies {
   spawnSync?: CodeFileSpawnSync;
+  limit?: number;
 }
 
-const CODE_FILE_CACHE_LIMIT = 512;
+const CODE_FILE_CACHE_LIMIT = 4096;
 
 function splitLines(content: string): string[] {
   const lines = content.length === 0 ? [] : content.split("\n");
@@ -54,7 +56,10 @@ export function createCodeFileCache(
   dependencies: CodeFileCacheDependencies = {},
 ): CodeFileCache {
   const entries = new Map<string, CodeFileReadResult>();
+  let hits = 0;
+  let misses = 0;
   let headRevision: string | null | undefined;
+  const limit = dependencies.limit ?? CODE_FILE_CACHE_LIMIT;
   const spawnSync: CodeFileSpawnSync = dependencies.spawnSync
     ?? ((command, options) => Bun.spawnSync(command, options));
 
@@ -74,7 +79,7 @@ export function createCodeFileCache(
 
   const remember = (key: string, result: CodeFileReadResult): CodeFileReadResult => {
     entries.set(key, result);
-    if (entries.size > CODE_FILE_CACHE_LIMIT) {
+    if (entries.size > limit) {
       const oldestKey = entries.keys().next().value;
       if (oldestKey !== undefined) entries.delete(oldestKey);
     }
@@ -86,10 +91,12 @@ export function createCodeFileCache(
       const key = `${revision}:${path}`;
       const cached = entries.get(key);
       if (cached !== undefined) {
+        hits += 1;
         entries.delete(key);
         entries.set(key, cached);
         return cached;
       }
+      misses += 1;
 
       if (revision === currentHeadRevision()) {
         try {
@@ -103,6 +110,9 @@ export function createCodeFileCache(
       }
 
       return remember(key, readCodeFileAtRevision(checkoutRoot, revision, path, spawnSync));
+    },
+    stats(): { hits: number; misses: number } {
+      return { hits, misses };
     },
   };
 }
