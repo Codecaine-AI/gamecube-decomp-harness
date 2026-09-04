@@ -186,6 +186,7 @@ export interface LibrarianSummary {
   itemsRejected: number;
   itemsSkipped: number;
   passesFailed: number;
+  passesAbandoned?: number;
   failedTaskIds: string[];
   tasksSplit: number;
   childrenEnqueued: number;
@@ -525,12 +526,19 @@ function remainingDriftAfterPass(
   });
 }
 
-function retryPayloadState(payload: string): { taskPayload: unknown; driftAttempts: number } {
+interface RetryPayloadState {
+  taskPayload: unknown;
+  driftAttempts: number;
+  failureCount: number;
+  lastError?: string;
+}
+
+function retryPayloadState(payload: string): RetryPayloadState {
   let parsed: unknown;
   try {
     parsed = JSON.parse(payload) as unknown;
   } catch {
-    return { taskPayload: payload, driftAttempts: 0 };
+    return { taskPayload: payload, driftAttempts: 0, failureCount: 0 };
   }
   if (record(parsed) && Object.hasOwn(parsed, "task_payload")) {
     return {
@@ -539,9 +547,23 @@ function retryPayloadState(payload: string): { taskPayload: unknown; driftAttemp
         && (parsed.drift_attempts as number) >= 0
         ? parsed.drift_attempts as number
         : 0,
+      failureCount: Number.isSafeInteger(parsed.failure_count)
+        && (parsed.failure_count as number) >= 0
+        ? parsed.failure_count as number
+        : 0,
+      ...(typeof parsed.last_error === "string" ? { lastError: parsed.last_error } : {}),
     };
   }
-  return { taskPayload: parsed, driftAttempts: 0 };
+  return { taskPayload: parsed, driftAttempts: 0, failureCount: 0 };
+}
+
+function retryPayload(state: RetryPayloadState): string {
+  return JSON.stringify({
+    task_payload: state.taskPayload,
+    ...(state.driftAttempts > 0 ? { drift_attempts: state.driftAttempts } : {}),
+    ...(state.failureCount > 0 ? { failure_count: state.failureCount } : {}),
+    ...(state.lastError === undefined ? {} : { last_error: state.lastError }),
+  });
 }
 
 function persistDriftAttempt(
@@ -553,7 +575,7 @@ function persistDriftAttempt(
   store.db.query(`UPDATE index_task
     SET payload = ?
     WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL`).run(
-    JSON.stringify({ task_payload: state.taskPayload, drift_attempts: driftAttempts }),
+    retryPayload({ ...state, driftAttempts }),
     task.id,
   );
   return driftAttempts;
@@ -574,10 +596,31 @@ function persistFinalDriftGate(
     JSON.stringify({
       task_payload: state.taskPayload,
       ...(state.driftAttempts > 0 ? { drift_attempts: state.driftAttempts } : {}),
+      ...(state.failureCount > 0 ? { failure_count: state.failureCount } : {}),
+      ...(state.lastError === undefined ? {} : { last_error: state.lastError }),
       drift_gate: driftGate,
     }),
     task.id,
   );
+}
+
+function persistTaskFailure(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+  error: string,
+): number {
+  const current = store.db.query<{ payload: string }, [string]>(
+    "SELECT payload FROM index_task WHERE id = ?",
+  ).get(task.id)?.payload ?? task.payload;
+  const state = retryPayloadState(current);
+  const failureCount = state.failureCount + 1;
+  store.db.query(`UPDATE index_task
+    SET payload = ?
+    WHERE id = ? AND started_at IS NOT NULL AND done_at IS NULL`).run(
+    retryPayload({ ...state, failureCount, lastError: error }),
+    task.id,
+  );
+  return failureCount;
 }
 
 export async function runLibrarianPass(
@@ -790,6 +833,8 @@ export async function runLibrarianPass(
       followUpsEnqueued: dryRun ? [] : followUpTaskIds,
     };
   } catch (error) {
+    const message = errorMessage(error);
+    const failureCount = dryRun ? retryPayloadState(task.payload).failureCount : persistTaskFailure(store, task, message);
     await runLog.append({
       run_id: deps.runId,
       task_id: task.id,
@@ -797,7 +842,8 @@ export async function runLibrarianPass(
       status: "failed",
       dry_run: dryRun,
       claim: "released",
-      error: errorMessage(error),
+      error: message,
+      failure_count: failureCount,
       timings: {
         startedAt,
         endedAt: now(),
@@ -814,7 +860,13 @@ export async function runLibrarianPass(
 
 interface ClaimResult {
   task: LibrarianTaskRow;
-  split?: { children: string[]; enqueued: boolean; childPayloads: string[] };
+  split?: {
+    children: string[];
+    enqueued: boolean;
+    childPayloads: string[];
+    reason?: "split_after_failures";
+  };
+  abandoned?: { failureCount: number; lastError: string; warning: string };
 }
 
 function queuedCandidates(
@@ -966,13 +1018,86 @@ function batchedDriftPayload(payload: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-  if (!record(parsed)
-    || typeof parsed.unit !== "string"
-    || typeof parsed.unit_entity_id !== "string"
-    || !Array.isArray(parsed.subjects)) {
+  const value = record(parsed) && "task_payload" in parsed ? parsed.task_payload : parsed;
+  if (!record(value)
+    || typeof value.unit !== "string"
+    || typeof value.unit_entity_id !== "string"
+    || !Array.isArray(value.subjects)) {
     return null;
   }
-  return parsed;
+  return value;
+}
+
+function archivalFailureHalves(
+  store: KnowledgeStoreHandle,
+  payload: string,
+): unknown[] | null {
+  const state = retryPayloadState(payload);
+  const slice = parseSlicePayload(JSON.stringify(state.taskPayload));
+  if (slice === null) return null;
+  if (slice.source === "wiki") {
+    if (slice.pages.length <= 1) return null;
+    const middle = Math.ceil(slice.pages.length / 2);
+    return [slice.pages.slice(0, middle), slice.pages.slice(middle)].map((pages) => ({ source: "wiki", pages }));
+  }
+  const ids = store.db.query<{ id: string }, [string, string]>(`
+    SELECT id FROM discord_message
+    WHERE CAST(id AS INTEGER) BETWEEN CAST(? AS INTEGER) AND CAST(? AS INTEGER)
+    ORDER BY CAST(id AS INTEGER), id
+  `).all(slice.from_id, slice.to_id).map(({ id }) => id);
+  if (ids.length <= 1) return null;
+  const middle = Math.ceil(ids.length / 2);
+  return [ids.slice(0, middle), ids.slice(middle)].map((chunk) => ({
+    source: "discord",
+    channel_id: slice.channel_id,
+    from_id: chunk[0]!,
+    to_id: chunk.at(-1)!,
+    count: chunk.length,
+  }));
+}
+
+function splitAfterFailures(
+  store: KnowledgeStoreHandle,
+  task: LibrarianTaskRow,
+  doneAt: string,
+  dryRun: boolean,
+): ClaimResult["split"] | null {
+  const state = retryPayloadState(task.payload);
+  if (state.failureCount < 2) return null;
+  let halves: unknown[] | null = null;
+  if (task.pathway === "drift_recheck") {
+    const payload = batchedDriftPayload(task.payload);
+    const subjects = payload?.subjects;
+    if (payload !== null && Array.isArray(subjects) && subjects.length > 1) {
+      const middle = Math.ceil(subjects.length / 2);
+      halves = [subjects.slice(0, middle), subjects.slice(middle)].map((childSubjects) => ({
+        ...payload,
+        subjects: childSubjects,
+      }));
+    }
+  } else if (task.pathway === "pr_imported") {
+    const ids = importedPrRowIds(task.payload);
+    if (ids !== null && ids.length > 1) {
+      const middle = Math.ceil(ids.length / 2);
+      halves = [ids.slice(0, middle), ids.slice(middle)];
+    }
+  } else if (task.pathway === "archival_ingest") {
+    halves = archivalFailureHalves(store, task.payload);
+  }
+  if (halves === null) return null;
+  const childPayloads = halves.map((taskPayload, index) => JSON.stringify({
+    task_payload: taskPayload,
+    failure_count: 0,
+    split_from: task.id,
+    split_index: index + 1,
+    split_total: halves.length,
+  }));
+  const split = finishTaskSplit(store, task, childPayloads, doneAt, dryRun);
+  if (split === undefined) throw new Error("failed to split librarian task after failures");
+  return {
+    ...split,
+    reason: "split_after_failures",
+  };
 }
 
 /** Split oversized archival, imported-PR, and batched drift tasks before any model pass. */
@@ -983,7 +1108,7 @@ function splitOversizedTask(
   dryRun: boolean,
 ): ClaimResult["split"] | null {
   if (task.pathway === "archival_ingest") {
-    const slice = parseSlicePayload(task.payload);
+    const slice = parseSlicePayload(JSON.stringify(retryPayloadState(task.payload).taskPayload));
     if (slice === null) return null;
     const children = splitSlicePayload(store, slice);
     return children.length === 0 ? null : finishTaskSplit(store, task, children, doneAt, dryRun);
@@ -991,7 +1116,7 @@ function splitOversizedTask(
   if (task.pathway === "drift_recheck") {
     const payload = batchedDriftPayload(task.payload);
     const subjects = payload?.subjects;
-    if (!Array.isArray(subjects) || subjects.length <= DRIFT_RECHECK_CHILD_SIZE) return null;
+    if (payload === null || !Array.isArray(subjects) || subjects.length <= DRIFT_RECHECK_CHILD_SIZE) return null;
     const chunks = Array.from(
       { length: Math.ceil(subjects.length / DRIFT_RECHECK_CHILD_SIZE) },
       (_, index) => subjects.slice(
@@ -1050,6 +1175,22 @@ export function claimNextLibrarianTask(
         continue;
       }
       const task: LibrarianTaskRow = { ...candidate, started_at: claimedAt };
+      const failureState = retryPayloadState(task.payload);
+      if (failureState.failureCount >= 2) {
+        const failureSplit = splitAfterFailures(store, task, claimedAt, options.dryRun === true);
+        if (failureSplit !== null) return { task, split: failureSplit };
+        const lastError = failureState.lastError ?? "unknown error";
+        const warning = `abandoned after ${failureState.failureCount} failures: ${lastError}`;
+        if (options.dryRun === true) {
+          releaseIndexTask(store, task.id);
+        } else {
+          completeIndexTask(store, task.id, claimedAt);
+        }
+        return {
+          task,
+          abandoned: { failureCount: failureState.failureCount, lastError, warning },
+        };
+      }
       const split = splitOversizedTask(store, task, claimedAt, options.dryRun === true);
       if (split === null) return { task };
       return { task, split };
@@ -1114,6 +1255,7 @@ export async function runLibrarianConsumer(
   let itemsRejected = 0;
   let itemsSkipped = 0;
   let passesFailed = 0;
+  let passesAbandoned = 0;
   const failedTaskIds: string[] = [];
   let tasksSplit = 0;
   let childrenEnqueued = 0;
@@ -1167,6 +1309,37 @@ export async function runLibrarianConsumer(
       }
       selectedTaskClaimed = true;
       seen.add(claimed.task.id);
+      if (claimed.abandoned !== undefined) {
+        passesAbandoned += 1;
+        const artifactPath = resolve(
+          librarianRunDirectory(options.globals.stateDir, options.runId),
+          `${taskSlug(claimed.task.id)}.json`,
+        );
+        const artifact = {
+          run_id: options.runId,
+          task: claimed.task,
+          status: "abandoned",
+          dry_run: dryRun,
+          failure_count: claimed.abandoned.failureCount,
+          last_error: claimed.abandoned.lastError,
+          warning: claimed.abandoned.warning,
+        };
+        await mkdir(resolve(artifactPath, ".."), { recursive: true });
+        await writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+        await runLog.append({
+          run_id: options.runId,
+          task_id: claimed.task.id,
+          pathway: claimed.task.pathway,
+          status: "abandoned",
+          dry_run: dryRun,
+          claim: dryRun ? "released" : "completed",
+          failure_count: claimed.abandoned.failureCount,
+          last_error: claimed.abandoned.lastError,
+          warning: claimed.abandoned.warning,
+          artifact_path: artifactPath,
+        });
+        continue;
+      }
       if (claimed.split !== undefined) {
         tasksSplit += 1;
         if (claimed.split.enqueued) childrenEnqueued += claimed.split.children.length;
@@ -1186,7 +1359,9 @@ export async function runLibrarianConsumer(
           status: "split",
           dry_run: dryRun,
           claim: claimed.split.enqueued ? "completed" : "released",
-          note: claimed.task.pathway === "pr_imported"
+          note: claimed.split.reason === "split_after_failures"
+            ? "split_after_failures"
+            : claimed.task.pathway === "pr_imported"
             ? claimed.split.enqueued
               ? `oversized imported PR task split into ${claimed.split.children.length} child tasks; parent completed without a model pass`
               : `dry run: oversized imported PR task would split into ${claimed.split.children.length} child tasks; nothing enqueued, parent released`
@@ -1259,6 +1434,7 @@ export async function runLibrarianConsumer(
     itemsRejected,
     itemsSkipped,
     passesFailed,
+    passesAbandoned,
     failedTaskIds,
     tasksSplit,
     childrenEnqueued,

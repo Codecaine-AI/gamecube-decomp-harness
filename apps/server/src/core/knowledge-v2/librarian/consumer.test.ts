@@ -1154,6 +1154,121 @@ describe("runLibrarianPass", () => {
 });
 
 describe("runLibrarianConsumer", () => {
+  test("splits a batched drift task on the third claim after two model failures", async () => {
+    const f = fixture("failure-split", 4);
+    const id = "task:drift_recheck:failure-split";
+    const subjects = Array.from({ length: 4 }, (_, index) => ({
+      target_id: `target-${index + 1}`,
+      drifted: 1,
+      unresolvable: 0,
+    }));
+    enqueueIndexTask(f.store, {
+      id,
+      pathway: "drift_recheck",
+      payload: JSON.stringify({ unit: "unit", unit_entity_id: "unit-main", reason: "drift", subjects }),
+      enqueuedAt: "2026-08-01T00:00:00.000Z",
+    });
+    let modelCalls = 0;
+
+    for (let failure = 1; failure <= 2; failure += 1) {
+      const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+      await expect(runLibrarianPass(f.store, claimed, {
+        runId: `failure-split-${failure}`,
+        globals: f.globals,
+        sharedWriteGate: createSharedGate(),
+        runPiAgent: async () => {
+          modelCalls += 1;
+          throw new Error(`upstream unavailable ${failure}`);
+        },
+        now: () => FIXED_NOW,
+      })).rejects.toThrow(`upstream unavailable ${failure}`);
+      expect(JSON.parse(taskRow(f.store, id).payload)).toMatchObject({
+        failure_count: failure,
+        last_error: `upstream unavailable ${failure}`,
+      });
+    }
+
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+    expect(modelCalls).toBe(2);
+    expect(claimed?.split?.children).toEqual([`${id}/1`, `${id}/2`]);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    const children = [`${id}/1`, `${id}/2`].map((childId) => taskRow(f.store, childId));
+    expect(children.map((child) => child.enqueued_at)).toEqual([
+      "2026-08-01T00:00:00.000Z",
+      "2026-08-01T00:00:00.000Z",
+    ]);
+    expect(children.map((child) => JSON.parse(child.payload))).toEqual([
+      expect.objectContaining({
+        task_payload: expect.objectContaining({ subjects: subjects.slice(0, 2) }),
+        failure_count: 0,
+      }),
+      expect.objectContaining({
+        task_payload: expect.objectContaining({ subjects: subjects.slice(2) }),
+        failure_count: 0,
+      }),
+    ]);
+  });
+
+  test("abandons a single-subject task on the third claim and counts it in the summary", async () => {
+    const f = fixture("failure-abandon", 1);
+    const id = "task:drift_recheck:failure-abandon";
+    enqueueIndexTask(f.store, {
+      id,
+      pathway: "drift_recheck",
+      payload: JSON.stringify({
+        unit: "unit",
+        unit_entity_id: "unit-main",
+        reason: "drift",
+        subjects: [{ target_id: "target-1", drifted: 1, unresolvable: 0 }],
+      }),
+      enqueuedAt: FIXED_NOW,
+    });
+
+    for (let failure = 1; failure <= 2; failure += 1) {
+      const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+      await expect(runLibrarianPass(f.store, claimed, {
+        runId: `failure-abandon-${failure}`,
+        globals: f.globals,
+        sharedWriteGate: createSharedGate(),
+        runPiAgent: async () => { throw new Error(`context limit ${failure}`); },
+        now: () => FIXED_NOW,
+      })).rejects.toThrow(`context limit ${failure}`);
+    }
+
+    let modelCalls = 0;
+    const summary = await runLibrarianConsumer(f.store, {
+      runId: "failure-abandon-third",
+      globals: f.globals,
+      concurrency: 1,
+      runPiAgent: () => {
+        modelCalls += 1;
+        return modelResult(emptyProposal);
+      },
+      now: () => FIXED_NOW,
+    });
+
+    const warning = "abandoned after 2 failures: context limit 2";
+    expect(modelCalls).toBe(0);
+    expect(summary).toMatchObject({ passesRun: 0, passesAbandoned: 1, tasksRemaining: 0 });
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
+    expect(rowCount(f.store, "subject_index_state")).toBe(0);
+    expect(logEntries(f, "failure-abandon-third")).toEqual([
+      expect.objectContaining({ task_id: id, status: "abandoned", warning }),
+    ]);
+    const artifactPath = join(
+      f.stateDir,
+      "knowledge_v2",
+      "librarian",
+      "failure-abandon-third",
+      "task-drift-recheck-failure-abandon.json",
+    );
+    expect(JSON.parse(readFileSync(artifactPath, "utf8"))).toMatchObject({
+      task: expect.objectContaining({ id }),
+      status: "abandoned",
+      warning,
+    });
+  });
+
   test("drains the queue in order, splitting the oversized slice, and reports the summary", async () => {
     const f = fixture("drain", 2);
     const range = insertDiscordMessages(f.store, 50);
@@ -1192,6 +1307,7 @@ describe("runLibrarianConsumer", () => {
       passesApplied: 4,
       itemsApplied: 2,
       passesFailed: 0,
+      passesAbandoned: 0,
       tasksSplit: 1,
       childrenEnqueued: 2,
       tasksRemaining: 0,
