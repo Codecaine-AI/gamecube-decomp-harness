@@ -8,7 +8,7 @@
 - `apps/server/src/core/orchestrator-state/storage/migrations/migrations.test.ts` — validates fresh/upgrade/idempotent migration 017 behavior and constraints.
 - `apps/server/src/core/knowledge/background/index.ts` — durable enqueue, catch-up, fenced claim/transition, shared processing seam, summary query, and always-on processor loop.
 - `apps/server/src/core/knowledge/background/background.test.ts` — enqueue/catch-up, fencing/shared trigger, summary, failure, and retry coverage.
-- `apps/server/src/core/knowledge/jobs/librarian.ts` — exposes librarian publication digest/provenance for programmatic queue processing; ledger record IDs preserve retry idempotency.
+- `apps/server/src/core/knowledge/jobs/attempt-record.ts` — exposes attempt-record digest/provenance for programmatic queue processing; ledger record IDs preserve retry idempotency.
 - `apps/server/src/core/session-runtime/run-state/worker-state.ts` — enqueues completed worker evidence inside the existing `closeWorkerState` transaction.
 - `apps/server/src/core/session-runtime/run-state/worker-state-lease.test.ts` — proves re-close exactly-once behavior and rollback when enqueue fails.
 - `apps/server/src/core/session-runtime/phases/running/scheduler/run-loop.ts` — constructs the background processor unconditionally, removes the opt-in worker-finish spawn path, and drains the processor before closing storage.

@@ -28,7 +28,7 @@ The operator sync's per-PR processor is private to `sync/runtime.ts` and its exp
 
 ## Librarian Ledger Append
 
-The ledger contract and writer are in `apps/server/src/core/knowledge/ledger.ts`. `defaultLedgerPath(gameId)` resolves to `games/<game>/knowledge/ledger/learnings.jsonl`, and `appendLearnings` validates defaults, deduplicates by stable ID, sorts, and rewrites the JSONL. `kgLibrarianCondense` uses this same function in `apps/server/src/core/knowledge/jobs/librarian.ts`.
+The ledger contract and writer are in `apps/server/src/core/knowledge/ledger.ts`. `defaultLedgerPath(gameId)` resolves to `games/<game>/knowledge/ledger/learnings.jsonl`, and `appendLearnings` validates defaults, deduplicates by stable ID, sorts, and rewrites the JSONL. The shared attempt-record helpers are in `apps/server/src/core/knowledge/jobs/attempt-record.ts`.
 
 The boundary cannot run agents. It should construct deterministic `LearningRecord` values and call `appendLearnings` directly. Each displacement record must identify the target key, symbol and file, prior local match or improvement and score, upstream SHA, and verdict `overridden_by_upstream_requeued`. Dry-run planning must construct and print these records without calling the writer. Stable IDs based on target key and upstream SHA make retries idempotent.
 

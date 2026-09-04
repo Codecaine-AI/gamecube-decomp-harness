@@ -6,8 +6,8 @@ import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowle
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
   loadWorkerCondenseInput,
-  type LibrarianWorkerCondenseInput,
-} from "@server/core/knowledge/jobs/librarian.js";
+  type AttemptRecordWorkerCondenseInput,
+} from "@server/core/knowledge/jobs/attempt-record.js";
 import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { runMeleeKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
@@ -102,7 +102,7 @@ export interface RenarrateRunOptions {
   workerStateId?: string;
   timeoutMs?: number;
   runPiAgent?: typeof realRunPiAgent;
-  loadCondenseInput?: (workerStateId: string) => LibrarianWorkerCondenseInput;
+  loadCondenseInput?: (workerStateId: string) => AttemptRecordWorkerCondenseInput;
   now?: () => string;
   clockMs?: () => number;
 }
@@ -192,7 +192,7 @@ function updateRows(submissions: StoredSubmissionRow[], narrative: WorkerSummary
 async function modelNarrative(
   row: RenarratePopulationRow,
   submissions: StoredSubmissionRow[],
-  input: LibrarianWorkerCondenseInput,
+  input: AttemptRecordWorkerCondenseInput,
   options: RenarrateRunOptions,
 ): Promise<WorkerSummaryNarrative> {
   const timeoutMs = options.timeoutMs
@@ -327,7 +327,7 @@ export async function runRenarratePass(
     });
   }
 
-  let input: LibrarianWorkerCondenseInput;
+  let input: AttemptRecordWorkerCondenseInput;
   const contextStarted = clockMs();
   try {
     input = (options.loadCondenseInput

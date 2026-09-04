@@ -6,7 +6,7 @@ import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { addPiSession, type StateStore } from "@server/core/cycle-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 
-export interface LibrarianWorkerStateRow extends AttemptWorkerStateRow {
+export interface AttemptRecordWorkerStateRow extends AttemptWorkerStateRow {
   run_id: string;
   epoch_id: string;
   epoch_target_id: string;
@@ -20,7 +20,7 @@ export interface LibrarianWorkerStateRow extends AttemptWorkerStateRow {
   error_summary: string | null;
 }
 
-export interface LibrarianCheckpointRow extends AttemptCheckpointRow {
+export interface AttemptRecordCheckpointRow extends AttemptCheckpointRow {
   kind: "checkpoint";
   hard_gates_passed: number | boolean;
   selectable: number | boolean;
@@ -37,18 +37,18 @@ interface PiSessionTranscriptRow {
   status: string;
 }
 
-export interface LibrarianTranscript {
+export interface AttemptRecordTranscript {
   kind: "transcript_span";
   session_id: string;
   path: string | null;
   exists: boolean;
 }
 
-export interface LibrarianWorkerCondenseInput {
+export interface AttemptRecordWorkerCondenseInput {
   worker_state: Record<string, unknown> & AttemptWorkerStateRow;
-  checkpoints: LibrarianCheckpointRow[];
+  checkpoints: AttemptRecordCheckpointRow[];
   attempt: ReturnType<typeof buildAttemptRecord>;
-  transcripts: LibrarianTranscript[];
+  transcripts: AttemptRecordTranscript[];
 }
 
 function nonEmptyString(value: unknown): string | undefined {
@@ -68,7 +68,7 @@ function parseSessionIds(value: unknown): string[] {
   }
 }
 
-export function recordLibrarianSession(
+export function recordAttemptSession(
   store: StateStore,
   globals: GlobalArgs,
   runId: string,
@@ -89,7 +89,7 @@ export function recordLibrarianSession(
   });
 }
 
-export function loadWorkerCondenseInput(db: Database, workerStateId: string): LibrarianWorkerCondenseInput {
+export function loadWorkerCondenseInput(db: Database, workerStateId: string): AttemptRecordWorkerCondenseInput {
   const [workerRow] = db
     .query(
       `
@@ -102,7 +102,7 @@ export function loadWorkerCondenseInput(db: Database, workerStateId: string): Li
         WHERE id = ?
       `,
     )
-    .all(workerStateId) as LibrarianWorkerStateRow[];
+    .all(workerStateId) as AttemptRecordWorkerStateRow[];
   if (!workerRow) throw new Error(`Worker state not found: ${workerStateId}`);
 
   const rawCheckpointRows = db
@@ -118,13 +118,13 @@ export function loadWorkerCondenseInput(db: Database, workerStateId: string): Li
         ORDER BY attempt_index ASC, validation_time ASC
       `,
     )
-    .all(workerStateId) as Omit<LibrarianCheckpointRow, "kind">[];
-  const checkpointRows: LibrarianCheckpointRow[] = rawCheckpointRows.map((row) => ({
+    .all(workerStateId) as Omit<AttemptRecordCheckpointRow, "kind">[];
+  const checkpointRows: AttemptRecordCheckpointRow[] = rawCheckpointRows.map((row) => ({
     kind: "checkpoint",
     ...row,
   }));
 
-  const transcripts: LibrarianTranscript[] = parseSessionIds(workerRow.worker_session_ids_json).map((sessionId) => {
+  const transcripts: AttemptRecordTranscript[] = parseSessionIds(workerRow.worker_session_ids_json).map((sessionId) => {
     const [sessionRow] = db
       .query("SELECT session_id, session_file, role, status FROM pi_sessions WHERE session_id = ?")
       .all(sessionId) as PiSessionTranscriptRow[];

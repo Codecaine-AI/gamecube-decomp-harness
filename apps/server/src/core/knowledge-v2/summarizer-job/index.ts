@@ -6,8 +6,8 @@ import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowle
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
   loadWorkerCondenseInput,
-  type LibrarianCheckpointRow,
-} from "@server/core/knowledge/jobs/librarian.js";
+  type AttemptRecordCheckpointRow,
+} from "@server/core/knowledge/jobs/attempt-record.js";
 import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
 import {
   claimNextJob,
@@ -187,7 +187,7 @@ export function narrativeSubmissionsById(
   return rowsById;
 }
 
-function sourceCheckpoint(row: LibrarianCheckpointRow): AttemptSourceCheckpoint | null {
+function sourceCheckpoint(row: AttemptRecordCheckpointRow): AttemptSourceCheckpoint | null {
   if (typeof row.new_score !== "number") return null;
   return {
     id: row.id,

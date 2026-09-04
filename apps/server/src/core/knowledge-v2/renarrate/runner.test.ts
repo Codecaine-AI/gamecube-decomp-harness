@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import type { LibrarianWorkerCondenseInput } from "@server/core/knowledge/jobs/librarian.js";
+import type { AttemptRecordWorkerCondenseInput } from "@server/core/knowledge/jobs/attempt-record.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { runRenarrate, selectRenarratePopulation, type RenarrateRunOptions } from "./runner.js";
@@ -87,11 +87,11 @@ function modelResult(value: unknown): ReturnType<NonNullable<RenarrateRunOptions
   });
 }
 
-function input(transcriptPath: string): LibrarianWorkerCondenseInput {
+function input(transcriptPath: string): AttemptRecordWorkerCondenseInput {
   return {
-    worker_state: {} as LibrarianWorkerCondenseInput["worker_state"],
+    worker_state: {} as AttemptRecordWorkerCondenseInput["worker_state"],
     checkpoints: [],
-    attempt: {} as LibrarianWorkerCondenseInput["attempt"],
+    attempt: {} as AttemptRecordWorkerCondenseInput["attempt"],
     transcripts: [{ kind: "transcript_span", session_id: "session", path: transcriptPath, exists: true }],
   };
 }

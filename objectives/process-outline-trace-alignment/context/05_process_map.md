@@ -122,7 +122,7 @@ Round 2 is pending:
 | Graph rebuild | `jobs/kg.ts:258` | CLI + boundary + review | Yes | yes | No |
 | Opseq/siblings builders | `graph/builders/*` | rebuild | Yes | yes | No |
 | Crosswalk | `no builder exists (tools only)` | design only | MISMATCH (design-only outline) | no | No |
-| Librarian condense | `jobs/librarian.ts:324` | job handler + CLI | Yes | yes | No |
+| Attempt record | `jobs/attempt-record.ts` | shared attempt-record helpers | Yes | yes | No |
 | Librarian corroborate | `jobs/librarian-corroborate.ts:172` | CLI | Yes | yes | No |
 | Librarian backfill | `jobs/librarian-backfill.ts:599` | CLI one-shot | Partial (Discord input doc has no outline) | partial | No |
 | PR indexer agent | `jobs/kg.ts:527` | CLI + prepare + review | Yes | yes | No |
