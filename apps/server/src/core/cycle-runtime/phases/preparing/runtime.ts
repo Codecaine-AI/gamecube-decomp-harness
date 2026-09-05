@@ -327,13 +327,15 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
         if (result.exitCode !== 0) {
           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
         }
+        const activeRunId = latestRunId(init.stateDir);
+        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
         const boundaryCommit = await withDispatchLease(
           init,
           {
             kind: "run",
             gameId: gameIdFromContext(gamePaths, body),
             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
+            workflowId: activeRunId,
           },
           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
             message: "boundary(init): initialize run",
@@ -348,7 +350,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
           "init",
           cycle.cycleUuid,
         );
-        const activeRunId = latestRunId(init.stateDir);
         const payload = {
           game: init.game ? deps.gameToSummary(init.game) : null,
           command,

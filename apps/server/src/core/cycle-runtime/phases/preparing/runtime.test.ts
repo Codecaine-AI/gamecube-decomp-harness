@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -6,7 +6,8 @@ import {
   createNewCycle,
   updatePreparingSubphase,
 } from "@server/core/cycle-runtime";
-import { openState } from "@server/core/cycle-runtime/run-state";
+import { createRun, openState } from "@server/core/cycle-runtime/run-state";
+import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
 import type {
   PreparingRuntimeDeps,
   PreparingRuntimeGameContext,
@@ -139,6 +140,78 @@ describe("preparing runtime baseline", () => {
       const repoRootFlag = result.command.indexOf("--repo-root");
       expect(result.repoRoot).toBe(cycleCurrentWorktreePath);
       expect(result.command[repoRootFlag + 1]).toBe(cycleCurrentWorktreePath);
+    }
+  });
+
+  test("leases the created run id before committing the init boundary", async () => {
+    const root = tempDir();
+    const stateDir = resolve(root, "state");
+    const repoRoot = resolve(root, "repo");
+    const store = openState(stateDir);
+    try {
+      createNewCycle(store.db, {
+        actor: "operator",
+        id: "cycle:cycle-uuid",
+        gameId: "melee",
+        cycleUuid: "cycle-uuid",
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const paths: PreparingRuntimeGameContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      game: {
+        gameId: "melee",
+        dashboard: {},
+      } as PreparingRuntimeGameContext["game"],
+      repoRoot,
+      stateDir,
+    };
+    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
+    const savePoint = { id: "save-point-init" };
+    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
+    let createdRunId = "";
+    const runtime = createPreparingRuntime({
+      boundarySavePoint: async () => savePoint,
+      gameToSummary: () => ({ gameId: "melee" }),
+      resolveDashboardGame: () => paths,
+      runCli: async () => {
+        const runStore = openState(stateDir);
+        try {
+          createdRunId = createRun(
+            runStore,
+            "matched_code_percent",
+            100,
+            1,
+            { gameId: "melee", repoRoot, stateDir },
+            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
+          ).id;
+        } finally {
+          runStore.db.close();
+        }
+        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
+      },
+      serverJobPath: resolve(root, "job-runner.ts"),
+      submitWorkflowEvent: async () => null,
+    } as unknown as PreparingRuntimeDeps);
+
+    try {
+      const result = await runtime.initRun({});
+
+      expect(lease).toHaveBeenCalledTimes(1);
+      expect(lease.mock.calls[0]?.[1]).toMatchObject({
+        kind: "run",
+        workflowId: createdRunId,
+      });
+      expect(createdRunId).not.toStartWith("run-init:");
+      expect(result).toMatchObject({
+        activeRunId: createdRunId,
+        boundaryCommit,
+        savePoint,
+      });
+    } finally {
+      lease.mockRestore();
     }
   });
 
