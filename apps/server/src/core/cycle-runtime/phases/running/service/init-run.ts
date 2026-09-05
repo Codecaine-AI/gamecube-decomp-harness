@@ -10,7 +10,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
   try {
     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
     const goalValue = numberArg(args, "--goal-value", globals.game?.dashboard.goalValue ?? 70);
-    const desiredWorkers = numberArg(args, "--desired-workers", 16);
+    const desiredWorkers = numberArg(args, "--desired-workers", 12);
     const epochTargetCap = args.has("--epoch-target-cap")
       ? Math.max(0, Math.floor(numberArg(args, "--epoch-target-cap", 0)))
       : null;

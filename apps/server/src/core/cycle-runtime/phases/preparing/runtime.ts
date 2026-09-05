@@ -103,7 +103,7 @@ function activeCycleOrNull(paths: PreparingRuntimeGameContext, body: JsonObject)
 
 function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefined): JsonObject {
   return {
-    workerCount: numberValue(body.maxWorkers, 16),
+    workerCount: numberValue(body.maxWorkers, 12),
     agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
     sandboxProfile: stringValue(body.sandboxProfile),
   };
@@ -143,9 +143,9 @@ function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command
     "--provider",
     stringValue(body.provider, "codex-lb"),
     "--model",
-    stringValue(body.model, "gpt-5.6-sol"),
+    stringValue(body.model, "gpt-6-astra"),
     "--thinking-level",
-    stringValue(body.thinkingLevel, "xhigh"),
+    stringValue(body.thinkingLevel, "medium"),
     "--agent-timeout-seconds",
     String(numberValue(body.agentTimeoutSeconds, numberValue(game?.dashboard.agentTimeoutSeconds, 1800))),
     ...(sandboxProfile ? ["--sandbox-profile", sandboxProfile] : []),

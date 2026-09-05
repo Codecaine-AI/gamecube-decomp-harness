@@ -7,7 +7,7 @@ import { tools } from "./tools.js";
 export const agent = defineHarnessAgent({
   name: "worker",
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
-  model: "codex-lb/gpt-5.6-sol",
+  model: "codex-lb/gpt-6-astra",
   coreTools: [
       "knowledge_record",
       "pr_search",
@@ -41,7 +41,7 @@ export const agent = defineHarnessAgent({
   canSpawnSubagent: false,
   variables: {},
   runInBackground: false,
-  thinking: "xhigh",
+  thinking: "medium",
   prompt,
   context,
   tools,

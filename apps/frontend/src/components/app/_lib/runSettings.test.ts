@@ -15,17 +15,28 @@ Object.defineProperty(globalThis, "localStorage", {
 beforeEach(() => savedSettings.clear());
 
 describe("run settings", () => {
-  test("defaults worker reasoning to low", () => {
-    expect(initialForm().thinkingLevel).toBe("low");
+  test("defaults workers to Astra with medium reasoning and 12 slots", () => {
+    expect(initialForm()).toMatchObject({
+      maxWorkers: 12,
+      model: "gpt-6-astra",
+      thinkingLevel: "medium",
+    });
   });
 
-  test("drops a saved xhigh thinking level from an old settings version", () => {
+  test("drops worker settings from the previous defaults version", () => {
     localStorage.setItem("runSettings.v1", JSON.stringify({
+      maxWorkers: 16,
+      model: "gpt-5.6-sol",
       thinkingLevel: "xhigh",
-      thinkingLevelVersion: 2,
+      thinkingLevelVersion: 3,
+      settingsVersion: 6,
     }));
 
-    expect(initialForm().thinkingLevel).toBe("low");
+    expect(initialForm()).toMatchObject({
+      maxWorkers: 12,
+      model: "gpt-6-astra",
+      thinkingLevel: "medium",
+    });
   });
 });
 

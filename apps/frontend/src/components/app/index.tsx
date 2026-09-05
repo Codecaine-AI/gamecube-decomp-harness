@@ -27,7 +27,7 @@ import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 3;
-const DEFAULT_THINKING_LEVEL = "xhigh";
+const DEFAULT_THINKING_LEVEL = "medium";
 
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live

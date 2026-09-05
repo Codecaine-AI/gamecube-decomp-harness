@@ -43,10 +43,10 @@ describe("process control runtime", () => {
           epoch_configure_command: "",
           goal_kind: "matched_code_percent",
           goal_value: 100,
-          model: "gpt-5.6-sol",
+          model: "gpt-6-astra",
           provider: "codex-lb",
           sandbox_profile: "",
-          thinking_level: "xhigh",
+          thinking_level: "medium",
           worker_configure_command: "",
         },
       },
@@ -103,11 +103,11 @@ describe("process control runtime", () => {
       agentTimeoutSeconds: 1800,
       goalValue: 100,
       maxWorkers: 4,
-      model: "gpt-5.6-sol",
+      model: "gpt-6-astra",
       gameId: "melee",
       provider: "codex-lb",
       runId: run.id,
-      thinkingLevel: "xhigh",
+      thinkingLevel: "medium",
     });
     const payload = (await response.json()) as { command: string[]; leaseId: string };
     const repoRootFlag = payload.command.indexOf("--repo-root");
@@ -167,9 +167,9 @@ describe("process control runtime", () => {
           epoch_configure_command: "",
           goal_kind: "matched_code_percent",
           goal_value: 100,
-          model: "gpt-5.6-sol",
+          model: "gpt-6-astra",
           provider: "codex-lb",
-          thinking_level: "xhigh",
+          thinking_level: "medium",
           worker_configure_command: "",
         },
       },
@@ -238,7 +238,7 @@ describe("process control runtime", () => {
   test("starts a managed process with a clean environment", async () => {
     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
     const store = openState(stateDir);
-    const run = createRun(store, "matched_code_percent", 100, 16, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
+    const run = createRun(store, "matched_code_percent", 100, 12, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
     store.db.close();
     let spawned: StartManagedInput | null = null;
     const processController = {
@@ -289,11 +289,15 @@ describe("process control runtime", () => {
     const response = await runtime.startManagedProcess({
       gameId: "melee",
       runId: run.id,
-      maxWorkers: 16,
+      maxWorkers: 12,
     });
 
     expect(response.status).toBe(200);
     expect((spawned as StartManagedInput | null)?.env).toBeUndefined();
+    const command = (spawned as StartManagedInput | null)?.command ?? [];
+    expect(command.slice(command.indexOf("--model"), command.indexOf("--model") + 2)).toEqual(["--model", "gpt-6-astra"]);
+    expect(command.slice(command.indexOf("--thinking-level"), command.indexOf("--thinking-level") + 2)).toEqual(["--thinking-level", "medium"]);
+    expect(command.slice(command.indexOf("--max-workers"), command.indexOf("--max-workers") + 2)).toEqual(["--max-workers", "12"]);
   });
 
   test("keeps the operator actor across start action spawn-failure compensation", async () => {

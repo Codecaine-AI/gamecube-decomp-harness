@@ -4,13 +4,13 @@ import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
 const RUN_SETTINGS_KEY = "runSettings.v1";
 const THINKING_LEVEL_SETTINGS_VERSION = 3;
 // Bump to invalidate saved maxWorkers/model/syncIngestConcurrency when their defaults change.
-const RUN_SETTINGS_VERSION = 6;
-const DEFAULT_THINKING_LEVEL = "low";
+const RUN_SETTINGS_VERSION = 7;
+const DEFAULT_THINKING_LEVEL = "medium";
 
-export const RUN_MODEL_OPTIONS = ["gpt-5.6-sol", "gpt-5.6-terra"] as const;
+export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
 
 export function schedulingForWorkers(workers: number) {
-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
+  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
   return {
     maxWorkers,
   };
@@ -61,14 +61,17 @@ function loadRunSettings(): Partial<SavedRunSettings> {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const settings: Partial<SavedRunSettings> = {};
     // Saved values written before the current settings version predate the
-    // 12-worker/gpt-5.6-sol/16-way sync-ingest defaults; drop them so the new
+    // gpt-6-astra and medium-thinking worker defaults. Drop them so the new
     // defaults win until the user saves again.
     const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
     if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
     if (parsed.provider === "codex-lb") settings.provider = parsed.provider;
-    if (currentVersion && (parsed.model === "gpt-5.6-sol" || parsed.model === "gpt-5.6-terra")) settings.model = parsed.model;
+    if (currentVersion && typeof parsed.model === "string") {
+      const model = parsed.model;
+      if (RUN_MODEL_OPTIONS.some((option) => option === model)) settings.model = model;
+    }
     if (currentVersion && (parsed.sandboxProfile === "2-core" || parsed.sandboxProfile === "4-core")) settings.sandboxProfile = parsed.sandboxProfile;
-    if (typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
+    if (currentVersion && typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
       settings.thinkingLevel =
         parsed.thinkingLevelVersion !== THINKING_LEVEL_SETTINGS_VERSION
           ? DEFAULT_THINKING_LEVEL
@@ -129,7 +132,7 @@ const defaultForm: FormState = {
   ...schedulingForWorkers(12),
   goalValue: 100,
   provider: "codex-lb",
-  model: "gpt-5.6-sol",
+  model: "gpt-6-astra",
   sandboxProfile: "2-core",
   thinkingLevel: DEFAULT_THINKING_LEVEL,
   agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,

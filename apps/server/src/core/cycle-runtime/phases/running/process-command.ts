@@ -206,7 +206,7 @@ export function runningProcessConfigurationConflicts(
 export function runningScheduling(maxWorkersValue: unknown): {
   maxWorkers: number;
 } {
-  const maxWorkers = intValue(maxWorkersValue, 16, 1);
+  const maxWorkers = intValue(maxWorkersValue, 12, 1);
   return {
     maxWorkers,
   };

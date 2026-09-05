@@ -263,6 +263,8 @@ describe("meleeKernelAgentCatalog", () => {
   test("describes worker output as a runner validation submission in the catalog", () => {
     const worker = meleeKernelAgent("worker");
 
+    expect(worker.model).toBe("codex-lb/gpt-6-astra");
+    expect(worker.thinking).toBe("medium");
     expect(worker.resultContract.notes).toContain("submission note");
     expect(worker.resultContract.notes).not.toContain("handoff");
     expect(worker.resultContract.notes).not.toContain("checkpoint note");

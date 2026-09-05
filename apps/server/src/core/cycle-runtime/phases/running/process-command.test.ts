@@ -18,10 +18,10 @@ function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
       epoch_configure_command: "",
       goal_kind: "matched_code_percent",
       goal_value: 100,
-      model: "gpt-5.6-sol",
+      model: "gpt-6-astra",
       provider: "codex-lb",
       sandbox_profile: "2-core",
-      thinking_level: "xhigh",
+      thinking_level: "medium",
       worker_configure_command: "",
       ...configuration,
     },
@@ -33,10 +33,13 @@ describe("running process command", () => {
     expect(runningScheduling(8)).toEqual({
       maxWorkers: 8,
     });
+    expect(runningScheduling(undefined)).toEqual({
+      maxWorkers: 12,
+    });
   });
 
   test("returns a typed blocker for request options that conflict with the stored snapshot", () => {
-    const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
+    const inputs = runInputs({ desired_workers: 4, model: "gpt-6-astra" });
 
     expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
       .toEqual([
@@ -46,7 +49,7 @@ describe("running process command", () => {
           stored: 4,
           blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
         }),
-        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
+        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-6-astra" }),
         expect.objectContaining({ field: "sandboxProfile", requested: "4-core", stored: "2-core" }),
       ]);
   });
@@ -112,7 +115,7 @@ describe("running process command", () => {
     expect(plan.command).not.toContain("--ttl-seconds");
   });
 
-  test("defaults worker thinking to xhigh", () => {
+  test("uses the default medium worker thinking from the run snapshot", () => {
     const plan = buildRunningProcessCommand({
       body: {
         maxWorkers: 4,
@@ -128,7 +131,7 @@ describe("running process command", () => {
     });
 
     const thinkingFlag = plan.command.indexOf("--thinking-level");
-    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "xhigh"]);
+    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "medium"]);
   });
 
   test("forwards configure command overrides to run-loop", () => {

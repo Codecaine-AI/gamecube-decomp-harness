@@ -113,7 +113,7 @@ export function RunSetupSection({
               className={twoColumnConfigFieldClass}
               label="Thinking"
               onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })}
-              options={["xhigh", "high", "medium", "low"]}
+              options={["low", "medium", "high", "xhigh", "max"]}
               value={form.thinkingLevel}
             />
           </div>

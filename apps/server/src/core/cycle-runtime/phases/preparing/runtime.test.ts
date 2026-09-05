@@ -93,6 +93,12 @@ describe("preparing runtime baseline", () => {
     expect(option("--epoch-configure-command")).toBe("configure epoch");
     expect(repoRoot).toBe(explicitCycleRepoRoot);
     expect(option("--repo-root")).toBe(explicitCycleRepoRoot);
+
+    const defaults = runtime.initRunCommand({ cycleRepoRoot: explicitCycleRepoRoot }).command;
+    const defaultOption = (flag: string): string | undefined => defaults[defaults.indexOf(flag) + 1];
+    expect(defaultOption("--model")).toBe("gpt-6-astra");
+    expect(defaultOption("--thinking-level")).toBe("medium");
+    expect(defaultOption("--desired-workers")).toBe("12");
   });
 
   test("stages init-run from the active cycle worktree when cycleRepoRoot is empty", () => {
