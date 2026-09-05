@@ -74,28 +74,3 @@ export const WORKER_CANONICAL_TOOL_PATHS = [
     purpose: "Seeded compiler bundle used by build rules; do not search for MWCC elsewhere.",
   },
 ] as const satisfies readonly WorkerCanonicalToolPath[];
-
-function xmlAttribute(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-export function workerCanonicalToolPathsXml(
-  existingRelativePaths: ReadonlySet<string>,
-): string {
-  const lines = ["    <canonical_tool_paths>"];
-  lines.push(
-    '        <policy>Use these worker-local paths or PATH commands instead of filesystem-wide search. build/binutils and build/tools are on PATH for worker shells. Broad find roots such as /, /Users, /opt, /Applications, and upward ../../ sweeps are blocked; use narrow find only inside this worker checkout when local source discovery is needed.</policy>',
-  );
-  for (const tool of WORKER_CANONICAL_TOOL_PATHS) {
-    const command = "command" in tool ? tool.command : "";
-    lines.push(
-      `        <tool id="${xmlAttribute(tool.id)}" label="${xmlAttribute(tool.label)}" relative_path="${xmlAttribute(tool.relativePath)}" command="${xmlAttribute(command)}" exists="${existingRelativePaths.has(tool.relativePath) ? "true" : "false"}" purpose="${xmlAttribute(tool.purpose)}" />`,
-    );
-  }
-  lines.push("    </canonical_tool_paths>");
-  return lines.join("\n");
-}

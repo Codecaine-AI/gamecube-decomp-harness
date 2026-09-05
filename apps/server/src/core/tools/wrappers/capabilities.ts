@@ -50,6 +50,7 @@ interface KnowledgeApiToolDefinition {
   parameters: Record<string, unknown>;
   executionMode?: "parallel" | "sequential";
   args(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown>;
+  normalizeResult?(result: Record<string, unknown>, params: Record<string, unknown>): Record<string, unknown>;
 }
 
 const functionParameters = {
@@ -159,7 +160,8 @@ function knowledgeApiTool(definition: KnowledgeApiToolDefinition): AgentToolRegi
         async execute(_toolCallId, params) {
           const args = definition.args(params, context);
           if (!Array.isArray(args)) return jsonToolResult(definition.id, args);
-          return jsonToolResult(definition.id, await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]));
+          const result = await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]);
+          return jsonToolResult(definition.id, definition.normalizeResult?.(result, params) ?? result);
         },
       };
     },
@@ -173,7 +175,7 @@ export const mwccDebugLookupToolRegistration = specializedTool({
   scriptName: "lookup_dump.py",
   label: "MWCC Debug Lookup",
   purpose: "Look up cached MWCC compiler-shape/debug notes.",
-  description: "Query MWCC debug evidence for compiler behavior, pcdump notes, register allocation, stack/frame, local lifetime, coalescing, scheduling, and varargs/assert shapes.",
+  description: "Search cached MWCC notes about compiler behavior and code-shape patterns. Returns ranked snippets with evidence references, not evidence about the current compile. Use it after the first diff is classified and local source evidence does not explain the compiler shape.",
   guidance: "Use mwcc_debug_lookup only after lighter local/source/tool evidence stops explaining a late compiler-shape mismatch.",
 });
 
@@ -184,13 +186,13 @@ export const checkdiffRunToolRegistration = knowledgeApiTool({
   scriptName: "run.py",
   label: "Checkdiff Run",
   purpose: "Run focused checkdiff/objdiff output for one function.",
-  description: "Compile the owning translation unit through the tool-local helper and return focused checkdiff output for one function.",
+  description: "Compile the owning translation unit and compare one function with its target. Returns focused output; full_diff includes up to 24 mismatch rows with left as target and right as current, but instruction parity can hide strict relocation or data differences. Use it first, after each source edit, and for final function verification.",
   guidance: "Use checkdiff_run after a concrete source edit or mismatch hypothesis needs verifier evidence; prefer it over raw tools/asm-differ/diff.py shell commands and preserve stdout/stderr plus command provenance in the report.",
   parameters: {
     type: "object",
     properties: {
       function: { type: "string", description: "Function symbol to diff." },
-      full_diff: { type: "boolean", description: "Show matching lines instead of collapsed context." },
+      full_diff: { type: "boolean", description: "Return up to 24 mismatching rows with kind and both sides." },
       timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
     },
     required: ["function"],
@@ -212,7 +214,7 @@ export const checkdiffSummaryToolRegistration = knowledgeApiTool({
   scriptName: "summary.py",
   label: "Checkdiff Summary",
   purpose: "Run PASS/FAIL checkdiff summaries for one or more functions.",
-  description: "Compile each owning translation unit once and return checkdiff PASS/FAIL summary lines.",
+  description: "Compile the owning translation units for a list of functions and check each one. Returns PASS/FAIL summary lines, not mismatch rows or causes; nested stderr can still report unknown symbols. Use it after a target edit to check affected neighbors or batch final validation.",
   guidance: "Use checkdiff_summary for batch validation or neighbor checks when full diffs are unnecessary; prefer it over raw tools/asm-differ/diff.py shell commands.",
   parameters: functionsParameters,
   args(params, context) {
@@ -229,7 +231,7 @@ export const directCompileTuToolRegistration = knowledgeApiTool({
   scriptName: "direct_compile.py",
   label: "Direct Compile TU",
   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff.",
+  description: "Compile one translation unit selected by exactly one of `function` or `unit`, without objdiff. Returns command, status, and candidate-object metadata, but no target comparison; the object is removed unless kept. Use it after a build failure or when later diff tooling needs an object path.",
   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
   parameters: {
     type: "object",
@@ -240,17 +242,27 @@ export const directCompileTuToolRegistration = knowledgeApiTool({
     },
     additionalProperties: false,
   },
-  args(params, context) {
-    const fn = stringParam(params, "function");
-    const unit = stringParam(params, "unit");
-    if (!fn && !unit) return { status: "missing_function_or_unit" };
-    const args = ["--repo-root", context.repoRoot];
-    if (fn) args.push("--function", fn);
-    if (unit) args.push("--unit", unit);
-    if (boolParam(params, "keep_object")) args.push("--keep-object");
-    return args;
-  },
+  args: directCompileTuArgs,
+  normalizeResult: annotateIgnoredDirectCompileUnit,
 });
+
+/** Build direct-compile arguments, preferring function because it identifies the unit. */
+export function directCompileTuArgs(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown> {
+  const fn = stringParam(params, "function");
+  const unit = stringParam(params, "unit");
+  if (!fn && !unit) return { status: "missing_function_or_unit" };
+  const args = ["--repo-root", context.repoRoot];
+  if (fn) args.push("--function", fn);
+  else args.push("--unit", unit);
+  if (boolParam(params, "keep_object")) args.push("--keep-object");
+  return args;
+}
+
+/** Tell the caller when a redundant unit selector was omitted from the CLI call. */
+export function annotateIgnoredDirectCompileUnit(result: Record<string, unknown>, params: Record<string, unknown>): Record<string, unknown> {
+  if (!stringParam(params, "function") || !stringParam(params, "unit")) return result;
+  return { ...result, note: "unit was ignored because function implies the unit." };
+}
 
 /** Tool for scoring an already-built candidate object with objdiff. */
 export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
@@ -259,7 +271,7 @@ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
   scriptName: "score_candidate.py",
   label: "objdiff Score Candidate",
   purpose: "Score a known candidate object for one function against the target object.",
-  description: "Run objdiff score and percent diff for a supplied candidate object path.",
+  description: "Score an already-built candidate object for one function against the target object. Returns strict and relaxed score data and percent differences, not instruction rows, source causes, or allocator state. Use it after direct_compile_tu when you need to measure that specific candidate object.",
   guidance: "Use objdiff_score_candidate only when a candidate .o already exists; normal source edit validation should use checkdiff first.",
   parameters: {
     type: "object",
@@ -311,7 +323,7 @@ export const mwccDebugDumpFunctionToolRegistration = knowledgeApiTool({
   scriptName: "dump_function.py",
   label: "MWCC Debug Dump Function",
   purpose: "Dump function-filtered mwcc_debug pcdump evidence for one function.",
-  description: "Compile the owning translation unit with the instrumented MWCC debug compiler and return the function pcdump section.",
+  description: "Compile the owning translation unit with instrumented MWCC and extract one function's pcdump section. Returns command status and filtered compiler-pass text, not a target/current diff, and requires the debug compiler. Use it after the first diff identifies a concrete compiler-pass question.",
   guidance: "Use mwcc_debug_dump_function only after lighter evidence shows a compiler-pass question; it can be slow and requires instrumented MWCC.",
   parameters: {
     type: "object",
@@ -347,7 +359,14 @@ function mwccDiagnoseTool(id: string, label: string, mode: "stack" | "regflow" |
     scriptName: "diagnose.py",
     label,
     purpose,
-    description: `Run mwcc_diagnose.py ${mode} mode for one function.`,
+    description:
+      mode === "stack"
+        ? "Diagnose stack-frame and slot mismatches for one function. Returns target/current frame evidence, offset groups, and possible named locals, but does not prove a source-to-slot mapping or allocator cause. Use it after the first diff classifies a stack or frame residual."
+        : mode === "regflow"
+          ? "Diagnose one compact register-only mismatch window for a function. Returns operand-value and setup clues for one primary cluster, not full liveness or FPR coloring. Use it after the first diff classifies a register-only residual."
+          : mode === "inlines"
+            ? "Diagnose whether an inline or helper boundary may explain one function's mismatch. Returns mismatch, register, setup, and call-expansion clues, but cannot prove that extraction improves codegen. Use it after the first diff and other evidence point to an inline boundary."
+            : `Run mwcc_diagnose.py ${mode} mode for one function.`,
     guidance,
     parameters: {
       type: "object",
@@ -396,7 +415,7 @@ export const mwccDebugDiagnoseRegflowToolRegistration = mwccDiagnoseTool(
   "mwcc_debug_diagnose_regflow",
   "MWCC Diagnose Regflow",
   "regflow",
-  "Diagnose compact register-flow/register-coloring mismatch windows.",
+  "Return one compact register-only window; not full liveness or FPR coloring.",
   "Use mwcc_debug_diagnose_regflow for late register-only windows; do not use it as a substitute for fixing instruction sequence, calls, types, or source structure first.",
 );
 
@@ -423,8 +442,8 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
   scriptName: "run.py",
   label: "Source Permuter Run",
   purpose: "Run a bounded non-mutating source permutation search for one function.",
-  description: "Search source-level mutations, compile candidates with MWCC, and return the best diff without applying it.",
-  guidance: "Use source_permuter_run only as an expensive last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
+  description: "Search compiled source mutations in named functions without applying them. Returns the best scalar score, one source diff, and optional replay data, but no target/current instruction rows. Use it on a bounded named region after the first diff is classified, then replay and inspect the candidate with checkdiff_run.",
+  guidance: "source_permuter_run runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
   parameters: {
     type: "object",
     properties: {
@@ -442,6 +461,7 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
     additionalProperties: false,
   },
   args: sourcePermuterRunArgs,
+  normalizeResult: promoteSourcePermuterInvocationFailure,
 });
 
 /** Build source-permuter arguments with sandbox auto-parallelism and serial host fallback. */
@@ -473,6 +493,35 @@ export function sourcePermuterRunArgs(params: Record<string, unknown>, context: 
   return args;
 }
 
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function firstFailureReason(payload: Record<string, unknown>): string {
+  for (const key of ["reason", "message", "error", "error_summary", "stderr", "stdout", "parse_error"]) {
+    const value = payload[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "Source permuter could not find or parse the requested function at its source path.";
+}
+
+/** Promote source-selection failures printed by the adapter into the wrapper result. */
+export function promoteSourcePermuterInvocationFailure(result: Record<string, unknown>): Record<string, unknown> {
+  const nested = recordValue(result.parsed);
+  if (!nested || nested.status === "ok") return result;
+
+  const evidence = [nested.status, nested.reason, nested.message, nested.error, nested.error_summary, nested.stderr, nested.stdout, nested.parse_error, nested.source_path]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  const functionMissing = /function(?:_|[\s-])*not(?:_|[\s-])*found|function[^\n]*not in [^\n]*report\.json|function[^\n]*not found in/i.test(evidence);
+  const parseFailed = /(?:parse|parsing|parser)(?:_|[\s-])*(?:failure|failed|error)|(?:failure|failed|error)[^\n]*(?:parse|parsing|parser)/i.test(evidence);
+  const hasSourcePath = typeof nested.source_path === "string" || /source(?:_|[\s-])*path|[/\\]src[/\\]|\.c\b/i.test(evidence);
+  const sourceParseFailed = parseFailed && hasSourcePath;
+  if (!functionMissing && !sourceParseFailed) return result;
+
+  return { ...result, status: "failed", reason: firstFailureReason(nested) };
+}
+
 /** Tool for replaying a saved source-permutation recipe without applying it. */
 export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
   id: "source_permuter_replay",
@@ -480,8 +529,8 @@ export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
   scriptName: "replay.py",
   label: "Source Permuter Replay",
   purpose: "Replay a saved source-permutation recipe without writing source.",
-  description: "Replay a permuter recipe against current source and return the resulting candidate diff/score.",
-  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; it is an expensive last-resort tool that runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the diff before applying anything.",
+  description: "Replay a saved source-permuter recipe against current source without applying it. Returns one candidate score and source diff, not its target/current instruction delta. Use it after a promising bounded search, then run checkdiff_run to inspect the residual.",
+  guidance: "source_permuter_replay runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the source diff before applying anything.",
   parameters: {
     type: "object",
     properties: {
@@ -509,7 +558,7 @@ export const sourceMutationPreviewToolRegistration = knowledgeApiTool({
   scriptName: "preview_mutation.py",
   label: "Source Mutation Preview",
   purpose: "Preview tree-sitter source mutation passes as a unified diff.",
-  description: "Run src_mutate.py for a source path/function and return a non-compiling preview diff.",
+  description: "Preview source-mutation passes for one function without writing the file. Returns a unified source diff, but does not compile, score, or check behavior. Use it after classifying the first diff to inspect a mutation idea before spending compile time.",
   guidance: "Use source_mutation_preview to understand a mutation pass before spending compile time; verify any retained idea with source review and checkdiff.",
   parameters: {
     type: "object",
@@ -557,7 +606,7 @@ export const typeOracleLookupToolRegistration = knowledgeApiTool({
   scriptName: "inspect.py",
   label: "Type Oracle Lookup",
   purpose: "Look up clang-derived expression types for one source file.",
-  description: "Build a libclang expression-span type map and return exact or containing type rows for an expression/span.",
+  description: "Build a libclang type map for expressions and byte spans in one source file. Returns exact or containing current-source type rows, not target types, MWCC codegen, layout, or allocation evidence. Use it after the first diff and before extracting temporaries or changing pointer or value types.",
   guidance: "Use type_oracle_lookup before extracting temporaries or changing pointer/value types; rebuild after source edits because spans are byte-state-specific.",
   parameters: {
     type: "object",
@@ -623,7 +672,7 @@ export const m2cDecompileToolRegistration = knowledgeApiTool({
   scriptName: "decompile.py",
   label: "m2c Decompile",
   purpose: "Generate an m2c scaffold for a function or translation unit.",
-  description: "Run the tool-local m2c wrapper with --no-copy and return scaffold output.",
+  description: "Run m2c for a function or translation unit without copying output into source. Returns command status and a C-like scaffold, not authored source, type truth, or match evidence. Use it after the first diff when readable control-flow scaffolding would help form a source hypothesis.",
   guidance: "Use m2c_decompile as a reading aid only; formatting is best-effort, and m2c output must be naturally rewritten and verified before it becomes reviewable source.",
   parameters: {
     type: "object",
@@ -655,7 +704,7 @@ export const asmWindowSearchToolRegistration = knowledgeApiTool({
   scriptName: "window_search.py",
   label: "ASM Window Search",
   purpose: "Find matched donor functions with similar normalized instruction windows.",
-  description: "Search 32-instruction hashed-embedding windows from target objects and return the best construct-level hit per donor function.",
+  description: "Search indexed target objects for donor functions with similar 32-instruction windows. Returns ranked donor windows with fuzzy-match and embedding scores, not semantic equivalence or safe-to-copy source. Use it after the first diff isolates a construct and whole-function analogs are too broad.",
   guidance: "Use asm_window_search when a specific instruction construct needs a donor; use whole-function graph analogs first for broad similarity.",
   executionMode: "parallel",
   parameters: {
@@ -694,7 +743,7 @@ export const typeLayoutLookupToolRegistration = knowledgeApiTool({
   scriptName: "layout_lookup.py",
   label: "Type Layout Lookup",
   purpose: "Inspect flattened type layouts, union views, and cast-only overlays.",
-  description: "Query duplicate layouts, near-layout ranks, byte-aliasing union members, and build-time cast-overlay flags.",
+  description: "Query indexed record layouts, near matches, union aliases, and cast-overlay flags. Returns mode-specific layout rows, not semantic ownership, current ABI truth, MWCC codegen, or allocation evidence. Use it after the first diff and before changing a record or union type.",
   guidance: "Use type_layout_lookup before changing a record or union type when field ownership, aliasing, or cast-only overlays are unclear.",
   executionMode: "parallel",
   parameters: {
@@ -779,7 +828,7 @@ export const reviewLintScanToolRegistration = knowledgeApiTool({
   scriptName: "scan.py",
   label: "Review Lint Scan",
   purpose: "Scan source text or a file for decomp review anti-patterns.",
-  description: "Check for type-erasing casts, M2C_FIELD residue, and multiple Item*/Fighter* pointer variables in one function.",
+  description: "Scan source text or a file for configured decomp review anti-patterns. Returns findings for type-erasing casts, M2C_FIELD residue, and duplicate typed pointer variables, not proof that code is incorrect. Use it after retained edits and before reporting or final validation.",
   guidance: "Use review_lint_scan before returning edits or during PR review; treat findings as focused review prompts with source context.",
   parameters: {
     type: "object",
@@ -808,7 +857,7 @@ export const reviewLintSdata2OrderHelperToolRegistration = knowledgeApiTool({
   scriptName: "sdata2_order_helper.py",
   label: "Sdata2 Order Helper",
   purpose: "Generate or explicitly apply an isolated helper that forces .sdata2 float/double ordering from the reference object.",
-  description: "Preview or install a narrow sdata2_order helper for pure .sdata2 data-ordering QA repairs.",
+  description: "Preview or explicitly install a helper that forces reference .sdata2 float and double order. Returns the proposed change and optional validation, but does not fix instruction mismatches or other data defects. Use it only after the first diff shows a pure .sdata2 ordering residual and inline literals are restored.",
   guidance: "Use only after restoring inline numeric literals and confirming the remaining mismatch is .sdata2 float/double order. Preview first; pass apply=true only when this helper is the intended source edit.",
   parameters: {
     type: "object",
@@ -847,8 +896,8 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
   scriptName: "snapshot.py",
   label: "MWCC Allocator Snapshot",
   purpose: "Capture live MWCC register-allocator/coloring state for one function.",
-  description: "Capture PCode blocks, the interference graph, and simplify order by running the stock MWCC under qemu+gdb in the sandbox.",
-  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures before/after coloring snapshots you can feed to mwcc_alloc_compare.",
+  description: "Capture selected PCode or GPR-only allocator coloring for one function under stock MWCC; pair mode captures two stages of one compile. Returns blocks or GPR color, interference, and simplify-order data, not FPR coloring, retail comparison, source identities, or live intervals. Use it after a full diff isolates a register-only GPR residual.",
+  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
   parameters: {
     type: "object",
     properties: {
@@ -877,8 +926,8 @@ export const mwccAllocCompareToolRegistration = knowledgeApiTool({
   scriptName: "compare.py",
   label: "MWCC Coloring Compare",
   purpose: "Diff two MWCC coloring snapshots per virtual register.",
-  description: "Compare two allocator coloring snapshots and report changes for each virtual register.",
-  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. Deltas show interference, physical-register, and simplify-order movement.",
+  description: "Compare two GPR allocator coloring snapshots. Returns added, removed, or changed virtual registers with color, graph, neighbor, and simplify-order deltas, not retail comparison, FPR coloring, source identities, or causal proof. Use it after mwcc_alloc_snapshot returns the two stage paths for a register-only GPR residual.",
+  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. Deltas show interference, physical-register, and simplify-order movement.",
   parameters: {
     type: "object",
     properties: {

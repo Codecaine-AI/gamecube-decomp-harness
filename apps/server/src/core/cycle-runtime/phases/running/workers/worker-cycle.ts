@@ -31,6 +31,7 @@ import {
   graphDbExists,
   loadKnowledgeBoardSnapshot,
   openKnowledgeGraph,
+  relatedFunctions,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
@@ -603,6 +604,28 @@ export const REPAIR_REQUEST_DIFF_INLINE_LIMIT = 30_000;
 export const REPAIR_REQUEST_OUTPUT_TAIL_LIMIT = 10_000;
 export const REPAIR_REQUEST_PATHS_NOTE =
   "The *_path fields are host-side audit references and are NOT readable from the worker sandbox; use the inlined previous_return_gate / previous_post_attempt_diff / previous_agent_output_tail fields instead.";
+
+function sanitizeWorkerRepairValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeWorkerRepairValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(
+        ([key]) =>
+          key !== "attempt" &&
+          key !== "attempt_index" &&
+          key !== "continuation_policy" &&
+          key !== "repair_policy" &&
+          key !== "paths_note" &&
+          !key.endsWith("_path"),
+      )
+      .map(([key, nestedValue]) => [key, sanitizeWorkerRepairValue(nestedValue)]),
+  );
+}
+
+export function workerFacingRepairRequest(repairRequest: Record<string, unknown>): Record<string, unknown> {
+  return sanitizeWorkerRepairValue(repairRequest) as Record<string, unknown>;
+}
 
 export async function buildRepairRequestInlineArtifacts(params: {
   agentOutputPath: string;
@@ -1381,7 +1404,7 @@ async function executeClaimedWorker(params: {
     await mkdir(runnerCwd, { recursive: true });
     const workerAgentEnv = workerAgentToolEnvironment({ workerRepoRoot });
     const mwccDebugProvisioned = await probeMwccDebugCompilerProvisioned(sandboxHandle, workerRepoRoot);
-    const existingCanonicalToolPaths = await probeExistingWorkerCanonicalToolPaths(sandboxHandle, workerRepoRoot);
+    await probeExistingWorkerCanonicalToolPaths(sandboxHandle, workerRepoRoot);
     const summaryPath = resolve(reportDir, "worker_state.json");
     const factsPath = resolve(reportDir, "facts.json");
     let preAttemptDiffPath = resolve(validationDir, "pre_worker_write_set.diff");
@@ -1415,6 +1438,7 @@ async function executeClaimedWorker(params: {
       target,
       baselineMeasures: snapshot.measures,
       knowledgeContext,
+      firstDiff: workerChangeBaseline.firstDiff,
     });
     await writeFile(resolve(validationDir, "pre_worker_baseline.summary.json"), JSON.stringify(workerChangeBaseline, null, 2));
     const targetUnit = String(target.unit ?? "");
@@ -1451,7 +1475,7 @@ async function executeClaimedWorker(params: {
       const attemptPacket = repairRequest
         ? {
             ...currentPacket,
-            repair_request: repairRequest,
+            repair_request: workerFacingRepairRequest(repairRequest),
           }
         : currentPacket;
       const cycleRetryIndex = transientCycleRetryCount;
@@ -1500,7 +1524,6 @@ async function executeClaimedWorker(params: {
             workerLogDir: outputDir,
             contextBudget,
             targetSourceText,
-            existingCanonicalToolPaths,
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -1707,8 +1730,8 @@ async function executeClaimedWorker(params: {
                 write_set: currentWriteSet,
                 instruction:
                   `Your approved write set now includes ${newPaths.join(", ")} under category ${request.category}. ` +
-                  `Make the canonical fix, remove any local shim used to work around it, and return a validation-ready handoff. ` +
-                  `The runner will apply scope-following tier ${wideningDecision.validationTier} checks; no per-attempt full build is permitted.`,
+                  `Make the canonical fix, remove any local shim used to work around it, and return a compact validation-ready JSON note. ` +
+                  `The runner will apply scope-following tier ${wideningDecision.validationTier} checks; do not run a full build.`,
               };
               await writeFile(repairFeedbackPath, JSON.stringify(repairRequest, null, 2));
               addEvent(store, runId, "write_set_widened" as Parameters<typeof addEvent>[2], "worker", {
@@ -2136,10 +2159,12 @@ async function executeClaimedWorker(params: {
         .slice()
         .reverse()
         .find((checkpoint) => checkpoint.attemptIndex === attemptIndex);
+      const measuredScore = latestCheckpoint?.newScore ?? runnerValidation.target?.after ?? null;
+      const scoreText = measuredScore != null && Number.isFinite(measuredScore) ? ` at ${measuredScore}%` : "";
       const repairInstruction =
         latestCheckpoint?.exactMatch && !latestCheckpoint.hardGatesPassed
-          ? `The runner measured an exact target score, but hard gates failed. Reaching exact granted bonus attempts, and the remaining attempt budget is available to make the result gate-clean. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set (game assert/report macros, established inline helpers — not banned pragmas, .c externs, or open-coded asserts). If the canonical fix is a cross-file edit — a declaration in the owning header, a symbols.txt/splits.txt change — you cannot ship it: edits outside your write set are silently dropped at patch capture, so do not shim around it locally; state that in your note's blockers instead. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff — if no gate-clean improvement is possible, state that in your note's blockers (e.g. 'exact requires banned pattern X' or 'exact requires cross-file edit to <path>') so the runner can close the target. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
-          : `This is attempt ${continuationDecision.humanAttempt + 1} of budget ${continuationDecision.attemptBudget} (base ${continuationDecision.baseAttempts}, +${continuationDecision.bonusAttemptsPerImprovement} for every new-best improvement). ${repairReasons.length > 0 ? "Fix the listed validation/review issues. " : ""}If the worker has banked an improvement, that checkpoint is safe; keep pushing toward exact, and each new best extends the budget. An accepted exact closes the worker immediately. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+          ? `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, you cannot ship it. Edits outside your write set are silently dropped at patch capture, so do not shim around it locally; state that in your note's blockers instead. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
+          : `${repairReasons.length > 0 ? `Your last submission was rejected: ${repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${scoreText}.`} Continue toward exact from the current source. Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2417,11 +2442,13 @@ export function buildWorkerKnowledgeContext(
   }
   const store = openKnowledgeGraph(graphDb);
   try {
+    const related = workerRelatedFunctions(store, sourcePath, v2?.unit, v2?.symbol);
     return {
       status: "ready",
       graph_db: graphDb,
       generated_at: new Date().toISOString(),
       file_card: fileGraphCard(store, sourcePath),
+      ...(related ? { related_functions: related } : {}),
       lookup_tools: lookupTools,
       ...(v2Card ? { knowledge_card_v2: v2Card } : {}),
     };
@@ -2436,6 +2463,60 @@ export function buildWorkerKnowledgeContext(
   } finally {
     store.db.close();
   }
+}
+
+function workerRelatedFunctions(
+  store: ReturnType<typeof openKnowledgeGraph>,
+  sourcePath: string,
+  unit?: string,
+  symbol?: string | null,
+): Record<string, unknown> | null {
+  const result = relatedFunctions(store, {
+    sourcePath,
+    unit: unit?.trim() || undefined,
+    symbol: symbol?.trim() || undefined,
+    limit: 25,
+  });
+  if (result.functions.length === 0) return null;
+
+  const callers = uniqueCompactRelationships(
+    result.functions.flatMap((fn) => fn.callers),
+  ).slice(0, 8);
+  const callees = uniqueCompactRelationships(
+    result.functions.flatMap((fn) => fn.callees),
+  ).slice(0, 8);
+  const analogs = result.functions
+    .flatMap((fn) => fn.opseq_analogs)
+    .map((row) => ({
+      symbol: String(row.symbol ?? ""),
+      unit: typeof row.unit === "string" ? row.unit : null,
+      fuzzy_match_percent: numericValue(row.fuzzy_match_percent),
+      score: numericValue(row.score),
+      exact_match: row.exact_match === true,
+    }))
+    .filter((row) => row.symbol)
+    .sort((left, right) => Number(right.exact_match) - Number(left.exact_match) || (right.score ?? -Infinity) - (left.score ?? -Infinity))
+    .filter((row, index, rows) => rows.findIndex((candidate) => candidate.symbol === row.symbol && candidate.unit === row.unit) === index)
+    .slice(0, 4);
+
+  return { callers, callees, analogs };
+}
+
+function uniqueCompactRelationships(rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return rows
+    .map((row) => ({
+      symbol: String(row.symbol ?? ""),
+      unit: typeof row.unit === "string" ? row.unit : null,
+      matched: row.matched === true || row.resolved === true,
+    }))
+    .filter((row) => row.symbol)
+    .filter((row, index, all) => all.findIndex((candidate) => candidate.symbol === row.symbol && candidate.unit === row.unit) === index);
+}
+
+function numericValue(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 export async function workerTask(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {

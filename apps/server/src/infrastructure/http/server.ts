@@ -829,7 +829,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
 
   const agents = await handleAgentsApiRoute(url, {
     json,
-    loadKernelAgentsPayload: (paths) => loadKernelAgentsPayload(paths as GameRuntimeContext),
+    loadKernelAgentsPayload: (paths, options) => loadKernelAgentsPayload(paths as GameRuntimeContext, options),
     requestPaths: gameContext.requestPaths,
   });
   if (agents) return agents;

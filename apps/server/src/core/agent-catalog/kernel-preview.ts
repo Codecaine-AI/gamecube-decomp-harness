@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { WORKER_CANONICAL_TOOL_PATHS, workerPrompt } from "@server/core/agent-catalog";
+import { Database } from "bun:sqlite";
+import { workerPrompt } from "@server/core/agent-catalog";
 import {
   KERNEL_AGENT_IDS,
   meleeKernelAgent,
@@ -20,6 +21,9 @@ import { buildPassContext, type BackfillPassContext } from "@server/core/knowled
 import { librarianStandardsView } from "@server/core/knowledge-v2/backfill/runner.js";
 import { prioritizeTargets } from "@server/core/knowledge-v2/migration/prioritize.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
+import { loadV2TargetCard, type V2TargetCard } from "@server/core/knowledge-v2/card.js";
+import { buildWorkerKnowledgeContext } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { gameRoot } from "@server/core/knowledge/paths.js";
 import type { DriftReport } from "@server/core/knowledge-v2/drift/flagger.js";
 
 export interface KernelAgentCatalogContext {
@@ -39,7 +43,139 @@ export interface KernelAgentsPayload {
 type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting">;
 
 export interface KernelPreviewDeps {
+  target?: KernelPreviewTarget;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
+  loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
+  buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
+  loadFirstDiff?: (target: KernelPreviewTarget) => Record<string, unknown>;
+}
+
+export interface KernelPreviewTarget {
+  unit: string;
+  symbol: string;
+}
+
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target">;
+
+const DEFAULT_WORKER_PREVIEW_TARGET: KernelPreviewTarget = {
+  unit: "main/melee/mn/mnvibration",
+  symbol: "mnVibration_HandleInput",
+};
+
+interface LegacyTargetLocation {
+  sourcePath: string;
+  fuzzyMatchPercent: number | null;
+}
+
+function legacyTargetLocation(graphDbPath: string, target: KernelPreviewTarget): LegacyTargetLocation | null {
+  if (!existsSync(graphDbPath)) return null;
+  let db: Database | null = null;
+  try {
+    db = new Database(graphDbPath, { readonly: true });
+    const rows = db.query<{ payload_json: string }, [string, string]>(
+      "SELECT payload_json FROM graph_entities WHERE stable_key IN (?, ?) ORDER BY CASE entity_type WHEN 'object_unit' THEN 0 ELSE 1 END",
+    ).all(target.unit, `${target.unit}:${target.symbol}`);
+    let sourcePath = "";
+    let fuzzyMatchPercent: number | null = null;
+    for (const row of rows) {
+      const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
+      sourcePath ||= typeof payload.source_path === "string"
+        ? payload.source_path
+        : typeof payload.sourcePath === "string" ? payload.sourcePath : "";
+      if (fuzzyMatchPercent === null && Number.isFinite(Number(payload.fuzzy))) {
+        fuzzyMatchPercent = Number(payload.fuzzy);
+      }
+    }
+    return sourcePath ? { sourcePath, fuzzyMatchPercent } : null;
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
+function previewFirstDiff(target: KernelPreviewTarget): Record<string, unknown> {
+  const runsRoot = resolve(gameRoot("melee"), "state", "runs");
+  const candidates = existsSync(runsRoot)
+    ? [...new Bun.Glob("*/worker_state/*/runner_validation/pre_worker_first_diff.json").scanSync({
+        cwd: runsRoot,
+        absolute: true,
+        onlyFiles: true,
+      })]
+    : [];
+  candidates.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
+  for (const path of candidates) {
+    try {
+      const artifact = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+      const artifactSymbol = typeof artifact.symbol === "string" ? artifact.symbol : "";
+      const artifactUnit = typeof artifact.unit === "string" ? artifact.unit : "";
+      const artifactMatches = artifactSymbol === target.symbol
+        && (!artifactUnit || artifactUnit === target.unit);
+      const snapshotPath = resolve(path, "..", "pre_worker_unit_snapshot.json");
+      let snapshotMatches = false;
+      if (existsSync(snapshotPath)) {
+        const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8")) as Record<string, unknown>;
+        const snapshotSymbol = typeof snapshot.symbol === "string" ? snapshot.symbol : "";
+        const snapshotUnit = typeof snapshot.unit === "string" ? snapshot.unit : "";
+        snapshotMatches = snapshotSymbol === target.symbol
+          && (!snapshotUnit || snapshotUnit === target.unit);
+      }
+      if (artifactMatches || snapshotMatches) return artifact;
+    } catch {
+      // Ignore incomplete historical artifacts and continue to the next newest candidate.
+    }
+  }
+  return { status: "unavailable", reason: "preview: no claim-time diff artifact for this target" };
+}
+
+function realWorkerPrompt(
+  paths: KernelAgentCatalogContext,
+  deps: KernelPreviewDeps,
+  target: KernelPreviewTarget,
+): PiPromptBundle | null {
+  const game = gameMetadata(paths);
+  const cardLoader = deps.loadTargetCard ?? (game
+    ? ((selected: KernelPreviewTarget, gameId?: string) => loadV2TargetCard({
+        gameId,
+        unit: selected.unit,
+        symbol: selected.symbol,
+        budget: "full",
+      }))
+    : () => null);
+  const card = cardLoader(target, game?.gameId);
+  const legacy = card ? null : legacyTargetLocation(paths.graphDbPath, target);
+  const sourcePath = card?.target.source_path ?? legacy?.sourcePath ?? "";
+  const checkoutPath = sourcePath ? resolve(gameRoot("melee"), "checkout", sourcePath) : "";
+  if (!card && (!checkoutPath || !existsSync(checkoutPath))) return null;
+
+  const knowledgeContext = (deps.buildWorkerKnowledgeContext ?? buildWorkerKnowledgeContext)(
+    sourcePath,
+    paths.graphDbPath,
+    { unit: target.unit, symbol: target.symbol, gameId: game?.gameId },
+  );
+  return workerPrompt({
+    packet: {
+      target: {
+        unit: target.unit,
+        symbol: target.symbol,
+        source_path: sourcePath,
+        fuzzy_match_percent: card?.status?.match_pct ?? legacy?.fuzzyMatchPercent ?? 0,
+      },
+      baseline: {
+        fuzzy_match_percent: card?.status?.match_pct ?? legacy?.fuzzyMatchPercent ?? 0,
+      },
+      first_diff: (deps.loadFirstDiff ?? previewFirstDiff)(target),
+      knowledge_context: knowledgeContext,
+    },
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    game,
+    initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
+    workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/preview"),
+    targetSourceText: checkoutPath && existsSync(checkoutPath)
+      ? readFileSync(checkoutPath, "utf8")
+      : `/* preview: source unavailable for ${sourcePath || `${target.unit}:${target.symbol}`} */\n`,
+  });
 }
 
 function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): BackfillPreviewContext | null {
@@ -102,6 +238,10 @@ function samplePrompt(
   const game = gameMetadata(paths);
   switch (agentId) {
     case "worker":
+      {
+        const real = realWorkerPrompt(paths, deps, deps.target ?? DEFAULT_WORKER_PREVIEW_TARGET);
+        if (real) return real;
+      }
       return workerPrompt({
         packet: {
           target: {
@@ -112,9 +252,60 @@ function samplePrompt(
           baseline: {
             fuzzy_match_percent: 91.25,
           },
+          first_diff: {
+            status: "available",
+            score: 91.25,
+            rows: [
+              {
+                side: "left",
+                address: "8272",
+                kind: "DIFF_ARG_MISMATCH",
+                text: "lfs f3, lbl_804DA824@sda21",
+              },
+            ],
+            row_counts_by_kind: { DIFF_ARG_MISMATCH: 1 },
+            truncated: false,
+          },
           knowledge_context: {
             graph_db: paths.graphDbPath,
             status: "ready",
+            related_functions: {
+              callers: [
+                { symbol: "ftDemo_CallKernelViewerSample", unit: "GALE01:kernel-viewer", matched: true },
+              ],
+              callees: [
+                { symbol: "ftDemo_Helper", unit: "GALE01:kernel-viewer", matched: true },
+              ],
+              analogs: [
+                {
+                  symbol: "ftDemo_KernelViewerSolvedNeighbor",
+                  unit: "GALE01:kernel-viewer",
+                  fuzzy_match_percent: 100,
+                  score: 0.97,
+                  exact_match: true,
+                },
+              ],
+            },
+            knowledge_card_v2: {
+              stable_key: "GALE01:kernel-viewer:ftDemo_KernelViewerSample",
+              target: {
+                kind: "function",
+                unit: "GALE01:kernel-viewer",
+                symbol: "ftDemo_KernelViewerSample",
+                source_path: "src/melee/ft/chara/ftDemo.c",
+                identity_status: "current",
+              },
+              context_budget: "full",
+              ledger: { runs: [], entries: [] },
+              status: { match_pct: 91.25, linked: true, size: null },
+              facts: {
+                naming_note: "Use the target symbol as the canonical source name.",
+                by_type: {},
+              },
+              links: [],
+              prior_runs: [],
+              accepted_prs: [],
+            },
             file_card: {
               source_path: "src/melee/ft/chara/ftDemo.c",
               functions: [
@@ -172,9 +363,6 @@ function samplePrompt(
         game,
         initialBoardPath: resolve(paths.stateDir, "runs/kernel-viewer/snapshots/initial_board.json"),
         workerLogDir: resolve(paths.stateDir, "runs/kernel-viewer/worker_logs/sample"),
-        existingCanonicalToolPaths: new Set(
-          WORKER_CANONICAL_TOOL_PATHS.map((tool) => tool.relativePath),
-        ),
         targetSourceText: [
           "void ftDemo_KernelViewerSample(void)",
           "{",

@@ -1,0 +1,1745 @@
+<title>Worker Context Preview</title>
+<style>
+:root{--bg:#faf9f6;--ink:#16150f;--code:#f2f0ea;--hair:#e3e1d8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121210;--ink:#f4f3ef;--code:#1e1d1a;--hair:#2e2d29}}
+:root[data-theme="dark"]{--bg:#121210;--ink:#f4f3ef;--code:#1e1d1a;--hair:#2e2d29}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;margin:0}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+pre{background:var(--code);border:1px solid var(--hair);border-radius:8px;padding:14px;overflow-x:auto;font-size:12px;line-height:1.45;white-space:pre}
+h1{font-size:26px}h2{font-size:19px;margin-top:36px}
+</style><div class="wrap"><h1>Worker boot context preview — main/melee/mn/mnvibration:mnVibration_HandleInput</h1>
+<h2>System prompt (23389 chars)</h2>
+<pre><code class="language-xml">&lt;goal&gt;
+    - Decompile the claimed target/symbol to a 100% match.
+    - A single worker turn may end before 100%; useful, runner-checkable progress is a valid turn outcome.
+&lt;/goal&gt;
+
+&lt;definition_of_done&gt;
+    - The runner validates the claimed target as exact.
+    - No unresolved local regression caused by your edits remains.
+    - The retained source looks like code the original programmers plausibly wrote.
+    - An exact score alone is not done. Before handoff confirm:
+        - The full instruction window matches, not only the percent.
+        - The strict score (relocation- and data-aware) matches, not only instruction parity.
+        - Neighboring functions and the translation unit did not regress.
+        - Review gates pass; every cue that only happened to match was removed by ablation.
+&lt;/definition_of_done&gt;
+
+&lt;thinking&gt;
+    - Understand how the original programmers wrote this code
+        - Treat the target as code likely written by a small number of programmers.
+        - Look for high-signal personal preference patterns and company-standard patterns used across nearby and related code.
+        - Assume a small original author pool left repeatable idioms.
+        - Style, abstractions, types, macros, data ownership, compiler constraints, etc.
+    - Think like Sudoku:
+        - Useful information for this target is likely distributed throughout the codebase.
+        - Something elsewhere may have been written by the same person and reveal the source pattern for this target.
+        - Finding one strong matching pattern can strongly constrain how this target was likely written.
+        - This target is one square on a larger board.
+    - Think like the compiler:
+        - Every mismatching instruction is the output of a specific MWCC mechanism: a live range, a coalescing decision, a stack-slot assignment, an inline boundary, a scheduling dependency, or a section-ordering rule.
+        - Your job is to name that mechanism and predict which source change moves it, then test the prediction.
+        - A source edit that is not tied to a named mechanism is a guess. Guesses that reproduce the same diff are wasted attempts.
+&lt;/thinking&gt;
+
+&lt;context_contract&gt;
+    &lt;context_usage context_id=&quot;worker-packet&quot;&gt;
+        - Use the injected target (with its source file and related functions), first diff, standards, available tools, and repair request as the authoritative task packet.
+        - The `first_diff` block is the residual at the start of your turn. Classify it before reading anything else in depth.
+        - Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than any historical summary.
+    &lt;/context_usage&gt;
+
+    &lt;context_usage context_id=&quot;target-knowledge&quot;&gt;
+        - The `target_knowledge` block is everything the system knows about this target: prior runs with their summaries and reusable observations, the latest unresolved diagnosis, per-submission approaches and scores, facts with evidence, and accepted pull requests.
+        - Read it as history, not as instructions: a prior run's unresolved diagnosis is your first hypothesis; a prior run's failed shape is a shape to skip unless you have new evidence.
+        - When the card is absent or thin, query the history tools yourself; do not assume the target has no history.
+        - Historical records are hypotheses, weaker than current local source and validation evidence.
+    &lt;/context_usage&gt;
+&lt;/context_contract&gt;
+
+&lt;workflow_context&gt;
+    &lt;phase id=&quot;1&quot; name=&quot;orient&quot;&gt;
+        - Start from the residual, not from the file:
+            - Read the target, the `first_diff`, the `target_knowledge` prior runs, and the standards.
+            - Classify the first residual as one of: instruction shape, register-only GPR, register-only FPR, stack slot or frame size, scheduling, relocation or symbol, data-section layout, inline boundary.
+            - Write down the class and the specific mismatching rows. Every later step refers back to them.
+        - Then build the picture the residual class needs:
+            - Target role and surrounding file responsibilities
+            - Nearby matched code and the local naming and helper conventions
+            - Headers, macros, types, symbols, and splits
+            - Strings, asserts, data ownership, and caller/callee behavior
+    &lt;/phase&gt;
+
+    &lt;phase id=&quot;2&quot; name=&quot;exact_symbol_history&quot;&gt;
+        - Before any edit, read what already happened on this exact symbol.
+        - Sources, in order:
+            - The `target_knowledge` block: prior run summaries, reusable observations, the unresolved diagnosis, per-submission approaches, and accepted pull requests.
+            - `knowledge_record` for the full record and ledger of the target; `attempt_search` with the target stable key for run outcomes, or with a query to search prior runs by text.
+            - `pr_search` for the accepted pull request on this symbol or its unit; `discord_search` and `wiki_search` when historical discussion or game-mechanics evidence can choose between source hypotheses.
+            - The target block's `related_functions` (callers, callees, and instruction-shape analogs with their match state); then `knowledge_record` on a matched analog to read what is already known about its shape.
+            - Resolve any locator you rely on with `resolve_locator`; search snippets are leads, not complete evidence. Empty results are normal and are not negative evidence.
+        - Weigh records and attempts by their concrete evidence:
+            - An unresolved diagnosis from the latest run on this target is your first hypothesis.
+            - A matched analog's authored structure or an accepted pull request's shape is a hypothesis to test early.
+            - A shape that already failed on this target is a shape to skip unless you have new evidence.
+            - A method that matched a similar function is a process to adapt, not proof that the same edit fits this target.
+    &lt;/phase&gt;
+
+    &lt;phase id=&quot;3&quot; name=&quot;name_the_mechanism&quot;&gt;
+        - For the residual you classified, name the compiler mechanism that produces it: which source value's live range, which coalescing edge, which stack-slot owner, which inline boundary, which dependency, which section-order rule.
+        - Use the diagnostic tool for that class (see `advanced_techniques`) to get there. Do not infer the mechanism from the score.
+        - A hypothesis is ready to test only when it states:
+            - What source shape, type, helper, or lifetime change it predicts
+            - Which instruction or row you expect to change, and into what
+            - Which solved references, prior runs, or local facts support it
+            - Which mismatch, assembly, or validation signal would falsify it
+        - Keep negative hypotheses that rule out tempting shapes the ledger already refuted.
+    &lt;/phase&gt;
+
+    &lt;phase id=&quot;4&quot; name=&quot;one_edit_then_diff&quot;&gt;
+        - Make the smallest source change the hypothesis predicts. Compile, run `checkdiff_run` with `full_diff`, and re-classify the residual.
+        - Freeze what now matches: do not touch regions whose instructions match unless the residual class forces it.
+        - Keep verified improvements. Revert no-op or regressing hunks from incremental tweaks; a deliberate restructuring attempt is different — judge it by whether the new shape can reach exact, not by its first score.
+        - Match percent and diff size do not measure remaining work: a one-instruction mismatch such as a single register swap can require restructuring the surrounding code, and a low match can be one struct or type fix away.
+        - Stop rule for a variant family:
+            - A family is one kind of change: declaration order, casts, scope, expression form, literal form, temporary naming.
+            - When two or three variants in one family reproduce the same residual rows, that family is exhausted. Do not try a fourth.
+            - Save your best-scoring source so you can restore it, then go to the escalation ladder and come back only with a new class of evidence.
+        - Keep iterating while the evidence suggests a next move and there is enough turn budget to evaluate it.
+    &lt;/phase&gt;
+
+    &lt;phase id=&quot;5&quot; name=&quot;escalate&quot;&gt;
+        - Take the rungs in order. Each rung must add a new kind of evidence, not more variants of the last edit:
+            1. Run the class diagnostic you have not run yet: allocator snapshot and compare for a GPR residual, `mwcc_debug_diagnose_stack` for a frame residual, `mwcc_debug_diagnose_inlines` for a persistent live-range cluster.
+            2. Search exact-symbol history again, now with the specific residual in the query: prior runs, accepted pull requests, the matched analog's record.
+            3. Change the abstraction, not the syntax: extract or recover a semantic helper, move an inline boundary, replace long-lived pointer locals with indexed access, or reconstruct the authored owner/subobject model from a matched analog. Accept a temporary score drop; judge the new shape by whether it can reach exact.
+            4. Run a bounded permuter probe on the named region, following the recipe in `advanced_techniques`.
+            5. If instruction rows match and only the strict score fails, switch to relocation and section evidence and stop allocator edits.
+            6. If the proven fix is outside your write set, send a `widening_request` or hand back with the diagnosis. Do not spend the turn on source-only substitutes.
+        - Hand back when you have a buildable improvement, a falsified hypothesis worth recording, or a diagnosed residual with no in-scope lever. Do not spend the rest of the turn looking for certainty.
+    &lt;/phase&gt;
+&lt;/workflow_context&gt;
+
+&lt;advanced_techniques&gt;
+    One block per residual class or technique. Find the block for the residual you classified; use the others only when the escalation ladder sends you there. Tool parameters and return shapes are in each tool's own description.
+
+    &lt;technique id=&quot;1&quot; name=&quot;reading_a_diff&quot; title=&quot;Reading a diff&quot;&gt;
+        - `checkdiff_run` with `full_diff` compiles the owning translation unit and returns up to 24 mismatching rows, each with a kind (argument mismatch, opcode change, missing or extra instruction) and both sides: left is the target, right is your compile.
+        - Classify from the rows, not from the percent. Above 99.9% can be one register swap that needs restructuring; below 95% can be one struct fix away.
+        - `checkdiff_summary` returns PASS/FAIL for the target and its neighbors and intentionally omits the rows; use it to confirm neighbors after an edit, not to diagnose.
+        - `direct_compile_tu` compiles without comparing. Use it to separate does-not-build from builds-but-differs. Pass exactly one of `function` or `unit`.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;2&quot; name=&quot;register_only_residual_gpr&quot; title=&quot;Register-only residual, GPR&quot;&gt;
+        - `mwcc_debug_diagnose_regflow` with `show_lines` names the semantic values that occupy the wrong operands in one compact window.
+        - `mwcc_alloc_snapshot` with `capture` set to `pair`, then `mwcc_alloc_compare` on the returned paths, shows which virtual register changed color, degree, interference neighbors, or simplify-order position.
+        - These tools do not name a C local. You establish that mapping from the PCode operands and the source. `before` and `after` are two stages of one compile, not candidate versus target.
+        - The edit for this class changes one lifetime: split a value into two locals, reuse an existing temporary, rescope a local, remove a redundant induction variable, or derive a value from a loop index instead of carrying it.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;3&quot; name=&quot;register_only_residual_fpr&quot; title=&quot;Register-only residual, FPR&quot;&gt;
+        - Allocator capture is GPR-only. Expect no coloring evidence for `f` registers.
+        - Work from objdump and regflow, and probe one float lifetime at a time: distinct temporaries, promotion to function scope, literal form, reuse of an existing float temporary for a second comparison.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;4&quot; name=&quot;stack_slot_or_frame_size&quot; title=&quot;Stack slot or frame size&quot;&gt;
+        - `mwcc_debug_diagnose_stack` with `show_lines` and `show_mwcc` reports target and current frame sizes, slot drift, and candidate locals.
+        - A uniform displacement across all stack references is one missing or extra slot: fix one lifetime or one inline boundary first; use `PAD_STACK` only when the displacement is uniform and no local explains it.
+        - Scattered drift is not one slot. Look for a declaration-order or aggregate-ownership change.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;5&quot; name=&quot;scheduling&quot; title=&quot;Scheduling&quot;&gt;
+        - Read the dependency order in the emitted sequence and in `mwcc_debug_dump_function` output; use regflow only when the residual is also a compact register window.
+        - The edit for this class changes one dependency: a pointer initialization, a post-increment store, a call placement, or a needless argument that forces an extra store.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;6&quot; name=&quot;relocation_or_symbol_identity&quot; title=&quot;Relocation or symbol identity&quot;&gt;
+        - When instruction rows match but the strict score does not, the residual is a symbol, a `.sdata2` constant identity or order, a binding, or section ownership.
+        - Use `direct_compile_tu` and then objdump or readelf on the object to resolve the left and right symbols. Use `review_lint_sdata2_order_helper` only for pure `.sdata2` ordering.
+        - Stop allocator experiments for this class; they cannot move a relocation.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;7&quot; name=&quot;data_section_layout&quot; title=&quot;Data-section layout&quot;&gt;
+        - Account for exact bytes, offsets, binding, alignment, strings, generated tables, and relocations before editing; reconstruct the whole layout, then make one coordinated edit.
+        - Verify raw bytes, relocations, consumers, and neighbors, not only the percent.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;8&quot; name=&quot;inline_boundary&quot; title=&quot;Inline boundary&quot;&gt;
+        - A persistent live-range cluster that survives lifetime edits usually means the authored code had a helper or inline boundary you do not have.
+        - `mwcc_debug_diagnose_inlines` suggests a boundary; it cannot prove that extraction improves codegen. Extract one semantic helper around the coupled work, then re-check frame size and neighbors.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;9&quot; name=&quot;permuter_as_a_probe_not_a_finder&quot; title=&quot;Permuter as a probe, not a finder&quot;&gt;
+        - Run `source_permuter_run` only after you have named the function and the bounded region or helper that owns the residual. Limit `mutate_functions` to that scope and keep `max_iters` in the hundreds.
+        - The tool returns a scalar score and one source diff. It does not return instruction rows. Replay the interesting candidate with `source_permuter_replay`, then read its instruction delta with `checkdiff_run` and `full_diff`.
+        - Treat the result as evidence about which source region controls the residual, then hand-write the final edit. Never adopt a candidate on score alone.
+        - A broad search that finds nothing better confirms a local maximum. It is not a reason to run a bigger search.
+        - `source_mutation_preview` shows what a mutation pass would change without compiling; use it to inspect a candidate shape before spending compile time.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;10&quot; name=&quot;ablation&quot; title=&quot;Ablation&quot;&gt;
+        - After any change that improves the score, remove each added cue one at a time and re-diff.
+        - A cue whose removal changes nothing is noise; delete it before handoff. A cue whose removal regresses the score is the mechanism; keep it and name it in the handoff.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;11&quot; name=&quot;read_payloads_not_envelopes&quot; title=&quot;Read payloads, not envelopes&quot;&gt;
+        - Several tools return an outer `status: ok` around a nested `exit_code: 1`, `file_not_found`, `unknown function`, or an empty result. Read the returned payload before drawing a conclusion.
+        - If the permuter reports the function was not found at its source path, fix the invocation before concluding anything.
+        - If an `mwcc_debug_*` tool reports an unhandled function or no pcdump output, the instrumented compiler is unavailable for this function; fall back to objdump and the allocator snapshot.
+        - A stale checkdiff result after an edit means the service did not recompile; rerun it before reasoning about the rows.
+    &lt;/technique&gt;
+
+    &lt;technique id=&quot;12&quot; name=&quot;history_and_reference_tools&quot; title=&quot;History and reference tools&quot;&gt;
+        - `knowledge_record` returns the full record, ledger, and prior runs for one target stable key or entity locator.
+        - `attempt_search` lists prior runs and submissions by target stable key or by text query, with outcome filters.
+        - `pr_search`, `discord_search`, and `wiki_search` search archived pull requests, chat, and wiki text; `resolve_locator` opens any hit to its bounded source material.
+        - Callers, callees, and instruction-shape analogs for the target arrive in the target block's `related_functions`; there is no separate graph tool.
+        - `asm_window_search` finds a donor function for one 32-instruction construct; similarity is not provenance.
+        - `type_layout_lookup` and `type_oracle_lookup` check layouts and expression types before a type change; `m2c_decompile` is a reading scaffold, not evidence.
+    &lt;/technique&gt;
+&lt;/advanced_techniques&gt;
+
+&lt;runner_validation_handoff&gt;
+    When ready for the runner to check your work (when matched, improved, or meaningfully attempted but stalled), return a handoff JSON.
+
+    This handoff is not a worker report; it is a validation handoff for runner review.
+
+    Do not treat non-100% progress as failure. The runner banks a validated, gate-clean improvement immediately and ends the claim; the target returns in a later epoch with the improved baseline.
+
+    Use plain fields such as `summary`: Here is what I tried.
+
+    - Also include these fields; they are joined into the target's history and shown to the next worker on this target:
+        - `residual`: `{ class, rows, mechanism, resolved }` — the residual class from your classification, the mismatching rows, the compiler mechanism you named (or `unknown`), and whether it is resolved.
+        - `tried_shapes`: array of `{ family, variants, effect }` — each variant family you exhausted and what it did to the residual.
+        - `untried_leads`: string array — what the next worker should try first.
+        - `best_checkpoint`: `{ score, description }` — the state worth restoring.
+        - `evidence_locators`: string array — the `attempt://`, `pr://`, and `code://` locators your diagnosis rests on.
+    - When widening is enabled and the approved write set is insufficient, add a `widening_request` object to the handoff JSON with this shape:
+        - `schema_version`: `write_set_widening_request_v1`
+        - `paths`: repo-relative string array containing paths from one requested category
+        - `category`: `config-metadata`, `owning-header`, or `foreign-source`
+        - `rung`: `2`, `3`, or `4`, matching the requested category
+        - `evidence`:
+            - `mismatched_declaration`: `{ symbol, current, required, expected_owner }`
+            - `objdiff`: `{ unit, score_without, score_with, artifact_path? }`, where `score_with` may be null when it could not be measured
+            - `ladder_evidence`: `{ rung1_in_slice, rung2_config?, rung3_header? }`, explaining what each lower rung tried and why it failed
+
+    A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.
+
+    After a handoff, the runner owns the follow-up decision. Repair requests only come for validation/lint failures or for an exact match that failed hard gates.
+&lt;/runner_validation_handoff&gt;
+
+&lt;contracted_in_rules&gt;
+    1. Work only on the current claimed target; the target translation unit is your motivation and review scope.
+    2. Edit only paths in your approved write set, which initially contains only the `&amp;lt;target_file path=&quot;...&quot;&amp;gt;` path.
+    3. Before requesting any widening, first try typing the in-slice code to the foreign types already present on master.
+    4. If that measurably fails and a canonical fix elsewhere is required, use the handoff note's `widening_request` with the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.
+    5. Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for the canonical fix.
+    6. Preserve pre-existing dirty work. Undo only your own failed attempt hunks.
+    7. Do not use destructive commands:
+        - Whole-file reset, restore, checkout, or clean
+        - Repo-level reset, restore, checkout, or clean
+        - Equivalent commands with the same effect
+    8. Classify the residual before editing, and name the mechanism before testing a hypothesis. Do not run allocator or regflow diagnostics on a residual you have not classified as register-only.
+    9. Stop a variant family after two or three variants reproduce the same residual rows. Escalate to a new class of evidence before editing again.
+    10. Once instruction rows match, treat any remaining strict-score gap as relocation or data identity and stop allocator edits.
+    11. Validate retained edits with narrow build/objdiff/checkdiff/review evidence.
+    12. Use `checkdiff_run` or `checkdiff_summary` for function diff evidence; do not run raw `tools/asm-differ/diff.py` from shell.
+    13. `powerpc-eabi-objdump`, `powerpc-eabi-nm`, `powerpc-eabi-readelf`, `dtk`, `objdiff-cli`, `wibo`, and the compilers are on PATH in your sandbox; call them by name and do not search the filesystem for tools.
+    14. Do not run broad filesystem `find` sweeps such as `find /`, `find /Users`, `find /opt`, `find /Applications`, or upward `find ../../..`; use narrow searches inside the worker checkout only.
+    15. `m2c_decompile` is a live scaffold generator, not a changing fact lookup. Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed.
+    16. Use `source_permuter_run` only as a bounded probe on a named region after the residual is classified and the mechanism hypothesis is written down. Read candidate instruction deltas through replay and `checkdiff_run`; never adopt a candidate on score alone.
+    17. `source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.
+    18. Do not create a separate manual verification ledger:
+        - Runner artifacts own build, objdiff/checkdiff, QA, and regression evidence.
+        - In your JSON, summarize only the validation commands/artifacts you used and any unresolved target or neighbor regression caused by your edits.
+        - Never ask the runner to validate an unresolved local regression caused by your edits.
+    19. Do not run global progress-report refreshes from a worker.
+    20. Continue after a verified improvement while the next hypothesis is:
+        - Local
+        - Evidence-backed
+        - A plausible path to exact match.
+&lt;/contracted_in_rules&gt;
+</code></pre>
+<h2>Rendered context (60075 chars)</h2>
+<pre><code class="language-xml">&lt;target context_budget=&quot;full&quot; fuzzy_match_percent=&quot;98.956345&quot; size=&quot;0&quot; baseline_fuzzy_match_percent=&quot;98.956345&quot;&gt;
+        &lt;editability mode=&quot;editable&quot; reason=&quot;2 unmatched function(s) remain in this source file.&quot;/&gt;
+        &lt;same_file_symbols&gt;
+            &lt;symbol&gt;mnVibration_GetNameRowJObj&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_CursorThink&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_UpdatePortPanel&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_CreatePortPanels&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_CreateNameRow&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_RefreshNameRows&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_OnAnimComplete&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_Think&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_IntroProc&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_CreateScreen&lt;/symbol&gt;
+            &lt;symbol&gt;mnVibration_Init&lt;/symbol&gt;
+        &lt;/same_file_symbols&gt;
+        &lt;related_functions&gt;
+            &lt;callee symbol=&quot;__assert&quot; unit=&quot;main/sysdolphin/baselib/debug&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;lbAudioAx_80024030&quot; unit=&quot;main/melee/lb/lbaudio_ax&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;GetNameCount&quot; unit=&quot;main/melee/mn/mnname&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;HSD_JObjSetMtxDirtySub&quot; unit=&quot;main/sysdolphin/baselib/jobj&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;HSD_JObjAnimAll&quot; unit=&quot;main/sysdolphin/baselib/jobj&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;HSD_JObjReqAnimAll&quot; unit=&quot;main/sysdolphin/baselib/jobj&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;GetPersistentNameData&quot; unit=&quot;main/melee/gm/gmmain_lib&quot; matched=&quot;true&quot;/&gt;
+            &lt;callee symbol=&quot;gm_GetButtonsTriggered&quot; unit=&quot;main/melee/gm/gm_1A36&quot; matched=&quot;true&quot;/&gt;
+            &lt;analog symbol=&quot;mnDiagram3_HandleInput&quot; unit=&quot;main/melee/mn/mndiagram3&quot; fuzzy_match_percent=&quot;99.72863&quot; score=&quot;0.582&quot; exact_match=&quot;false&quot;/&gt;
+            &lt;analog symbol=&quot;fn_8024D864&quot; unit=&quot;main/melee/mn/mnevent&quot; fuzzy_match_percent=&quot;100&quot; score=&quot;0.5711&quot; exact_match=&quot;false&quot;/&gt;
+            &lt;analog symbol=&quot;grOnett_801E43E0&quot; unit=&quot;main/melee/gr/gronett&quot; fuzzy_match_percent=&quot;100&quot; score=&quot;0.5428&quot; exact_match=&quot;false&quot;/&gt;
+            &lt;analog symbol=&quot;grGreatBay_801F499C&quot; unit=&quot;main/melee/gr/grgreatbay&quot; fuzzy_match_percent=&quot;100&quot; score=&quot;0.5401&quot; exact_match=&quot;false&quot;/&gt;
+        &lt;/related_functions&gt;
+        &lt;details_json&gt;
+```json
+{
+  &quot;unit&quot;: &quot;main/melee/mn/mnvibration&quot;,
+  &quot;symbol&quot;: &quot;mnVibration_HandleInput&quot;,
+  &quot;source_path&quot;: &quot;src/melee/mn/mnvibration.c&quot;,
+  &quot;kind&quot;: &quot;function&quot;,
+  &quot;size&quot;: 0,
+  &quot;fuzzy_match_percent&quot;: 98.956345
+}
+</code></pre>
+<pre><code>    &lt;/details_json&gt;
+    &lt;target_file path="src/melee/mn/mnvibration.c" unit="main/melee/mn/mnvibration" symbol="mnVibration_HandleInput" size="0" baseline_match_percent="98.956345" context_budget="full" truncated="true" original_chars="35468" inline_char_limit="32000"&gt;
+</code></pre>
+<![CDATA[#include "mnvibration.h"
+
+#include "dolphin/pad.h"
+
+#include <baselib/debug.h>
+#undef HSD_ASSERT
+#define HSD_ASSERT(line, cond)                                                \
+    ((cond) ? ((void) 0)                                                      \
+            : __assert(mnVibration_804D4FF4, line, mnVibration_804D4FFC))
+#include <baselib/jobj.h>
+#undef HSD_ASSERT
+#define HSD_ASSERT(line, cond)                                                \
+    ((cond) ? ((void) 0) : __assert(__FILE__, line, #cond))
+
+#include "ft/ft_0C31.h"
+#include "gm/gm_1A36.h"
+#include "gm/gmmain_lib.h"
+#include "lb/lb_00B0.h"
+#include "lb/lbarchive.h"
+#include "lb/lbaudio_ax.h"
+#include "lb/lbspdisplay.h"
+#include "mn/inlines.h"
+#include "mn/mnmain.h"
+#include "mn/types.h"
+
+#include <dolphin/os.h>
+#include <baselib/controller.h>
+#include <baselib/gobj.h>
+#include <baselib/gobjgxlink.h>
+#include <baselib/gobjobject.h>
+#include <baselib/gobjplink.h>
+#include <baselib/gobjproc.h>
+#include <baselib/gobjuserdata.h>
+#include <baselib/memory.h>
+#include <baselib/sislib.h>
+
+/// --- Externs ---
+extern long HSD_GObj_804D783C;
+char* GetNameText(u8 slot);
+int GetNameCount(void);
+void lb_8001CE00(void);
+
+typedef struct MnVibrationDataLayout {
+    AnimLoopSettings intro_anim;
+    AnimLoopSettings main_anim;
+    AnimLoopSettings cursor_anim;
+    Vec3 name_pos;
+    char user_data_error[0x18];
+    char file_name[0x10];
+    char user_data_name[0xC];
+    char convi_top_joint[0x18];
+    char convi_top_animjoint[0x1C];
+    char convi_top_matanim_joint[0x20];
+    char convi_top_shapeanim_joint[0x24];
+    char ctlvi_top_joint[0x18];
+    char ctlvi_top_animjoint[0x1C];
+    char ctlvi_top_matanim_joint[0x20];
+    char ctlvi_top_shapeanim_joint[0x24];
+    char onoffvi_top_joint[0x1C];
+    char onoffvi_top_animjoint[0x20];
+    char onoffvi_top_matanim_joint[0x24];
+    char onoffvi_top_shapeanim_joint[0x24];
+    char cursorvi_top_joint[0x20];
+} MnVibrationDataLayout;
+
+// Local inline JObj functions using the weak HSD_JObjSetMtxDirty pattern
+static inline f32 mnVibration_JObjGetTranslationX(HSD_JObj* jobj)
+{
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3E1, mnVibration_804D4FFC));
+    return jobj->translate.x;
+}
+
+static inline f32 mnVibration_JObjGetTranslationY(HSD_JObj* jobj)
+{
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3EE, mnVibration_804D4FFC));
+    return jobj->translate.y;
+}
+
+static inline f32 mnVibration_JObjGetTranslationZ(HSD_JObj* jobj)
+{
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3FB, mnVibration_804D4FFC));
+    return jobj->translate.z;
+}
+
+static inline void mnVibration_JObjSetTranslateX(HSD_JObj* jobj, f32 x)
+{
+    HSD_JObj* temp = jobj;
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3A4, mnVibration_804D4FFC));
+    jobj->translate.x = x;
+    if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
+        (HSD_JObjSetMtxDirty)(temp);
+    }
+}
+
+static inline void mnVibration_JObjSetTranslateY(HSD_JObj* jobj, f32 y)
+{
+    HSD_JObj* temp = jobj;
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3B3, mnVibration_804D4FFC));
+    jobj->translate.y = y;
+    if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
+        (HSD_JObjSetMtxDirty)(temp);
+    }
+}
+
+static inline void mnVibration_JObjSetTranslateZ(HSD_JObj* jobj, f32 z)
+{
+    HSD_JObj* temp = jobj;
+    ((jobj) ? ((void) 0)
+            : __assert(mnVibration_804D4FF4, 0x3C2, mnVibration_804D4FFC));
+    jobj->translate.z = z;
+    if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
+        (HSD_JObjSetMtxDirty)(temp);
+    }
+}
+
+// --- Static data ---
+static u16 mnVibration_PortPanelJointIds[4] = { 0x16, 0x15, 0x14, 0x13 };
+s32 mnVibration_804D4FF0 = 0x20010000;
+SDATA char mnVibration_804D4FF4[] = "jobj.h";
+SDATA char mnVibration_804D4FFC[] = "jobj";
+AnimLoopSettings mnVibration_803EECE0 = { 0.0f, 20.0f, -0.1f };
+AnimLoopSettings mnVibration_803EECEC = { 50.0f, 70.0f, -0.1f };
+AnimLoopSettings mnVibration_803EECF8 = { 0.0f, 14.0f, -0.1f };
+Vec3 mnVibration_803EED04 = { -0.4f, 0.5f, 0.0f };
+static char mnVibration_803EED10[0x18] = "Can't get user_data.\n";
+static char mnVibration_803EED28[0x10] = "mnvibration.c";
+static char mnVibration_803EED38[0xC] = "user_data";
+static char mnVibration_803EED44[0x18] = "MenMainConVi_Top_joint";
+static char mnVibration_803EED5C[0x1C] = "MenMainConVi_Top_animjoint";
+static char mnVibration_803EED78[0x20] = "MenMainConVi_Top_matanim_joint";
+static char mnVibration_803EED98[0x24] = "MenMainConVi_Top_shapeanim_joint";
+static char mnVibration_803EEDBC[0x18] = "MenMainCtlVi_Top_joint";
+static char mnVibration_803EEDD4[0x1C] = "MenMainCtlVi_Top_animjoint";
+static char mnVibration_803EEDF0[0x20] = "MenMainCtlVi_Top_matanim_joint";
+static char mnVibration_803EEE10[0x24] = "MenMainCtlVi_Top_shapeanim_joint";
+static char mnVibration_803EEE34[0x1C] = "MenMainOnoffVi_Top_joint";
+static char mnVibration_803EEE50[0x20] = "MenMainOnoffVi_Top_animjoint";
+static char mnVibration_803EEE70[0x24] = "MenMainOnoffVi_Top_matanim_joint";
+static char mnVibration_803EEE94[0x24] = "MenMainOnoffVi_Top_shapeanim_joint";
+static char mnVibration_803EEEB8[0x20] = "MenMainCursorVi_Top_joint";
+
+// --- Globals ---
+HSD_GObj* mnVibration_804D6C28;
+
+/// --- Local Helper Structs ---
+typedef struct MnVibrationJointAssets {
+    void* joint;     // 0x00
+    void* animjoint; // 0x04
+    void* matanim;   // 0x08
+    void* shapeanim; // 0x0C
+} MnVibrationJointAssets;
+
+typedef struct MnVibrationData {
+    /* 0x00 */ u8 x0[6];         ///< x0[0] intro_timer, x0[1] cursor_row,
+                                 ///< x0[2..5] port_mode[4] (per-port rumble
+                                 ///< toggle 0/1); kept as one array - the
+                                 ///< x0[i+2] indexing is load-bearing for
+                                 ///< the loop shape in several functions
+    /* 0x06 */ u8 x6[4];         ///< port_connected[4] (from
+                                 ///< HSD_PadCopyStatus[i].err)
+    /* 0x0A */ u8 scroll_offset; // Scroll offset for name list
+    /* 0x0B */ u8 pad_0B;
+    /* 0x0C */ HSD_JObj* jobjs[25]; // JObj references (0xC to 0x70)
+    /* 0x70 */ HSD_Text* texts[8];  // Text handles for name display
+    /* 0x90 */ HSD_Text* title_text;
+    /* 0x94 */ HSD_GObj* cursor_gobj;
+} MnVibrationData;
+
+MnVibrationJointAssets mnVibration_804A0868;
+MnVibrationJointAssets mnVibration_804A0878;
+MnVibrationJointAssets mnVibration_804A0888;
+MnVibrationJointAssets mnVibration_804A0898;
+
+/// --- Function Implementation ---
+
+static inline u8 mnVibration_GetNameSlot(MnVibrationData* data, s32 j)
+{
+    u8 scroll_offset = data->scroll_offset;
+    s32 count = GetNameCount();
+    s32 name_idx;
+
+    if ((count < 8) && (j >= count)) {
+        return 0xFF;
+    }
+    name_idx = scroll_offset + j;
+    if (count <= name_idx) {
+        return 0xFF;
+    }
+    return (u8) name_idx;
+}
+
+inline u8 mnVibration_GetNameRumble(s32 name_idx)
+{
+    return GetPersistentNameData(name_idx)->rumble_toggle;
+}
+
+#pragma push
+#pragma dont_inline on
+HSD_JObj* mnVibration_GetNameRowJObj(s32 count)
+{
+    HSD_JObj* temp_r4;
+    HSD_JObj* var_r4;
+    MnVibrationData* data;
+
+    data = mnVibration_804D6C28->user_data;
+    temp_r4 = data->jobjs[17];
+    if (temp_r4 == NULL) {
+        var_r4 = NULL;
+    } else {
+        var_r4 = temp_r4->child;
+    }
+    for (; count > 0; count--) {
+        if (var_r4 == NULL) {
+            var_r4 = NULL;
+        } else {
+            var_r4 = var_r4->next;
+        }
+    }
+    return var_r4;
+}
+#pragma pop
+
+void mnVibration_HandleInput(HSD_GObj* gobj)
+{
+    HSD_JObj* cursor_jobj;
+    MnVibrationData* data = mnVibration_804D6C28->user_data;
+    s32 var_ctr;
+    s32 i;
+    u64 inputs;
+    u64 inputs_repeat;
+    HSD_JObj* panel_jobj;
+    u8 cursor_row;
+    u8 scroll_offset;
+    s32 name_count;
+    s32 name_idx_tmp;
+    u8 name_idx;
+    u8 rumble_setting;
+    HSD_JObj* loaded_joint;
+    HSD_JObj* jobj;
+    u8 sp[112];
+
+    if (mn_804D6BC8.cooldown != 0) {
+        Menu_DecrementAnimTimer();
+        return;
+    }
+
+    Menu_GetAllInputs();
+
+    // Handle B button - exit menu
+    inputs = gm_GetButtonsTriggered(PAD_ALL_CONTROLLERS);
+    if (inputs & PAD_CANCEL) {
+        MnVibrationData* exit_data;
+        sfxBack();
+        mn_804A04F0.entering_menu = 0;
+        mn_80229894(4, 0, 3);
+        // Clean up text objects - reload data pointer
+        exit_data = mnVibration_804D6C28->user_data;
+        {
+            s32 text_idx;
+            for (text_idx = 0; text_idx < 8; text_idx++) {
+                HSD_SisLib_803A5CC4(exit_data->texts[text_idx]);
+            }
+            i = text_idx;
+        }
+        if (exit_data->title_text != NULL) {
+            HSD_SisLib_803A5CC4(exit_data->title_text);
+        }
+        HSD_GObjPLink_80390228(mnVibration_804D6C28);
+        HSD_PadRumbleRemoveAll();
+        lb_8001CE00();
+        return;
+    }
+
+    // Check animation timer
+    if (data->x0[0] <= ((AnimLoopSettings*) &mnVibration_803EECE0)->end_frame)
+    {
+        data->x0[0]++;
+        return;
+    }
+
+    // Check A button per controller for rumble toggle
+    for (i = 0; i < 4; i++) {
+        if (data->x0[i + 2] == 0) {
+            inputs = gm_GetButtonsTriggered(i);
+            if (inputs & PAD_CONFIRM) {
+                HSD_JObj* temp_jobj;
+                sfxForward();
+                if (GetRumbleSettingOfPort(i) != 0) {
+                    HSD_JObj* panel_jobj2;
+                    gmMainLib_8015ED4C(i, 0);
+                    rumble_setting = GetRumbleSettingOfPort(i);
+                    temp_jobj =
+                        ((MnVibrationData*) mnVibration_804D6C28->user_data)
+                            ->jobjs[23];
+                    if (temp_jobj == NULL) {
+                        jobj = NULL;
+                    } else {
+                        jobj = temp_jobj->child;
+                    }
+                    for (var_ctr = i; var_ctr > 0; var_ctr--) {
+                        if (jobj == NULL) {
+                            jobj = NULL;
+                        } else {
+                            jobj = jobj->next;
+                        }
+                    }
+                    lb_80011E24(jobj, &panel_jobj2, 2, -1);
+                    HSD_JObjReqAnimAll(panel_jobj2, (f32) rumble_setting);
+                    HSD_JObjAnimAll(panel_jobj2);
+                    HSD_PadRumbleRemoveAll();
+                    HSD_PadRumbleOffN(i);
+                    return;
+                } else {
+                    HSD_JObj* panel_jobj2;
+                    gmMainLib_8015ED4C(i, 1);
+                    rumble_setting = GetRumbleSettingOfPort(i);
+                    temp_jobj =
+                        ((MnVibrationData*) mnVibration_804D6C28->user_data)
+                            ->jobjs[23];
+                    if (temp_jobj == NULL) {
+                        jobj = NULL;
+                    } else {
+                        jobj = temp_jobj->child;
+                    }
+                    for (var_ctr = i; var_ctr > 0; var_ctr--) {
+                        if (jobj == NULL) {
+                            jobj = NULL;
+                        } else {
+                            jobj = jobj->next;
+                        }
+                    }
+                    lb_80011E24(jobj, &panel_jobj2, 2, -1);
+                    HSD_JObjReqAnimAll(panel_jobj2, (f32) rumble_setting);
+                    HSD_JObjAnimAll(panel_jobj2);
+                    HSD_PadRumbleAdd(i, 0, 14, 0, &mnVibration_804D4FF0);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Handle name list navigation if names exist
+    if (GetNameCount() == 0) {
+        return;
+    }
+
+    // Check for up/down navigation
+    {
+        s32 j;
+        for (j = 0; j < 4; j++) {
+            inputs = gm_GetButtonsTriggered(j);
+            if ((inputs & PAD_ANY_LEFT) && data->x0[j + 2] == 1) {
+                u8 state;
+                sfxMove();
+                data->x0[j + 2] = 0;
+                state = data->x0[j + 2];
+                panel_jobj =
+                    data->jobjs[mnVibration_PortPanelJointIds[(u8) j]];
+                HSD_JObjReqAnimAll(panel_jobj, (f32) state);
+                HSD_JObjAnimAll(panel_jobj);
+            } else {
+                inputs = gm_GetButtonsTriggered(j);
+                if ((inputs & PAD_ANY_RIGHT) && data->x0[j + 2] == 0) {
+                    u8 state;
+                    sfxMove();
+                    data->x0[j + 2] = 1;
+                    state = data->x0[j + 2];
+                    panel_jobj =
+                        data->jobjs[mnVibration_PortPanelJointIds[(u8) j]];
+                    HSD_JObjReqAnimAll(panel_jobj, (f32) state);
+                    HSD_JObjAnimAll(panel_jobj);
+                }
+            }
+        }
+        i = j;
+    }
+
+    // Collect repeated inputs from all controllers with L held
+    inputs_repeat = 0;
+    for (i = 0; i < 4; i++) {
+        u8 selected = data->x0[i + 2];
+        if (selected == 1) {
+            inputs_repeat |= gm_801A36C0(i);
+        }
+    }
+
+    // Handle A button to toggle rumble setting for selected name
+    if (inputs_repeat & (1LL << 32)) {
+        sfxForward();
+        cursor_row = data->x0[1];
+        name_idx = mnVibration_GetNameSlot(data, cursor_row);
+        rumble_setting = mnVibration_GetNameRumble(name_idx);
+        if (rumble_setting == 1) {
+            GetPersistentNameData(name_idx)->rumble_toggle = 0;
+        } else {
+            GetPersistentNameData(name_idx)->rumble_toggle = 1;
+        }
+        rumble_setting = mnVibration_GetNameRumble(name_idx);
+        jobj = mnVibration_GetNameRowJObj(data->x0[1]);
+        HSD_JObjReqAnimAll(jobj, (f32) rumble_setting);
+        HSD_JObjAnimAll(jobj);
+        return;
+    }
+
+    // Handle up navigation
+    if (inputs_repeat & (0x10LL << 32)) {
+        cursor_row = data->x0[1];
+        if (cursor_row != 0) {
+            s32 name_row = cursor_row - 1;
+            name_idx = mnVibration_GetNameSlot(data, name_row);
+            if (name_idx != 0xFF) {
+                MnVibrationData* data2;
+                HSD_JObj* jobj17;
+                HSD_JObj* jobj18;
+                f32 base_y;
+                f32 spacing;
+                f32 temp_x;
+                f32 temp_y;
+                f32 temp_z;
+                sfxMove();
+                data->x0[1]--;
+                data2 = mnVibration_804D6C28->user_data;
+                (void) data2;
+                cursor_jobj = data->cursor_gobj->hsd_obj;
+                jobj17 = data2->jobjs[17];
+                cursor_row = data->x0[1];
+                base_y = HSD_JObjGetTranslationY(jobj17);
+                jobj18 = data2->jobjs[18];
+                spacing = HSD_JObjGetTranslationY(jobj18) - base_y;
+                temp_x = HSD_JObjGetTranslationX(jobj17);
+                HSD_JObjSetTranslateX(cursor_jobj, temp_x);
+                jobj17 = data2->jobjs[17];
+                temp_y = (spacing * (f32) cursor_row) +
+                         HSD_JObjGetTranslationY(jobj17);
+                HSD_JObjSetTranslateY(cursor_jobj, temp_y);
+                jobj17 = data2->jobjs[17];
+                temp_z = HSD_JObjGetTranslationZ(jobj17);
+                HSD_JObjSetTranslateZ(cursor_jobj, temp_z);
+            }
+        } else if (GetNameCount() > 8 && data->scroll_offset != 0) {
+            sfxMove();
+            data->scroll_offset--;
+            mnVibration_RefreshNameRows(mnVibration_804D6C28);
+        }
+    }
+
+    // Handle down navigation
+    else if (inputs_repeat & (0x20LL << 32))
+    {
+        cursor_row = data->x0[1];
+        if (cursor_row < 7) {
+            u8 name_row = cursor_row + 1;
+            name_idx = mnVibration_GetNameSlot(data, name_row);
+            if (name_idx != 0xFF) {
+                MnVibrationData* data2;
+                HSD_JObj* jobj17;
+                HSD_JObj* jobj18;
+                f32 base_y;
+                f32 spacing;
+                f32 temp_x;
+                f32 temp_y;
+                f32 temp_z;
+                sfxMove();
+                data->x0[1]++;
+                data2 = mnVibration_804D6C28->user_data;
+                cursor_jobj = data->cursor_gobj->hsd_obj;
+                jobj17 = data2->jobjs[17];
+                cursor_row = data->x0[1];
+                base_y = HSD_JObjGetTranslationY(jobj17);
+                jobj18 = data2->jobjs[18];
+                spacing = HSD_JObjGetTranslationY(jobj18) - base_y;
+                temp_x = HSD_JObjGetTranslationX(jobj17);
+                HSD_JObjSetTranslateX(cursor_jobj, temp_x);
+                jobj17 = data2->jobjs[17];
+                temp_y = (spacing * (f32) cursor_row) +
+                         HSD_JObjGetTranslationY(jobj17);
+                HSD_JObjSetTranslateY(cursor_jobj, temp_y);
+                jobj17 = data2->jobjs[17];
+                temp_z = HSD_JObjGetTranslationZ(jobj17);
+                HSD_JObjSetTranslateZ(cursor_jobj, temp_z);
+            }
+        } else if (GetNameCount() > 8) {
+            name_idx = mnVibration_GetNameSlot(data, 8);
+            if (name_idx != 0xFF) {
+                sfxMove();
+                data->scroll_offset++;
+                if (data->scroll_offset >= GetNameCount()) {
+                    data->scroll_offset = 0;
+                }
+                mnVibration_RefreshNameRows(mnVibration_804D6C28);
+            }
+
+[target source truncated after 32000 characters; 3980 characters omitted. The full file is available at the target_file path in the worker checkout. Read the local file before editing code outside this excerpt.]
+
+HSD_JObjAnimAll(new_jobj);
+    HSD_JObjSetTranslateY(new_jobj, spacing * (f32) arg2);
+    HSD_JObjAddChild(data->jobjs[17], new_jobj);
+}
+
+void mnVibration_RefreshNameRows(HSD_GObj* arg0)
+{
+    s32 j;
+    MnVibrationData* ptr2;
+    MnVibrationData* data;
+    s32 i;
+    HSD_JObj* jobj17;
+    HSD_JObj* child;
+    s32 name_idx;
+
+    ptr2 = data = arg0->user_data;
+    for (i = 0; i < 8; i++) {
+        if (data->texts[i] != NULL) {
+            HSD_SisLib_803A5CC4(ptr2->texts[i]);
+            data->texts[i] = NULL;
+        }
+    }
+    jobj17 = data->jobjs[17];
+    child = HSD_JObjGetChild(jobj17);
+    if (child != NULL) {
+        HSD_JObjRemoveAll(HSD_JObjGetChild(jobj17));
+    }
+    for (j = 0; j < 8; j++) {
+        name_idx = mnVibration_GetNameSlot(data, j);
+        if (name_idx != 0xFF) {
+            mnVibration_CreateNameRow(arg0, (u8) name_idx, (u8) j);
+        }
+    }
+}
+
+void mnVibration_OnAnimComplete(HSD_GObj* gobj)
+{
+    MnVibrationData* data;
+    HSD_JObj* jobj;
+    AnimLoopSettings* table;
+    f32 frame;
+    int pad;
+
+    data = gobj->user_data;
+    jobj = data->jobjs[1];
+    table = &mnVibration_803EECEC;
+    pad = 0;
+    frame = mn_8022ED6C(jobj, table);
+    if (frame >= table->end_frame) {
+        HSD_GObjPLink_80390228(gobj);
+    }
+}
+
+static inline HSD_JObj* mnVibration_GetPortChildAt(HSD_GObj* gobj, s32 n)
+{
+    HSD_JObj* child;
+    HSD_JObj* temp_jobj;
+    s32 i;
+
+    temp_jobj = ((MnVibrationData*) gobj->user_data)->jobjs[23];
+    if (temp_jobj == NULL) {
+        child = NULL;
+    } else {
+        child = temp_jobj->child;
+    }
+    for (i = 0; i < n; i++) {
+        if (child == NULL) {
+            child = NULL;
+        } else {
+            child = child->next;
+        }
+    }
+    return child;
+}
+
+void mnVibration_Think(HSD_GObj* gobj)
+{
+    HSD_JObj* sp44;
+    HSD_JObj* toggle_jobj;
+    HSD_JObj* port_child;
+    s32 port;
+    s32 port_idx;
+    u8 pad_err;
+    u8 state;
+    HSD_JObj* active_child;
+    MnVibrationData* data;
+    HSD_JObj* disconnected_child;
+    u8 sp[52];
+
+    data = gobj->user_data;
+    if ((u8) mn_804A04F0.cur_menu != 0x13) {
+        HSD_GObjProc* proc;
+        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        proc = HSD_GObj_SetupProc(gobj, mnVibration_OnAnimComplete, 0);
+        proc->flags_3 = HSD_GObj_804D783C;
+        return;
+    }
+    port = 0;
+    do {
+        void* temp_jobj;
+        temp_jobj = ((MnVibrationData*) gobj->user_data)->jobjs[23];
+        if (temp_jobj == NULL) {
+            port_child = NULL;
+        } else {
+            port_child = ((HSD_JObj*) temp_jobj)->child;
+        }
+        {
+            s32 i;
+            for (i = 0; i < port; i++) {
+                if (port_child == NULL) {
+                    port_child = NULL;
+                } else {
+                    port_child = port_child->next;
+                }
+            }
+        }
+        lb_80011E24(port_child, &sp44, 1, -1);
+        if (GetRumbleSettingOfPort(port) != 0) {
+            mn_8022EC18(sp44, &mnVibration_803EECF8, MOBJ_MASK);
+        } else {
+            HSD_JObjReqAnimAll(sp44, mnVibration_804DC030);
+            mn_8022F3D8(sp44, 0xFF, MOBJ_MASK);
+            HSD_JObjAnimAll(sp44);
+        }
+        port += 1;
+    } while (port < 4);
+    port_idx = 0;
+    do {
+        pad_err = HSD_PadCopyStatus[(u8) port_idx].err;
+        if ((((s8) pad_err != 0) && (data->x6[port_idx] != 0)) ||
+            (((s8) pad_err == 0) && (data->x6[port_idx] == 0)))
+        {
+            if ((s8) pad_err != 0) {
+                HSD_JObjSetFlagsAll(
+                    data->jobjs[mnVibration_PortPanelJointIds[port_idx]],
+                    JOBJ_HIDDEN);
+                {
+                    void* temp_jobj2;
+                    temp_jobj2 =
+                        ((MnVibrationData*) gobj->user_data)->jobjs[23];
+                    if (temp_jobj2 == NULL) {
+                        disconnected_child = NULL;
+                    } else {
+                        disconnected_child = ((HSD_JObj*) temp_jobj2)->child;
+                    }
+                }
+                {
+                    s32 i;
+                    for (i = 0; i < port_idx; i++) {
+                        if (disconnected_child == NULL) {
+                            disconnected_child = NULL;
+                        } else {
+                            disconnected_child = disconnected_child->next;
+                        }
+                    }
+                }
+                mnVibration_UpdatePortPanel(disconnected_child, port_idx, 0);
+                data->x6[port_idx] = 0;
+            } else {
+                HSD_JObjClearFlagsAll(
+                    data->jobjs[mnVibration_PortPanelJointIds[port_idx]],
+                    JOBJ_HIDDEN);
+                data->x0[port_idx + 2] = 0;
+                toggle_jobj =
+                    ((MnVibrationData*) mnVibration_804D6C28->user_data)
+                        ->jobjs[mnVibration_PortPanelJointIds[(u8) port_idx]];
+                state = data->x0[port_idx + 2];
+                HSD_JObjReqAnimAll(toggle_jobj, state);
+                HSD_JObjAnimAll(toggle_jobj);
+                active_child = mnVibration_GetPortChildAt(gobj, port_idx);
+                mnVibration_UpdatePortPanel(active_child, port_idx, 1);
+                data->x6[port_idx] = 1;
+            }
+        }
+        port_idx += 1;
+    } while ((s32) port_idx < 4);
+}
+
+static inline f32 mnVibration_GetCursorYSpacing(f32 base_y, HSD_JObj* jobj)
+{
+    return mnVibration_JObjGetTranslationY(jobj) - base_y;
+}
+
+void mnVibration_IntroProc(HSD_GObj* arg0)
+{
+    MnVibrationData* data;
+    f32 frame;
+    MnVibrationJointAssets* assets;
+    MnVibrationData* data2;
+    HSD_GObj* cursor_gobj;
+    HSD_JObj* loaded_joint;
+    MnVibrationData* data3;
+    HSD_JObj* cursor_jobj;
+    HSD_JObj* jobj;
+    HSD_JObj* jobj2;
+    HSD_JObj* jobj3;
+    HSD_JObj* jobj4;
+    HSD_JObj* jobj17;
+    HSD_JObj* jobj18;
+    f32 base_y;
+    f32 spacing;
+    f32 temp_x;
+    f32 temp_z;
+    u8 cursor_row;
+    PAD_STACK(64);
+
+    data = arg0->user_data;
+    {
+        HSD_JObj* temp_jobj = data->jobjs[1];
+        frame =
+            mn_8022ED6C(temp_jobj, (AnimLoopSettings*) &mnVibration_803EECE0);
+    }
+    if (mnVibration_804DC050 == frame) {
+        jobj = ((MnVibrationData*) arg0->user_data)->jobjs[23];
+        if (jobj == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = jobj->child;
+        }
+        {
+            s32 i = 0;
+            while (i < 0) {
+                if (jobj == NULL) {
+                    jobj = NULL;
+                } else {
+                    jobj = jobj->next;
+                }
+                i++;
+            }
+        }
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        if ((u8) data->x6[0] != 0) {
+            HSD_JObjClearFlagsAll(data->jobjs[22], JOBJ_HIDDEN);
+        }
+    } else if (mnVibration_804DC054 == frame) {
+        jobj = ((MnVibrationData*) arg0->user_data)->jobjs[23];
+        if (jobj == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = jobj->child;
+        }
+        if (jobj == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = jobj->next;
+        }
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        if ((u8) data->x6[1] != 0) {
+            HSD_JObjClearFlagsAll(data->jobjs[21], JOBJ_HIDDEN);
+        }
+    } else if (mnVibration_804DC058 == frame) {
+        jobj = ((MnVibrationData*) arg0->user_data)->jobjs[23];
+        if (jobj == NULL) {
+            jobj2 = NULL;
+        } else {
+            jobj2 = jobj->child;
+        }
+        if (jobj2 == NULL) {
+            jobj3 = NULL;
+        } else {
+            jobj3 = jobj2->next;
+        }
+        if (jobj3 == NULL) {
+            jobj4 = NULL;
+        } else {
+            jobj4 = jobj3->next;
+        }
+        HSD_JObjClearFlagsAll(jobj4, JOBJ_HIDDEN);
+        if ((u8) data->x6[2] != 0) {
+            HSD_JObjClearFlagsAll(data->jobjs[20], JOBJ_HIDDEN);
+        }
+    } else if (mnVibration_804DC05C == frame) {
+        jobj = ((MnVibrationData*) arg0->user_data)->jobjs[23];
+        if (jobj == NULL) {
+            jobj2 = NULL;
+        } else {
+            jobj2 = jobj->child;
+        }
+        if (jobj2 == NULL) {
+            jobj3 = NULL;
+        } else {
+            jobj3 = jobj2->next;
+        }
+        if (jobj3 == NULL) {
+            jobj4 = NULL;
+        } else {
+            jobj4 = jobj3->next;
+        }
+        if (jobj4 == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = jobj4->next;
+        }
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        if ((u8) data->x6[3] != 0) {
+            HSD_JObjClearFlagsAll(data->jobjs[19], JOBJ_HIDDEN);
+        }
+    } else if (mnVibration_804DC060 == frame) {
+        if (GetNameCount() != 0) {
+            mnVibration_RefreshNameRows(arg0);
+            assets = &mnVibration_804A0868;
+            data2 = arg0->user_data;
+            cursor_gobj = GObj_Create(6U, 7U, 0x80U);
+            data2->cursor_gobj = cursor_gobj;
+            loaded_joint = HSD_JObjLoadJoint(assets->joint);
+            HSD_GObjObject_80390A70(cursor_gobj, HSD_GObj_804D7849,
+                                    loaded_joint);
+            GObj_SetupGXLink(cursor_gobj, HSD_GObj_JObjCallback, 4U, 0x80U);
+            HSD_GObj_SetupProc(cursor_gobj, mnVibration_CursorThink, 0U);
+            data3 = arg0->user_data;
+            cursor_jobj = cursor_gobj->hsd_obj;
+            jobj17 = data3->jobjs[17];
+            cursor_row = data2->x0[1];
+            base_y = mnVibration_JObjGetTranslationY(jobj17);
+            jobj18 = data3->jobjs[18];
+            spacing = mnVibration_GetCursorYSpacing(base_y, jobj18);
+            jobj17 = data3->jobjs[17];
+            temp_x = mnVibration_JObjGetTranslationX(jobj17);
+            mnVibration_JObjSetTranslateX(cursor_jobj, temp_x);
+            jobj17 = data3->jobjs[17];
+            mnVibration_JObjSetTranslateY(
+                cursor_jobj, (spacing * (f32) cursor_row) +
+                                 mnVibration_JObjGetTranslationY(jobj17));
+            jobj17 = data3->jobjs[17];
+            temp_z = mnVibration_JObjGetTranslationZ(jobj17);
+            mnVibration_JObjSetTranslateZ(cursor_jobj, temp_z);
+        }
+    }
+
+    if (frame >= ((AnimLoopSettings*) &mnVibration_803EECE0)->end_frame) {
+        HSD_GObjProc* proc;
+        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        proc = HSD_GObj_SetupProc(arg0, mnVibration_Think, 0);
+        proc->flags_3 = HSD_GObj_804D783C;
+    }
+}
+
+void mnVibration_CreateScreen(s32 arg0)
+{
+    MnVibrationJointAssets* assets;
+    HSD_GObj* gobj;
+    HSD_JObj* jobj;
+    HSD_Text* text;
+    s32 i;
+    MnVibrationData* data;
+    MnVibrationDataLayout* layout =
+        (MnVibrationDataLayout*) &mnVibration_803EECE0;
+
+    (void) arg0;
+    PAD_STACK(24);
+    assets = &mnVibration_804A0898;
+    gobj = GObj_Create(6, 7, 0x80);
+    mnVibration_804D6C28 = gobj;
+    jobj = HSD_JObjLoadJoint(assets->joint);
+    HSD_GObjObject_80390A70(gobj, HSD_GObj_804D7849, jobj);
+    GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
+    HSD_JObjAddAnimAll(jobj, assets->animjoint, assets->matanim,
+                       assets->shapeanim);
+    HSD_JObjReqAnimAll(jobj, mnVibration_804DC030);
+    data = HSD_MemAlloc(sizeof(MnVibrationData));
+    if (data == NULL) {
+        OSReport(layout->user_data_error);
+        __assert(layout->file_name, 0x3A7, layout->user_data_name);
+    }
+    data->x0[0] = 0;
+    data->x0[1] = 0;
+    for (i = 0; i < 4; i++) {
+        data->x0[i + 2] = 0;
+        data->x6[i] = HSD_PadCopyStatus[(u8) i].err != 0 ? 0 : 1;
+    }
+    data->scroll_offset = 0;
+    data->texts[0] = NULL;
+    data->texts[1] = NULL;
+    data->texts[2] = NULL;
+    data->texts[3] = NULL;
+    data->texts[4] = NULL;
+    data->texts[5] = NULL;
+    data->texts[6] = NULL;
+    data->texts[7] = NULL;
+    GObj_InitUserData(gobj, 0, HSD_Free, data);
+    {
+        s32 k = 0;
+        do {
+            lb_80011E24(jobj, &data->jobjs[k], k, -1);
+            k += 1;
+        } while (k < 0x19);
+    }
+    HSD_JObjSetFlagsAll(data->jobjs[22], JOBJ_HIDDEN);
+    HSD_JObjSetFlagsAll(data->jobjs[21], JOBJ_HIDDEN);
+    HSD_JObjSetFlagsAll(data->jobjs[20], JOBJ_HIDDEN);
+    HSD_JObjSetFlagsAll(data->jobjs[19], JOBJ_HIDDEN);
+    HSD_GObj_SetupProc(gobj, (void (*)(HSD_GObj*)) mnVibration_IntroProc, 0);
+    mnVibration_CreatePortPanels(gobj);
+    if (data->title_text != NULL) {
+        HSD_SisLib_803A5CC4(data->title_text);
+    }
+    text =
+        HSD_SisLib_803A5ACC(0, 1, -9.5f, 9.1f, 17.0f, 364.68332f, 38.38772f);
+    data->title_text = text;
+    text->font_size.x = 0.0521f;
+    text->font_size.y = 0.0521f;
+    HSD_SisLib_803A6368(text, 0xA7);
+}
+
+void mnVibration_Init(int arg0)
+{
+    HSD_Archive* archive;
+    HSD_GObj* gobj;
+    HSD_GObjProc* proc;
+    MnVibrationJointAssets* assets;
+    MnVibrationDataLayout* strings;
+
+    strings = (MnVibrationDataLayout*) &mnVibration_803EECE0;
+    assets = (MnVibrationJointAssets*) &mnVibration_804A0868;
+    mn_804D6BC8.cooldown = 5;
+    mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
+    mn_804A04F0.cur_menu = 19;
+    mn_804A04F0.hovered_selection = 0;
+    archive = mn_804D6BB8;
+
+    lbArchive_LoadSections(
+        archive, &assets[3].joint, strings->convi_top_joint,
+        &assets[3].animjoint, strings->convi_top_animjoint, &assets[3].matanim,
+        strings->convi_top_matanim_joint, &assets[3].shapeanim,
+        strings->convi_top_shapeanim_joint,
+
+        &assets[1].joint, strings->ctlvi_top_joint, &assets[1].animjoint,
+        strings->ctlvi_top_animjoint, &assets[1].matanim,
+        strings->ctlvi_top_matanim_joint, &assets[1].shapeanim,
+        strings->ctlvi_top_shapeanim_joint,
+
+        &assets[2].joint, strings->onoffvi_top_joint, &assets[2].animjoint,
+        strings->onoffvi_top_animjoint, &assets[2].matanim,
+        strings->onoffvi_top_matanim_joint, &assets[2].shapeanim,
+        strings->onoffvi_top_shapeanim_joint,
+
+        &assets[0].joint, strings->cursorvi_top_joint,
+
+        NULL);
+
+    mnVibration_CreateScreen(arg0);
+
+    gobj = GObj_Create(0, 1, 0x80);
+    proc = HSD_GObj_SetupProc(
+        gobj, (void (*)(HSD_GObj*)) mnVibration_HandleInput, 0);
+    proc->flags_3 = HSD_GObj_804D783C;
+}
+]]>
+<pre><code>    &lt;/target_file&gt;
+&lt;/target&gt;
+
+&lt;first_diff status="unavailable" reason="preview: no claim-time diff was run"/&gt;
+
+&lt;target_knowledge context_budget="full"&gt;
+    &lt;details_json&gt;
+</code></pre>
+<pre><code class="language-json">{
+  &quot;stable_key&quot;: &quot;main/melee/mn/mnvibration:mnVibration_HandleInput&quot;,
+  &quot;target&quot;: {
+    &quot;kind&quot;: &quot;function&quot;,
+    &quot;unit&quot;: &quot;main/melee/mn/mnvibration&quot;,
+    &quot;symbol&quot;: &quot;mnVibration_HandleInput&quot;,
+    &quot;source_path&quot;: &quot;src/melee/mn/mnvibration.c&quot;,
+    &quot;identity_status&quot;: &quot;current&quot;
+  },
+  &quot;context_budget&quot;: &quot;full&quot;,
+  &quot;ledger&quot;: {
+    &quot;runs&quot;: [
+      {
+        &quot;final_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null,
+        &quot;submission_count&quot;: 1,
+        &quot;best_score&quot;: 97.52387
+      },
+      {
+        &quot;final_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null,
+        &quot;submission_count&quot;: 1,
+        &quot;best_score&quot;: 97.515686
+      },
+      {
+        &quot;final_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null,
+        &quot;submission_count&quot;: 1,
+        &quot;best_score&quot;: 97.46794
+      }
+    ],
+    &quot;entries&quot;: [
+      {
+        &quot;type&quot;: &quot;submission&quot;,
+        &quot;seq&quot;: 1,
+        &quot;description&quot;: &quot;The submitted source added the inline mnVibration_GetPortRumble accessor and used it for both rumble-state reloads after changing a port setting. It moved two distinct panel JObj output locals to fun…&quot;,
+        &quot;score&quot;: 97.52387,
+        &quot;run_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null
+      },
+      {
+        &quot;type&quot;: &quot;submission&quot;,
+        &quot;seq&quot;: 1,
+        &quot;description&quot;: &quot;The submitted source changed the rumble-enable branch from PAD_STACK(104) to PAD_STACK(100), introduced mnVibration_GetPreviousCursorRow and used it for upward name-row navigation, and replaced the d…&quot;,
+        &quot;score&quot;: 97.515686,
+        &quot;run_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null
+      },
+      {
+        &quot;type&quot;: &quot;submission&quot;,
+        &quot;seq&quot;: 1,
+        &quot;description&quot;: &quot;Added the local inline helper mnVibration_GetNextCursorRow and used it to compute the row examined by the downward-navigation branch instead of writing cursor_row + 1 directly at the call site. All e…&quot;,
+        &quot;score&quot;: 97.46794,
+        &quot;run_outcome&quot;: &quot;improvement&quot;,
+        &quot;integration&quot;: null
+      }
+    ]
+  },
+  &quot;status&quot;: {
+    &quot;match_pct&quot;: 98.956345,
+    &quot;linked&quot;: false,
+    &quot;size&quot;: 2932
+  },
+  &quot;facts&quot;: {
+    &quot;naming_note&quot;: &quot;The target.symbol column is the only name a worker may write into source. inferred_name facts are guesses, not canonical names.&quot;,
+    &quot;by_type&quot;: {
+      &quot;data_flow&quot;: {
+        &quot;value&quot;: &quot;Reads processed trigger and repeat masks for all four controller ports, screen animation timers, each port's control-selection state and persistent rumble setting, the saved-name count, cursor row, scroll offset, and selected name's rumble flag. It writes per-port rumble settings through the game-save interface, writes saved-name `rumble_enabled` …&quot;,
+        &quot;rationale&quot;: &quot;&quot;,
+        &quot;confidence&quot;: 0.99,
+        &quot;evidence&quot;: {
+          &quot;kind&quot;: &quot;code&quot;,
+          &quot;locator&quot;: &quot;code://c9ac93647f/src/melee/mn/mnvibration.c#L348-L467&quot;,
+          &quot;why&quot;: &quot;Shows per-port input and settings flowing into persistent writes, panel animation, rumble operations, and saved-name mutation.&quot;
+        }
+      },
+      &quot;game_mapping&quot;: {
+        &quot;value&quot;: &quot;Realizes the interactive behavior of Melee's Vibration Records menu, covering both the ON/OFF rumble preference for each of the four controller ports and the rumble preference associated with each saved player name.&quot;,
+        &quot;rationale&quot;: &quot;&quot;,
+        &quot;confidence&quot;: 0.98,
+        &quot;evidence&quot;: {
+          &quot;kind&quot;: &quot;code&quot;,
+          &quot;locator&quot;: &quot;code://c9ac93647f/src/melee/mn/mnvibration.c#L348-L467&quot;,
+          &quot;why&quot;: &quot;Shows independent four-port rumble changes and selected saved-name rumble preference changes.&quot;
+        }
+      },
+      &quot;inferred_type&quot;: {
+        &quot;value&quot;: &quot;A menu-process callback with signature `void (HSD_GObj*)`. The supplied GObj parameter is unused by the recovered body; the routine instead operates on the vibration screen's singleton GObj and its `MnVibrationData` user data.&quot;,
+        &quot;rationale&quot;: &quot;&quot;,
+        &quot;confidence&quot;: 0.99,
+        &quot;evidence&quot;: {
+          &quot;kind&quot;: &quot;code&quot;,
+          &quot;locator&quot;: &quot;code://c9ac93647f/src/melee/mn/mnvibration.c#L228-L347&quot;,
+          &quot;why&quot;: &quot;Provides the callback signature and shows state loaded from the global vibration-screen GObj rather than from the formal parameter.&quot;
+        }
+      }
+    }
+  },
+  &quot;links&quot;: [],
+  &quot;prior_runs&quot;: [
+    {
+      &quot;outcome&quot;: &quot;error&quot;,
+      &quot;integration&quot;: null,
+      &quot;baseline_score&quot;: 97.52387,
+      &quot;best_score&quot;: null,
+      &quot;closed_at&quot;: &quot;2026-08-31T20:28:54.864Z&quot;,
+      &quot;summary&quot;: &quot;&quot;,
+      &quot;observations&quot;: []
+    },
+    {
+      &quot;outcome&quot;: &quot;improvement&quot;,
+      &quot;integration&quot;: null,
+      &quot;baseline_score&quot;: 97.44338,
+      &quot;best_score&quot;: 97.52387,
+      &quot;closed_at&quot;: &quot;2026-08-31T05:12:28.505Z&quot;,
+      &quot;summary&quot;: &quot;The worker began by inspecting the full assembly difference, stack and inline diagnostics, related functions, prior ledger entries, past changes, and historical versions of the source. The early comparison exposed a frame-size mismatch, so the worker first tried top-level stack padding and then repeatedly varied padding placement, local scope, and declaration order while comparing generated instructions against the reference. Attention then shifted to the rumble-confirm branches: the worker tested shared versus branch-specific panel JObj outputs, restored a small port-rumble accessor found in…&quot;,
+      &quot;observations&quot;: [
+        {
+          &quot;observation&quot;: &quot;PAD_STACK(96) at function scope, together with the retained local layout, produces the expected 0x118-byte frame and aligns important branch-local stack slots. Moving padding into the enabled branch or using the other tested padding arrangements did not become the retained form.&quot;,
+          &quot;reusable_when&quot;: &quot;Use this layout as the starting point when later work changes local declarations or branch scopes in mnVibration_HandleInput; recheck the frame before interpreting downstream offsets or register differences.&quot;
+        }
+      ]
+    },
+    {
+      &quot;outcome&quot;: &quot;error&quot;,
+      &quot;integration&quot;: null,
+      &quot;baseline_score&quot;: 97.515686,
+      &quot;best_score&quot;: null,
+      &quot;closed_at&quot;: &quot;2026-08-30T21:52:58.999Z&quot;,
+      &quot;summary&quot;: &quot;The worker began by inspecting the target, related menu code, historical changes, and prior decompilation knowledge. When the normal validation tools failed before compilation, the worker traced the problem to the provisioned wibo executable being an i386 binary that the environment could not launch directly. They established a manual validation path by invoking the same MWCC command through qemu-i386 and comparing the resulting object with objdiff. Using that path, they first retained explicit cursor-X value and JObj temporaries in the upward-navigation branch because the generated setter bo…&quot;,
+      &quot;observations&quot;: [
+        {
+          &quot;observation&quot;: &quot;In the upward-navigation path, materializing the translation-X value and a separate JObj setter argument changed register lifetime and inserted the move the worker expected at the setter boundary. The worker retained this source shape after broader cursor-temporary and setter-alias variants regress…&quot;,
+          &quot;reusable_when&quot;: &quot;Use this shape when remaining mismatches are concentrated around HSD_JObj translation setters and appear to be caused by argument-register or value-lifetime differences.&quot;
+        }
+      ]
+    }
+  ],
+  &quot;accepted_prs&quot;: []
+}
+</code></pre>
+<pre><code>    &lt;/details_json&gt;
+&lt;/target_knowledge&gt;
+</code></pre>
+<p><decomp_standards>
+    <instruction>
+        These standards are mandatory requirements enforced by lint and review, not preferences.
+        Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted.
+        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.
+    </instruction>
+    <standard id="natural-loops">
+        <description>
+            - Repeated blocks that vary by an index, pointer, flag slot, or stride are original loops and must be recovered as natural for/while/do-while forms, including exact int counters when MWCC loop shape matters.
+            - Keeping copied generated blocks is rejected; the only permitted exception is an unrolled shape retained after recorded evidence shows every natural loop form fails.
+        </description>
+        <canonical_example id="natural-loop-pointer-stride" severity="pre_ship_review">
+            <bad_code>if (count != 0) {
+    cur = groups;
+    do {
+        HSD_SynthSFXGroupDataReaddress(cur);
+        cur++;
+        count--;
+    } while (count != 0);
+}</bad_code>
+            <preferred_code>for (i = 0; i &lt; count; i++) {
+    HSD_SynthSFXGroupDataReaddress(&amp;groups[i]);
+}
+/<em> Keep the source loop zero-or-more and indexable when the array count is known. </em>/</preferred_code>
+            <why>
+                - A guarded pointer-walk can be decompiler residue for an ordinary counted loop.
+                - The counted loop exposes the authored array shape and avoids preserving control flow solely because it currently matches.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - m2c_goto_label
+            - m2c_residue_names
+        </qa_rules>
+    </standard>
+    <standard id="infer-authored-source-style">
+        <description>
+            - Matching is required to reconstruct the likely original authored source, not arbitrary C that moves a score; a shape that only moves a score is rejected.
+            - Matched siblings, nearby files, headers, macros, naming habits, control-flow idioms, and review evidence are required inputs for inferring the original developers' local standards before any generated, permuter-shaped, or data-driven source is retained.
+        </description>
+        <canonical_example id="authored-style-local-inline-count" severity="pre_ship_review">
+            <bad_code>PAD_STACK(8);
+count = 0;
+if (mnEvent_8024D1E4(0) != 0) count++;
+if (mnEvent_8024D1E4(1) != 0) count++;
+if (mnEvent_8024D1E4(2) != 0) count++;</bad_code>
+            <preferred_code>static inline s32 mnEvent_CountUnlocked(void)
+{
+    s32 i;
+    s32 count = 0;</p>
+<pre><code>for (i = 0; i &amp;lt; 3; i++) {
+    if (mnEvent_8024D1E4(i) != 0) {
+        count++;
+    }
+}
+return count;
+</code></pre>
+<p>}</p>
+<p>count = mnEvent_CountUnlocked();</preferred_code>
+            <why>
+                - Local sibling helpers are stronger source-shape evidence than stack padding plus repeated generated calls.
+                - Restore the authored helper boundary when nearby code shows the project used that boundary.
+            </why>
+        </canonical_example>
+    </standard>
+    <standard id="typed-fields-over-pointer-math">
+        <description>
+            - When a type can describe an access, real fields, correct FighterVars/GroundVars/ItemVars union arms, accessors, or temporary internal structs are required; M2C_FIELD and raw pointer arithmetic may not ship in accepted source.
+            - The single permitted exception is a type_erasing_cast surfaced for llm_review, which must be justified in the attempt summary; a raw ((u8<em>) obj) + offset access without that review is rejected.
+        </description>
+        <canonical_example id="typed-item-vars-owning-base" qa_rule_id="pointer_offset_arithmetic" severity="warning">
+            <bad_code>Item</em> ip = GET_ITEM(gobj);
+value = <em>(s32</em>) ((u8*) ip + 0xE38);</bad_code>
+            <preferred_code>typedef struct itArwingLaser_ItemVars {
+    char x0_pad[0x64];
+    s32 xE38;
+} itArwingLaser_ItemVars;</p>
+<p>value = ip-&gt;xDD4_itemVar.arwinglaser.xE38;</preferred_code>
+            <why>
+                - Recover item-var fields from the owning Item.xDD4 base, not from the first offset that happens to be used.
+                - The typed union arm documents ownership and keeps later offsets from drifting.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - stage_ground_var_owner
+            - m2c_field_use
+            - type_erasing_cast
+            - pointer_offset_arithmetic
+        </qa_rules>
+    </standard>
+    <standard id="header-inlines">
+        <description>
+            - Expanded header asserts, especially from jobj.h, must be mapped back to the existing inline/helper when line numbers and local evidence identify the source-level operation; keeping the expanded body is rejected.
+            - Local helper boundaries must be restored when duplicated expanded bodies or sibling functions show an authored helper shape.
+        </description>
+        <canonical_example id="header-inline-jobj-helper" qa_rule_id="copied_jobj_inline" severity="error">
+            <bad_code>static inline void LocalSetMtxDirty(HSD_JObj<em> jobj)
+{
+    if (jobj == NULL) {
+        __assert("jobj.h", 0x2F4, "jobj");
+    }
+    jobj-&gt;flags |= JOBJ_MTX_DIRTY;
+}</bad_code>
+            <preferred_code>HSD_JObjSetMtxDirty(jobj);
+/</em> Or use the shared WithMtxDirty variant when that is the evidenced helper. */</preferred_code>
+            <why>
+                - Local fake helpers that mirror jobj.h asserts and writes should be compared against the owning header helper.
+                - The fix path is to recover the canonical helper rather than copy the inline body into each TU.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - copied_jobj_inline
+            - unrolled_assert
+        </qa_rules>
+    </standard>
+    <standard id="assert-report-macros">
+        <description>
+            - Raw assert/report expansions must become HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, or OSPanic forms whenever the file, line, message, and side effects match local project idioms; a shipped raw <strong>assert block that had a macro form is rejected.
+            - There is no exception: an existing macro form must replace the raw expansion, and real report/panic side effects may not be dropped.
+        </description>
+        <canonical_example id="assert-report-direct-asserts" qa_rule_id="unrolled_assert" severity="error">
+            <bad_code>if (obj == NULL) {
+    __assert(__FILE</strong>, 0x88, "obj");
+}</bad_code>
+            <preferred_code>HSD_ASSERT(0x88, obj);</preferred_code>
+            <why>
+                - A direct assert block should become the project assert macro when file, line, condition, and side effects match.
+                - Leave expanded forms only when the macro form would change object bytes or behavior.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - unrolled_assert
+            - fake_assert_macro
+            - assert_idiom_downgrade
+        </qa_rules>
+    </standard>
+    <standard id="literals-and-data-ownership">
+        <description>
+            - Promoting a string, float, or constant into named storage because generated output exposed an address is not allowed; source that keeps such an invented symbol is rejected.
+            - An extern declaration in a .c file is banned outright: declare the symbol in its owning header or define the data in this translation unit.
+            - The only permitted named-data case is recorded section-ownership evidence (.data, .rodata, .sdata, .sdata2 metadata, symbol metadata, or split boundaries); absent that evidence the literal stays inline.
+        </description>
+        <canonical_example id="literal-extern-float-anchor" qa_rule_id="extern_own_tu_data" severity="error">
+            <bad_code>extern const f32 lbl_804DA60C;</p>
+<p>speed = lbl_804DA60C;</p>
+<p>const f32 lbl_804DA60C = 1.0F;</bad_code>
+            <preferred_code>speed = 1.0F;
+/<em> Keep named data only when symbol metadata and section ownership prove it. </em>/</preferred_code>
+            <why>
+                - Introducing an extern, use, and definition together creates a data-order anchor instead of recovering source ownership.
+                - Ordinary numeric constants should stay inline unless real data ownership is proven.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - extern_in_c
+            - extern_own_tu_data
+            - numeric_literal_to_symbol
+            - address_named_static_data
+            - banned_pattern:*
+            - resubmission_tombstone
+        </qa_rules>
+    </standard>
+    <standard id="no-string-literal-symbol-regression">
+        <description>
+            - String literals used as asset names, resource labels, assert/report text, and table labels are required to stay inline for code-matching changes.
+            - Replacing a literal with a generated or global data symbol is a data regression and is rejected; the only permitted exception is maintainer-approved data-ownership evidence that explicitly scopes the change as data work.
+        </description>
+        <canonical_example id="string-asset-label-inline" qa_rule_id="string_literal_to_symbol" severity="error">
+            <bad_code>extern char mnNameNew_803EE38C[];</p>
+<p>HSD_ArchiveGetPublicAddress(archive, mnNameNew_803EE38C);</bad_code>
+            <preferred_code>HSD_ArchiveGetPublicAddress(archive, "MenMainBack_Top_joint");
+/<em> Keep ordinary asset labels inline unless data ownership is the explicit scope. </em>/</preferred_code>
+            <why>
+                - Asset and resource labels should not become address-style globals just to chase relocation or data layout.
+                - This replacement makes a source literal look like a data-symbol ownership claim.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - extern_in_c
+            - string_literal_to_symbol
+            - packed_string_blob
+            - banned_pattern:*
+            - resubmission_tombstone
+        </qa_rules>
+    </standard>
+    <standard id="canonical-control-flow-and-macros">
+        <description>
+            - Generated branch ladders, gotos, repeated select-like assignments, and raw absolute/min/max expressions must be recovered as normal source forms such as switch, ternary, ABS, MIN, MAX, and CLAMP.
+            - Shipping the generated form instead is rejected; the only permitted exception is a case where recorded local evidence proves the canonical form does not represent the source.
+        </description>
+        <canonical_example id="canonical-switch-dispatch" qa_rule_id="m2c_goto_label" severity="warning">
+            <bad_code>if (kind == 0) goto lbl_idle;
+if (kind == 1) goto lbl_walk;
+if (kind == 2) goto lbl_jump;
+goto lbl_default;</bad_code>
+            <preferred_code>switch (kind) {
+case 0: return idle();
+case 1: return walk();
+case 2: return jump();
+default: return fallback();
+}</preferred_code>
+            <why>
+                - Generated-looking dispatch chains should be checked against grouped switch forms.
+                - This shape is goto residue; grouped switch dispatch is clearer and usually closer to authored source.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - m2c_goto_label
+            - define_alias
+        </qa_rules>
+    </standard>
+    <standard id="matching-tactics-need-evidence">
+        <description>
+            - PAD_STACK, declaration order changes, widened local lifetimes, dummy locals, volatile locals, manual inline expansion, direct global access, and temporary padded structs are not allowed in reviewable source unless recorded build/objdiff/regression evidence justifies each one.
+            - Tactic presence without that recorded evidence is rejected; the tactic's only permitted basis is the objdiff/regression benefit it demonstrably produces.
+        </description>
+        <canonical_example id="matching-pad-stack-sp-pad" severity="warning">
+            <bad_code>s32 sp[4];
+UNUSED u8 sp_pad[8];
+s32 i;</p>
+<p>UseStack(sp);</bad_code>
+            <preferred_code>s32 sp[4];
+s32 i;</p>
+<p>PAD_STACK(8);</p>
+<p>UseStack(sp);
+/<em> Keep stack padding narrow and backed by objdiff evidence. </em>/</preferred_code>
+            <why>
+                - Manual UNUSED padding arrays are dummy locals posing as source structure.
+                - When intentional padding is required, use PAD_STACK(N) and keep the tactic evidence-bound.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - extern_in_c
+            - volatile_local_tactic
+        </qa_rules>
+    </standard>
+    <standard id="avoid-pragmas-register-asm">
+        <description>
+            - Pragmas, register keywords, and inline assembly are banned in normal decomp source; source that adds them is rejected.
+            - The only permitted exception is a case where reasonable C does not exist, and it must be scoped tightly and carry adjacent-function evidence that it does not harm neighbors.
+        </description>
+        <canonical_example id="avoid-inline-asm-thpinit" qa_rule_id="inline_asm" severity="error">
+            <bad_code>asm BOOL THPInit(void)
+{
+    nofralloc
+    mflr r0
+    ...
+}</bad_code>
+            <preferred_code>BOOL THPInit(void)
+{
+    /<em> Recover the C body and keep raw asm out of normal source. </em>/
+    ...
+}</preferred_code>
+            <why>
+                - Raw inline assembly is not acceptable normal decomp source when a C implementation can be recovered.
+                - Recover the C implementation instead of retaining an asm body for normal source.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - register_keyword
+            - inline_asm
+            - novel_pragma
+            - codegen_pragma
+        </qa_rules>
+    </standard>
+    <standard id="conservative-naming">
+        <description>
+            - Names must improve reviewability without inventing meaning; an invented semantic name is rejected.
+            - A semantic name is required to carry supporting evidence; without it, fn_/lbl_/address-style names must stay, and temp_rXX names must be cleaned once a local role is clear.
+        </description>
+        <canonical_example id="conservative-address-function-name" severity="pre_ship_review">
+            <bad_code>s32 mnName_GetUnlockedColumnCount(void)
+{
+    return mnName_802388D4();
+}
+/<em> Semantic name is guessed from behavior only. </em>/</bad_code>
+            <preferred_code>s32 mnName_802388D4(void)
+{
+    return count;
+}
+/<em> Keep the address-style name until source or review evidence proves the role. </em>/</preferred_code>
+            <why>
+                - Do not invent semantic names just because a function body became easier to understand.
+                - Preserve address-style names when stronger naming evidence is not present.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - m2c_residue_names
+        </qa_rules>
+    </standard>
+    <standard id="no-define-alias-global-renames">
+        <description>
+            - A global, extern, or data symbol is required to have one canonical name backed by source, symbol, map, or review evidence.
+            - Hiding a speculative or convenience rename behind an identifier-to-identifier define is rejected, and duplicate address-commented extern declarations for the same data address are rejected; the only permitted rename is a direct, evidence-backed one.
+        </description>
+        <canonical_example id="define-alias-central-symbol-rename" qa_rule_id="define_alias" severity="error">
+            <bad_code>#define HSD_AudioGetAuxHeapSize AXDriver_8038E034</p>
+<p>size = HSD_AudioGetAuxHeapSize();</bad_code>
+            <preferred_code>/<em> config/GALE01/symbols.txt </em>/
+/<em> Rename .text:0x8038E034 from AXDriver_8038E034 to HSD_AudioGetAuxHeapSize. </em>/
+size = HSD_AudioGetAuxHeapSize();</preferred_code>
+            <why>
+                - A canonical rename belongs in central symbol metadata or direct references, not in a source alias.
+                - Perform the evidenced rename once instead of masking duplicate names with a define.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - define_alias
+        </qa_rules>
+    </standard>
+    <standard id="truthful-headers-and-includes">
+        <description>
+            - When a body proves a signature, updating the owning header and removing UNK_RET/UNK_PARAMS is required; leaving a mismatched prototype is rejected.
+            - Established include style is required and require-protos checks must run when prototype or include surfaces change; there are no exceptions to declaring a symbol in its real owning header.
+        </description>
+        <canonical_example id="headers-include-proto-shim" qa_rule_id="define_alias" severity="error">
+            <bad_code>#define __THPReadFrameHeader __THPReadFrameHeader_proto</p>
+<h1>define THPDec_80330158 THPDec_80330158_proto</h1>
+<h1>include &lt;dolphin/thp/thp.h&gt;</h1>
+<h1>undef THPDec_80330158</h1>
+<h1>undef __THPReadFrameHeader</h1>
+<p>static u8 __THPReadFrameHeader(THPFileInfo* info);</bad_code>
+            <preferred_code>#include &lt;dolphin/thp/thp.h&gt;</p>
+<p>/<em> dolphin/thp/thp.h owns the recovered signatures. </em>/
+static u8 __THPReadFrameHeader(THPFileInfo<em>);
+u8 THPDec_80330158(THPFileInfo</em> info);</preferred_code>
+            <why>
+                - Macro-renaming declarations around an include hides a prototype conflict instead of fixing the owning header.
+                - Repair the owning header signature and include it normally instead of using macro/prototype shims around the include.
+            </why>
+        </canonical_example>
+        <qa_rules>
+            - extern_in_c
+            - bare_local_prototype
+            - shadowed_declaration
+            - define_alias
+        </qa_rules>
+    </standard>
+</decomp_standards>
+```</p></div>

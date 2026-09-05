@@ -124,7 +124,7 @@ export const knowledgeGraphSearchToolRegistration: AgentToolRegistration = {
     return {
       name: "knowledge_graph_search",
       label: "Knowledge Graph Search",
-      description: "Search active code, opseq, callgraph, sibling, PR, standards, and curated graph chunks.",
+      description: "Search active graph chunks for code, instruction-shape analogs, callgraphs, siblings, PRs, standards, and curated knowledge.",
       promptSnippet: "knowledge_graph_search: search all active graph-indexed knowledge when the relevant evidence source is not known.",
       promptGuidelines: ["Use knowledge_graph_search for cross-source discovery; use a structured graph query for known functions or files."],
       parameters: searchParameters,
@@ -144,16 +144,16 @@ export const knowledgeGraphSearchToolRegistration: AgentToolRegistration = {
 /** Tool for graph-owned opseq analogs, callers, callees, and data references. */
 export const graphRelatedFunctionsToolRegistration: AgentToolRegistration = {
   id: "graph_related_functions",
-  purpose: "Load opseq analogs and call relationships for graph functions selected by file, unit/symbol, or entity id.",
+  purpose: "Load instruction-shape analogs, callers, callees, data references, and corroborating xrefs for graph functions selected by file, unit/symbol, or entity id.",
   allowedRoles: [...sourceContextToolRoles],
   capabilities: ["knowledge_graph", "opseq_similarity", "call_graph", "function_relationships"],
   create(context): PiToolDefinition {
     return {
       name: "graph_related_functions",
       label: "Graph Related Functions",
-      description: "Return graph-owned opseq analogs, callers, callees, and data references for one or more functions.",
-      promptSnippet: "graph_related_functions: retrieve structured opseq and callgraph relationships for a file or function.",
-      promptGuidelines: ["Use graph_related_functions when analog or caller/callee relationships matter; pass source_path for all functions in a file."],
+      description: "Return graph-owned instruction-shape analogs, callers, callees, data references, and corroborating xrefs for one or more functions.",
+      promptSnippet: "graph_related_functions: retrieve instruction-shape analogs, callers, callees, data references, and corroborating xrefs for a file or function.",
+      promptGuidelines: ["Use graph_related_functions when instruction-shape analogs or cross-references matter; pass source_path for all functions in a file."],
       parameters: relatedFunctionsParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {

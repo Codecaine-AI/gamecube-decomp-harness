@@ -10,17 +10,17 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   mwcc_alloc_snapshot: {
     provider: "mwcc_alloc",
     type: "compiler_analysis",
-    useWhen: "Capture slow, expensive live allocator evidence only after checkdiff, cached MWCC debug evidence, and source-shape analysis stall on a register-allocation-only mismatch.",
+    useWhen: "After a residual is classified as register-only GPR: capture PCode and GPR coloring (vreg to physical register, interference neighbors, simplify order) for two stages of one compile. No FPR coloring. Before/after are not candidate vs target.",
   },
   mwcc_alloc_compare: {
     provider: "mwcc_alloc",
     type: "compiler_analysis",
-    useWhen: "Cheaply compare the before/after coloring snapshot paths returned by mwcc_alloc_snapshot.",
+    useWhen: "Compare the before/after GPR coloring snapshot paths returned by mwcc_alloc_snapshot and report which virtual registers changed color, degree, neighbors, or simplify position. No FPR coloring. Not candidate vs target.",
   },
   checkdiff_run: {
     provider: "checkdiff",
     type: "verification",
-    useWhen: "Run focused checkdiff/objdiff output for one function instead of raw asm-differ shell commands.",
+    useWhen: "Run focused checkdiff/objdiff output for one function. full_diff returns up to 24 mismatching rows with kind and both sides: left is target and right is current. Instruction parity can still hide strict relocation/data differences.",
   },
   checkdiff_summary: {
     provider: "checkdiff",
@@ -30,7 +30,7 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   direct_compile_tu: {
     provider: "checkdiff",
     type: "verification",
-    useWhen: "Compile one function's translation unit to separate build failure from objdiff mismatch.",
+    useWhen: "Compile one function's translation unit to separate build failure from objdiff mismatch. Pass exactly one of `function` or `unit`.",
   },
   objdiff_score_candidate: {
     provider: "objdiff_score",
@@ -50,7 +50,7 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   mwcc_debug_diagnose_regflow: {
     provider: "mwcc_debug",
     type: "diagnostics",
-    useWhen: "Diagnose late register-flow windows when instruction sequence, calls, types, and structure are already close.",
+    useWhen: "Diagnose one compact register-only window; not full liveness or FPR coloring.",
   },
   mwcc_debug_diagnose_inlines: {
     provider: "mwcc_debug",
@@ -65,12 +65,12 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   source_permuter_run: {
     provider: "source_permuter",
     type: "exploration",
-    useWhen: "Run an expensive last-resort bounded non-mutating source-shape search inside the claim sandbox after cheaper evidence is exhausted; jobs default to all sandbox cores, with no cross-worker queue.",
+    useWhen: "Search source mutations in named functions and return the best scalar score and one source diff. Returns no instruction rows; replay the candidate and read its delta with checkdiff_run. Use only on a named region after the residual is classified.",
   },
   source_permuter_replay: {
     provider: "source_permuter",
     type: "exploration",
-    useWhen: "Replay a saved non-mutating source-permutation recipe as an expensive last-resort tool inside the claim sandbox; jobs default to all sandbox cores, with no cross-worker queue.",
+    useWhen: "Replay a saved permuter recipe and return its score and source diff; read the instruction delta with checkdiff_run afterwards.",
   },
   source_mutation_preview: {
     provider: "source_permuter",

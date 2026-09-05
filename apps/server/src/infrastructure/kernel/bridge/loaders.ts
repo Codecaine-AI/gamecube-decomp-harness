@@ -10,7 +10,6 @@ import {
 export const MELEE_SESSION_CONTEXT_LOADER_KIND = "melee-session-context";
 export const MELEE_INLINE_CONTEXT_LOADER_KINDS = [
   "worker-packet",
-  "knowledge-graph-file-card",
   "integration-conflict-item",
   "integration-queue-summary",
   "pr-index-context",

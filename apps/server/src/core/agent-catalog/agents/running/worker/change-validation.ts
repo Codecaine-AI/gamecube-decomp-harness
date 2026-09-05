@@ -92,10 +92,27 @@ export interface WorkerValidationCommandResult extends CommandResult {
   stderrPath: string;
 }
 
+export interface WorkerFirstDiffRow {
+  side: "left" | "right";
+  address: string;
+  kind: string;
+  text: string;
+}
+
+export interface WorkerFirstDiff {
+  status: "available" | "unavailable";
+  reason?: string;
+  score: number | null;
+  rows: WorkerFirstDiffRow[];
+  row_counts_by_kind: Record<string, number>;
+  truncated: boolean;
+}
+
 export interface WorkerChangeBaseline {
   status: "available" | "build_failed" | "snapshot_unavailable";
   reasons: string[];
   snapshot: WorkerUnitScoreSnapshot | null;
+  firstDiff: WorkerFirstDiff | null;
   snapshotPath?: string;
   diffPath?: string;
   objectTarget?: string | null;
@@ -110,6 +127,8 @@ export interface WorkerChangeBaseline {
   /** Why undefined-symbol capture failed; informational, capture is fail-open. */
   undefinedSymbolsError?: string | null;
 }
+
+const FIRST_DIFF_ROW_LIMIT = 40;
 
 /** Injectable scan_diff runner so tests (and callers) can fake the QA scanner. */
 export type QaScanRunner = (options: RunQaScanDiffOptions) => Promise<QaScanInvocation>;
@@ -340,6 +359,150 @@ function snapshotFromObjdiffReport(params: {
   };
 }
 
+function unavailableFirstDiff(reason: string): WorkerFirstDiff {
+  return {
+    status: "unavailable",
+    reason,
+    score: null,
+    rows: [],
+    row_counts_by_kind: {},
+    truncated: false,
+  };
+}
+
+function objdiffTargetRow(side: Record<string, unknown>, symbol: string): Record<string, unknown> | null {
+  for (const collection of [side.symbols, side.sections]) {
+    for (const value of arrayValue(collection)) {
+      const row = isRecord(value) ? value : {};
+      if (stringValue(row.name) === symbol) return row;
+    }
+  }
+  return null;
+}
+
+function firstDiffRowsFromTarget(
+  sideName: WorkerFirstDiffRow["side"],
+  target: Record<string, unknown>,
+): WorkerFirstDiffRow[] {
+  const rows: WorkerFirstDiffRow[] = [];
+  for (const value of arrayValue(target.instructions)) {
+    const entry = isRecord(value) ? value : {};
+    const instruction = isRecord(entry.instruction) ? entry.instruction : {};
+    const explicitKind = stringValue(entry.diff_kind);
+    const hasArgDiff = entry.arg_diff !== null && entry.arg_diff !== undefined && entry.arg_diff !== false;
+    const kind = explicitKind && explicitKind !== "DIFF_NONE"
+      ? explicitKind
+      : hasArgDiff
+        ? "DIFF_ARG_MISMATCH"
+        : "";
+    if (!kind) continue;
+    rows.push({
+      side: sideName,
+      address: instruction.address === null || instruction.address === undefined
+        ? ""
+        : String(instruction.address),
+      kind,
+      text: stringValue(instruction.formatted),
+    });
+  }
+
+  for (const value of arrayValue(target.data_diff)) {
+    const entry = isRecord(value) ? value : {};
+    rows.push({
+      side: sideName,
+      address: "data",
+      kind: stringValue(entry.kind, "DIFF"),
+      text: `size=${entry.size ?? "?"}`,
+    });
+  }
+  return rows;
+}
+
+function firstDiffFromObjdiffReport(report: Record<string, unknown>, symbol: string): WorkerFirstDiff {
+  const allRows: WorkerFirstDiffRow[] = [];
+  let score: number | null = null;
+  let foundTarget = false;
+
+  for (const sideName of ["left", "right"] as const) {
+    const side = isRecord(report[sideName]) ? report[sideName] : {};
+    const target = objdiffTargetRow(side, symbol);
+    if (!target) continue;
+    foundTarget = true;
+    const sideScore = numberValue(target.match_percent, NaN);
+    if (score === null && Number.isFinite(sideScore)) score = sideScore;
+    allRows.push(...firstDiffRowsFromTarget(sideName, target));
+  }
+
+  if (!foundTarget) {
+    return unavailableFirstDiff(`pre-worker first diff did not contain target ${symbol}`);
+  }
+
+  const rowCountsByKind: Record<string, number> = {};
+  for (const row of allRows) {
+    rowCountsByKind[row.kind] = (rowCountsByKind[row.kind] ?? 0) + 1;
+  }
+  return {
+    status: "available",
+    score,
+    rows: allRows.slice(0, FIRST_DIFF_ROW_LIMIT),
+    row_counts_by_kind: rowCountsByKind,
+    truncated: allRows.length > FIRST_DIFF_ROW_LIMIT,
+  };
+}
+
+async function writeFirstDiffArtifact(outputDir: string, firstDiff: WorkerFirstDiff): Promise<void> {
+  await writeFile(
+    resolve(outputDir, "pre_worker_first_diff.json"),
+    JSON.stringify(firstDiff, null, 2),
+  );
+}
+
+async function captureWorkerFirstDiff(params: {
+  repoRoot: string;
+  outputDir: string;
+  unit: string;
+  symbol: string;
+  configArgs: string[];
+  workspaceExec: WorkspaceExec;
+}): Promise<WorkerFirstDiff> {
+  const result = await runValidationCommand(
+    params.repoRoot,
+    [
+      "build/tools/objdiff-cli",
+      "diff",
+      "-p",
+      ".",
+      "-u",
+      params.unit,
+      ...params.configArgs,
+      params.symbol,
+      "--format",
+      "json-pretty",
+      "-o",
+      "/dev/stdout",
+    ],
+    resolve(params.outputDir, "pre_worker_first_diff.stdout.txt"),
+    resolve(params.outputDir, "pre_worker_first_diff.stderr.txt"),
+    params.workspaceExec,
+  );
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.trim();
+    return unavailableFirstDiff(
+      `pre-worker first diff exited ${result.exitCode}${stderr ? `: ${stderr}` : ""}`,
+    );
+  }
+  try {
+    const report = JSON.parse(result.stdout) as unknown;
+    return isRecord(report)
+      ? firstDiffFromObjdiffReport(report, params.symbol)
+      : unavailableFirstDiff("pre-worker first diff was not a JSON object");
+  } catch (error) {
+    return unavailableFirstDiff(
+      `could not parse pre-worker first diff: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 async function runValidationCommand(
   _repoRoot: string,
   command: string[],
@@ -429,10 +592,13 @@ export async function captureWorkerChangeBaseline(params: {
   const reasons: string[] = [];
 
   if (params.dryRun) {
+    const firstDiff = unavailableFirstDiff("dry-run agents do not execute pre-worker first diff");
+    await writeFirstDiffArtifact(params.outputDir, firstDiff);
     return {
       status: "snapshot_unavailable",
       reasons: ["dry-run agents do not execute pre-worker same-unit baseline validation"],
       snapshot: null,
+      firstDiff,
       objectTarget,
     };
   }
@@ -451,7 +617,9 @@ export async function captureWorkerChangeBaseline(params: {
   if (!sourcePath) reasons.push("target source_path is missing");
   if (!objectTarget) reasons.push("could not derive object target from target source_path");
   if (reasons.length > 0 || !objectTarget) {
-    return { status: "snapshot_unavailable", reasons, snapshot: null, objectTarget, sourceSnapshotDir, sourceSnapshotPaths };
+    const firstDiff = unavailableFirstDiff(reasons.join("; "));
+    await writeFirstDiffArtifact(params.outputDir, firstDiff);
+    return { status: "snapshot_unavailable", reasons, snapshot: null, firstDiff, objectTarget, sourceSnapshotDir, sourceSnapshotPaths };
   }
 
   const objectBuild = await runValidationCommand(
@@ -462,16 +630,37 @@ export async function captureWorkerChangeBaseline(params: {
     params.workspaceExec,
   );
   if (objectBuild.exitCode !== 0) {
+    const firstDiff = unavailableFirstDiff(`pre-worker object build exited ${objectBuild.exitCode}`);
+    await writeFirstDiffArtifact(params.outputDir, firstDiff);
     return {
       status: "build_failed",
       reasons: [`pre-worker object build exited ${objectBuild.exitCode}`],
       snapshot: null,
+      firstDiff,
       objectTarget,
       objectBuild,
       sourceSnapshotDir,
       sourceSnapshotPaths,
     };
   }
+
+  const reportConfigArgs = await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec);
+  let firstDiff: WorkerFirstDiff;
+  try {
+    firstDiff = await captureWorkerFirstDiff({
+      repoRoot: params.repoRoot,
+      outputDir: params.outputDir,
+      unit,
+      symbol,
+      configArgs: reportConfigArgs,
+      workspaceExec: params.workspaceExec,
+    });
+  } catch (error) {
+    firstDiff = unavailableFirstDiff(
+      `could not capture pre-worker first diff: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  await writeFirstDiffArtifact(params.outputDir, firstDiff);
 
   let undefinedSymbols: string[] | null = null;
   let undefinedSymbolsError: string | null = null;
@@ -491,7 +680,7 @@ export async function captureWorkerChangeBaseline(params: {
       ".",
       "-u",
       unit,
-      ...(await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec)),
+      ...reportConfigArgs,
       "--format",
       "json-pretty",
     ],
@@ -505,6 +694,7 @@ export async function captureWorkerChangeBaseline(params: {
       status: "snapshot_unavailable",
       reasons: [`pre-worker unit diff exited ${unitDiff.exitCode}`],
       snapshot: null,
+      firstDiff,
       diffPath,
       objectTarget,
       objectBuild,
@@ -528,6 +718,7 @@ export async function captureWorkerChangeBaseline(params: {
       status: "snapshot_unavailable",
       reasons: reasons.length > 0 ? reasons : ["pre-worker unit diff did not contain usable same-unit scores"],
       snapshot: null,
+      firstDiff,
       diffPath,
       objectTarget,
       objectBuild,
@@ -545,6 +736,7 @@ export async function captureWorkerChangeBaseline(params: {
     status: "available",
     reasons: [],
     snapshot,
+    firstDiff,
     snapshotPath,
     diffPath,
     objectTarget,

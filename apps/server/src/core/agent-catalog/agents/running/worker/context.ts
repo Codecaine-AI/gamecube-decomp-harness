@@ -13,22 +13,17 @@ import {
   openKnowledgeGraph,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
-import {
-  loadV2TargetCard,
-  targetKnowledgeCardV2Xml,
-} from "@server/core/knowledge-v2/card.js";
+import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import {
   renderTemplate,
   stableJson,
 } from "@server/infrastructure/agent-runtime/runtime";
-import { availableToolsPromptXml, defaultWorkerToolProfile } from "@server/core/tools/index.js";
 import {
   createInlineAgentContextResolver,
   defaultKernelTurnPrompt,
   promptKernelContext,
   rootContextLoaderDeclaration,
 } from "@server/core/agent-catalog/kernel-context.js";
-import { workerCanonicalToolPathsXml } from "./tool-paths.js";
 
 export type WorkerPromptContextBudget = "full" | "compact" | "minimal";
 
@@ -39,40 +34,27 @@ export const WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT = 3_000;
 const WORKER_CONTEXT_BUDGETS = {
   full: {
     sourceLimit: WORKER_TARGET_FILE_INLINE_CHAR_LIMIT,
-    tools: "full",
     standards: "full",
-    graph: "full",
   },
   compact: {
     sourceLimit: WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
-    tools: "summary",
     standards: "summary",
-    graph: "summary",
   },
   minimal: {
     sourceLimit: WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
-    tools: "summary",
     standards: "minimal",
-    graph: "minimal",
   },
 } as const satisfies Record<
   WorkerPromptContextBudget,
   {
     sourceLimit: number;
-    tools: "full" | "summary";
     standards: "full" | "summary" | "minimal";
-    graph: "full" | "summary" | "minimal";
   }
 >;
 
 const loaders = [
   rootContextLoaderDeclaration,
   { kind: "worker-packet", ref: "worker-packet", label: "worker-packet" },
-  {
-    kind: "knowledge-graph-file-card",
-    ref: "knowledge-graph-file-card",
-    label: "knowledge-graph-file-card",
-  },
 ] as const satisfies readonly LoaderDeclaration[];
 
 export const context = defineContext(
@@ -89,8 +71,6 @@ export interface WorkerPromptOptions {
   contextBudget?: WorkerPromptContextBudget;
   /** Sandbox-prefetched target source; undefined keeps local rendering unchanged. */
   targetSourceText?: string | null;
-  /** Sandbox-prefetched canonical paths that exist in the worker checkout. */
-  existingCanonicalToolPaths: ReadonlySet<string>;
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -103,8 +83,7 @@ export interface WorkerPromptInputXmlOptions {
 
 export interface WorkerPromptInputXml {
   targetXml: string;
-  baselineXml: string;
-  targetGraphFileCardXml: string;
+  firstDiffXml: string;
 }
 
 const WORKER_PACKET_CONTEXT_TEMPLATE = `
@@ -112,11 +91,9 @@ const WORKER_PACKET_CONTEXT_TEMPLATE = `
 
 {{TARGET_XML}}
 
-{{BASELINE_XML}}
+{{FIRST_DIFF_XML}}
 
-{{AVAILABLE_TOOLS_XML}}
-
-{{CANONICAL_TOOL_PATHS_XML}}
+{{TARGET_KNOWLEDGE_XML}}
 
 {{DECOMP_STANDARDS_XML}}
 `;
@@ -175,47 +152,17 @@ function jsonBlockXml(
   ].join("\n");
 }
 
-function compactValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    const compacted = value.map(compactValue).filter((item) => {
-      if (item === null || item === undefined || item === "") return false;
-      if (Array.isArray(item)) return item.length > 0;
-      if (typeof item === "object")
-        return Object.keys(item as Record<string, unknown>).length > 0;
-      return true;
-    });
-    return compacted;
-  }
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .map(([key, entry]) => [key, compactValue(entry)] as const)
-        .filter(([, entry]) => {
-          if (entry === null || entry === undefined || entry === "")
-            return false;
-          if (Array.isArray(entry)) return entry.length > 0;
-          if (typeof entry === "object")
-            return Object.keys(entry as Record<string, unknown>).length > 0;
-          return true;
-        }),
-    );
-  }
-  return value;
-}
-
-function compactObject(
-  value: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactValue(value) as Record<string, unknown>;
-}
-
-function stringArray(value: unknown, limit: number): string[] {
-  return Array.isArray(value)
-    ? value
-        .map((item) => String(item ?? ""))
-        .filter(Boolean)
-        .slice(0, limit)
-    : [];
+interface TargetContextHints {
+  editability: {
+    mode: string | null;
+    reason: string | null;
+  } | null;
+  sameFileSymbols: string[];
+  relatedFunctions: {
+    callers: Array<Record<string, unknown>>;
+    callees: Array<Record<string, unknown>>;
+    analogs: Array<Record<string, unknown>>;
+  } | null;
 }
 
 function targetFileXml(
@@ -288,13 +235,55 @@ function truncateTargetSourceForPrompt(source: string, limit: number): string {
 function targetXml(
   target: Record<string, unknown>,
   baseline: Record<string, unknown>,
+  contextHints: TargetContextHints,
   primarySourcePath: string,
   primarySourceAbs: string,
   contextBudget: WorkerPromptContextBudget,
   targetSourceText?: string | null,
 ): string {
+  const editabilityXml = contextHints.editability
+    ? `        <editability${optionalAttribute("mode", contextHints.editability.mode)}${optionalAttribute("reason", contextHints.editability.reason)}/>`
+    : "";
+  const sameFileSymbolsXml = contextHints.sameFileSymbols.length
+    ? [
+        "        <same_file_symbols>",
+        ...contextHints.sameFileSymbols.map(
+          (symbol) => `            <symbol>${xmlText(symbol)}</symbol>`,
+        ),
+        "        </same_file_symbols>",
+      ].join("\n")
+    : "";
+  const related = contextHints.relatedFunctions;
+  const relatedFunctionsXml = related &&
+      (related.callers.length || related.callees.length || related.analogs.length)
+    ? [
+        "        <related_functions>",
+        ...related.callers.map(
+          (item) => `            <caller${optionalAttribute("symbol", optionalString(item.symbol))}${optionalAttribute("unit", optionalString(item.unit))}${optionalAttribute("matched", typeof item.matched === "boolean" ? item.matched : null)}/>`,
+        ),
+        ...related.callees.map(
+          (item) => `            <callee${optionalAttribute("symbol", optionalString(item.symbol))}${optionalAttribute("unit", optionalString(item.unit))}${optionalAttribute("matched", typeof item.matched === "boolean" ? item.matched : null)}/>`,
+        ),
+        ...related.analogs.map(
+          (item) => `            <analog${optionalAttribute("symbol", optionalString(item.symbol))}${optionalAttribute("unit", optionalString(item.unit))}${optionalAttribute("fuzzy_match_percent", optionalNumber(item.fuzzy_match_percent))}${optionalAttribute("score", optionalNumber(item.score))}${optionalAttribute("exact_match", typeof item.exact_match === "boolean" ? item.exact_match : null)}/>`,
+        ),
+        "        </related_functions>",
+      ].join("\n")
+    : "";
+  const targetAttrs = [
+    optionalAttribute("context_budget", contextBudget),
+    optionalAttribute("fuzzy_match_percent", optionalNumber(target.fuzzy_match_percent)),
+    optionalAttribute("size", optionalNumber(target.size)),
+    optionalAttribute("baseline_fuzzy_match_percent", optionalNumber(baseline.fuzzy_match_percent)),
+    contextBudget === "full"
+      ? ""
+      : optionalAttribute("note", "compact retry budget: read local files for full source"),
+  ].join("");
   return [
-    `    <target context_budget="${contextBudget}">`,
+    `    <target${targetAttrs}>`,
+    editabilityXml,
+    sameFileSymbolsXml,
+    relatedFunctionsXml,
     jsonBlockXml("details_json", target),
     targetFileXml(
       target,
@@ -306,15 +295,9 @@ function targetXml(
       "        ",
     ),
     "    </target>",
-  ].join("\n");
-}
-
-function baselineXml(baseline: Record<string, unknown>): string {
-  return [
-    "    <baseline>",
-    jsonBlockXml("details_json", baseline),
-    "    </baseline>",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // Repair attempts must see why the runner rejected the previous return; the
@@ -339,54 +322,19 @@ function functionName(fn: Record<string, unknown>): string {
   );
 }
 
-function compactFunction(fn: Record<string, unknown>): Record<string, unknown> {
-  return compactObject({
-    name: functionName(fn),
-    symbol: optionalString(fn.symbol),
-    unit: optionalString(fn.unit),
-    size: optionalNumber(fn.size),
-    fuzzy_match_percent:
-      optionalNumber(fn.fuzzy_match_percent) ??
-      optionalNumber(fn.match_percent) ??
-      optionalNumber(fn.fuzzy),
-    status: optionalString(fn.status),
-    build_status: optionalString(fn.build_status),
-    reason: optionalString(fn.reason),
-  });
-}
-
-function compactToolHit(
-  hit: Record<string, unknown>,
-): Record<string, unknown> {
-  return compactObject({
-    tool_id: optionalString(hit.tool_id),
-    source_id: optionalString(hit.source_id),
-    unit: optionalString(hit.unit),
-    symbol: optionalString(hit.symbol),
-    analog_unit: optionalString(hit.analog_unit),
-    analog_symbol: optionalString(hit.analog_symbol),
-    analog_source_path: optionalString(hit.analog_source_path),
-    score: optionalNumber(hit.score),
-    exact_match: hit.exact_match ?? null,
-    matched: hit.matched ?? null,
-    evidence_ref: optionalString(hit.evidence_ref),
-  });
-}
-
 function fileCardFromPacket(packet: Record<string, unknown>): {
+  present: boolean;
   card: Record<string, unknown>;
   graphDb: string | null;
-  status: string | null;
-  reason: string | null;
 } {
   const knowledgeContext = asRecord(packet.knowledge_context);
   const rawFileCard = asRecord(knowledgeContext.file_card);
   const nestedFileCard = asRecord(rawFileCard.file_card);
+  const card = Object.keys(nestedFileCard).length ? nestedFileCard : rawFileCard;
   return {
-    card: Object.keys(nestedFileCard).length ? nestedFileCard : rawFileCard,
+    present: Object.keys(card).length > 0,
+    card,
     graphDb: optionalString(knowledgeContext.graph_db),
-    status: optionalString(knowledgeContext.status),
-    reason: optionalString(knowledgeContext.reason),
   };
 }
 
@@ -394,350 +342,240 @@ function fileCardFromGraph(
   sourcePath: string,
   game?: RunGameMetadata,
   graphDbOverride?: string | null,
-): {
-  card: Record<string, unknown>;
-  graphDb: string | null;
-  status: string;
-  reason: string | null;
-} {
+): Record<string, unknown> {
   const graphDb =
     graphDbOverride || game?.graphDbPath || resourceGraphDbPath();
-  if (!sourcePath)
-    return {
-      card: {},
-      graphDb,
-      status: "missing_source_path",
-      reason: "No target source_path is available.",
-    };
-  if (!graphDbExists(graphDb))
-    return {
-      card: {},
-      graphDb,
-      status: "graph_missing",
-      reason: "Knowledge graph DB is not available.",
-    };
+  if (!sourcePath || !graphDbExists(graphDb)) return {};
+
   const store = openKnowledgeGraph(graphDb);
   try {
-    return {
-      card: fileGraphCard(store, sourcePath) as unknown as Record<
-        string,
-        unknown
-      >,
-      graphDb,
-      status: "ready",
-      reason: null,
-    };
-  } catch (error) {
-    return {
-      card: {},
-      graphDb,
-      status: "failed",
-      reason: error instanceof Error ? error.message : String(error),
-    };
+    return fileGraphCard(store, sourcePath) as unknown as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return {};
   } finally {
     store.db.close();
   }
 }
 
-function compactTargetGraphFileCard(
+function targetContextHints(
   packet: Record<string, unknown>,
   game?: RunGameMetadata,
-  contextBudget: WorkerPromptContextBudget = "full",
-): Record<string, unknown> {
+): TargetContextHints {
   const target = asRecord(packet.target);
-  const sourcePath = String(target.source_path ?? "");
+  const sourcePath = optionalString(target.source_path) ?? "";
   const targetSymbol = optionalString(target.symbol);
-  const targetUnit = optionalString(target.unit);
-  const targetStableKey = targetUnit
-    ? [targetUnit, targetSymbol].filter(Boolean).join(":")
-    : undefined;
   const fromPacket = fileCardFromPacket(packet);
-  const loaded = Object.keys(fromPacket.card).length
-    ? { ...fromPacket, status: fromPacket.status ?? "ready" }
-    : fileCardFromGraph(sourcePath, game, fromPacket.graphDb);
-  const card = loaded.card;
-  if (!Object.keys(card).length) {
-    return compactObject({
-      status: loaded.status ?? "unavailable",
-      source: "code_graph_file_card",
-      graph_db: loaded.graphDb,
-      source_path: sourcePath,
-      reason: loaded.reason,
-      has_graph_context: false,
-      search_leads: {
-        symbols: compactObject({
-          source_path: sourcePath,
-        }),
-        follow_up_queries: [
-          compactObject({
-            tool: "code_graph_file_card",
-            source_path: sourcePath,
-          }),
-          compactObject({ tool: "code_graph_search", query: sourcePath }),
-          compactObject({
-            tool: "knowledge_graph_search",
-            query: [sourcePath, optionalString(target.symbol)].filter(Boolean).join(" "),
-          }),
-          ...(targetStableKey
-            ? [
-                compactObject({
-                  tool: "kv2_subject_record",
-                  target_stable_key: targetStableKey,
-                }),
-                compactObject({
-                  tool: "kv2_attempt_search",
-                  target_stable_key: targetStableKey,
-                }),
-              ]
-            : []),
-        ],
-      },
-      no_context_note:
-        loaded.reason ??
-        "No graph context is attached to this target source path.",
-    });
-  }
-
-  const functions = asRecordArray(card.functions)
-    .map(compactFunction)
-    .filter((fn) => Object.keys(fn).length > 0);
-  const targetFunction =
-    functions.find(
-      (fn) =>
-        functionName(fn) === targetSymbol ||
-        optionalString(fn.symbol) === targetSymbol,
-    ) ?? null;
-  const sameFileFunctions = functions.filter((fn) => fn !== targetFunction);
-  const prHistory = asRecord(card.pr_history);
-  const mismatchPatterns = asRecordArray(card.mismatch_patterns);
-  const touchingPrs = asRecordArray(prHistory.touching_prs);
-  const resourceHits = asRecordArray(card.resource_hits);
-  const opseqAnalogs = asRecordArray(card.tool_hits).filter(
-    (hit) => optionalString(hit.tool_id) === "opseq",
-  );
-  const topOpseqAnalog = opseqAnalogs.reduce<Record<string, unknown> | null>(
-    (best, hit) => {
-      if (!best) return hit;
-      const bestScore = optionalNumber(best.score) ?? Number.NEGATIVE_INFINITY;
-      const hitScore = optionalNumber(hit.score) ?? Number.NEGATIVE_INFINITY;
-      return hitScore > bestScore ? hit : best;
-    },
-    null,
-  );
-  const topAnalogSymbols = [
-    ...new Set(
-      [...opseqAnalogs]
-        .sort(
-          (left, right) =>
-            (optionalNumber(right.score) ?? Number.NEGATIVE_INFINITY) -
-            (optionalNumber(left.score) ?? Number.NEGATIVE_INFINITY),
-        )
-        .map((hit) => optionalString(hit.analog_symbol))
-        .filter((symbol): symbol is string => Boolean(symbol)),
-    ),
-  ].slice(0, 2);
-  const topAnalogStableKeys = [
-    ...new Set(
-      [...opseqAnalogs]
-        .sort(
-          (left, right) =>
-            (optionalNumber(right.score) ?? Number.NEGATIVE_INFINITY) -
-            (optionalNumber(left.score) ?? Number.NEGATIVE_INFINITY),
-        )
-        .map((hit) => {
-          const analogUnit = optionalString(hit.analog_unit);
-          const analogSymbol = optionalString(hit.analog_symbol);
-          return analogUnit && analogSymbol
-            ? `${analogUnit}:${analogSymbol}`
-            : undefined;
-        })
-        .filter((stableKey): stableKey is string => Boolean(stableKey)),
-    ),
-  ].slice(0, 2);
-  const unitNames = asRecordArray(card.units)
-    .map((unit) => optionalString(unit.unit) ?? optionalString(unit.name))
-    .filter((unit): unit is string => Boolean(unit));
-  const sameFileSymbols = sameFileFunctions
-    .map((fn) => optionalString(fn.symbol) ?? functionName(fn))
-    .filter(Boolean)
-    .slice(0, 8);
-  const mismatchQueries = mismatchPatterns
-    .map((pattern) => optionalString(pattern.title))
-    .filter((title): title is string => Boolean(title))
-    .slice(0, 4);
-  const followUpQueries = [
-    compactObject({ tool: "code_graph_file_card", source_path: sourcePath }),
-    compactObject({
-      tool: "code_graph_search",
-      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
-    }),
-    compactObject({
-      tool: "graph_related_functions",
-      source_path: sourcePath,
-      symbol: targetSymbol,
-    }),
-    compactObject({
-      tool: "kv2_pr_search",
-      query: [sourcePath, targetSymbol].filter(Boolean).join(" "),
-    }),
-    ...(targetStableKey
-      ? [
-          compactObject({
-            tool: "kv2_subject_record",
-            target_stable_key: targetStableKey,
-          }),
-          compactObject({
-            tool: "kv2_attempt_search",
-            target_stable_key: targetStableKey,
-          }),
-        ]
-      : []),
-    ...(mismatchQueries.length
-      ? [
-          compactObject({
-            tool: "knowledge_graph_search",
-            query: mismatchQueries.join(" OR "),
-          }),
-        ]
-      : []),
-    ...(topAnalogSymbols.length
-      ? [
-          compactObject({
-            tool: "kv2_attempt_search",
-            query: topAnalogSymbols.join(" OR "),
-          }),
-          ...topAnalogStableKeys.map((stableKey) => compactObject({
-            tool: "kv2_subject_record",
-            target_stable_key: stableKey,
-          })),
-          compactObject({
-            tool: "knowledge_graph_search",
-            query: topAnalogSymbols.join(" OR "),
-          }),
-        ]
-      : []),
-  ];
-  const attachmentCounts = {
-    same_file_functions: sameFileFunctions.length,
-    mismatch_patterns: mismatchPatterns.length,
-    touching_prs: touchingPrs.length,
-    resources: resourceHits.length,
-    opseq_analogs: opseqAnalogs.length,
-    review_risks: asRecordArray(prHistory.review_risks).length,
-    tactics: asRecordArray(prHistory.tactics).length,
-  };
-  const hasGraphContext =
-    functions.length > 0 ||
-    Object.values(attachmentCounts).some((count) => count > 0);
-  const cardSourcePath = optionalString(card.source_path) ?? sourcePath;
-  const authority =
-    "Graph-derived context. Current source, headers, objdiff, and validation output outrank this summary.";
-  const pastPrSearchTerms = [targetSymbol, sourcePath, ...mismatchQueries]
-    .filter(Boolean)
-    .slice(0, 8);
-  const searchLeads = (queries: Array<Record<string, unknown>>) => ({
-    symbols: {
-      source_path: cardSourcePath,
-      units: unitNames.slice(0, 4),
-      target_symbol: targetSymbol,
-      same_file_symbols: sameFileSymbols,
-    },
-    target_function: targetFunction,
-    top_opseq_analog: topOpseqAnalog ? compactToolHit(topOpseqAnalog) : null,
-    attachment_counts: attachmentCounts,
-    follow_up_queries: queries,
-    past_prs: {
-      search_terms: pastPrSearchTerms,
-    },
-  });
-  const noContextNote = !hasGraphContext
-    ? "Graph file card had no attached functions, patterns, PRs, resources, opseq analogs, review risks, or tactics for this source path."
+  const relatedFunctions = asRecord(asRecord(packet.knowledge_context).related_functions);
+  const related = Object.keys(relatedFunctions).length
+    ? {
+        callers: asRecordArray(relatedFunctions.callers).slice(0, 8),
+        callees: asRecordArray(relatedFunctions.callees).slice(0, 8),
+        analogs: asRecordArray(relatedFunctions.analogs).slice(0, 4),
+      }
     : null;
-
-  if (contextBudget === "minimal") {
-    return compactObject({
-      status: "ready",
-      source: "code_graph_file_card",
-      context_budget: contextBudget,
-      authority,
-      graph_db: loaded.graphDb,
-      source_path: cardSourcePath,
-      editability: asRecord(card.editability),
-      has_graph_context: hasGraphContext,
-      search_leads: searchLeads(followUpQueries.slice(0, 3)),
-      no_context_note: noContextNote,
-    });
+  const card = fromPacket.present
+    ? fromPacket.card
+    : fileCardFromGraph(sourcePath, game, fromPacket.graphDb);
+  if (Object.keys(card).length === 0) {
+    return { editability: null, sameFileSymbols: [], relatedFunctions: related };
   }
 
-  return compactObject({
-    status: "ready",
-    source: "code_graph_file_card",
-    context_budget: contextBudget,
-    authority,
-    graph_db: loaded.graphDb,
-    source_path: cardSourcePath,
-    editability: asRecord(card.editability),
-    has_graph_context: hasGraphContext,
-    search_leads: searchLeads(followUpQueries),
-    no_context_note: noContextNote,
-  });
+  const editability = asRecord(card.editability);
+  const editabilityMode = optionalString(editability.mode);
+  const editabilityReason = optionalString(editability.reason);
+  const sameFileSymbols = [
+    ...new Set(
+      asRecordArray(card.functions)
+        .map(functionName)
+        .filter((symbol) => symbol && symbol !== targetSymbol),
+    ),
+  ].slice(0, 12);
+
+  return {
+    editability:
+      editabilityMode || editabilityReason
+        ? { mode: editabilityMode, reason: editabilityReason }
+        : null,
+    sameFileSymbols,
+    relatedFunctions: related,
+  };
 }
 
-function targetGraphFileCardXml(
+const FIRST_DIFF_CHAR_LIMITS = {
+  full: 4_000,
+  compact: 2_000,
+  minimal: 800,
+} as const satisfies Record<WorkerPromptContextBudget, number>;
+
+function firstDiffXml(
   packet: Record<string, unknown>,
-  game?: RunGameMetadata,
-  contextBudget: WorkerPromptContextBudget = "full",
+  contextBudget: WorkerPromptContextBudget,
 ): string {
-  const compactCard = compactTargetGraphFileCard(packet, game, contextBudget);
-  const status = optionalString(compactCard.status);
-  const unavailable = status && status !== "ready" ? ' unavailable="true"' : "";
-  return [
-    `    <target_graph_file_card context_budget="${contextBudget}"${unavailable}>`,
-    jsonBlockXml("details_json", compactCard),
-    "    </target_graph_file_card>",
-  ].join("\n");
+  const firstDiff = asRecord(packet.first_diff);
+  if (firstDiff.status !== "available") {
+    const rawReason =
+      optionalString(firstDiff.reason) ?? "First diff was not captured.";
+    const reasonCharLimit = Math.floor(
+      (FIRST_DIFF_CHAR_LIMITS[contextBudget] - 100) / 6,
+    );
+    const reason =
+      rawReason.length > reasonCharLimit
+        ? `${rawReason.slice(0, reasonCharLimit - 3)}...`
+        : rawReason;
+    return `    <first_diff status="unavailable" reason="${xmlAttribute(reason)}"/>`;
+  }
+
+  const sourceRows = asRecordArray(firstDiff.rows).slice(0, 40);
+  const rowLimit = contextBudget === "minimal" ? 6 : 40;
+  const rowTextLimit =
+    contextBudget === "full" ? 240 : contextBudget === "compact" ? 120 : 48;
+  let rowTextWasTruncated = false;
+  let rows = sourceRows.slice(0, rowLimit).map((row) => {
+    const text = optionalString(row.text) ?? "";
+    if (text.length <= rowTextLimit) return row;
+    rowTextWasTruncated = true;
+    return { ...row, text: `${text.slice(0, rowTextLimit - 3)}...` };
+  });
+  let truncated =
+    firstDiff.truncated === true ||
+    asRecordArray(firstDiff.rows).length > sourceRows.length ||
+    rows.length < sourceRows.length ||
+    rowTextWasTruncated;
+
+  const counts = Object.entries(asRecord(firstDiff.row_counts_by_kind))
+    .filter(([, count]) => typeof count === "number" && Number.isFinite(count))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .slice(0, 20);
+  const summary = counts.length
+    ? `row_counts_by_kind: ${counts
+        .map(([kind, count]) => `${kind}=${count}`)
+        .join(", ")}`
+    : "row_counts_by_kind: none";
+
+  const render = (): string => {
+    const attrs = [
+      ' status="available"',
+      optionalAttribute("score", optionalNumber(firstDiff.score)),
+      optionalAttribute("rows", rows.length),
+      optionalAttribute("truncated", truncated ? "true" : "false"),
+    ].join("");
+    const rowLines = rows.map((row) => {
+      const side = row.side === "right" ? "right" : "left";
+      const address =
+        optionalString(row.address) ??
+        (typeof row.address === "number" && Number.isFinite(row.address)
+          ? String(row.address)
+          : "?");
+      const kind = optionalString(row.kind) ?? "UNKNOWN";
+      const text = optionalString(row.text);
+      return `        ${xmlText(
+        `${side} ${address}: ${kind}${text ? ` ${text}` : ""}`,
+      )}`;
+    });
+    return [
+      `    <first_diff${attrs}>`,
+      `        ${xmlText(summary)}`,
+      ...rowLines,
+      "    </first_diff>",
+    ].join("\n");
+  };
+
+  let rendered = render();
+  while (rendered.length > FIRST_DIFF_CHAR_LIMITS[contextBudget] && rows.length) {
+    rows = rows.slice(0, -1);
+    truncated = true;
+    rendered = render();
+  }
+  return rendered;
 }
 
-function workerTargetKnowledgeCardV2Xml(
+const V2_CARD_BUDGET_CAPS = {
+  full: { ledgerEntries: 20, links: 8, priorRuns: 3, acceptedPrs: 3 },
+  compact: { ledgerEntries: 8, links: 4, priorRuns: 2, acceptedPrs: 2 },
+  minimal: { ledgerEntries: 3, links: 2, priorRuns: 1, acceptedPrs: 1 },
+} as const satisfies Record<
+  WorkerPromptContextBudget,
+  {
+    ledgerEntries: number;
+    links: number;
+    priorRuns: number;
+    acceptedPrs: number;
+  }
+>;
+
+function projectV2TargetCard(
+  card: Record<string, unknown>,
+  contextBudget: WorkerPromptContextBudget,
+): Record<string, unknown> {
+  if (
+    contextBudget === "full" ||
+    optionalString(card.context_budget) === contextBudget
+  ) {
+    return card;
+  }
+
+  const caps = V2_CARD_BUDGET_CAPS[contextBudget];
+  const ledger = asRecord(card.ledger);
+  return {
+    ...card,
+    context_budget: contextBudget,
+    ledger: {
+      ...ledger,
+      entries: Array.isArray(ledger.entries)
+        ? ledger.entries.slice(0, caps.ledgerEntries)
+        : [],
+    },
+    links: Array.isArray(card.links)
+      ? card.links.slice(0, caps.links)
+      : [],
+    ...(Array.isArray(card.prior_runs)
+      ? { prior_runs: card.prior_runs.slice(0, caps.priorRuns) }
+      : {}),
+    ...(Array.isArray(card.accepted_prs)
+      ? { accepted_prs: card.accepted_prs.slice(0, caps.acceptedPrs) }
+      : {}),
+  };
+}
+
+function workerTargetKnowledgeXml(
   packet: Record<string, unknown>,
   game: RunGameMetadata | undefined,
   contextBudget: WorkerPromptContextBudget,
 ): string {
+  const packetCard = asRecord(
+    asRecord(packet.knowledge_context).knowledge_card_v2,
+  );
   const target = asRecord(packet.target);
   const unit = optionalString(target.unit);
-  if (!unit) return "";
-  const card = loadV2TargetCard({
-    gameId: game?.gameId,
-    unit,
-    symbol: optionalString(target.symbol) ?? null,
-    budget: contextBudget,
-  });
-  return card ? targetKnowledgeCardV2Xml(card) : "";
-}
+  const loadedCard =
+    Object.keys(packetCard).length > 0
+      ? packetCard
+      : unit
+        ? loadV2TargetCard({
+            gameId: game?.gameId,
+            unit,
+            symbol: optionalString(target.symbol) ?? null,
+            budget: contextBudget,
+          })
+        : null;
+  if (!loadedCard) {
+    const reason = unit
+      ? "No target history was found."
+      : "The target unit is unavailable, so history could not be loaded.";
+    return `    <target_knowledge unavailable="true" reason="${xmlAttribute(reason)}"/>`;
+  }
 
-function contextBudgetXml(contextBudget: WorkerPromptContextBudget): string {
-  const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
+  const card = projectV2TargetCard(
+    loadedCard as unknown as Record<string, unknown>,
+    contextBudget,
+  );
   return [
-    `    <context_budget mode="${contextBudget}" target_file_inline_char_limit="${budget.sourceLimit}">`,
-    contextBudget === "full"
-      ? "        Normal worker context budget. Large target files are still excerpted; read the local file for complete source before editing."
-      : contextBudget === "compact"
-        ? "        Compact retry budget after a context-window rejection. Big source/tool/standards/graph blocks are reduced; use local files and tools for details."
-        : "        Minimal retry budget after repeated context-window rejection. Treat injected context as task coordinates only; read local files and query tools for needed detail.",
-    "    </context_budget>",
-  ].join("\n");
-}
-
-function availableToolsBudgetXml(
-  contextBudget: WorkerPromptContextBudget,
-  toolContext: Parameters<typeof availableToolsPromptXml>[0],
-): string {
-  if (WORKER_CONTEXT_BUDGETS[contextBudget].tools === "full") return availableToolsPromptXml(toolContext);
-  return [
-    `    <available_tools context_budget="${contextBudget}" compacted="true">`,
-    `        <summary>${xmlText("Worker tools are registered in the runtime. Use the tool schema shown by the agent shell/runtime; this compact block avoids duplicating every tool description in the model prompt.")}</summary>`,
-    `        <tool_names>${xmlText(defaultWorkerToolProfile.join(", "))}</tool_names>`,
-    "    </available_tools>",
+    `    <target_knowledge context_budget="${contextBudget}">`,
+    jsonBlockXml("details_json", card),
+    "    </target_knowledge>",
   ].join("\n");
 }
 
@@ -775,21 +613,18 @@ export function workerPromptInputXml(
   const primarySourceAbs = primarySourcePath
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
+  const contextHints = targetContextHints(options.packet, options.game);
   return {
     targetXml: targetXml(
       target,
       baseline,
+      contextHints,
       primarySourcePath,
       primarySourceAbs,
       contextBudget,
       options.targetSourceText,
     ),
-    baselineXml: baselineXml(baseline),
-    targetGraphFileCardXml: targetGraphFileCardXml(
-      options.packet,
-      options.game,
-      contextBudget,
-    ),
+    firstDiffXml: firstDiffXml(options.packet, contextBudget),
   };
 }
 
@@ -804,66 +639,30 @@ export function buildWorkerKernelContext(
     contextBudget,
     targetSourceText: options.targetSourceText,
   });
-  const toolContext = {
-    role: "worker" as const,
-    cwd: options.repoRoot,
-    repoRoot: options.repoRoot,
-    stateDir: options.stateDir,
-    game: options.game,
-    packet: options.packet,
-    initialBoardPath: options.initialBoardPath,
-    workerLogDir: options.workerLogDir,
-  };
-  const values = {
-    AVAILABLE_TOOLS_XML: availableToolsBudgetXml(contextBudget, toolContext),
-    BASELINE_XML: inputXml.baselineXml,
-    CANONICAL_TOOL_PATHS_XML: workerCanonicalToolPathsXml(
-      options.existingCanonicalToolPaths,
-    ),
-    CONTEXT_BUDGET_XML: contextBudgetXml(contextBudget),
-    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget),
-    REPAIR_REQUEST_XML: repairRequestXml(options.packet),
-    TARGET_GRAPH_FILE_CARD_XML: inputXml.targetGraphFileCardXml,
-    TARGET_XML: inputXml.targetXml,
-  };
-  const workerPacketContext = renderTemplate(
-    `{{CONTEXT_BUDGET_XML}}\n\n${WORKER_PACKET_CONTEXT_TEMPLATE}`,
-    values,
-  ).trim();
-  const v2CardXml = workerTargetKnowledgeCardV2Xml(
+  const targetKnowledgeXml = workerTargetKnowledgeXml(
     options.packet,
     options.game,
     contextBudget,
   );
-  const renderedContext = [
-    workerPacketContext,
-    values.TARGET_GRAPH_FILE_CARD_XML,
-    v2CardXml,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const values = {
+    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget),
+    FIRST_DIFF_XML: inputXml.firstDiffXml,
+    REPAIR_REQUEST_XML: repairRequestXml(options.packet),
+    TARGET_XML: inputXml.targetXml,
+    TARGET_KNOWLEDGE_XML: targetKnowledgeXml,
+  };
+  const workerPacketContext = renderTemplate(
+    WORKER_PACKET_CONTEXT_TEMPLATE,
+    values,
+  ).trim();
   return promptKernelContext(
-    renderedContext,
+    workerPacketContext,
     [
       {
         loaderKind: "worker-packet",
         inputRef: "worker-packet",
         content: workerPacketContext,
       },
-      {
-        loaderKind: "knowledge-graph-file-card",
-        inputRef: "knowledge-graph-file-card",
-        content: values.TARGET_GRAPH_FILE_CARD_XML,
-      },
-      ...(v2CardXml
-        ? [
-            {
-              loaderKind: "target-knowledge-card-v2",
-              inputRef: "target-knowledge-card-v2",
-              content: v2CardXml,
-            },
-          ]
-        : []),
     ],
     defaultKernelTurnPrompt("worker"),
   );

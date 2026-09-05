@@ -26,6 +26,7 @@ import {
   workerAttemptRepairReasons,
   workerPiContextRetryDecision,
   workerPiSessionRetryDecision,
+  workerFacingRepairRequest,
   probeExistingWorkerCanonicalToolPaths,
   WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
   REPAIR_REQUEST_DIFF_INLINE_LIMIT,
@@ -187,6 +188,33 @@ describe("buildRepairRequestInlineArtifacts", () => {
     expect(artifacts).not.toHaveProperty("previous_return_gate");
     expect(artifacts.previous_post_attempt_diff).toBe("diff");
     expect(artifacts.previous_agent_output_tail).toBe("output");
+  });
+});
+
+describe("workerFacingRepairRequest", () => {
+  test("removes attempt-budget metadata and host audit paths from the worker packet", () => {
+    const request = workerFacingRepairRequest({
+      attempt: 4,
+      continuation_policy: { attemptBudget: 7, humanAttempt: 4 },
+      paths_note: "host paths",
+      previous_agent_output_path: "/tmp/attempt-3.output",
+      previous_return_gate_path: "/tmp/attempt-3.return_gate.json",
+      previous_post_attempt_diff_path: "/tmp/attempt-3.diff",
+      previous_return_gate: {
+        attempt_index: 3,
+        agent_output_path: "/tmp/attempt-3.output",
+        repair_policy: { base_attempts: 5, bonus_attempts_per_improvement: 2 },
+        repair_reasons: ["lint"],
+      },
+      reasons: ["lint"],
+      instruction: "Repair the lint failure.",
+    });
+
+    expect(request).toEqual({
+      previous_return_gate: { repair_reasons: ["lint"] },
+      reasons: ["lint"],
+      instruction: "Repair the lint failure.",
+    });
   });
 });
 

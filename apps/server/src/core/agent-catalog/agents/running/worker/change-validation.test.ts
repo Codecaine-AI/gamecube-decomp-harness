@@ -398,6 +398,148 @@ describe("qaLintRepairReasons", () => {
 });
 
 describe("captureWorkerChangeBaseline source snapshot", () => {
+  test("captures and caps function-level first-diff rows from objdiff JSON", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "first-diff-baseline-"));
+    const symbol = "ftCo_800C8E5C";
+    const instructionRows = (side: "left" | "right") => Array.from({ length: 21 }, (_, index) => ({
+      diff_kind: side === "right" && index === 20 ? "DIFF_INSERT" : "DIFF_ARG_MISMATCH",
+      instruction: {
+        address: 8272 + index * 4,
+        formatted: index === 0 ? "lfs f3, lbl_804DA824@sda21" : `mr r${index}, r3`,
+      },
+    }));
+    const firstDiffReport = JSON.stringify({
+      left: { symbols: [{ name: symbol, match_percent: 91.25, instructions: instructionRows("left") }] },
+      right: { symbols: [{ name: symbol, match_percent: 91.25, instructions: instructionRows("right") }] },
+    });
+    const unitReport = JSON.stringify({
+      left: { sections: [], symbols: [{ name: symbol, match_percent: 91.25, size: 84, instructions: [] }] },
+    });
+    const calls: string[][] = [];
+    const workspaceExec = fakeWorkspaceExec(async (command) => {
+      calls.push(command);
+      if (command[0] === "cat") {
+        return {
+          exitCode: 0,
+          stdout: command[1] === "build.ninja"
+            ? "objdiff_report_args = --config functionRelocDiffs=data_value\n"
+            : "int source;\n",
+          stderr: "",
+        };
+      }
+      if (command[0] === "build/tools/objdiff-cli") {
+        return { exitCode: 0, stdout: command.includes(symbol) ? firstDiffReport : unitReport, stderr: "" };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/first-diff",
+      outputDir,
+      target: { unit: "melee/ft/ftcoll.c", symbol, source_path: "src/melee/ft/ftcoll.c" },
+      workspaceExec,
+    });
+
+    expect(baseline.status).toBe("available");
+    expect(baseline.firstDiff).toEqual({
+      status: "available",
+      score: 91.25,
+      rows: expect.any(Array),
+      row_counts_by_kind: { DIFF_ARG_MISMATCH: 41, DIFF_INSERT: 1 },
+      truncated: true,
+    });
+    expect(baseline.firstDiff?.rows).toHaveLength(40);
+    expect(baseline.firstDiff?.rows[0]).toEqual({
+      side: "left",
+      address: "8272",
+      kind: "DIFF_ARG_MISMATCH",
+      text: "lfs f3, lbl_804DA824@sda21",
+    });
+    expect(calls.find((command) => command[0] === "build/tools/objdiff-cli" && command.includes(symbol))).toEqual([
+      "build/tools/objdiff-cli",
+      "diff",
+      "-p",
+      ".",
+      "-u",
+      "melee/ft/ftcoll.c",
+      "--config",
+      "functionRelocDiffs=data_value",
+      symbol,
+      "--format",
+      "json-pretty",
+      "-o",
+      "/dev/stdout",
+    ]);
+    expect(JSON.parse(await readFile(resolve(outputDir, "pre_worker_first_diff.json"), "utf8"))).toEqual(baseline.firstDiff);
+  });
+
+  test("keeps the baseline available when the function-level first diff is unavailable", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "unavailable-first-diff-"));
+    const symbol = "ftCo_800C8E5C";
+    const unitReport = JSON.stringify({
+      left: { sections: [], symbols: [{ name: symbol, match_percent: 75, size: 16, instructions: [] }] },
+    });
+    const workspaceExec = fakeWorkspaceExec(async (command) => {
+      if (command[0] === "cat") {
+        return { exitCode: 0, stdout: command[1] === "build.ninja" ? "" : "int source;\n", stderr: "" };
+      }
+      if (command[0] === "build/tools/objdiff-cli") {
+        return command.includes(symbol)
+          ? { exitCode: 2, stdout: "", stderr: "target symbol unavailable" }
+          : { exitCode: 0, stdout: unitReport, stderr: "" };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/unavailable-first-diff",
+      outputDir,
+      target: { unit: "melee/ft/ftcoll.c", symbol, source_path: "src/melee/ft/ftcoll.c" },
+      workspaceExec,
+    });
+
+    expect(baseline.status).toBe("available");
+    expect(baseline.firstDiff).toEqual({
+      status: "unavailable",
+      reason: "pre-worker first diff exited 2: target symbol unavailable",
+      score: null,
+      rows: [],
+      row_counts_by_kind: {},
+      truncated: false,
+    });
+    expect(JSON.parse(await readFile(resolve(outputDir, "pre_worker_first_diff.json"), "utf8"))).toEqual(baseline.firstDiff);
+  });
+
+  test("marks dry-run and build-failed first diffs unavailable without invoking objdiff", async () => {
+    const dryRunOutputDir = await mkdtemp(join(tmpdir(), "dry-run-first-diff-"));
+    const dryRun = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/dry-run-first-diff",
+      outputDir: dryRunOutputDir,
+      target: { unit: "melee/test/test.c", symbol: "test_fn", source_path: "src/melee/test/test.c" },
+      dryRun: true,
+      workspaceExec: fakeWorkspaceExec(async () => { throw new Error("dry run executed a command"); }),
+    });
+    expect(dryRun.firstDiff?.status).toBe("unavailable");
+    expect(dryRun.firstDiff?.reason).toContain("dry-run agents");
+
+    const buildFailedOutputDir = await mkdtemp(join(tmpdir(), "build-failed-first-diff-"));
+    const commands: string[][] = [];
+    const buildFailed = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/build-failed-first-diff",
+      outputDir: buildFailedOutputDir,
+      target: { unit: "melee/test/test.c", symbol: "test_fn", source_path: "src/melee/test/test.c" },
+      workspaceExec: fakeWorkspaceExec(async (command) => {
+        commands.push(command);
+        if (command[0] === "cat") return { exitCode: 0, stdout: "int source;\n", stderr: "" };
+        return { exitCode: 1, stdout: "", stderr: "compile failed" };
+      }),
+    });
+    expect(buildFailed.status).toBe("build_failed");
+    expect(buildFailed.firstDiff?.status).toBe("unavailable");
+    expect(buildFailed.firstDiff?.reason).toBe("pre-worker object build exited 1");
+    expect(commands.some((command) => command[0] === "build/tools/objdiff-cli")).toBe(false);
+  });
+
   test("routes sandbox build and objdiff through WorkspaceExec without worker ninja slots", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "sandbox-change-baseline-"));
     const calls: Array<{ command: string[]; options?: WorkspaceExecOptions }> = [];
@@ -551,7 +693,7 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
 
 describe("extendWorkerChangeBaselineSourceSnapshot", () => {
   test("a baseline without a snapshot dir (dry run) is a no-op", async () => {
-    const baseline: WorkerChangeBaseline = { status: "snapshot_unavailable", reasons: [], snapshot: null };
+    const baseline: WorkerChangeBaseline = { status: "snapshot_unavailable", reasons: [], snapshot: null, firstDiff: null };
     expect(await extendWorkerChangeBaselineSourceSnapshot({
       repoRoot: "/workspace/melee",
       baseline,
@@ -569,6 +711,7 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
       status: "snapshot_unavailable",
       reasons: [],
       snapshot: null,
+      firstDiff: null,
       sourceSnapshotDir,
       sourceSnapshotPaths: [],
     };
@@ -599,6 +742,7 @@ describe("extendWorkerChangeBaselineSourceSnapshot", () => {
       status: "snapshot_unavailable",
       reasons: [],
       snapshot: null,
+      firstDiff: null,
       sourceSnapshotDir,
       sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
     };
@@ -664,6 +808,7 @@ describe("validateWorkerChange QA lint integration", () => {
       status: "snapshot_unavailable",
       reasons: ["pre-worker unit diff exited 1"],
       snapshot: null,
+      firstDiff: null,
       objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
       sourceSnapshotDir,
       sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
@@ -730,6 +875,7 @@ describe("validateWorkerChange QA lint integration", () => {
       status: "snapshot_unavailable",
       reasons: ["pre-worker unit diff exited 1"],
       snapshot: null,
+      firstDiff: null,
       sourceSnapshotDir,
       sourceSnapshotPaths: ["src/melee/ft/ftcoll.c"],
     };
@@ -863,6 +1009,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       status: "available",
       reasons: [],
       objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
+      firstDiff: null,
       snapshot: {
         schemaVersion: 1,
         capturedAt: "2026-06-30T00:00:00.000Z",

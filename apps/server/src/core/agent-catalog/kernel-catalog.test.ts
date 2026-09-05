@@ -39,12 +39,12 @@ const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
 const sampleStateDir = resolve(repoRoot, ".decomp-orchestrator-state");
 const unresolvedPlaceholderPattern = /\{\{[A-Z0-9_]+\}\}/;
 const workerKnowledgeV2ToolIds = [
-  "kv2_subject_record",
-  "kv2_pr_search",
-  "kv2_discord_search",
-  "kv2_wiki_search",
-  "kv2_attempt_search",
-  "kv2_resolve_locator",
+  "knowledge_record",
+  "pr_search",
+  "discord_search",
+  "wiki_search",
+  "attempt_search",
+  "resolve_locator",
 ] as const;
 
 function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
@@ -65,7 +65,6 @@ function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
         stateDir: sampleStateDir,
         initialBoardPath: resolve(sampleStateDir, "board.json"),
         workerLogDir: resolve(sampleStateDir, "workers"),
-        existingCanonicalToolPaths: new Set(),
       });
     case "worker-summarizer":
       return workerSummarizerPrompt({
@@ -181,6 +180,10 @@ describe("meleeKernelAgentCatalog", () => {
         expect(catalog.has(kind)).toBeTrue();
       }
     }
+    expect(meleeKernelAgent("worker").contextLoaderKinds).toEqual([
+      ROOT_CONTEXT_LOADER_KIND,
+      "worker-packet",
+    ]);
   });
 
   test("registers the worker summarizer context loader kind", () => {
@@ -218,6 +221,11 @@ describe("meleeKernelAgentCatalog", () => {
 
     expect(meleeKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
     expect(defaultWorkerToolProfile).not.toContain("ledger_search");
+    expect(defaultWorkerToolProfile).not.toContain("code_graph_file_card");
+    expect(defaultWorkerToolProfile).not.toContain("code_graph_search");
+    expect(defaultWorkerToolProfile).not.toContain("knowledge_graph_search");
+    expect(defaultWorkerToolProfile).not.toContain("graph_related_functions");
+    expect(defaultWorkerToolProfile).not.toContain("past_prs_search");
     expect(defaultWorkerToolProfile).toEqual(
       expect.arrayContaining([...workerKnowledgeV2ToolIds]),
     );
@@ -229,14 +237,14 @@ describe("meleeKernelAgentCatalog", () => {
     expect(defaultLibrarianToolProfile).toEqual([
       "code_graph_search",
       "graph_related_functions",
-      "kv2_discord_search",
-      "kv2_wiki_search",
-      "kv2_pr_search",
-      "kv2_attempt_search",
-      "kv2_subject_record",
-      "kv2_entity_lookup",
-      "kv2_resolve_locator",
-      "kv2_unit_context",
+      "discord_search",
+      "wiki_search",
+      "pr_search",
+      "attempt_search",
+      "knowledge_record",
+      "entity_lookup",
+      "resolve_locator",
+      "unit_context",
     ]);
     expect(meleeKernelAgent("worker-summarizer").tools).toEqual([]);
     expect(meleeKernelAgent("librarian-v2").tools).toEqual([...defaultLibrarianToolProfile]);
@@ -252,10 +260,11 @@ describe("meleeKernelAgentCatalog", () => {
     expect(summarizer.tools).toEqual([]);
   });
 
-  test("describes worker output as a runner validation handoff in the catalog", () => {
+  test("describes worker output as a runner validation submission in the catalog", () => {
     const worker = meleeKernelAgent("worker");
 
-    expect(worker.resultContract.notes).toContain("validation handoff");
+    expect(worker.resultContract.notes).toContain("submission note");
+    expect(worker.resultContract.notes).not.toContain("handoff");
     expect(worker.resultContract.notes).not.toContain("checkpoint note");
   });
 
@@ -372,7 +381,7 @@ describe("meleeKernelAgentCatalog", () => {
     expect(blankInput.context?.renderedContext).toBe("fallback user prompt");
   });
 
-  test("renders dashboard worker sample with validation handoff language and hypothesis context", () => {
+  test("renders dashboard worker sample with submission language and hypothesis context", () => {
     const payload = loadKernelAgentsPayload({
       game: null,
       repoRoot: sampleRepoRoot,
@@ -401,15 +410,20 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker?.tools).not.toContain("ledger_search");
     expect(worker?.renderedTools).not.toContain("ledger_search");
     expect(worker).toBeDefined();
-    expect(rendered).toContain("return a handoff JSON");
-    expect(rendered).toContain("Do not treat non-100% progress as failure");
-    expect(rendered).toContain("the runner owns the follow-up decision");
+    expect(rendered).toContain("<submission>");
+    expect(rendered).toContain("Submit a verified improvement so it is validated and checkpointed, then continue toward exact.");
+    expect(rendered).not.toContain("handoff");
+    expect(rendered).not.toContain("attempt budget");
     expect(rendered).not.toContain("for this claimed target");
-    expect(rendered).toContain('"mismatch_patterns"');
-    expect(rendered).toContain('tool name="asm_window_search"');
-    expect(rendered).toContain('provider="asm_window_search" type="exploration"');
-    expect(rendered).toContain('tool name="type_layout_lookup"');
-    expect(rendered).toContain('provider="type_layout_lookup" type="diagnostics"');
+    expect(rendered).toContain('<first_diff status="available"');
+    expect(rendered).toContain("DIFF_ARG_MISMATCH");
+    expect(rendered).toContain("<target_knowledge");
+    expect(rendered).not.toContain(["kv2", "_"].join(""));
+    expect(rendered).not.toContain("graph_related_functions");
+    expect(rendered).not.toContain("past_prs_search");
+    expect(rendered).not.toContain("<target_graph_file_card");
+    expect(rendered).not.toContain('"mismatch_patterns"');
+    expect(rendered).not.toContain("<available_tools");
     expect(rendered).not.toContain("ledger_search");
     expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
     expect(workerSummarizer?.tools).toEqual([]);
@@ -442,6 +456,56 @@ describe("meleeKernelAgentCatalog", () => {
     expect(backfillRendered).toContain("<output_contract>");
     expect(backfillRendered).toContain("librarian_pass_v1");
     expect(backfillRendered).not.toMatch(unresolvedPlaceholderPattern);
+  });
+
+  test("threads the selected target into the real worker preview", () => {
+    const selected = { unit: "unit/selected", symbol: "SelectedTarget" };
+    const loaded: unknown[] = [];
+    const built: unknown[] = [];
+    const payload = loadKernelAgentsPayload({
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    }, {
+      target: selected,
+      loadTargetCard: (target, gameId) => {
+        loaded.push({ target, gameId });
+        return {
+          stable_key: "unit/selected:SelectedTarget",
+          target: {
+            kind: "function",
+            unit: selected.unit,
+            symbol: selected.symbol,
+            source_path: "src/selected.c",
+            identity_status: "current",
+          },
+          context_budget: "full",
+          ledger: { runs: [], entries: [] },
+          status: { match_pct: 73.5, linked: true, size: null },
+          facts: { naming_note: "test", by_type: {} },
+          links: [],
+          prior_runs: [],
+          accepted_prs: [],
+        };
+      },
+      buildWorkerKnowledgeContext: (sourcePath, graphDbPath, target) => {
+        built.push({ sourcePath, graphDbPath, target });
+        return { status: "ready", selector_marker: selected };
+      },
+      loadFirstDiff: () => ({ status: "unavailable", reason: "test fixture" }),
+    });
+    const worker = payload.agents.find((agent) => agent.name === "worker");
+    const rendered = `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
+
+    expect(loaded).toEqual([{ target: selected, gameId: undefined }]);
+    expect(built).toEqual([{
+      sourcePath: "src/selected.c",
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+      target: { unit: selected.unit, symbol: selected.symbol, gameId: undefined },
+    }]);
+    expect(rendered).toContain("SelectedTarget");
+    expect(rendered).toContain("73.5");
   });
 
   test("renders the librarian V2 pass context without unresolved placeholders", () => {

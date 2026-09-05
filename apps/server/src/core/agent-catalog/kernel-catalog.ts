@@ -269,12 +269,12 @@ export const meleeKernelAgentCatalog = [
       "apps/server/src/core/agent-catalog/agents/running/worker/agent.ts",
       "apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts",
     ),
-    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "worker-packet", "knowledge-graph-file-card"],
+    contextLoaderKinds: [...ROOT_CONTEXT_LOADERS, "worker-packet"],
     resultContract: resultContract(
       null,
       null,
       null,
-      "Worker has no structured output contract. The runner may parse final assistant text as an advisory validation handoff, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
+      "Worker has no structured output contract. The runner may parse final assistant text as an advisory submission note, but lifecycle status, validation, reports, and best-record selection stay runner-owned.",
     ),
   }),
   catalogEntry("worker-summarizer", {

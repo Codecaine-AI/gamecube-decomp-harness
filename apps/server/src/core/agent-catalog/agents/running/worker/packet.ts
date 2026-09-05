@@ -1,5 +1,6 @@
 import type { RunRecord } from "@server/core/shared/types";
 import type { ClaimedTarget } from "@server/core/cycle-runtime/run-state";
+import type { WorkerFirstDiff } from "./change-validation.js";
 
 export function enabledCapabilities(packet: Record<string, unknown>): string[] {
   const raw = packet.enabled_capabilities;
@@ -32,6 +33,7 @@ export function workerPacket(params: {
   target: Record<string, unknown>;
   baselineMeasures: unknown;
   knowledgeContext?: Record<string, unknown>;
+  firstDiff?: WorkerFirstDiff | null;
 }): Record<string, unknown> {
   return {
     run: params.run,
@@ -49,6 +51,7 @@ export function workerPacket(params: {
       current_scores: params.baselineMeasures,
       fuzzy_match_percent: params.target.fuzzy_match_percent,
     },
+    first_diff: params.firstDiff ?? null,
     knowledge_context: params.knowledgeContext ?? {
       status: "not_precomputed",
       reason: "No graph context was provided by the runner.",

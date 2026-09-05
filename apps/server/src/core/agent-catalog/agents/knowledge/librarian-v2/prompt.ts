@@ -148,7 +148,7 @@ export const prompt = definePrompt({
             "A game concept is a mechanic or in-game thing a player or the wiki would name: shield stun, ledge grab, Target Test as a mode.",
             "A name taken from the harness, a test fixture, a file path, a symbol, or a code idiom is not a concept.",
             "One concept per mechanic, not per character, unless the character's version differs mechanically.",
-            "Admit one only after kv2_wiki_search returns the mechanic or the discussion describes it as one, and the entity note cites that.",
+            "Admit one only after wiki_search returns the mechanic or the discussion describes it as one, and the entity note cites that.",
           ]),
         ]),
         item("Link roles and grain — use these before inventing a role:", [
@@ -169,8 +169,8 @@ export const prompt = definePrompt({
           "Fields that steer the pass: `head_revision` in <pass> is the only git revision a `code://` citation may carry; each touched target carries `renamed_from`, the stable keys of rows reconciliation marked as moved into it; a touched subject may carry `drift`, the code citations on its facts that no longer match the head (status `drifted`) or no longer resolve (status `unresolvable`).",
           "The writable scope is the touched subjects and nothing else: their `target_stable_key` and `entity_locator` values. A fact or link on any other subject is rejected `out_of_scope`; put what you learned about it in `follow_ups` instead.",
           "The exact JSON shape you must return is the <output_contract> block in the injected context; your entire reply is that one JSON object, machine-processed directly, with no prose around it.",
-          "Search with your own tools: kv2_attempt_search for prior worker attempts, kv2_subject_record for another subject's assembled record and ledger, kv2_unit_context for a translation unit's members and recent pull requests, kv2_entity_lookup before admitting any entity, graph_related_functions for a target’s opseq-similar analogs, callers, callees, and xrefs (follow an analog with kv2_subject_record to read what is already known about it), then kv2_discord_search, kv2_wiki_search, and kv2_pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
-          "Call kv2_resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
+          "Search with your own tools: attempt_search for prior worker attempts, knowledge_record for another subject's assembled record and ledger, unit_context for a translation unit's members and recent pull requests, entity_lookup before admitting any entity, graph_related_functions for a target’s opseq-similar analogs, callers, callees, and xrefs (follow an analog with knowledge_record to read what is already known about it), then discord_search, wiki_search, and pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
+          "Call resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
         ],
       }),
     ]),
@@ -184,7 +184,7 @@ export const prompt = definePrompt({
       section("phase", [
         bulletList([
           "Take <touched_subjects> as the writable subject list; each arrived with its record and material, so read those before judging anything.",
-          "Reading is unbounded: resolve any other subject with kv2_subject_record to understand the touched ones.",
+          "Reading is unbounded: resolve any other subject with knowledge_record to understand the touched ones.",
           "A subject the material names but the assembler did not supply is never written; if you learned something durable about it, add it to `follow_ups` with the reason.",
         ]),
       ], { attrs: { id: "2", name: "scope_subjects" } }),
@@ -207,7 +207,7 @@ export const prompt = definePrompt({
           ]),
           item("For each `drift.evidence` entry with status `unresolvable`:", [
             bulletList([
-              "The cited path or span is gone at head. Find the code at head with graph_related_functions, kv2_subject_record, and kv2_resolve_locator.",
+              "The cited path or span is gone at head. Find the code at head with graph_related_functions, knowledge_record, and resolve_locator.",
               "Found: write the fact again citing the new location. Gone: clear the fact.",
             ]),
           ]),
@@ -217,7 +217,7 @@ export const prompt = definePrompt({
       section("phase", [
         bulletList([
           "Search for corroboration and contradiction: the structured record tools first, then Discord, wiki, and PR text where the material's claims might echo or conflict.",
-          "Resolve in full, with kv2_resolve_locator, every record you may cite.",
+          "Resolve in full, with resolve_locator, every record you may cite.",
         ]),
       ], { attrs: { id: "4", name: "corroborate" } }),
       section("phase", [
@@ -228,7 +228,7 @@ export const prompt = definePrompt({
       ], { attrs: { id: "5", name: "draft_per_subject" } }),
       section("phase", [
         bulletList([
-          "When a supported fact needs a game concept or pattern, run kv2_entity_lookup first.",
+          "When a supported fact needs a game concept or pattern, run entity_lookup first.",
           "Admit an entity only when no existing entity is that thing and it passes the concept test above; propose a merge when two existing entities turn out to be the same.",
         ]),
       ], { attrs: { id: "6", name: "curate_entities" } }),
@@ -273,7 +273,7 @@ export const prompt = definePrompt({
           bulletList([
             "The revision is `head_revision` from <pass>, never a report hash, a content digest, or an invented id.",
             "The path is a file tracked in the checkout at that revision — source, headers, or config — never anything under `build/` or other generated output.",
-            "The span was read with kv2_resolve_locator before citing; a span past the end of the file is rejected.",
+            "The span was read with resolve_locator before citing; a span past the end of the file is rejected.",
           ]),
         ]),
         item("In a pr_imported pass every fact and link cites at least one discussion comment of the triggering PR that references its subject in the comment body or attached diff hunk:", [
@@ -337,7 +337,7 @@ export const prompt = definePrompt({
       section("links_and_entities", [
         bulletList([
           "Every real relationship is a link with its own citation, at the grain the link roles allow.",
-          "Curated entities are admitted only where a supported fact needs them, after kv2_entity_lookup found no existing entity and the concept test passed.",
+          "Curated entities are admitted only where a supported fact needs them, after entity_lookup found no existing entity and the concept test passed.",
           "Duplicates are merged, never re-admitted.",
         ]),
       ]),

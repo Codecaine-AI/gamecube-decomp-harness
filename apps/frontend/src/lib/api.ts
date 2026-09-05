@@ -236,8 +236,13 @@ export function fetchKernelStatus(): Promise<KernelStatusPayload> {
   return fetchJson<KernelStatusPayload>("/api/kernel/status");
 }
 
-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
+export function fetchKernelAgents(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  options?: { target?: string },
+): Promise<KernelAgentsPayload> {
+  const params = dashboardParams(form);
+  if (options?.target) params.set("target", options.target);
+  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
 }
 
 export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {

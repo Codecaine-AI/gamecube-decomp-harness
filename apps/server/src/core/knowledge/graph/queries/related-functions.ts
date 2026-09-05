@@ -88,6 +88,7 @@ export function functionRelationshipEvidence(
               unit: stringValue(analog.unit) || null,
               symbol: stringValue(analog.symbol),
               source_path: stringValue(analog.source_path) || null,
+              fuzzy_match_percent: analog.fuzzy_match_percent ?? analog.fuzzy ?? null,
               score: analog.score ?? null,
               exact_match: booleanValue(analog.exact_match),
               matched: booleanValue(analog.matched),

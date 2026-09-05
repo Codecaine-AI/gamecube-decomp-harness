@@ -185,16 +185,16 @@ async function withKnowledgeV2Handles<T extends object>(
 
 /** Search archived Discord messages in the knowledge-v2 indexes. */
 export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
-  id: "kv2_discord_search",
+  id: "discord_search",
   purpose: "Search archived Discord messages and return citeable message locators with compact context.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "discord_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_discord_search",
-      label: "Knowledge V2 Discord Search",
-      description: "Search archived Discord messages by text, channel, author, and timestamp bounds.",
-      promptSnippet: "kv2_discord_search: find Discord evidence and cite its returned message locators.",
+      name: "discord_search",
+      label: "Discord Search",
+      description: "Search archived Discord messages by text, channel, author, and time bounds. Returns ranked snippets, thread context, and citeable locators, not current compiler facts. Use it after the first diff raises a historical or game-context question, then resolve relevant locators.",
+      promptSnippet: "discord_search: find Discord evidence and cite its returned message locators.",
       promptGuidelines: ["Use keyword search first unless semantic matching is needed; resolve a locator before citing material you have not read."],
       parameters: discordSearchParameters,
       executionMode: "parallel",
@@ -208,7 +208,7 @@ export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
           limit: boundedLimit(params.limit, 12),
           mode: searchMode(params.mode),
         }));
-        return jsonToolResult("kv2_discord_search", { ...payload });
+        return jsonToolResult("discord_search", { ...payload });
       },
     };
   },
@@ -216,16 +216,16 @@ export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
 
 /** Search the latest mirrored wiki revision in the knowledge-v2 indexes. */
 export const kv2WikiSearchToolRegistration: AgentToolRegistration = {
-  id: "kv2_wiki_search",
+  id: "wiki_search",
   purpose: "Search the latest mirrored wiki revision and return citeable section locators.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "wiki_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_wiki_search",
-      label: "Knowledge V2 Wiki Search",
-      description: "Search the latest mirrored wiki revision, optionally within one page.",
-      promptSnippet: "kv2_wiki_search: find current mirrored wiki sections and cite their returned locators.",
+      name: "wiki_search",
+      label: "Wiki Search",
+      description: "Search the latest mirrored wiki revision, optionally within one page. Returns ranked section snippets and citeable locators, not current codegen evidence. Use it after the first diff raises a game-mechanics or documented-context question, then resolve relevant locators.",
+      promptSnippet: "wiki_search: find current mirrored wiki sections and cite their returned locators.",
       promptGuidelines: ["Use this for game-mechanics evidence, then resolve the section locator before citing text you have not read."],
       parameters: wikiSearchParameters,
       executionMode: "parallel",
@@ -236,7 +236,7 @@ export const kv2WikiSearchToolRegistration: AgentToolRegistration = {
           limit: boundedLimit(params.limit, 8),
           mode: searchMode(params.mode),
         }));
-        return jsonToolResult("kv2_wiki_search", { ...payload });
+        return jsonToolResult("wiki_search", { ...payload });
       },
     };
   },
@@ -244,16 +244,16 @@ export const kv2WikiSearchToolRegistration: AgentToolRegistration = {
 
 /** Search archived pull requests in the knowledge-v2 indexes. */
 export const kv2PrSearchToolRegistration: AgentToolRegistration = {
-  id: "kv2_pr_search",
+  id: "pr_search",
   purpose: "Search archived pull request summaries and discussions with subject and citation locators.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "pull_request_search", "source_evidence"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_pr_search",
-      label: "Knowledge V2 PR Search",
-      description: "Search archived pull request summaries and discussion for historical evidence.",
-      promptSnippet: "kv2_pr_search: find historical pull request evidence and its target or unit subject.",
+      name: "pr_search",
+      label: "PR Search",
+      description: "Search archived pull request summaries and discussion for historical evidence. Returns ranked summary and discussion snippets with citeable locators, not proof that a past tactic fits the current checkout. Use it after classifying the first diff to check accepted tactics, rejected work, naming, or review history.",
+      promptSnippet: "pr_search: find historical pull request evidence and its target or unit subject.",
       promptGuidelines: ["Use this for accepted tactics, rejected work, naming evidence, and review history; resolve locators before quoting details."],
       parameters: prSearchParameters,
       executionMode: "parallel",
@@ -263,7 +263,7 @@ export const kv2PrSearchToolRegistration: AgentToolRegistration = {
           limit: boundedLimit(params.limit, 10),
           mode: searchMode(params.mode),
         }));
-        return jsonToolResult("kv2_pr_search", { ...payload });
+        return jsonToolResult("pr_search", { ...payload });
       },
     };
   },
@@ -271,17 +271,17 @@ export const kv2PrSearchToolRegistration: AgentToolRegistration = {
 
 /** Search structured worker attempts and their indexed text. */
 export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
-  id: "kv2_attempt_search",
-  purpose: "Search prior worker runs and submissions by target, outcome, and optional hypothesis text.",
+  id: "attempt_search",
+  purpose: "Search prior worker runs and submissions by target stable key, text query, or outcome and return matching run narratives.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "attempt_search", "worker_history"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_attempt_search",
-      label: "Knowledge V2 Attempt Search",
-      description: "Read structured worker-run and submission history, optionally narrowed with text search.",
-      promptSnippet: "kv2_attempt_search: inspect structured prior attempts before searching their hypothesis text.",
-      promptGuidelines: ["Filter by target or outcome first when possible; add query only when the structured fields do not isolate the relevant attempts."],
+      name: "attempt_search",
+      label: "Attempt Search",
+      description: "Search prior worker runs and submissions by target stable key, text, or outcome. Returns hits with run narratives, scores, summaries, observations, and locators, not per-instruction evidence or proof that an old result matches this checkout. Use it after the first diff to find prior hypotheses for the same target or residual.",
+      promptSnippet: "attempt_search: search by target stable key or text query and read each hit's run summary and observations.",
+      promptGuidelines: ["Pass target_stable_key for one target or query for text search; each hit includes its run summary and observations."],
       parameters: attemptSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
@@ -291,7 +291,7 @@ export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
           outcome: attemptOutcome(params.outcome),
           limit: boundedLimit(params.limit, 10),
         }));
-        return jsonToolResult("kv2_attempt_search", { ...payload });
+        return jsonToolResult("attempt_search", { ...payload });
       },
     };
   },
@@ -299,16 +299,16 @@ export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
 
 /** Read the assembled record for one target or entity. */
 export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
-  id: "kv2_subject_record",
+  id: "knowledge_record",
   purpose: "Read an assembled target or entity knowledge record, including capped target history when applicable.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "subject_record", "target_history"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_subject_record",
-      label: "Knowledge V2 Subject Record",
-      description: "Read the assembled knowledge record for exactly one target stable key or entity locator.",
-      promptSnippet: "kv2_subject_record: inspect another target or entity record and its cited facts.",
+      name: "knowledge_record",
+      label: "Knowledge Record",
+      description: "Read the assembled knowledge record for exactly one target stable key or entity locator. Returns the record and capped target history, not live source or compiler state. Use it after the first diff when another target or known entity may already contain relevant facts.",
+      promptSnippet: "knowledge_record: inspect another target or entity record and its cited facts.",
       promptGuidelines: ["Use this before proposing facts or entities that may already exist in another subject record."],
       parameters: subjectRecordParameters,
       executionMode: "parallel",
@@ -317,7 +317,7 @@ export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
           target_stable_key: optionalString(params.target_stable_key),
           entity_locator: optionalString(params.entity_locator),
         }));
-        return jsonToolResult("kv2_subject_record", { ...payload });
+        return jsonToolResult("knowledge_record", { ...payload });
       },
     };
   },
@@ -325,16 +325,16 @@ export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
 
 /** Find existing knowledge-v2 entities without exposing internal ids. */
 export const kv2EntityLookupToolRegistration: AgentToolRegistration = {
-  id: "kv2_entity_lookup",
+  id: "entity_lookup",
   purpose: "Find existing knowledge-v2 entities by kind or locator prefix before admitting duplicates.",
   allowedRoles: ["librarian"],
   capabilities: ["knowledge_v2", "entity_lookup", "identity_resolution"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_entity_lookup",
-      label: "Knowledge V2 Entity Lookup",
+      name: "entity_lookup",
+      label: "Entity Lookup",
       description: "List matching entity locators, kinds, and identity status without internal database ids.",
-      promptSnippet: "kv2_entity_lookup: find existing entities before proposing a duplicate pattern or game concept.",
+      promptSnippet: "entity_lookup: find existing entities before proposing a duplicate pattern or game concept.",
       promptGuidelines: ["Search by kind or locator prefix before admitting a new curated entity."],
       parameters: entityLookupParameters,
       executionMode: "parallel",
@@ -344,7 +344,7 @@ export const kv2EntityLookupToolRegistration: AgentToolRegistration = {
           locator_prefix: optionalString(params.locator_prefix),
           limit: boundedLimit(params.limit, 20),
         }));
-        return jsonToolResult("kv2_entity_lookup", { ...payload });
+        return jsonToolResult("entity_lookup", { ...payload });
       },
     };
   },
@@ -352,16 +352,16 @@ export const kv2EntityLookupToolRegistration: AgentToolRegistration = {
 
 /** Resolve a knowledge-v2 evidence locator to its source material. */
 export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
-  id: "kv2_resolve_locator",
+  id: "resolve_locator",
   purpose: "Read the source material addressed by a Discord, wiki, PR, attempt, or code locator.",
   allowedRoles: ["librarian", "worker"],
   capabilities: ["knowledge_v2", "locator_resolution", "source_evidence"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_resolve_locator",
-      label: "Knowledge V2 Resolve Locator",
-      description: "Resolve one validated evidence locator to its bounded source material.",
-      promptSnippet: "kv2_resolve_locator: read the exact bounded material behind a knowledge-v2 locator.",
+      name: "resolve_locator",
+      label: "Resolve Locator",
+      description: "Resolve one Discord, wiki, PR, attempt, or code locator to bounded source material. Returns locator-specific evidence, with code capped at 120 lines, but does not validate the cited tactic. Use it after a search hit and before relying on or quoting that hit in the diff-first loop.",
+      promptSnippet: "resolve_locator: read the exact bounded material behind a knowledge-v2 locator.",
       promptGuidelines: ["Resolve every search-result locator before citing claims that are not already visible in the result snippet."],
       parameters: resolveLocatorParameters,
       executionMode: "parallel",
@@ -369,7 +369,7 @@ export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
         const payload = await withKnowledgeV2Handles(context, (handles) => kv2ResolveLocator(handles, {
           locator: String(params.locator ?? "").trim(),
         }));
-        return jsonToolResult("kv2_resolve_locator", { ...payload });
+        return jsonToolResult("resolve_locator", { ...payload });
       },
     };
   },
@@ -377,16 +377,16 @@ export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
 
 /** Read capped translation-unit context for a unit or one of its targets. */
 export const kv2UnitContextToolRegistration: AgentToolRegistration = {
-  id: "kv2_unit_context",
+  id: "unit_context",
   purpose: "Read a translation unit's aggregate match state, member targets, and recent pull requests.",
   allowedRoles: ["librarian"],
   capabilities: ["knowledge_v2", "unit_context", "pull_request_history"],
   create(context): PiToolDefinition {
     return {
-      name: "kv2_unit_context",
-      label: "Knowledge V2 Unit Context",
+      name: "unit_context",
+      label: "Unit Context",
       description: "Read bounded unit context by unit locator or member target stable key.",
-      promptSnippet: "kv2_unit_context: inspect unit members, match state, and recent pull request history.",
+      promptSnippet: "unit_context: inspect unit members, match state, and recent pull request history.",
       promptGuidelines: ["Use this when a target's neighboring functions or unit-level pull requests affect the record."],
       parameters: unitContextParameters,
       executionMode: "parallel",
@@ -396,7 +396,7 @@ export const kv2UnitContextToolRegistration: AgentToolRegistration = {
           target_stable_key: optionalString(params.target_stable_key),
           pr_limit: boundedLimit(params.pr_limit, 15),
         }));
-        return jsonToolResult("kv2_unit_context", { ...payload });
+        return jsonToolResult("unit_context", { ...payload });
       },
     };
   },

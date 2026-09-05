@@ -210,13 +210,13 @@ export function buildV2TargetCard(
 
 export function targetKnowledgeCardV2Xml(card: V2TargetCard): string {
   return [
-    `    <target_knowledge_card_v2 context_budget="${card.context_budget}">`,
+    `    <target_knowledge context_budget="${card.context_budget}">`,
     "        <details_json>",
     "```json",
     JSON.stringify(card, null, 2),
     "```",
     "        </details_json>",
-    "    </target_knowledge_card_v2>",
+    "    </target_knowledge>",
   ].join("\n");
 }
 

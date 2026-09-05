@@ -7,13 +7,14 @@ import {
   openKnowledgeStore,
   writeFactWithEvidence,
 } from "../../../../knowledge-v2/index.js";
-import { workerPrompt } from "./prompt.js";
+import { renderSystemPrompt, workerPrompt } from "./prompt.js";
 import { targetPacketTarget } from "./packet.js";
 import {
   WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_TARGET_FILE_INLINE_CHAR_LIMIT,
 } from "./context.js";
+import { renderKernelContextInputsPreview } from "../../../kernel-context.js";
 
 function sampleWorkerPrompt() {
   return workerPrompt({
@@ -26,16 +27,52 @@ function sampleWorkerPrompt() {
       baseline: {
         fuzzy_match_percent: 91.25,
       },
+      first_diff: {
+        status: "available",
+        score: 91.25,
+        rows: [
+          {
+            side: "left",
+            address: "8272",
+            kind: "DIFF_ARG_MISMATCH",
+            text: "lfs f3, lbl_804DA824@sda21",
+          },
+        ],
+        row_counts_by_kind: {
+          DIFF_ARG_MISMATCH: 1,
+        },
+        truncated: false,
+      },
       knowledge_context: {
         status: "ready",
+        related_functions: {
+          callers: [{ symbol: "caller_fn", unit: "GALE01:caller", matched: true }],
+          callees: [{ symbol: "callee_fn", unit: "GALE01:callee", matched: false }],
+          analogs: [{
+            symbol: "analog_fn",
+            unit: "GALE01:analog",
+            fuzzy_match_percent: 96.5,
+            score: 0.98,
+            exact_match: true,
+          }],
+        },
         file_card: {
           source_path: "src/melee/test/missing.c",
+          editability: {
+            mode: "editable",
+            reason: "Target source is in the approved write set.",
+          },
           functions: [
             {
               symbol: "test_symbol",
               unit: "GALE01:test",
               fuzzy: 91.25,
             },
+            ...Array.from({ length: 13 }, (_, index) => ({
+              symbol: `same_file_symbol_${index}`,
+              unit: "GALE01:test",
+              fuzzy: 100,
+            })),
           ],
           tool_hits: [
             {
@@ -59,15 +96,11 @@ function sampleWorkerPrompt() {
     stateDir: "/state",
     initialBoardPath: "/state/board.json",
     workerLogDir: "/state/workers",
-    existingCanonicalToolPaths: new Set([
-      "build/binutils/powerpc-eabi-objdump",
-      "build/tools/dtk",
-    ]),
   });
 }
 
 describe("workerPrompt", () => {
-  test("omits v2 context deterministically when the knowledge database is absent", async () => {
+  test("renders unavailable v2 context deterministically when the knowledge database is absent", async () => {
     const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
     const knowledgeRoot = await mkdtemp(resolve(tmpdir(), "worker-prompt-v2-empty-"));
     try {
@@ -76,10 +109,11 @@ describe("workerPrompt", () => {
       const second = sampleWorkerPrompt();
       const renderedContext = first.kernelContext?.renderedContext ?? "";
 
-      expect(renderedContext).not.toContain("target_knowledge_card_v2");
+      expect(renderedContext).toMatch(
+        /<target_knowledge[^>]*unavailable="true"[^>]*reason="[^"]+"\s*\/>/,
+      );
       expect(first.kernelContext?.inputs.map((input) => input.loaderKind)).toEqual([
         "worker-packet",
-        "knowledge-graph-file-card",
       ]);
       expect(second.kernelContext?.renderedContext).toBe(renderedContext);
     } finally {
@@ -89,7 +123,70 @@ describe("workerPrompt", () => {
     }
   });
 
-  test("appends v2 context after the graph card when facts and ledger rows exist", async () => {
+  test("prefers and reprojects the runner-precomputed v2 card", () => {
+    const bundle = workerPrompt({
+      packet: {
+        target: {
+          unit: "GALE01:test",
+          symbol: "test_symbol",
+          source_path: "src/melee/test/missing.c",
+        },
+        baseline: { fuzzy_match_percent: 91.25 },
+        first_diff: {
+          status: "unavailable",
+          reason: "build_failed",
+          score: null,
+          rows: [],
+          row_counts_by_kind: {},
+          truncated: false,
+        },
+        knowledge_context: {
+          knowledge_card_v2: {
+            stable_key: "GALE01:test:test_symbol",
+            target: {
+              kind: "function",
+              unit: "GALE01:test",
+              symbol: "test_symbol",
+              source_path: "src/melee/test/missing.c",
+              identity_status: "current",
+            },
+            context_budget: "full",
+            ledger: {
+              runs: [],
+              entries: Array.from({ length: 10 }, (_, index) => ({
+                type: "submission",
+                seq: index + 1,
+                description: `precomputed-card-entry-${index}`,
+                score: 90 + index,
+                run_outcome: "improvement",
+                integration: "integrated",
+              })),
+            },
+            status: null,
+            facts: { naming_note: "fixture", by_type: {} },
+            links: [],
+            prior_runs: [],
+            accepted_prs: [],
+          },
+        },
+      },
+      repoRoot: "/repo",
+      stateDir: "/state",
+      initialBoardPath: "/state/board.json",
+      workerLogDir: "/state/workers",
+      contextBudget: "compact",
+    });
+    const renderedContext = bundle.kernelContext?.renderedContext ?? "";
+
+    expect(renderedContext).toContain(
+      '<target_knowledge context_budget="compact">',
+    );
+    expect(renderedContext).toContain("precomputed-card-entry-7");
+    expect(renderedContext).not.toContain("precomputed-card-entry-8");
+    expect(renderedContext).not.toContain("precomputed-card-entry-9");
+  });
+
+  test("loads v2 context without emitting a legacy graph card", async () => {
     const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
     const knowledgeRoot = await mkdtemp(resolve(tmpdir(), "worker-prompt-v2-card-"));
     const store = openKnowledgeStore({ knowledgeRoot });
@@ -117,12 +214,10 @@ describe("workerPrompt", () => {
 
       const bundle = sampleWorkerPrompt();
       const renderedContext = bundle.kernelContext?.renderedContext ?? "";
-      expect(renderedContext).toContain("<target_graph_file_card");
-      expect(renderedContext).toContain("<target_knowledge_card_v2");
+      expect(renderedContext).toContain("<target_knowledge");
+      expect(renderedContext).not.toContain("<target_graph_file_card");
       expect(bundle.kernelContext?.inputs.map((input) => input.loaderKind)).toEqual([
         "worker-packet",
-        "knowledge-graph-file-card",
-        "target-knowledge-card-v2",
       ]);
     } finally {
       store.close();
@@ -145,12 +240,19 @@ describe("workerPrompt", () => {
       packet: {
         target,
         baseline: { fuzzy_match_percent: target.fuzzy_match_percent },
+        first_diff: {
+          status: "unavailable",
+          reason: "dry_run",
+          score: null,
+          rows: [],
+          row_counts_by_kind: {},
+          truncated: false,
+        },
       },
       repoRoot: "/repo",
       stateDir: "/state",
       initialBoardPath: "/state/board.json",
       workerLogDir: "/state/workers",
-      existingCanonicalToolPaths: new Set<string>(),
     });
 
     expect(target).toMatchObject({
@@ -167,13 +269,17 @@ describe("workerPrompt", () => {
     expect(bundle.systemPrompt).toContain("build-and-compare evidence from checkdiff or the objdiff summary");
     expect(bundle.systemPrompt).not.toContain("holistic_file_understanding");
     expect(bundle.systemPrompt).not.toContain("hypothesis_generation");
+    expect(bundle.kernelContext?.renderedContext).toContain(
+      '<first_diff status="unavailable" reason="dry_run"/>',
+    );
   });
 
   test("keeps dynamic packet in kernel context instead of system or user prompt", () => {
     const bundle = sampleWorkerPrompt();
 
     expect(bundle.systemPrompt).toContain('<context_usage context_id="worker-packet">');
-    expect(bundle.systemPrompt).toContain('<context_usage context_id="knowledge-graph-file-card">');
+    expect(bundle.systemPrompt).toContain('<context_usage context_id="target-knowledge">');
+    expect(bundle.systemPrompt).not.toContain("knowledge-graph-file-card");
     expect(bundle.systemPrompt).not.toContain("<decomp_standards>");
     expect(bundle.systemPrompt).not.toContain("<target_file");
     expect(bundle.kernelContext?.turnPrompt).toBe("Use the injected worker context for this run. Complete the task described there, follow the system prompt, and return the required output.");
@@ -184,28 +290,52 @@ describe("workerPrompt", () => {
 
     expect(bundle.kernelContext?.inputs.map((input) => input.loaderKind)).toEqual([
       "worker-packet",
-      "knowledge-graph-file-card",
     ]);
+    const inputContent = bundle.kernelContext?.inputs.map((input) => input.content).join("\n") ?? "";
+    expect(inputContent.match(/<target_knowledge\b/g)).toHaveLength(1);
+    expect(renderedContext.match(/<target_knowledge\b/g)).toHaveLength(1);
+    const inputsPreview = renderKernelContextInputsPreview(bundle.kernelContext?.inputs ?? []);
+    expect(inputsPreview.match(/<target_knowledge\b/g)).toHaveLength(1);
+    expect(inputsPreview).toStartWith('<worker-packet ref="worker-packet">');
+    expect(inputsPreview).not.toContain('<target-knowledge ref="target-knowledge">');
     expect(renderedContext).toContain("<decomp_standards>");
-    expect(renderedContext).toContain('<context_budget mode="full"');
+    expect(renderedContext).not.toContain("<context_budget");
     expect(renderedContext).toContain("<target_file");
-    expect(renderedContext).toContain("<canonical_tool_paths>");
-    expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-objdump"');
-    expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-objdump" command="powerpc-eabi-objdump" exists="true"');
-    expect(renderedContext).toContain('relative_path="build/binutils/powerpc-eabi-nm" command="powerpc-eabi-nm" exists="false"');
-    expect(renderedContext).toContain("Broad find roots");
-    expect(renderedContext).toContain("<target_graph_file_card");
-    expect(renderedContext).toContain('"top_opseq_analog"');
-    expect(renderedContext).toContain("graph_related_functions");
-    expect(renderedContext).toContain('"tool": "kv2_subject_record"');
+    expect(renderedContext).not.toContain("<canonical_tool_paths>");
+    expect(renderedContext).not.toContain('relative_path="build/binutils');
+    expect(renderedContext).not.toContain("Broad find roots");
+    expect(renderedContext).toContain('<first_diff status="available" score="91.25" rows="1" truncated="false">');
     expect(renderedContext).toContain(
-      '"target_stable_key": "GALE01:test:test_symbol"',
+      "left 8272: DIFF_ARG_MISMATCH lfs f3, lbl_804DA824@sda21",
     );
-    expect(renderedContext).toContain('"tool": "kv2_attempt_search"');
-    expect(renderedContext).toContain('"query": "test_symbol_matched"');
+    expect(renderedContext).toContain(
+      "row_counts_by_kind: DIFF_ARG_MISMATCH=1",
+    );
+    expect(renderedContext).toContain('<editability mode="editable"');
+    expect(renderedContext).toContain(
+      'reason="Target source is in the approved write set."',
+    );
+    expect(renderedContext).toContain("same_file_symbol_11");
+    expect(renderedContext).not.toContain("same_file_symbol_12");
+    expect(renderedContext).toContain("<related_functions>");
+    expect(renderedContext).toContain('<caller symbol="caller_fn" unit="GALE01:caller" matched="true"/>');
+    expect(renderedContext).toContain('<callee symbol="callee_fn" unit="GALE01:callee" matched="false"/>');
+    expect(renderedContext).toContain('<analog symbol="analog_fn" unit="GALE01:analog" fuzzy_match_percent="96.5" score="0.98" exact_match="true"/>');
+    expect(renderedContext).not.toContain("<target_graph_file_card");
+    expect(renderedContext).not.toContain('"top_opseq_analog"');
+    expect(renderedContext).not.toContain("follow_up_queries");
+    expect(renderedContext).not.toContain("search_leads");
+    expect(renderedContext).not.toContain(["kv2", "_"].join(""));
     expect(renderedContext).not.toContain('"tool": "ledger_search"');
     expect(renderedContext).not.toContain("opseq_similar_functions");
     expect(renderedContext).not.toContain("mismatch_db_search");
+    expect(renderedContext).not.toContain("<baseline>");
+    expect(renderedContext).not.toContain("<available_tools");
+    const blockOrder = ["<target ", "<first_diff", "<target_knowledge", "<decomp_standards"]
+      .map((tag) => renderedContext.indexOf(tag));
+    expect(blockOrder.every((position) => position >= 0)).toBeTrue();
+    expect(blockOrder).toEqual([...blockOrder].sort((left, right) => left - right));
+    expect(renderedContext).toContain('baseline_fuzzy_match_percent="91.25"');
     expect(renderedContext).toContain("<canonical_example");
     expect(renderedContext).toContain("<bad_code>");
     expect(renderedContext).toContain("<preferred_code>");
@@ -213,6 +343,50 @@ describe("workerPrompt", () => {
     expect(renderedContext).not.toContain("<bad_pattern>");
     expect(renderedContext).not.toContain("<preferred_shape>");
     expect(`${bundle.systemPrompt}\n${bundle.userPrompt}\n${renderedContext}`).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+  });
+
+  test("caps first-diff text for every context budget and keeps six minimal rows", () => {
+    const packet = {
+      target: {
+        unit: "GALE01:test",
+        symbol: "test_symbol",
+        source_path: "src/melee/test/missing.c",
+      },
+      baseline: { fuzzy_match_percent: 91.25 },
+      first_diff: {
+        status: "available",
+        score: 91.25,
+        rows: Array.from({ length: 40 }, (_, index) => ({
+          side: index % 2 === 0 ? "left" : "right",
+          address: String(8272 + index * 4),
+          kind: "DIFF_ARG_MISMATCH",
+          text: `row-${index}-${"operand".repeat(30)}`,
+        })),
+        row_counts_by_kind: { DIFF_ARG_MISMATCH: 40 },
+        truncated: false,
+      },
+    };
+    const renderBlock = (contextBudget: "full" | "compact" | "minimal") => {
+      const rendered = workerPrompt({
+        packet,
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        contextBudget,
+      }).kernelContext?.renderedContext ?? "";
+      return rendered.match(/<first_diff[\s\S]*?<\/first_diff>/)?.[0] ?? "";
+    };
+
+    const full = renderBlock("full");
+    const compact = renderBlock("compact");
+    const minimal = renderBlock("minimal");
+    expect(full.length).toBeLessThanOrEqual(4_000);
+    expect(compact.length).toBeLessThanOrEqual(2_000);
+    expect(minimal.length).toBeLessThanOrEqual(800);
+    expect(minimal.match(/^\s*(?:left|right)\s/gm)).toHaveLength(6);
+    expect(minimal).toContain('truncated="true"');
+    expect(minimal).toContain("row_counts_by_kind: DIFF_ARG_MISMATCH=40");
   });
 
   test("truncates oversized target source while keeping path metadata", async () => {
@@ -244,7 +418,6 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
-        existingCanonicalToolPaths: new Set<string>(),
       });
       const renderedContext = bundle.kernelContext?.renderedContext ?? "";
 
@@ -286,7 +459,6 @@ describe("workerPrompt", () => {
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
         workerLogDir: "/state/workers",
-        existingCanonicalToolPaths: new Set<string>(),
       };
       const fullContext = workerPrompt(baseOptions).kernelContext?.renderedContext ?? "";
       const compactContext = workerPrompt({ ...baseOptions, contextBudget: "compact" }).kernelContext?.renderedContext ?? "";
@@ -296,9 +468,11 @@ describe("workerPrompt", () => {
       expect(minimalContext.length).toBeLessThan(compactContext.length);
       expect(compactContext).toContain(`inline_char_limit="${WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT}"`);
       expect(minimalContext).toContain(`inline_char_limit="${WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT}"`);
-      expect(compactContext).toContain('<available_tools context_budget="compact" compacted="true">');
+      expect(fullContext).not.toContain("<available_tools");
+      expect(compactContext).not.toContain("<available_tools");
+      expect(minimalContext).not.toContain("<available_tools");
       expect(minimalContext).toContain('<decomp_standards context_budget="minimal" compacted="true">');
-      expect(minimalContext).toContain("Minimal retry budget");
+      expect(minimalContext).toContain('note="compact retry budget: read local files for full source"');
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
@@ -318,7 +492,6 @@ describe("workerPrompt", () => {
       stateDir: "/state",
       initialBoardPath: "/state/board.json",
       workerLogDir: "/state/workers",
-      existingCanonicalToolPaths: new Set<string>(),
       targetSourceText: "int sandbox_prefetched_marker;\n",
     });
 
@@ -328,17 +501,18 @@ describe("workerPrompt", () => {
   });
 
   test("organizes the system prompt around goal, workflow context, and contracted rules", () => {
-    const systemPrompt = sampleWorkerPrompt().systemPrompt;
+    const systemPrompt = renderSystemPrompt();
     const goal = systemPrompt.indexOf("<goal>");
     const definitionOfDone = systemPrompt.indexOf("<definition_of_done>");
     const thinking = systemPrompt.indexOf("<thinking>");
     const workflowContext = systemPrompt.indexOf("<workflow_context>");
+    const advancedTechniques = systemPrompt.indexOf("<advanced_techniques>");
     const rules = systemPrompt.indexOf("<contracted_in_rules>");
-    const understandFile = systemPrompt.indexOf('<phase id="1" name="holistic_file_understanding">');
-    const referencePass = systemPrompt.indexOf('<phase id="2" name="solved_reference_pass">');
-    const hypothesisGeneration = systemPrompt.indexOf('<phase id="3" name="hypothesis_generation">');
-    const hypothesisTesting = systemPrompt.indexOf('<phase id="4" name="hypothesis_testing">');
-    const editAndEvaluate = systemPrompt.indexOf('<phase id="5" name="edit_and_evaluate">');
+    const orient = systemPrompt.indexOf('<phase id="1" name="orient">');
+    const exactSymbolHistory = systemPrompt.indexOf('<phase id="2" name="exact_symbol_history">');
+    const nameTheMechanism = systemPrompt.indexOf('<phase id="3" name="name_the_mechanism">');
+    const oneEditThenDiff = systemPrompt.indexOf('<phase id="4" name="one_edit_then_diff">');
+    const escalate = systemPrompt.indexOf('<phase id="5" name="escalate">');
     const originalProgrammerLens = systemPrompt.indexOf("Understand how the original programmers wrote this code");
     const sudokuLens = systemPrompt.indexOf("Think like Sudoku:");
 
@@ -346,49 +520,52 @@ describe("workerPrompt", () => {
     expect(definitionOfDone).toBeGreaterThan(goal);
     expect(thinking).toBeGreaterThan(definitionOfDone);
     expect(workflowContext).toBeGreaterThan(thinking);
-    expect(rules).toBeGreaterThan(workflowContext);
+    expect(advancedTechniques).toBeGreaterThan(workflowContext);
+    expect(rules).toBeGreaterThan(advancedTechniques);
     expect(originalProgrammerLens).toBeGreaterThan(thinking);
     expect(sudokuLens).toBeGreaterThan(originalProgrammerLens);
-    expect(systemPrompt).toContain("A single worker turn may end before 100%");
-    expect(systemPrompt).toContain("Build a holistic picture of what the file is and what it does:");
+    expect(systemPrompt).toContain("<submission>");
     expect(systemPrompt).toContain("Treat the target as code likely written by a small number of programmers.");
     expect(systemPrompt).toContain("high-signal personal preference patterns and company-standard patterns");
     expect(systemPrompt).toContain("Something elsewhere may have been written by the same person");
     expect(systemPrompt).toContain("Finding one strong matching pattern can strongly constrain how this target was likely written.");
     expect(systemPrompt).toContain("Assume a small original author pool left repeatable idioms");
-    expect(systemPrompt).toContain(
-      "Based on that file understanding, look around the codebase for 100% matched functions/files",
-    );
-    expect(systemPrompt).toContain("Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.");
-    expect(systemPrompt).toContain("Use `kv2_subject_record` and `kv2_attempt_search` to inspect prior work");
-    expect(systemPrompt).toContain("Use `kv2_pr_search`, `kv2_discord_search`, and `kv2_wiki_search`");
-    expect(systemPrompt).toContain("Resolve any locator you rely on with `kv2_resolve_locator`");
+    expect(systemPrompt).toContain("Read the target, the `first_diff`, the `target_knowledge` prior runs, and the standards.");
+    expect(systemPrompt).toContain("Before any edit, read what already happened on this exact symbol.");
+    expect(systemPrompt).toContain("`knowledge_record` for the full record and ledger of the target");
+    expect(systemPrompt).toContain("`pr_search` for the accepted pull request on this symbol or its unit");
+    expect(systemPrompt).toContain("Resolve any locator you rely on with `resolve_locator`");
+    expect(systemPrompt).not.toContain(["kv2", "_"].join(""));
+    expect(systemPrompt).not.toContain("graph_related_functions");
+    expect(systemPrompt).not.toContain("past_prs_search");
     expect(systemPrompt).not.toContain("ledger_search");
-    expect(systemPrompt).toContain("Develop a few concrete hypotheses for what could be done");
-    expect(systemPrompt).toContain("Test the hypotheses with targeted deeper analysis.");
+    expect(systemPrompt).toContain("name the compiler mechanism that produces it");
+    expect(systemPrompt).toContain("A hypothesis is ready to test only when it states:");
+    expect(systemPrompt).toContain("Stop rule for a variant family:");
     expect(systemPrompt).toContain(
-      "`source_permuter_run` is expensive. Use it only as a last resort",
+      "When two or three variants in one family reproduce the same residual rows, that family is exhausted.",
     );
-    expect(systemPrompt).toContain("Use the injected `canonical_tool_paths` block");
+    expect(systemPrompt).toContain("Permuter as a probe, not a finder");
+    expect(systemPrompt).toContain("Run `source_permuter_run` only after you have named the function and the bounded region or helper that owns the residual.");
+    expect(systemPrompt).toContain("Treat the result as evidence about which source region controls the residual, then hand-write the final edit.");
+    expect(systemPrompt).not.toContain("Use opseq similarity leads");
+    expect(systemPrompt).not.toContain("last resort");
+    expect(systemPrompt).not.toContain("Develop a few concrete hypotheses");
+    expect(systemPrompt).not.toContain("Test the hypotheses with targeted deeper analysis.");
+    expect(systemPrompt).toContain("are on PATH in your sandbox; call them by name");
+    expect(systemPrompt).not.toContain("canonical_tool_paths");
     expect(systemPrompt).toContain("Do not run broad filesystem `find` sweeps");
     expect(systemPrompt).toContain("Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed");
     expect(systemPrompt).toContain(
       "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue",
     );
-    expect(systemPrompt).toContain(
-      "When a target is near exact, use mismatch-specific probes and source mutation previews first",
-    );
-    expect(systemPrompt).toContain("If you have a buildable improvement, a falsified attempt that should be checkpointed");
-    expect(systemPrompt).toContain("return a handoff JSON");
-    expect(systemPrompt).toContain("This handoff is not a worker report");
-    expect(systemPrompt).toContain("Do not treat non-100% progress as failure");
-    expect(systemPrompt).toContain("banks a validated, gate-clean improvement immediately and ends the claim");
+    expect(systemPrompt).toContain("Submit a verified improvement so it is validated and checkpointed, then continue toward exact.");
     expect(systemPrompt).toContain("Here is what I tried.");
     expect(systemPrompt).toContain("the target translation unit is your motivation and review scope");
     expect(systemPrompt).toContain("Edit only paths in your approved write set");
     expect(systemPrompt).toContain("initially contains only the `&lt;target_file");
     expect(systemPrompt).toContain("first try typing the in-slice code to the foreign types already present on master");
-    expect(systemPrompt).toContain("`widening_request` object to the handoff JSON");
+    expect(systemPrompt).toContain("`widening_request` object");
     expect(systemPrompt).toContain("`write_set_widening_request_v1`");
     expect(systemPrompt).toContain("`category`: `config-metadata`, `owning-header`, or `foreign-source`");
     expect(systemPrompt).toContain("`rung`: `2`, `3`, or `4`");
@@ -399,13 +576,21 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain("Requested paths remain unauthorized unless the runner approves them");
     expect(systemPrompt).toContain("Never add local shims—aliases, local prototypes, or include-macro rewrites");
     expect(systemPrompt).not.toContain("Edit only the path named by");
-    expect(systemPrompt).toContain("the runner owns the follow-up decision");
-    expect(systemPrompt).toContain("Repair requests only come for validation/lint failures or for an exact match that failed hard gates");
+    expect(systemPrompt).toContain("A repair request only comes for validation/lint failures or for an exact match that failed hard gates");
+    expect(systemPrompt).toContain('<context_usage context_id="worker-packet">');
+    expect(systemPrompt).toContain('<context_usage context_id="target-knowledge">');
+    expect(systemPrompt).not.toContain("knowledge-graph-file-card");
+    expect(systemPrompt).not.toContain("holistic_file_understanding");
+    expect(systemPrompt).not.toContain("hypothesis_generation");
     expect(systemPrompt).not.toContain("<checkpoint_note>");
-    expect(understandFile).toBeGreaterThanOrEqual(0);
-    expect(referencePass).toBeGreaterThan(understandFile);
-    expect(hypothesisGeneration).toBeGreaterThan(referencePass);
-    expect(hypothesisTesting).toBeGreaterThan(hypothesisGeneration);
-    expect(editAndEvaluate).toBeGreaterThan(hypothesisTesting);
+    expect(systemPrompt).not.toContain("handoff");
+    expect(systemPrompt).not.toContain("turn budget");
+    expect(systemPrompt).not.toContain("later epoch");
+    expect(systemPrompt).not.toContain("attempt budget");
+    expect(orient).toBeGreaterThanOrEqual(0);
+    expect(exactSymbolHistory).toBeGreaterThan(orient);
+    expect(nameTheMechanism).toBeGreaterThan(exactSymbolHistory);
+    expect(oneEditThenDiff).toBeGreaterThan(nameTheMechanism);
+    expect(escalate).toBeGreaterThan(oneEditThenDiff);
   });
 });

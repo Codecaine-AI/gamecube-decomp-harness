@@ -340,11 +340,11 @@ describe("claimed worker task reconstruction", () => {
         mwccDebugProvisioned: true,
       });
       expect(provider.execCalls.filter((call) => call.command[2]?.includes("mwcceppc_debug.exe"))).toHaveLength(1);
-      expect(capturedRunnerOptions?.prompt.kernelContext?.renderedContext).toContain(
-        'relative_path="build/tools/dtk" command="dtk" exists="true"',
+      expect(capturedRunnerOptions?.prompt.kernelContext?.renderedContext).not.toContain(
+        'relative_path="build/tools/dtk"',
       );
-      expect(capturedRunnerOptions?.prompt.kernelContext?.renderedContext).toContain(
-        'relative_path="build/binutils/powerpc-eabi-objdump" command="powerpc-eabi-objdump" exists="false"',
+      expect(capturedRunnerOptions?.prompt.kernelContext?.renderedContext).not.toContain(
+        "Broad find roots",
       );
       const checkpoint = reopened.db.query(
         "SELECT patch_path, diff_path FROM worker_checkpoints WHERE worker_state_id = ?",

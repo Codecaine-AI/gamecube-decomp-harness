@@ -96,8 +96,8 @@ export const prompt = definePrompt({
         instructions: [
           "The context arrives split: <fill_out_subjects> is the ordered loop you work — linked entities first, the target last, each with its current record and material — and <supporting_subjects> holds connected game concepts and patterns, context you read but do not owe facts.",
           "The exact JSON shape you must return is the <output_contract> block in the injected context; your entire reply is that one JSON object, machine-processed directly, with no prose around it.",
-          "Search with your own tools: kv2_attempt_search for prior worker attempts, kv2_subject_record for another subject's assembled record and ledger, kv2_unit_context for a translation unit's members and recent pull requests, kv2_entity_lookup before admitting any entity, graph_related_functions for a target\u2019s opseq-similar analogs, callers, callees, and xrefs (follow an analog with kv2_subject_record to read what is already known about it), then kv2_discord_search, kv2_wiki_search, and kv2_pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
-          "Call kv2_resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
+          "Search with your own tools: attempt_search for prior worker attempts, knowledge_record for another subject's assembled record and ledger, unit_context for a translation unit's members and recent pull requests, entity_lookup before admitting any entity, graph_related_functions for a target\u2019s opseq-similar analogs, callers, callees, and xrefs (follow an analog with knowledge_record to read what is already known about it), then discord_search, wiki_search, and pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
+          "Call resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
         ],
       }),
     ]),
@@ -112,16 +112,16 @@ export const prompt = definePrompt({
         "For each fill-out subject, in order:",
         orderedList([
           "Read what it arrived with: its current record plus its material — the target entry brings its source span, its analogs, its full ledger, and its status; the translation unit entry brings its members and recent pull requests. The source is the primary text: read it before anything else.",
-          "Research it across every resource: kv2_attempt_search for its attempts, kv2_pr_search for its pull requests, kv2_discord_search for its symbol, address, or name, kv2_wiki_search for the mechanic it might realize.",
-          "Find its analogs: graph_related_functions for opseq-similar functions, callers, callees, and xrefs; read the analogs\u2019 records with kv2_subject_record \u2014 what is already known about similar code is often the strongest signal for what this subject is.",
-          "Resolve in full, with kv2_resolve_locator, every record you will cite for it.",
+          "Research it across every resource: attempt_search for its attempts, pr_search for its pull requests, discord_search for its symbol, address, or name, wiki_search for the mechanic it might realize.",
+          "Find its analogs: graph_related_functions for opseq-similar functions, callers, callees, and xrefs; read the analogs\u2019 records with knowledge_record \u2014 what is already known about similar code is often the strongest signal for what this subject is.",
+          "Resolve in full, with resolve_locator, every record you will cite for it.",
           "Devise its facts — only the types the resolved evidence genuinely carries — and any links the evidence shows.",
           "Move to the next subject only when this one is done.",
         ]),
       ], { attrs: { id: "2", name: "for_each_fill_out_subject" } }),
       section("phase", [
         bulletList([
-          "When a supported fact needs a game concept or pattern, run kv2_entity_lookup first.",
+          "When a supported fact needs a game concept or pattern, run entity_lookup first.",
           "Admit an entity only when no existing entity is that thing; propose a merge when two existing entities turn out to be the same.",
         ]),
       ], { attrs: { id: "3", name: "curate_entities" } }),
@@ -174,7 +174,7 @@ export const prompt = definePrompt({
       section("links_and_entities", [
         bulletList([
           "Every real relationship is a link with its own citation.",
-          "New game concepts or patterns are admitted only where a supported fact needs them, after kv2_entity_lookup found no existing entity.",
+          "New game concepts or patterns are admitted only where a supported fact needs them, after entity_lookup found no existing entity.",
           "Duplicates are merged, never re-admitted.",
         ]),
       ]),

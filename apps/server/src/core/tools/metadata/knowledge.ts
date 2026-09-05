@@ -20,7 +20,7 @@ export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata
   graph_related_functions: {
     provider: "knowledge_graph",
     type: "function_relationships",
-    useWhen: "Retrieve opseq analogs, callers, callees, data references, and corroborating xref evidence for a file or function.",
+    useWhen: "Retrieve instruction-shape analogs, callers, callees, data references, and corroborating xref evidence for a file or function.",
   },
   past_prs_search: {
     provider: "past_prs",
