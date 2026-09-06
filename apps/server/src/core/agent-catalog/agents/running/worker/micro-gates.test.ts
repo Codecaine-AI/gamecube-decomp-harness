@@ -243,6 +243,49 @@ describe("lintBannedIdioms", () => {
     expect(result.reasons).toContainEqual(expect.stringContaining("previously non-static"));
   });
 
+  test("does not mistake function parameters for static declarators", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const diff = cDiff(
+      "static inline s32 mnSnap_CheckCopy(s32 slot, s32 cursor)",
+      "static inline void fn_8018AA74_inline0(BracketEntry* entry, s32* p38,",
+      "    s32* p3C)",
+    );
+    const result = lintBannedIdioms(diff, {
+      baselineSources: new Map([[path, "s32 slot;\ns32 p38;\n"]]),
+    });
+    expect(result.reasons).not.toContainEqual(expect.stringContaining("static_added_to_global_symbol"));
+  });
+
+  test("rejects static added to a previously non-static function", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const result = lintBannedIdioms(cDiff("static int foo(void) {", "    foo();"), {
+      baselineSources: new Map([[path, "int foo(void);\n"]]),
+    });
+    expect(result.reasons).toContainEqual(expect.stringContaining("static_added_to_global_symbol: 'foo'"));
+  });
+
+  test("rejects static added to a symbols.txt object", () => {
+    const result = lintBannedIdioms(cDiff("static s32 gBar;"), {
+      symbolsTxt: "gBar = .data:0x804D0000; // type:object scope:global",
+    });
+    expect(result.reasons).toContainEqual(expect.stringContaining("static_added_to_global_symbol: 'gBar'"));
+  });
+
+  test("does not mistake a baseline parameter for a non-static declarator", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const result = lintBannedIdioms(cDiff("static int foo(void) {", "    foo();"), {
+      baselineSources: new Map([[path, "void unrelated(s32 foo, s32 other);\n"]]),
+    });
+    expect(result.reasons).not.toContainEqual(expect.stringContaining("static_added_to_global_symbol"));
+  });
+
+  test("does not mistake a parameter for a symbols.txt global", () => {
+    const result = lintBannedIdioms(cDiff("static inline s32 helper(s32 slot) {", "    return slot;", "}"), {
+      symbolsTxt: "slot = .data:0x804D0000; // type:object scope:global",
+    });
+    expect(result.reasons).not.toContainEqual(expect.stringContaining("static_added_to_global_symbol"));
+  });
+
   test("accepts a brand-new referenced static helper", () => {
     const result = lintBannedIdioms(cDiff("static void helperThing(void) {", "    helperThing();"));
     expect(result.status).toBe("passed");

@@ -384,13 +384,30 @@ function objectHasQualifier(shape: string, qualifier: string): boolean {
 
 function staticDeclarationName(line: string): string | null {
   if (!/^\s*static\b/.test(line)) return null;
-  const matches = [...line.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(?=\[|=|;|\(|,)/g)];
-  return matches.at(-1)?.[1] ?? null;
+  return declarationName(line.replace(/^\s*static\s+/, ""));
 }
 
 function isNonStaticDeclarationOf(line: string, name: string): boolean {
-  if (/^\s*static\b/.test(line)) return false;
-  return new RegExp(`\\b${escapeRegExp(name)}\\s*(?=\\[|=|;|\\(|,)`).test(line);
+  if (!/^\S/.test(line) || /^static\b/.test(line)) return false;
+  return declarationName(line) === name;
+}
+
+function declarationName(line: string): string | null {
+  const functionParen = line.indexOf("(");
+  const objectTerminator = line.search(/[=\[;]/);
+  const end = functionParen >= 0 && (objectTerminator < 0 || functionParen < objectTerminator)
+    ? functionParen
+    : objectTerminator;
+  if (end < 0) return null;
+  const prefix = line.slice(0, end).trim();
+  const nameMatch = /([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(prefix);
+  if (!nameMatch) return null;
+  const beforeName = prefix.slice(0, nameMatch.index).trimEnd();
+  if (beforeName.endsWith(".") || beforeName.endsWith("->")) return null;
+  const identifiers = prefix.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [];
+  if (identifiers.length < 2) return null;
+  if (identifiers.length === 2 && /^(?:struct|union|enum)$/.test(identifiers[0]!)) return null;
+  return nameMatch[1] ?? null;
 }
 
 function baselineDeclaresNonStatic(source: string | undefined, name: string): boolean {
