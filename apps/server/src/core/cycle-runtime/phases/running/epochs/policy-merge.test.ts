@@ -419,6 +419,135 @@ describe("fallbacks", () => {
     }));
   });
 
+  test("keeps ours-only helpers before an ours-protected function", () => {
+    const baseText = [
+      "static int shared_data = 0;",
+      "int fn_X(void) { return 0; }",
+      "int unrelated(void) { return 0; }",
+      "",
+    ].join("\n");
+    const oursText = [
+      "static int shared_data = 0;",
+      "static inline int h4(void) { return 4; }",
+      "static inline int h5(void) { return h4() + 1; }",
+      "int fn_X(void) { return h5(); }",
+      "int unrelated(void) { return 0; }",
+      "",
+    ].join("\n");
+    const upstreamText = [
+      "static int shared_data = 0;",
+      "static inline int upstream_inline1(void) { return 1; }",
+      "int fn_X(void) { return 2; }",
+      "int unrelated(void) { return 9; }",
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/ours-helper-splice.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { fn_X: 99.5, unrelated: 90 },
+      upstreamScores: { fn_X: 90, unrelated: 100 },
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.fallback).toBeNull();
+    expect(result.text).toContain("int unrelated(void) { return 9; }");
+    expect(result.text).not.toContain("upstream_inline1");
+    expect(result.text.indexOf("h4(void)")).toBeLessThan(result.text.indexOf("h5(void)"));
+    expect(result.text.indexOf("h5(void)")).toBeLessThan(result.text.indexOf("fn_X(void)"));
+    expect(result.decisions.find((decision) => decision.functionName === "fn_X")).toEqual(expect.objectContaining({
+      side: "ours", reason: "ours_higher_score",
+    }));
+  });
+
+  test("keeps upstream-only helpers before an upstream-protected function", () => {
+    const file = (owner: string, functions: string[]) => [
+      `#define CONTEXT_${owner.toUpperCase()} 1`,
+      ...functions,
+      "",
+    ].join("\n");
+    const baseText = file("base", [
+      "int ours_one(void) { return 0; }",
+      "int ours_two(void) { return 0; }",
+      "int fn_Y(void) { return 0; }",
+    ]);
+    const oursText = file("ours", [
+      "int ours_one(void) { return 1; }",
+      "int ours_two(void) { return 2; }",
+      "int fn_Y(void) { return 3; }",
+    ]);
+    const upstreamText = file("upstream", [
+      "int ours_one(void) { return 4; }",
+      "int ours_two(void) { return 5; }",
+      "static inline int upstream_h4(void) { return 6; }",
+      "static inline int upstream_h5(void) { return upstream_h4() + 1; }",
+      "int fn_Y(void) { return upstream_h5(); }",
+    ]);
+    const result = mergeCFileByPolicy({
+      path: "src/upstream-helper-splice.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { ours_one: 100, ours_two: 99.5, fn_Y: 90 },
+      upstreamScores: { ours_one: 90, ours_two: 90, fn_Y: 100 },
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.fallback).toBeNull();
+    expect(result.text).toContain("#define CONTEXT_OURS 1");
+    expect(result.text).toContain("int ours_one(void) { return 1; }");
+    expect(result.text).toContain("int ours_two(void) { return 2; }");
+    expect(result.text.indexOf("upstream_h4(void)")).toBeLessThan(result.text.indexOf("upstream_h5(void)"));
+    expect(result.text.indexOf("upstream_h5(void)")).toBeLessThan(result.text.indexOf("fn_Y(void)"));
+    expect(result.decisions.find((decision) => decision.functionName === "fn_Y")).toEqual(expect.objectContaining({
+      side: "upstream", reason: "upstream_exact",
+    }));
+  });
+
+  test("falls back to the protected side when a required helper follows its first use", () => {
+    const baseText = [
+      "int fn_X(void) { return 0; }",
+      "int unrelated(void) { return 0; }",
+      "",
+    ].join("\n");
+    const oursText = [
+      "int fn_X(void) { return late_helper(); }",
+      "static inline int late_helper(void) { return 7; }",
+      "int unrelated(void) { return 1; }",
+      "",
+    ].join("\n");
+    const upstreamText = [
+      "int fn_X(void) { return 2; }",
+      "int unrelated(void) { return 9; }",
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/late-helper.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { fn_X: 99.5, unrelated: 90 },
+      upstreamScores: { fn_X: 90, unrelated: 100 },
+    });
+    const message = policyMergeFileMessage({
+      path: result.path,
+      result,
+      wholeFileFallbackReason: null,
+      upstreamReportFallbackReason: null,
+    });
+
+    expect(result.strategy).toBe("majority_fallback");
+    expect(result.text).toBe(oursText);
+    expect(result.fallback).toEqual(expect.objectContaining({
+      side: "ours",
+      reason: "majority_fallback_conflicting_protected",
+    }));
+    expect(result.fallback?.detail).toContain("late_helper");
+    expect(message).toContain("fallback=majority_fallback_conflicting_protected:ours");
+    expect(message).toContain("late_helper");
+  });
+
   test("logs the upstream-protected fallback reason", () => {
     const result = mergeCFileByPolicy({
       path: "src/protected-log.c",

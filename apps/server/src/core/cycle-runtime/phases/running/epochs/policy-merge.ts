@@ -135,6 +135,26 @@ interface PendingDecision extends Omit<FunctionMergeDecision, "side"> {
   side: PolicyMergeSide | null;
 }
 
+interface SelectedFunction {
+  name: string;
+  side: PolicyMergeSide;
+  span: CFunctionSpan;
+}
+
+interface RequiredHelperFailure {
+  side: PolicyMergeSide;
+  helperNames: string[];
+}
+
+type UnalignedReconstruction = {
+  kind: "success";
+  text: string;
+  selectedSides: Map<string, PolicyMergeSide>;
+} | {
+  kind: "required_helper_failure";
+  failure: RequiredHelperFailure;
+};
+
 const CONTROL_WORDS = new Set(["if", "for", "while", "switch", "return", "sizeof", "__attribute__"]);
 
 function finiteScore(value: unknown): number | null {
@@ -357,13 +377,143 @@ function alignedNames(left: CFunctionSpan[], right: CFunctionSpan[]): boolean {
   return left.length === right.length && left.every((fn, index) => fn.name === right[index]?.name);
 }
 
+function sourceForSide(input: PolicyMergeInput, side: PolicyMergeSide): string {
+  return side === "ours" ? input.oursText : input.upstreamText;
+}
+
+function cIdentifiers(source: string): Set<string> {
+  const identifiers = new Set<string>();
+  let state: "code" | "line_comment" | "block_comment" | "string" | "char" = "code";
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]!;
+    const next = source[index + 1];
+    if (state === "line_comment") {
+      if (char === "\n") state = "code";
+      continue;
+    }
+    if (state === "block_comment") {
+      if (char === "*" && next === "/") {
+        state = "code";
+        index += 1;
+      }
+      continue;
+    }
+    if (state === "string" || state === "char") {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if ((state === "string" && char === "\"") || (state === "char" && char === "'")) state = "code";
+      continue;
+    }
+    if (char === "/" && next === "/") {
+      state = "line_comment";
+      index += 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      state = "block_comment";
+      index += 1;
+      continue;
+    }
+    if (char === "\"") {
+      state = "string";
+      continue;
+    }
+    if (char === "'") {
+      state = "char";
+      continue;
+    }
+    if (!/[A-Za-z_]/.test(char)) continue;
+    let end = index + 1;
+    while (end < source.length && /[A-Za-z0-9_]/.test(source[end]!)) end += 1;
+    identifiers.add(source.slice(index, end));
+    index = end - 1;
+  }
+  return identifiers;
+}
+
+function sideOnlyReferences(
+  input: PolicyMergeInput,
+  selected: SelectedFunction,
+  spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
+): string[] {
+  const otherSide: PolicyMergeSide = selected.side === "ours" ? "upstream" : "ours";
+  const identifiers = cIdentifiers(functionText(sourceForSide(input, selected.side), selected.span));
+  identifiers.delete(selected.name);
+  return [...identifiers].filter((name) => spansBySide[selected.side].has(name) && !spansBySide[otherSide].has(name));
+}
+
+function includeReferencedSideOnlyFunctions(
+  input: PolicyMergeInput,
+  selectedByName: Map<string, SelectedFunction>,
+  spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
+): void {
+  const pending = [...selectedByName.values()];
+  for (let index = 0; index < pending.length; index += 1) {
+    const selected = pending[index]!;
+    for (const helperName of sideOnlyReferences(input, selected, spansBySide)) {
+      if (selectedByName.has(helperName)) continue;
+      const span = spansBySide[selected.side].get(helperName)!;
+      const helper = { name: helperName, side: selected.side, span };
+      selectedByName.set(helperName, helper);
+      pending.push(helper);
+    }
+  }
+}
+
+function requiredHelperFailure(
+  input: PolicyMergeInput,
+  planned: SelectedFunction[],
+  spans: Record<PolicyMergeSide, CFunctionSpan[]>,
+  spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
+): RequiredHelperFailure | null {
+  const outputIndex = new Map(planned.map((selected, index) => [selected.name, index]));
+  const invalid = new Map<PolicyMergeSide, Set<string>>();
+  for (let index = 0; index < planned.length; index += 1) {
+    const selected = planned[index]!;
+    for (const helperName of sideOnlyReferences(input, selected, spansBySide)) {
+      const helperIndex = outputIndex.get(helperName);
+      if (helperIndex !== undefined && helperIndex < index) continue;
+      const names = invalid.get(selected.side) ?? new Set<string>();
+      names.add(helperName);
+      invalid.set(selected.side, names);
+    }
+  }
+  const side = invalid.keys().next().value as PolicyMergeSide | undefined;
+  if (!side) return null;
+  const helperNames = spans[side]
+    .map((span) => span.name)
+    .filter((name) => invalid.get(side)!.has(name));
+  return { side, helperNames };
+}
+
+function resolvedDecisionSide(
+  decision: PendingDecision,
+  selectedByName: Map<string, SelectedFunction>,
+  spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
+  defaultSide: PolicyMergeSide,
+): PolicyMergeSide {
+  const selected = selectedByName.get(decision.functionName);
+  if (selected) return selected.side;
+  if (decision.policySide) return decision.policySide;
+  const inOurs = spansBySide.ours.has(decision.functionName);
+  const inUpstream = spansBySide.upstream.has(decision.functionName);
+  if (inOurs !== inUpstream) return inOurs ? "upstream" : "ours";
+  return defaultSide;
+}
+
 /** Splice additions/deletions by name only when shared order and file context agree. */
-function reconstructUnalignedFunctions(input: PolicyMergeInput, ours: CFunctionSpan[], upstream: CFunctionSpan[], pending: PendingDecision[]): string | null {
-  if (pending.some((decision) => decision.policySide === null)) return null;
+function reconstructUnalignedFunctions(
+  input: PolicyMergeInput,
+  ours: CFunctionSpan[],
+  upstream: CFunctionSpan[],
+  pending: PendingDecision[],
+): UnalignedReconstruction | null {
   ours = ours.map(functionSpliceSpan);
   upstream = upstream.map(functionSpliceSpan);
   const oursByName = new Map(ours.map((fn) => [fn.name, fn]));
   const upstreamByName = new Map(upstream.map((fn) => [fn.name, fn]));
+  const spansBySide = { ours: oursByName, upstream: upstreamByName };
   if (pending.some((decision) => {
     const side = protectedSide(decision);
     return side !== null && !(side === "ours" ? oursByName : upstreamByName).has(decision.functionName);
@@ -371,6 +521,8 @@ function reconstructUnalignedFunctions(input: PolicyMergeInput, ours: CFunctionS
   const commonOurs = ours.filter((fn) => upstreamByName.has(fn.name));
   const commonUpstream = upstream.filter((fn) => oursByName.has(fn.name));
   if (!alignedNames(commonOurs, commonUpstream)) return null;
+  const decisions = new Map(pending.map((decision) => [decision.functionName, decision]));
+  if (commonOurs.some((span) => !decisions.get(span.name)?.policySide)) return null;
 
   const prefix = input.oursText.slice(0, ours[0]!.start);
   const suffix = input.oursText.slice(ours.at(-1)!.end);
@@ -381,25 +533,41 @@ function reconstructUnalignedFunctions(input: PolicyMergeInput, ours: CFunctionS
     if (spans.some((fn, index) => index > 0 && source.slice(spans[index - 1]!.end, fn.start).trim() !== "")) return null;
   }
 
-  const names: string[] = [];
+  const selectedByName = new Map<string, SelectedFunction>();
+  for (const decision of pending) {
+    if (!decision.policySide) continue;
+    const span = spansBySide[decision.policySide].get(decision.functionName);
+    if (span) selectedByName.set(decision.functionName, { name: decision.functionName, side: decision.policySide, span });
+  }
+  includeReferencedSideOnlyFunctions(input, selectedByName, spansBySide);
+
+  const planned: SelectedFunction[] = [];
   let oursIndex = 0;
   let upstreamIndex = 0;
   for (const common of commonOurs) {
-    while (ours[oursIndex]!.name !== common.name) names.push(ours[oursIndex++]!.name);
-    while (upstream[upstreamIndex]!.name !== common.name) names.push(upstream[upstreamIndex++]!.name);
-    names.push(common.name);
+    while (ours[oursIndex]!.name !== common.name) {
+      const selected = selectedByName.get(ours[oursIndex++]!.name);
+      if (selected) planned.push(selected);
+    }
+    while (upstream[upstreamIndex]!.name !== common.name) {
+      const selected = selectedByName.get(upstream[upstreamIndex++]!.name);
+      if (selected) planned.push(selected);
+    }
+    planned.push(selectedByName.get(common.name)!);
     oursIndex += 1;
     upstreamIndex += 1;
   }
-  names.push(...ours.slice(oursIndex).map((fn) => fn.name), ...upstream.slice(upstreamIndex).map((fn) => fn.name));
-  const decisions = new Map(pending.map((decision) => [decision.functionName, decision]));
-  const selected = names.flatMap((name) => {
-    const side = decisions.get(name)!.policySide!;
-    const span = (side === "ours" ? oursByName : upstreamByName).get(name);
-    // Selecting a parent without this definition preserves its deletion.
-    return span ? [functionText(side === "ours" ? input.oursText : input.upstreamText, span)] : [];
-  });
-  return prefix + selected.join("\n\n") + suffix;
+  for (const span of [...ours.slice(oursIndex), ...upstream.slice(upstreamIndex)]) {
+    const selected = selectedByName.get(span.name);
+    if (selected) planned.push(selected);
+  }
+  const failure = requiredHelperFailure(input, planned, { ours, upstream }, spansBySide);
+  if (failure) return { kind: "required_helper_failure", failure };
+  return {
+    kind: "success",
+    text: prefix + planned.map((selected) => functionText(sourceForSide(input, selected.side), selected.span)).join("\n\n") + suffix,
+    selectedSides: new Map([...selectedByName].map(([name, selected]) => [name, selected.side])),
+  };
 }
 
 function decisionsForFunctions(input: PolicyMergeInput, parsed: {
@@ -451,6 +619,48 @@ function contestedVotes(pending: PendingDecision[]): { ours: number; upstream: n
   return {
     ours: contested.filter((decision) => decision.policySide === "ours").length,
     upstream: contested.filter((decision) => decision.policySide === "upstream").length,
+  };
+}
+
+function requiredHelperFallbackResult(
+  input: PolicyMergeInput,
+  scoreMode: PolicyMergeScoreMode,
+  pending: PendingDecision[],
+  failure: RequiredHelperFailure,
+): PolicyMergeResult {
+  const selectedSource = sourceForSide(input, failure.side);
+  const spans = {
+    ours: parseCFunctionSpans(input.oursText).functions.map(functionSpliceSpan),
+    upstream: parseCFunctionSpans(input.upstreamText).functions.map(functionSpliceSpan),
+  };
+  const selectedSpans = spans[failure.side];
+  const lostProtectedFunctions = pending.filter((decision) => {
+    const side = protectedSide(decision);
+    if (!side) return false;
+    const protectedSource = sourceForSide(input, side);
+    const protectedTexts = spans[side]
+      .filter((span) => span.name === decision.functionName)
+      .map((span) => functionText(protectedSource, span));
+    const selectedTexts = selectedSpans
+      .filter((span) => span.name === decision.functionName)
+      .map((span) => functionText(selectedSource, span));
+    return protectedTexts.length === 0 || !protectedTexts.some((text) => selectedTexts.includes(text));
+  }).map((decision) => decision.functionName);
+  return {
+    path: input.path,
+    text: selectedSource,
+    fileTouch: "both",
+    strategy: "majority_fallback",
+    scoreMode,
+    decisions: pending.map((decision) => ({ ...decision, side: failure.side })),
+    fallback: {
+      side: failure.side,
+      reason: "majority_fallback_conflicting_protected",
+      detail: `required helpers cannot precede first use: ${failure.helperNames.join(", ")}`,
+      contestedVotes: contestedVotes(pending),
+      unresolvedFunctions: pending.filter((decision) => decision.policySide === null).map((decision) => decision.functionName),
+      lostProtectedFunctions,
+    },
   };
 }
 
@@ -523,28 +733,65 @@ function conflictingProtectedResult(
   const contextSpans = spans[contextSide];
   const contextNames = new Set(contextSpans.map((span) => span.name));
   const decisions = new Map(pending.map((decision) => [decision.functionName, decision]));
-  let cursor = 0;
-  let text = "";
+  const selectedByName = new Map<string, SelectedFunction>();
   for (const contextSpan of contextSpans) {
-    text += contextSource.slice(cursor, contextSpan.start);
-    const decision = decisions.get(contextSpan.name);
-    const side = decision?.policySide;
+    const side = decisions.get(contextSpan.name)?.policySide;
     const selectedSpan = side ? spansBySide[side].get(contextSpan.name) : contextSpan;
     if (selectedSpan) {
-      const selectedSource = side === "ours" ? input.oursText : side === "upstream" ? input.upstreamText : contextSource;
-      text += functionText(selectedSource, selectedSpan);
+      const selectedSide = side ?? contextSide;
+      selectedByName.set(contextSpan.name, { name: contextSpan.name, side: selectedSide, span: selectedSpan });
+    }
+  }
+  for (const decision of pending) {
+    if (contextNames.has(decision.functionName) || !decision.policySide) continue;
+    const span = spansBySide[decision.policySide].get(decision.functionName);
+    if (span) selectedByName.set(decision.functionName, { name: decision.functionName, side: decision.policySide, span });
+  }
+  includeReferencedSideOnlyFunctions(input, selectedByName, spansBySide);
+
+  const otherSide: PolicyMergeSide = contextSide === "ours" ? "upstream" : "ours";
+  const insertions = new Map<string, SelectedFunction[]>();
+  const trailing: SelectedFunction[] = [];
+  for (let index = 0; index < spans[otherSide].length; index += 1) {
+    const span = spans[otherSide][index]!;
+    if (contextNames.has(span.name)) continue;
+    const selected = selectedByName.get(span.name);
+    if (!selected || selected.side !== otherSide) continue;
+    const nextCommon = spans[otherSide].slice(index + 1).find((candidate) => contextNames.has(candidate.name));
+    if (!nextCommon) {
+      trailing.push(selected);
+      continue;
+    }
+    const before = insertions.get(nextCommon.name) ?? [];
+    before.push(selected);
+    insertions.set(nextCommon.name, before);
+  }
+
+  let cursor = 0;
+  let text = "";
+  const planned: SelectedFunction[] = [];
+  for (const contextSpan of contextSpans) {
+    text += contextSource.slice(cursor, contextSpan.start);
+    const before = insertions.get(contextSpan.name) ?? [];
+    if (before.length > 0) {
+      text += `${before.map((selected) => functionText(sourceForSide(input, selected.side), selected.span)).join("\n\n")}\n\n`;
+      planned.push(...before);
+    }
+    const selected = selectedByName.get(contextSpan.name);
+    if (selected) {
+      text += functionText(sourceForSide(input, selected.side), selected.span);
+      planned.push(selected);
     }
     cursor = contextSpan.end;
   }
-  const addedFunctions = pending.flatMap((decision) => {
-    if (!decision.policySide || contextNames.has(decision.functionName)) return [];
-    const span = spansBySide[decision.policySide].get(decision.functionName);
-    if (!span) return [];
-    const source = decision.policySide === "ours" ? input.oursText : input.upstreamText;
-    return [functionText(source, span)];
-  });
-  if (addedFunctions.length > 0) text += `\n\n${addedFunctions.join("\n\n")}`;
+  if (trailing.length > 0) {
+    text += `\n\n${trailing.map((selected) => functionText(sourceForSide(input, selected.side), selected.span)).join("\n\n")}`;
+    planned.push(...trailing);
+  }
   text += contextSource.slice(cursor);
+
+  const failure = requiredHelperFailure(input, planned, spans, spansBySide);
+  if (failure) return requiredHelperFallbackResult(input, scoreMode, pending, failure);
 
   return {
     path: input.path,
@@ -552,7 +799,10 @@ function conflictingProtectedResult(
     fileTouch: "both",
     strategy: "reconstructed",
     scoreMode,
-    decisions: pending.map((decision) => ({ ...decision, side: decision.policySide ?? contextSide })),
+    decisions: pending.map((decision) => ({
+      ...decision,
+      side: resolvedDecisionSide(decision, selectedByName, spansBySide, contextSide),
+    })),
     fallback: null,
   };
 }
@@ -632,15 +882,29 @@ export function mergeCFileByPolicy(input: PolicyMergeInput): PolicyMergeResult {
     });
   }
   if (!alignedNames(parsed.ours.functions, parsed.upstream.functions)) {
-    const text = reconstructUnalignedFunctions(input, parsed.ours.functions, parsed.upstream.functions, pending);
-    if (text !== null) {
+    const reconstruction = reconstructUnalignedFunctions(input, parsed.ours.functions, parsed.upstream.functions, pending);
+    if (reconstruction?.kind === "required_helper_failure") {
+      return requiredHelperFallbackResult(input, scoreMode, pending, reconstruction.failure);
+    }
+    if (reconstruction?.kind === "success") {
+      const spansBySide = {
+        ours: new Map(parsed.ours.functions.map((span) => [span.name, span])),
+        upstream: new Map(parsed.upstream.functions.map((span) => [span.name, span])),
+      };
+      const selectedByName = new Map([...reconstruction.selectedSides].flatMap(([name, side]) => {
+        const span = spansBySide[side].get(name);
+        return span ? [[name, { name, side, span }] as const] : [];
+      }));
       return {
         path: input.path,
-        text,
+        text: reconstruction.text,
         fileTouch: "both",
         strategy: "reconstructed",
         scoreMode,
-        decisions: pending.map((decision) => ({ ...decision, side: decision.policySide! })),
+        decisions: pending.map((decision) => ({
+          ...decision,
+          side: resolvedDecisionSide(decision, selectedByName, spansBySide, "upstream"),
+        })),
         fallback: null,
       };
     }
@@ -809,10 +1073,13 @@ export function policyMergeFileMessage(entry: Omit<PolicyMergeFileLog, "message"
   const fallback = entry.result.fallback
     ? ` fallback=${entry.result.fallback.reason}:${entry.result.fallback.side}`
     : "";
+  const fallbackDetail = entry.result.fallback?.reason === "majority_fallback_conflicting_protected"
+    ? ` detail=[${entry.result.fallback.detail.replace(/\s+/g, " ").trim()}]`
+    : "";
   const lostProtected = entry.result.fallback?.lostProtectedFunctions.length
     ? ` lost-protected=[${entry.result.fallback.lostProtectedFunctions.join(", ")}]`
     : "";
-  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${lostProtected}${reportFallback}`;
+  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${fallbackDetail}${lostProtected}${reportFallback}`;
 }
 
 async function takeUpstreamFileWhole(
