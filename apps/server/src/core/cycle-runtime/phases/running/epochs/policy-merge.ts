@@ -75,6 +75,7 @@ export interface PolicyMergeResult {
   scoreMode: PolicyMergeScoreMode;
   decisions: FunctionMergeDecision[];
   fallback: PolicyMergeFallback | null;
+  droppedUnreferencedHelpers?: string[];
 }
 
 export interface PolicyMergeGitResult {
@@ -443,6 +444,35 @@ function sideOnlyReferences(
   return [...identifiers].filter((name) => spansBySide[selected.side].has(name) && !spansBySide[otherSide].has(name));
 }
 
+function isStaticFunction(source: string, span: CFunctionSpan): boolean {
+  const header = functionText(source, span).split("{", 1)[0] ?? "";
+  return /\bstatic\b/.test(header);
+}
+
+function selectReferencedStaticHelpers(
+  input: PolicyMergeInput,
+  selectedByName: Map<string, SelectedFunction>,
+  spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
+  decisions: Map<string, PendingDecision>,
+): void {
+  const pending = [...selectedByName.values()];
+  for (let index = 0; index < pending.length; index += 1) {
+    const selected = pending[index]!;
+    const identifiers = cIdentifiers(functionText(sourceForSide(input, selected.side), selected.span));
+    identifiers.delete(selected.name);
+    for (const helperName of identifiers) {
+      if (decisions.get(helperName)?.policySide) continue;
+      const span = spansBySide[selected.side].get(helperName);
+      if (!span || !isStaticFunction(sourceForSide(input, selected.side), span)) continue;
+      const existing = selectedByName.get(helperName);
+      if (existing?.side === selected.side) continue;
+      const helper = { name: helperName, side: selected.side, span };
+      selectedByName.set(helperName, helper);
+      pending.push(helper);
+    }
+  }
+}
+
 function includeReferencedSideOnlyFunctions(
   input: PolicyMergeInput,
   selectedByName: Map<string, SelectedFunction>,
@@ -734,20 +764,24 @@ function conflictingProtectedResult(
   const contextNames = new Set(contextSpans.map((span) => span.name));
   const decisions = new Map(pending.map((decision) => [decision.functionName, decision]));
   const selectedByName = new Map<string, SelectedFunction>();
-  for (const contextSpan of contextSpans) {
-    const side = decisions.get(contextSpan.name)?.policySide;
-    const selectedSpan = side ? spansBySide[side].get(contextSpan.name) : contextSpan;
-    if (selectedSpan) {
-      const selectedSide = side ?? contextSide;
-      selectedByName.set(contextSpan.name, { name: contextSpan.name, side: selectedSide, span: selectedSpan });
-    }
-  }
   for (const decision of pending) {
-    if (contextNames.has(decision.functionName) || !decision.policySide) continue;
+    if (!decision.policySide) continue;
     const span = spansBySide[decision.policySide].get(decision.functionName);
     if (span) selectedByName.set(decision.functionName, { name: decision.functionName, side: decision.policySide, span });
   }
-  includeReferencedSideOnlyFunctions(input, selectedByName, spansBySide);
+  for (const side of [contextSide, contextSide === "ours" ? "upstream" : "ours"] as const) {
+    for (const span of spans[side]) {
+      if (selectedByName.has(span.name)
+        || isStaticFunction(sourceForSide(input, side), span)) continue;
+      selectedByName.set(span.name, { name: span.name, side, span });
+    }
+  }
+  selectReferencedStaticHelpers(input, selectedByName, spansBySide, decisions);
+  const droppedUnreferencedHelpers = [...new Set(
+    [contextSide, contextSide === "ours" ? "upstream" : "ours"].flatMap((side) => spans[side]
+      .filter((span) => isStaticFunction(sourceForSide(input, side), span) && !selectedByName.has(span.name))
+      .map((span) => span.name)),
+  )];
 
   const otherSide: PolicyMergeSide = contextSide === "ours" ? "upstream" : "ours";
   const insertions = new Map<string, SelectedFunction[]>();
@@ -804,6 +838,7 @@ function conflictingProtectedResult(
       side: resolvedDecisionSide(decision, selectedByName, spansBySide, contextSide),
     })),
     fallback: null,
+    droppedUnreferencedHelpers,
   };
 }
 
@@ -1079,7 +1114,10 @@ export function policyMergeFileMessage(entry: Omit<PolicyMergeFileLog, "message"
   const lostProtected = entry.result.fallback?.lostProtectedFunctions.length
     ? ` lost-protected=[${entry.result.fallback.lostProtectedFunctions.join(", ")}]`
     : "";
-  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${fallbackDetail}${lostProtected}${reportFallback}`;
+  const droppedHelpers = entry.result.droppedUnreferencedHelpers?.length
+    ? ` dropped_unreferenced_helpers=[${entry.result.droppedUnreferencedHelpers.join(", ")}]`
+    : "";
+  return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${fallbackDetail}${lostProtected}${droppedHelpers}${reportFallback}`;
 }
 
 async function takeUpstreamFileWhole(

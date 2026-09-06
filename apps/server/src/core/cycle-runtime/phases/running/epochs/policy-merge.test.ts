@@ -461,6 +461,58 @@ describe("fallbacks", () => {
     }));
   });
 
+  test("drops the unselected function's unreferenced static helper closure", () => {
+    const baseText = [
+      "int fn_X(void) { return 0; }",
+      "int upstream_selected(void) { return 0; }",
+      "",
+    ].join("\n");
+    const oursText = [
+      "static inline int helper_A(void) { return 10; }",
+      "static inline int helper_B(void) { return helper_A() + 1; }",
+      "int fn_X(void) { return helper_B(); }",
+      "int upstream_selected(void) { return 1; }",
+      "",
+    ].join("\n");
+    const upstreamText = [
+      "static inline int helper_A(void) { return 100; }",
+      "static inline int helper_C(void) { return helper_A() + 2; }",
+      "static inline int helper_D(void) { return helper_C() + 3; }",
+      "int fn_X(void) { return helper_D(); }",
+      "static inline int upstream_kept(void) { return 40; }",
+      "int upstream_selected(void) { return upstream_kept(); }",
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/gmtoulib-helper-prune.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { fn_X: 99.5, upstream_selected: 90 },
+      upstreamScores: { fn_X: 90, upstream_selected: 100 },
+    });
+    const message = policyMergeFileMessage({
+      path: result.path,
+      result,
+      wholeFileFallbackReason: null,
+      upstreamReportFallbackReason: null,
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.fallback).toBeNull();
+    expect(result.text).toContain("helper_A(void) { return 10; }");
+    expect(result.text).not.toContain("helper_A(void) { return 100; }");
+    expect(result.text).toContain("helper_B(void) { return helper_A() + 1; }");
+    expect(result.text).not.toContain("helper_C");
+    expect(result.text).not.toContain("helper_D");
+    expect(result.text).toContain("upstream_kept(void) { return 40; }");
+    expect(result.text).toContain("upstream_selected(void) { return upstream_kept(); }");
+    expect(result.text.indexOf("helper_A(void)")).toBeLessThan(result.text.indexOf("helper_B(void)"));
+    expect(result.text.indexOf("helper_B(void)")).toBeLessThan(result.text.indexOf("fn_X(void)"));
+    expect(result.text.indexOf("upstream_kept(void)")).toBeLessThan(result.text.indexOf("upstream_selected(void)"));
+    expect(message).toContain("dropped_unreferenced_helpers=[helper_C, helper_D]");
+  });
+
   test("keeps upstream-only helpers before an upstream-protected function", () => {
     const file = (owner: string, functions: string[]) => [
       `#define CONTEXT_${owner.toUpperCase()} 1`,
