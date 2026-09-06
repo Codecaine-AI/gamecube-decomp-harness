@@ -257,7 +257,14 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
     }
     for (const definition of definitions) {
       const declarationShape = new RegExp(`^\\s*static\\b[^=;]*\\b${escapeRegExp(definition.name)}\\s*\\(`);
-      const referenced = entries.some((entry) => !declarationShape.test(entry.stripped) && new RegExp(`\\b${escapeRegExp(definition.name)}\\b`).test(entry.stripped));
+      const namePattern = new RegExp(`\\b${escapeRegExp(definition.name)}\\b`);
+      const postChangeSource = context.postChangeSources?.get(path);
+      const referencedInFile = (postChangeSource === undefined ? entries.map((entry) => entry.stripped) : postChangeSource.split(/\r?\n/).map(stripLineCommentsAndStrings))
+        .some((line) => !declarationShape.test(line) && namePattern.test(line));
+      const referencedInOtherFile = [...linesByPath].some(([otherPath, otherEntries]) =>
+        otherPath !== path && otherEntries.some((entry) => namePattern.test(entry.stripped))
+      );
+      const referenced = referencedInFile || referencedInOtherFile;
       if (!referenced) reasons.push(findingReason("unused-static-function", definition.body));
     }
   }

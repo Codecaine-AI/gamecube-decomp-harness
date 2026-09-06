@@ -202,6 +202,70 @@ describe("lintBannedIdioms", () => {
     expect(lintBannedIdioms(cDiff("static s32 helperThing(s32 arg) {" )).reasons.some((reason) => reason.includes("unused-static-function"))).toBe(true);
   });
 
+  test("accepts a signature change when the post-change source contains an unchanged call", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const diff = [
+      `diff --git a/${path} b/${path}`,
+      "-static u8 mnDiagram_GetVisibleNameColumnForInput(s32 input)",
+      "+static inline u8 mnDiagram_GetVisibleNameColumnForInput(s32 input)",
+      " col_result = mnDiagram_GetVisibleNameColumnForInput(input);",
+    ].join("\n");
+    const after = [
+      "static inline u8 mnDiagram_GetVisibleNameColumnForInput(s32 input)",
+      "{",
+      "    return input;",
+      "}",
+      "col_result = mnDiagram_GetVisibleNameColumnForInput(input);",
+    ].join("\n");
+
+    expect(lintBannedIdioms(diff, { postChangeSources: new Map([[path, after]]) }).reasons)
+      .not.toContainEqual(expect.stringContaining("unused-static-function"));
+  });
+
+  test("keeps added-lines-only behavior when post-change source is unavailable", () => {
+    const diff = [
+      "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",
+      "-static u8 mnDiagram_GetVisibleNameColumnForInput(s32 input)",
+      "+static inline u8 mnDiagram_GetVisibleNameColumnForInput(s32 input)",
+      " col_result = mnDiagram_GetVisibleNameColumnForInput(input);",
+    ].join("\n");
+
+    expect(lintBannedIdioms(diff).reasons)
+      .toContainEqual(expect.stringContaining("unused-static-function"));
+  });
+
+  test("rejects a new static function absent from the post-change file", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const definition = "static void unusedHelper(void) {";
+    const result = lintBannedIdioms(cDiff(definition, "}"), {
+      postChangeSources: new Map([[path, `${definition}\n}\n`]]),
+    });
+
+    expect(result.reasons).toContainEqual(expect.stringContaining("unused-static-function"));
+  });
+
+  test("does not count the static definition line as a reference", () => {
+    const path = "src/melee/mn/mninfo.c";
+    const definition = "static void unusedHelper(void) {";
+    const result = lintBannedIdioms(cDiff(definition), {
+      postChangeSources: new Map([[path, definition]]),
+    });
+
+    expect(result.reasons).toContainEqual(expect.stringContaining("unused-static-function"));
+  });
+
+  test("accepts a static function referenced by an added line in another file", () => {
+    const diff = [
+      "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",
+      "+static void helperThing(void) {",
+      "diff --git a/src/melee/mn/mnother.c b/src/melee/mn/mnother.c",
+      "+    helperThing();",
+    ].join("\n");
+
+    expect(lintBannedIdioms(diff).reasons)
+      .not.toContainEqual(expect.stringContaining("unused-static-function"));
+  });
+
   test("finds bare short and long types outside comments and strings", () => {
     expect(lintBannedIdioms(cDiff("    short foo;" )).reasons.some((reason) => reason.includes("bare-short-or-long"))).toBe(true);
     expect(lintBannedIdioms(cDiff("    s16 foo;", "    /* long ago */", "    puts(\"long\");" )).reasons.some((reason) => reason.includes("bare-short-or-long"))).toBe(false);
