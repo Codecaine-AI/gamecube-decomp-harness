@@ -340,6 +340,70 @@ describe("scheduler epoch and worker state lifecycle", () => {
     }
   });
 
+  test("uses the claimed target instead of the nominal target for open-job coverage", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(store, [candidate(1, "src/a.c"), candidate(2, "src/b.c")], 2);
+      const targets = store.db
+        .query("SELECT id FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(epoch.id) as Array<{ id: string }>;
+      const nominalAJob = getJobByDedupeKey(store, "worker", targets[0]!.id)!;
+      const nominalBJob = getJobByDedupeKey(store, "worker", targets[1]!.id)!;
+      store.db.query("DELETE FROM jobs WHERE job_id = ?").run(nominalBJob.jobId);
+      store.db
+        .query("UPDATE jobs SET status = 'running', payload_json = json_set(payload_json, '$.claimed_epoch_target_id', ?) WHERE job_id = ?")
+        .run(targets[1]!.id, nominalAJob.jobId);
+
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({
+        added: 1,
+        removed: 0,
+        liveJobs: 1,
+        unfinishedTargets: 2,
+      });
+      const jobs = store.db
+        .query(`SELECT status,
+                       json_extract(payload_json, '$.epoch_target_id') AS epoch_target_id,
+                       json_extract(payload_json, '$.claimed_epoch_target_id') AS claimed_epoch_target_id
+                FROM jobs WHERE kind = 'worker' ORDER BY created_at, job_id`)
+        .all() as Array<{ status: string; epoch_target_id: string; claimed_epoch_target_id: string | null }>;
+      expect(jobs).toHaveLength(2);
+      expect(jobs).toContainEqual({
+        status: "running",
+        epoch_target_id: targets[0]!.id,
+        claimed_epoch_target_id: targets[1]!.id,
+      });
+      expect(jobs).toContainEqual({
+        status: "queued",
+        epoch_target_id: targets[0]!.id,
+        claimed_epoch_target_id: null,
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("keeps nominal target coverage while a queued job has no claimed target", () => {
+    const { store } = tempState();
+    try {
+      const { epoch } = setupEpoch(store, [candidate(1, "src/a.c")], 1);
+
+      expect(reconcileEpochTargetJobs(store, { epochId: epoch.id })).toMatchObject({
+        added: 0,
+        removed: 0,
+        liveJobs: 1,
+        unfinishedTargets: 1,
+      });
+      expect(
+        store.db.query("SELECT COUNT(*) AS count FROM jobs WHERE kind = 'worker'").get(),
+      ).toEqual({ count: 1 });
+      expect(
+        store.db.query("SELECT json_extract(payload_json, '$.claimed_epoch_target_id') AS claimed_epoch_target_id FROM jobs WHERE kind = 'worker'").get(),
+      ).toEqual({ claimed_epoch_target_id: null });
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("tops up only targets not blocked by a live same-source claim", () => {
     const { store } = tempState();
     try {

@@ -497,7 +497,13 @@ export function reconcileEpochTargetJobs(
              WHERE jobs.kind = 'worker'
                AND jobs.run_id = epoch_targets.run_id
                AND jobs.status IN ('queued', 'claimed', 'running', 'waiting')
-               AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
+               AND (
+                 json_extract(jobs.payload_json, '$.claimed_epoch_target_id') = epoch_targets.id
+                 OR (
+                   json_extract(jobs.payload_json, '$.claimed_epoch_target_id') IS NULL
+                   AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
+                 )
+               )
            )
          ORDER BY epoch_targets.admission_index
          LIMIT ?`,
