@@ -454,23 +454,54 @@ function selectReferencedStaticHelpers(
   selectedByName: Map<string, SelectedFunction>,
   spansBySide: Record<PolicyMergeSide, Map<string, CFunctionSpan>>,
   decisions: Map<string, PendingDecision>,
+  contextSide: PolicyMergeSide,
 ): void {
   const pending = [...selectedByName.values()];
-  for (let index = 0; index < pending.length; index += 1) {
-    const selected = pending[index]!;
-    const identifiers = cIdentifiers(functionText(sourceForSide(input, selected.side), selected.span));
-    identifiers.delete(selected.name);
+  const carriedHelpers = new Set<string>();
+  const carryReferences = (identifiers: Set<string>, referencingSide: PolicyMergeSide) => {
     for (const helperName of identifiers) {
-      if (decisions.get(helperName)?.policySide) continue;
-      const span = spansBySide[selected.side].get(helperName);
-      if (!span || !isStaticFunction(sourceForSide(input, selected.side), span)) continue;
-      const existing = selectedByName.get(helperName);
-      if (existing?.side === selected.side) continue;
-      const helper = { name: helperName, side: selected.side, span };
+      if (carriedHelpers.has(helperName)) continue;
+      const decisionSide = decisions.get(helperName)?.policySide;
+      const candidateSides = [
+        referencingSide,
+        decisionSide,
+        "ours",
+        "upstream",
+      ].filter((side, sideIndex, sides): side is PolicyMergeSide =>
+        side !== null && side !== undefined && sides.indexOf(side) === sideIndex);
+      const helperSide = candidateSides.find((side) => {
+        const span = spansBySide[side].get(helperName);
+        return span && isStaticFunction(sourceForSide(input, side), span);
+      });
+      if (!helperSide) continue;
+      const span = spansBySide[helperSide].get(helperName)!;
+      const helper = { name: helperName, side: helperSide, span };
       selectedByName.set(helperName, helper);
+      carriedHelpers.add(helperName);
       pending.push(helper);
     }
+  };
+  let index = 0;
+  const scanPending = () => {
+    for (; index < pending.length; index += 1) {
+      const selected = pending[index]!;
+      const identifiers = cIdentifiers(functionText(sourceForSide(input, selected.side), selected.span));
+      identifiers.delete(selected.name);
+      carryReferences(identifiers, selected.side);
+    }
+  };
+  scanPending();
+
+  const contextSource = sourceForSide(input, contextSide);
+  let cursor = 0;
+  let unparsedContext = "";
+  for (const span of spansBySide[contextSide].values()) {
+    unparsedContext += contextSource.slice(cursor, span.start);
+    cursor = span.end;
   }
+  unparsedContext += contextSource.slice(cursor);
+  carryReferences(cIdentifiers(unparsedContext), contextSide);
+  scanPending();
 }
 
 function includeReferencedSideOnlyFunctions(
@@ -776,7 +807,7 @@ function conflictingProtectedResult(
       selectedByName.set(span.name, { name: span.name, side, span });
     }
   }
-  selectReferencedStaticHelpers(input, selectedByName, spansBySide, decisions);
+  selectReferencedStaticHelpers(input, selectedByName, spansBySide, decisions, contextSide);
   const droppedUnreferencedHelpers = [...new Set(
     [contextSide, contextSide === "ours" ? "upstream" : "ours"].flatMap((side) => spans[side]
       .filter((span) => isStaticFunction(sourceForSide(input, side), span) && !selectedByName.has(span.name))

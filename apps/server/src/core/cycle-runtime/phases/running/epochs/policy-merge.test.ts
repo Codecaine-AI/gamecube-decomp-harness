@@ -513,6 +513,82 @@ describe("fallbacks", () => {
     expect(message).toContain("dropped_unreferenced_helpers=[helper_C, helper_D]");
   });
 
+  test("keeps score-missing static helpers referenced by an upstream-selected function", () => {
+    const baseText = [
+      "int input_proc(void) { return 0; }",
+      "int draw_values(void) { return 0; }",
+      "",
+    ].join("\n");
+    const oursText = [
+      "int input_proc(void) { return 1; }",
+      "int draw_values(void) { return 20; }",
+      "",
+    ].join("\n");
+    const upstreamText = [
+      "static inline int fighter_column(void) { return 2; }",
+      "static inline int fighter_row(void) { return fighter_column() + 3; }",
+      "static inline int name_column(void) { return 4; }",
+      "int input_proc(void) { return fighter_row() + name_column(); }",
+      "int draw_values(void) { return 21; }",
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/mndiagram-helper-splice.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { input_proc: 90, draw_values: 100 },
+      upstreamScores: { input_proc: 100, draw_values: 99.9 },
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.fallback).toBeNull();
+    for (const helperName of ["fighter_column", "fighter_row", "name_column"]) {
+      expect(result.decisions.find((decision) => decision.functionName === helperName)).toEqual(
+        expect.objectContaining({ side: "upstream", reason: "score_missing" }),
+      );
+      expect(result.text.match(new RegExp(`^static inline int ${helperName}\\(`, "gm"))).toHaveLength(1);
+      expect(result.droppedUnreferencedHelpers ?? []).not.toContain(helperName);
+    }
+    expect(result.text).toContain("int input_proc(void) { return fighter_row() + name_column(); }");
+    expect(result.text).toContain("int draw_values(void) { return 20; }");
+  });
+
+  test("takes a referenced static helper from the upstream-selected caller's side", () => {
+    const baseText = [
+      "static inline int shared_helper(void) { return 0; }",
+      "int input_proc(void) { return 0; }",
+      "int draw_values(void) { return 0; }",
+      "",
+    ].join("\n");
+    const oursText = [
+      "static inline int shared_helper(void) { return 10; }",
+      "int input_proc(void) { return shared_helper(); }",
+      "int draw_values(void) { return 20; }",
+      "",
+    ].join("\n");
+    const upstreamText = [
+      "static inline int shared_helper(void) { return 30; }",
+      "int input_proc(void) { return shared_helper(); }",
+      "int draw_values(void) { return 21; }",
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/shared-helper-side.c",
+      baseText,
+      oursText,
+      upstreamText,
+      oursScores: { input_proc: 90, draw_values: 100 },
+      upstreamScores: { input_proc: 100, draw_values: 99.9 },
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.text).toContain("static inline int shared_helper(void) { return 30; }");
+    expect(result.text).not.toContain("static inline int shared_helper(void) { return 10; }");
+    expect(result.text.match(/^static inline int shared_helper\(/gm)).toHaveLength(1);
+    expect(result.droppedUnreferencedHelpers ?? []).not.toContain("shared_helper");
+  });
+
   test("keeps upstream-only helpers before an upstream-protected function", () => {
     const file = (owner: string, functions: string[]) => [
       `#define CONTEXT_${owner.toUpperCase()} 1`,
