@@ -306,6 +306,42 @@ export function claimNextEpochTarget(params: {
     throw new Error("claimNextEpochTarget requires a positive ttlSeconds value");
   }
   return immediateTransaction(params.store.db, () => {
+    // Repair old infra-failure re-admissions before choosing a claim. Reusing
+    // these claims would discard selectable checkpoints, including applied ones.
+    const finishedWorkers = params.store.db
+      .query(
+        `
+          SELECT worker_state.*
+          FROM epoch_targets
+          JOIN epochs ON epochs.id = epoch_targets.epoch_id
+          JOIN target_claims ON target_claims.epoch_target_id = epoch_targets.id
+          JOIN worker_state ON worker_state.target_claim_id = target_claims.id
+          WHERE epoch_targets.run_id = ?
+            AND epochs.status = 'active'
+            AND epoch_targets.status = 'admitted'
+            AND target_claims.status = 'closed'
+            AND EXISTS (
+              SELECT 1 FROM worker_checkpoints
+              WHERE worker_checkpoints.worker_state_id = worker_state.id
+                AND worker_checkpoints.selectable = 1
+            )
+          ORDER BY epoch_targets.admission_index ASC
+        `,
+      )
+      .all(params.runId) as Record<string, unknown>[];
+    for (const worker of finishedWorkers) {
+      closeWorkerState(params.store, {
+        workerStateId: String(worker.id),
+        authority: { host: "claim-next-epoch-target" },
+        lifecycleStatus: worker.lifecycle_status as Exclude<WorkerLifecycleStatus, "running">,
+        epochTargetStatus: "finished",
+        summary: JSON.parse(String(worker.summary_json)),
+        timeoutSummary: worker.timeout_summary == null ? null : String(worker.timeout_summary),
+        errorSummary: worker.error_summary == null ? null : String(worker.error_summary),
+      });
+      console.warn(`[worker-state] Finished re-admitted target ${String(worker.epoch_target_id)} with selectable execution evidence; skipping claim recycling`);
+    }
+
     const claimableAt = now();
     const target = params.store.db
       .query(
@@ -368,11 +404,15 @@ export function claimNextEpochTarget(params: {
       const reusableClaimId = String(reusable.claim_id);
       const reusableWorkerStateId = String(reusable.worker_state_id);
       const hasExecutionEvidence = workerStateHasExecutionEvidence(params.store, reusableWorkerStateId);
-      if (hasExecutionEvidence && bestCheckpointForWorkerState(params.store, reusableWorkerStateId)) {
-        throw new Error(`Cannot recycle claimed target ${String(target.id)} because worker state ${reusableWorkerStateId} has selectable execution evidence`);
-      }
       if (hasExecutionEvidence) {
-        params.store.db.query("DELETE FROM worker_checkpoints WHERE worker_state_id = ?").run(reusableWorkerStateId);
+        params.store.db.query(`
+          DELETE FROM worker_checkpoints
+          WHERE worker_state_id = ?
+            AND NOT EXISTS (
+              SELECT 1 FROM integration_outcomes
+              WHERE integration_outcomes.worker_checkpoint_id = worker_checkpoints.id
+            )
+        `).run(reusableWorkerStateId);
       }
       params.store.db
         .query(
@@ -679,6 +719,15 @@ export function workerCheckpointsForWorkerState(store: StateStore, workerStateId
   return rows.map(checkpointFromRow);
 }
 
+function selectBestCheckpointForWorkerState(store: StateStore, workerStateId: string): WorkerCheckpointRecord | null {
+  const best = bestCheckpointForWorkerState(store, workerStateId);
+  store.db.query("UPDATE worker_checkpoints SET selected = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE worker_state_id = ?")
+    .run(best?.id ?? "", workerStateId);
+  store.db.query("UPDATE worker_state SET best_checkpoint_id = ?, best_score = ?, exact = ? WHERE id = ?")
+    .run(best?.id ?? null, best?.newScore ?? baselineScore(store, workerStateId), best?.exactMatch ? 1 : 0, workerStateId);
+  return best;
+}
+
 export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpointInput): WorkerCheckpointRecord {
   const { authority, ...recordInput } = input;
   const id = randomUUID();
@@ -737,11 +786,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
         jsonObject(input.metadata ?? {}),
       );
 
-    const best = bestCheckpointForWorkerState(store, input.workerStateId);
-    store.db.query("UPDATE worker_checkpoints SET selected = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE worker_state_id = ?").run(best?.id ?? "", input.workerStateId);
-    store.db
-      .query("UPDATE worker_state SET best_checkpoint_id = ?, best_score = ?, exact = ? WHERE id = ?")
-      .run(best?.id ?? null, best?.newScore ?? baseline, best?.exactMatch ? 1 : 0, input.workerStateId);
+    selectBestCheckpointForWorkerState(store, input.workerStateId);
   });
 
   return {
@@ -774,6 +819,7 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
       .get(input.workerStateId) as Record<string, unknown> | undefined;
     if (!row) throw new Error(`Worker state not found: ${input.workerStateId}`);
 
+    const best = selectBestCheckpointForWorkerState(store, input.workerStateId);
     let summary = input.summary ?? {};
     let errorSummary = input.errorSummary ?? null;
     let epochTargetStatus = input.epochTargetStatus ?? "finished";
@@ -793,7 +839,7 @@ export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput
           reason: input.infrastructureFailure.reason,
         },
       };
-      epochTargetStatus = capped ? "finished" : "admitted";
+      epochTargetStatus = best || capped ? "finished" : "admitted";
       if (capped) {
         errorSummary = `Infrastructure failure retry cap reached (${consecutiveCount}/${MAX_CONSECUTIVE_TARGET_INFRA_FAILURES}): ${input.infrastructureFailure.reason}`;
       }

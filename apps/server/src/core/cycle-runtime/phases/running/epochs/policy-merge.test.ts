@@ -4,6 +4,7 @@ import {
   functionScoresForSourcePath,
   functionScoresForUnit,
   mergeCFileByPolicy,
+  policyMergeFileMessage,
   type FunctionScoreMap,
 } from "./policy-merge.js";
 
@@ -121,6 +122,128 @@ describe("per-function score policy", () => {
 });
 
 describe("fallbacks", () => {
+  test("chooses upstream over an ours majority when fallback contains an upstream_exact function", () => {
+    const oursText = cFile([["one", 1], ["two", 1], ["protected", 1]], "ours");
+    const upstreamText = cFile([["protected", 2], ["two", 2], ["one", 2]], "upstream");
+    const result = mergeCFileByPolicy({
+      path: "src/protected-exact.c",
+      baseText: cFile([["one", 0], ["two", 0], ["protected", 0]]),
+      oursText,
+      upstreamText,
+      oursScores: { one: 99, two: 99, protected: 99.97443 },
+      upstreamScores: { one: 90, two: 90, protected: 100 },
+    });
+
+    expect(result.strategy).toBe("majority_fallback");
+    expect(result.text).toBe(upstreamText);
+    expect(result.fallback).toEqual(expect.objectContaining({
+      side: "upstream",
+      reason: "majority_fallback_upstream_protected",
+      contestedVotes: { ours: 2, upstream: 1 },
+    }));
+    expect(result.fallback?.detail).toContain("function_alignment");
+    expect(result.decisions.find((decision) => decision.functionName === "one")).toEqual(expect.objectContaining({
+      side: "upstream", policySide: "ours", reason: "ours_higher_score",
+    }));
+    expect(result.decisions.find((decision) => decision.functionName === "protected")).toEqual(expect.objectContaining({
+      side: "upstream", policySide: "upstream", reason: "upstream_exact",
+    }));
+  });
+
+  test("chooses upstream over an ours majority when report fallback contains an upstream-changed function", () => {
+    const upstreamText = cFile([["protected", 2], ["two", 0], ["one", 0]]);
+    const result = mergeCFileByPolicy({
+      path: "src/protected-no-report.c",
+      baseText: cFile([["one", 0], ["two", 0], ["protected", 0]]),
+      oursText: cFile([["one", 1], ["two", 1], ["protected", 1]]),
+      upstreamText,
+      scoreMode: "upstream-diff-fallback",
+    });
+
+    expect(result.strategy).toBe("majority_fallback");
+    expect(result.text).toBe(upstreamText);
+    expect(result.fallback).toEqual(expect.objectContaining({
+      side: "upstream",
+      reason: "majority_fallback_upstream_protected",
+      contestedVotes: { ours: 2, upstream: 1 },
+    }));
+    expect(result.decisions.find((decision) => decision.functionName === "protected")?.reason).toBe("upstream_report_fallback_upstream_changed");
+  });
+
+  test("keeps majority fallback when all function decisions prefer ours", () => {
+    const oursText = cFile([["one", 1], ["two", 1]], "ours");
+    const result = mergeCFileByPolicy({
+      path: "src/ours-majority.c",
+      baseText: cFile([["one", 0], ["two", 0]]),
+      oursText,
+      upstreamText: cFile([["two", 2], ["one", 2]], "upstream"),
+      oursScores: { one: 99, two: 100 },
+      upstreamScores: { one: 90, two: 90 },
+    });
+
+    expect(result.strategy).toBe("majority_fallback");
+    expect(result.text).toBe(oursText);
+    expect(result.fallback).toEqual(expect.objectContaining({
+      side: "ours", reason: "function_alignment", contestedVotes: { ours: 2, upstream: 0 },
+    }));
+  });
+
+  test("splices an upstream-protected function by name alongside functions present on only one side", () => {
+    const file = (functions: Array<[string, number]>) => [
+      "static int shared_data = 0;",
+      ...functions.map(([name, value]) => `int ${name}(void) { return ${value}; }`),
+      "",
+    ].join("\n");
+    const result = mergeCFileByPolicy({
+      path: "src/spliced.c",
+      baseText: file([["one", 0], ["protected", 0], ["two", 0]]),
+      oursText: file([["one", 1], ["ours_added", 3], ["protected", 1], ["two", 1]]),
+      upstreamText: file([["one", 0], ["protected", 2], ["upstream_added", 4], ["two", 0]]),
+      scoreMode: "upstream-diff-fallback",
+    });
+
+    expect(result.strategy).toBe("reconstructed");
+    expect(result.fallback).toBeNull();
+    expect(result.text).toBe([
+      "static int shared_data = 0;",
+      "int one(void) { return 1; }",
+      "",
+      "int ours_added(void) { return 3; }",
+      "",
+      "int protected(void) { return 2; }",
+      "",
+      "int upstream_added(void) { return 4; }",
+      "",
+      "int two(void) { return 1; }",
+      "",
+    ].join("\n"));
+    expect(result.decisions.find((decision) => decision.functionName === "protected")).toEqual(expect.objectContaining({
+      side: "upstream", reason: "upstream_report_fallback_upstream_changed",
+    }));
+  });
+
+  test("logs the upstream-protected fallback reason and overridden decisions", () => {
+    const result = mergeCFileByPolicy({
+      path: "src/protected-log.c",
+      baseText: cFile([["one", 0], ["protected", 0]]),
+      oursText: cFile([["one", 1], ["protected", 1]]) + "/* unterminated",
+      upstreamText: cFile([["one", 2], ["protected", 2]]),
+      oursScores: { one: 100, protected: 99 },
+      upstreamScores: { one: 90, protected: 100 },
+    });
+    const message = policyMergeFileMessage({
+      path: result.path,
+      result,
+      wholeFileFallbackReason: null,
+      upstreamReportFallbackReason: null,
+    });
+
+    expect(result.fallback?.detail).toContain("c_parse");
+    expect(message).toContain("strategy=majority_fallback fallback=majority_fallback_upstream_protected:upstream");
+    expect(message).toContain("upstream=[one(ours_exact), protected(upstream_exact)]");
+    expect(result.decisions[0]).toEqual(expect.objectContaining({ side: "upstream", policySide: "ours" }));
+  });
+
   test("uses upstream-touched functions when the upstream report is absent", () => {
     const baseText = cFile([["local_only", 0], ["upstream_changed", 10]]);
     const result = mergeCFileByPolicy({
@@ -243,9 +366,10 @@ describe("fallbacks", () => {
     expect(result.text).toBe(file("upstream", 2, 2));
     expect(result.fallback).toEqual(expect.objectContaining({
       side: "upstream",
-      reason: "context_ownership",
+      reason: "majority_fallback_upstream_protected",
       contestedVotes: { ours: 1, upstream: 1 },
     }));
+    expect(result.fallback?.detail).toContain("context_ownership");
   });
 
   test("marks an unsupported top-level function signature as ambiguous", () => {

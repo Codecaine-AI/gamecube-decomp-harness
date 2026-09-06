@@ -37,7 +37,7 @@ export interface FunctionMergeDecision {
 
 export interface PolicyMergeFallback {
   side: PolicyMergeSide;
-  reason: "function_alignment" | "context_ownership" | "c_parse" | "missing_scores" | "no_functions";
+  reason: "function_alignment" | "context_ownership" | "c_parse" | "missing_scores" | "no_functions" | "majority_fallback_upstream_protected";
   detail: string;
   contestedVotes: { ours: number; upstream: number };
   unresolvedFunctions: string[];
@@ -309,6 +309,45 @@ function alignedNames(left: CFunctionSpan[], right: CFunctionSpan[]): boolean {
   return left.length === right.length && left.every((fn, index) => fn.name === right[index]?.name);
 }
 
+/** Splice additions/deletions by name only when shared order and file context agree. */
+function reconstructUnalignedFunctions(input: PolicyMergeInput, ours: CFunctionSpan[], upstream: CFunctionSpan[], pending: PendingDecision[]): string | null {
+  if (pending.some((decision) => decision.policySide === null)) return null;
+  const oursByName = new Map(ours.map((fn) => [fn.name, fn]));
+  const upstreamByName = new Map(upstream.map((fn) => [fn.name, fn]));
+  const commonOurs = ours.filter((fn) => upstreamByName.has(fn.name));
+  const commonUpstream = upstream.filter((fn) => oursByName.has(fn.name));
+  if (!alignedNames(commonOurs, commonUpstream)) return null;
+
+  const prefix = input.oursText.slice(0, ours[0]!.start);
+  const suffix = input.oursText.slice(ours.at(-1)!.end);
+  if (prefix !== input.upstreamText.slice(0, upstream[0]!.start)
+    || suffix !== input.upstreamText.slice(upstream.at(-1)!.end)) return null;
+  // Helper declarations and preprocessor context need an owner. Do not guess.
+  for (const [source, spans] of [[input.oursText, ours], [input.upstreamText, upstream]] as const) {
+    if (spans.some((fn, index) => index > 0 && source.slice(spans[index - 1]!.end, fn.start).trim() !== "")) return null;
+  }
+
+  const names: string[] = [];
+  let oursIndex = 0;
+  let upstreamIndex = 0;
+  for (const common of commonOurs) {
+    while (ours[oursIndex]!.name !== common.name) names.push(ours[oursIndex++]!.name);
+    while (upstream[upstreamIndex]!.name !== common.name) names.push(upstream[upstreamIndex++]!.name);
+    names.push(common.name);
+    oursIndex += 1;
+    upstreamIndex += 1;
+  }
+  names.push(...ours.slice(oursIndex).map((fn) => fn.name), ...upstream.slice(upstreamIndex).map((fn) => fn.name));
+  const decisions = new Map(pending.map((decision) => [decision.functionName, decision]));
+  const selected = names.flatMap((name) => {
+    const side = decisions.get(name)!.policySide!;
+    const span = (side === "ours" ? oursByName : upstreamByName).get(name);
+    // Selecting a parent without this definition preserves its deletion.
+    return span ? [functionText(side === "ours" ? input.oursText : input.upstreamText, span)] : [];
+  });
+  return prefix + selected.join("\n\n") + suffix;
+}
+
 function decisionsForFunctions(input: PolicyMergeInput, parsed: {
   base: ParsedCFile;
   ours: ParsedCFile;
@@ -345,7 +384,9 @@ function fallbackResult(input: PolicyMergeInput, scoreMode: PolicyMergeScoreMode
     ours: contested.filter((decision) => decision.policySide === "ours").length,
     upstream: contested.filter((decision) => decision.policySide === "upstream").length,
   };
-  const side: PolicyMergeSide = votes.ours > votes.upstream ? "ours" : "upstream";
+  const upstreamProtected = pending.some((decision) => decision.policySide === "upstream"
+    && (decision.reason === "upstream_exact" || decision.reason === "upstream_report_fallback_upstream_changed"));
+  const side: PolicyMergeSide = upstreamProtected || votes.upstream >= votes.ours ? "upstream" : "ours";
   const unresolvedFunctions = pending.filter((decision) => decision.policySide === null).map((decision) => decision.functionName);
   return {
     path: input.path,
@@ -354,7 +395,16 @@ function fallbackResult(input: PolicyMergeInput, scoreMode: PolicyMergeScoreMode
     strategy: "majority_fallback",
     scoreMode,
     decisions: pending.map((decision) => ({ ...decision, side })),
-    fallback: { ...fallback, side, contestedVotes: votes, unresolvedFunctions },
+    fallback: {
+      ...fallback,
+      ...(upstreamProtected ? {
+        reason: "majority_fallback_upstream_protected" as const,
+        detail: `${fallback.reason}: ${fallback.detail}`,
+      } : {}),
+      side,
+      contestedVotes: votes,
+      unresolvedFunctions,
+    },
   };
 }
 
@@ -399,6 +449,18 @@ export function mergeCFileByPolicy(input: PolicyMergeInput): PolicyMergeResult {
     });
   }
   if (!alignedNames(parsed.ours.functions, parsed.upstream.functions)) {
+    const text = reconstructUnalignedFunctions(input, parsed.ours.functions, parsed.upstream.functions, pending);
+    if (text !== null) {
+      return {
+        path: input.path,
+        text,
+        fileTouch: "both",
+        strategy: "reconstructed",
+        scoreMode,
+        decisions: pending.map((decision) => ({ ...decision, side: decision.policySide! })),
+        fallback: null,
+      };
+    }
     return fallbackResult(input, scoreMode, pending, {
       reason: "function_alignment",
       detail: `ours=[${parsed.ours.functions.map((fn) => fn.name).join(", ")}], upstream=[${parsed.upstream.functions.map((fn) => fn.name).join(", ")}]`,
