@@ -512,6 +512,47 @@ describe("sync atomic publication", () => {
     expect(syncEvents.slice(-3)).toEqual(["sync.publishing", "sync.boundary_published", "sync.published"]);
   }, 30_000);
 
+  test("records the rebuilt report on the sync save point", async () => {
+    const fixture = createFixture({ syncId: "sync-publish-report" });
+    const validated = await sourceMovingValidated(fixture);
+    const reportPath = resolve(fixture.cycle, "build/GALE01/report.json");
+    const runKnowledgeIntake = fixture.context.runKnowledgeIntake!;
+    fixture.context.runKnowledgeIntake = async (input) => {
+      write(fixture.cycle, "build/GALE01/report.json", JSON.stringify({
+        measures: { matched_code_percent: 99.42 },
+      }));
+      return runKnowledgeIntake(input);
+    };
+
+    const published = await publishSync({
+      commandId: "command-publish-report",
+      confirmed: true,
+      context: fixture.context,
+      expectedRevision: validated.revision,
+      syncId: validated.sync_id,
+    });
+
+    const savePoint = fixture.store.db.query(
+      `SELECT matched_code_percent, report_path, payload_json
+       FROM save_points WHERE trigger_kind = 'sync'`,
+    ).get() as { matched_code_percent: number | null; report_path: string | null; payload_json: string };
+    expect(savePoint).toMatchObject({
+      matched_code_percent: 99.42,
+      report_path: reportPath,
+    });
+    expect(JSON.parse(savePoint.payload_json)).toMatchObject({
+      matched_code_percent: 99.42,
+      report_path: reportPath,
+    });
+    expect(listCycleTimeline(fixture.store.db, "cycle-publication")).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        entry_kind: "save_point",
+        payload: expect.objectContaining({ headline_score: 99.42 }),
+      }),
+    ]));
+    expect(published.status).toBe("published");
+  }, 30_000);
+
   test("rechecks upstream after validation and blocks before changing the cycle", async () => {
     const fixture = createFixture({ syncId: "sync-publish-stale" });
     const validated = await sourceMovingValidated(fixture);

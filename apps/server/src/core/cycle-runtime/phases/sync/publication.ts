@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import { immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
 import { recordRemoteApplicationInTransaction, recordSavePointAnchor } from "@server/core/cycle/timeline.js";
@@ -118,6 +119,27 @@ function runner(context: SyncPublicationContext): SyncGitRunner {
 
 function operationTime(context: SyncPublicationContext): string {
   return context.now?.() ?? currentTime();
+}
+
+function publicationReport(context: SyncPublicationContext): {
+  matchedCodePercent: number;
+  reportPath: string;
+} | null {
+  const configuredPath = context.game?.reportPath ?? "build/GALE01/report.json";
+  const reportPath = isAbsolute(configuredPath)
+    ? configuredPath
+    : resolve(context.cycleWorktreePath, configuredPath);
+  if (!existsSync(reportPath)) return null;
+  try {
+    const report = JSON.parse(readFileSync(reportPath, "utf8")) as {
+      measures?: { matched_code_percent?: unknown };
+    };
+    const matchedCodePercent = report.measures?.matched_code_percent;
+    if (typeof matchedCodePercent !== "number" || !Number.isFinite(matchedCodePercent)) return null;
+    return { matchedCodePercent, reportPath };
+  } catch {
+    return null;
+  }
 }
 
 function requireCurrentSync(context: SyncPublicationContext, syncId: string, expectedRevision?: number): SyncState {
@@ -764,19 +786,25 @@ function anchorPublishedRemoteApplication(
     baseRef: context.game?.baseRef ?? "origin/master",
   });
   const at = operationTime(context);
+  const report = publicationReport(context);
   const payload: JsonObject = {
     remote_application_id: remoteApplicationId,
     sync_id: sync.sync_id,
     anchor_revision: publication.new_head,
     commit_reason: "sync_publication",
+    ...(report ? {
+      matched_code_percent: report.matchedCodePercent,
+      report_path: report.reportPath,
+    } : {}),
   };
   context.store.db.query(
     `INSERT INTO save_points (
        id, campaign_id, run_id, trigger_kind, label, commit_sha, base_ref,
-       base_sha, worktree_dirty, committed, payload_json, created_at
+       base_sha, worktree_dirty, committed, matched_code_percent, report_path,
+       payload_json, created_at
      ) VALUES (?, ?, (
        SELECT active_run_id FROM cycles WHERE cycle_uuid = ?
-     ), 'sync', ?, ?, ?, ?, 0, 0, ?, ?)`,
+     ), 'sync', ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
   ).run(
     savePointId,
     campaign.id,
@@ -785,6 +813,8 @@ function anchorPublishedRemoteApplication(
     publication.new_head,
     context.game?.baseRef ?? "origin/master",
     sync.intake.upstream_to,
+    report?.matchedCodePercent ?? null,
+    report?.reportPath ?? null,
     JSON.stringify(payload),
     at,
   );
@@ -794,6 +824,7 @@ function anchorPublishedRemoteApplication(
     savePointId,
     commitSha: publication.new_head,
     triggerKind: "sync",
+    headlineScore: report?.matchedCodePercent ?? null,
     artifactPaths: [],
     payload,
     causationId: sync.caused_by_event_id,

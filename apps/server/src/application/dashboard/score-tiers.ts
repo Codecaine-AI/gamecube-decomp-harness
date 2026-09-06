@@ -107,6 +107,25 @@ function score(row: SavePointRow): number | null {
   return finiteNumber(row.matched_code_percent) ?? finiteNumber(measures(row).matched_code_percent);
 }
 
+function confirmedReport(row: SavePointRow, repoRoot: string): {
+  path: string;
+  score: number | null;
+  measures: Record<string, unknown>;
+} | null {
+  const savedPath = row.report_path ?? "";
+  const path = savedPath && existsSync(savedPath)
+    ? savedPath
+    : resolve(repoRoot, "build/GALE01/report.json");
+  if (!existsSync(path)) return null;
+  try {
+    const report = parseObject(readFileSync(path, "utf8"));
+    const reportMeasures = parseObject(report.measures);
+    return { path, score: finiteNumber(reportMeasures.matched_code_percent), measures: reportMeasures };
+  } catch {
+    return null;
+  }
+}
+
 /** Phase-2 backfill: legacy init/sync/epoch labels immediately become chart steps. */
 export function scoreTimelineKind(triggerKind: string, label: string | null): ScoreTimelineKind {
   if (triggerKind === "baseline" || triggerKind === "init") return "baseline";
@@ -157,10 +176,8 @@ async function confirmedVsMaster(input: {
 }): Promise<Pick<DashboardScoreTiers["confirmed"], "comparisonStatus" | "matches" | "improvements" | "breakages">> {
   const unavailable = { comparisonStatus: "baseline_unavailable" as const, matches: [], improvements: [], breakages: [] };
   if (!input.anchorRevision || !input.confirmedRow) return unavailable;
-  const savedReportPath = input.confirmedRow.report_path ?? "";
-  const oursReportPath = savedReportPath && existsSync(savedReportPath)
-    ? savedReportPath
-    : resolve(input.repoRoot, "build/GALE01/report.json");
+  const oursReportPath = confirmedReport(input.confirmedRow, input.repoRoot)?.path
+    ?? resolve(input.repoRoot, "build/GALE01/report.json");
   const changesOutPath = resolve(
     input.store.stateDir,
     "dashboard_master_changes",
@@ -270,11 +287,16 @@ export async function scoreTiersProjection(
   const anchorPoints = savePoints.filter((row) => row.commit_sha === anchorRevision);
   const baselineRow = anchorPoints.find((row) => score(row) !== null) ?? anchorPoints[0] ?? null;
   const typedConfirmed = [...savePoints].reverse().find(
-    (row) => row.trigger_kind === "epoch_finish" || row.trigger_kind === "pr_sync",
+    (row) => row.trigger_kind === "epoch_finish" || row.trigger_kind === "pr_sync" || row.trigger_kind === "sync",
   );
   const confirmedRow = typedConfirmed ?? [...savePoints].reverse().find((row) => score(row) !== null) ?? null;
   const baselineScore = baselineRow ? score(baselineRow) : null;
-  const confirmedScore = confirmedRow ? score(confirmedRow) : null;
+  const storedConfirmedScore = confirmedRow ? score(confirmedRow) : null;
+  const confirmedReportData = confirmedRow && storedConfirmedScore === null
+    ? confirmedReport(confirmedRow, repoRoot)
+    : null;
+  const confirmedScore = storedConfirmedScore ?? confirmedReportData?.score ?? null;
+  const confirmedMeasures = confirmedReportData?.measures ?? (confirmedRow ? measures(confirmedRow) : {});
   const wins = await confirmedVsMaster({
     store,
     cycleUuid: cycle.cycle_uuid,
@@ -292,7 +314,7 @@ export async function scoreTiersProjection(
     },
     confirmed: {
       score: confirmedScore,
-      measures: confirmedRow ? measures(confirmedRow) : {},
+      measures: confirmedMeasures,
       delta: baselineScore !== null && confirmedScore !== null ? confirmedScore - baselineScore : null,
       savePointId: confirmedRow?.id ?? null,
       anchorRevision,

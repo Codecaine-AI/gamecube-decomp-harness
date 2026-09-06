@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCycle, getActiveCycle } from "@server/core/cycle";
@@ -30,7 +30,14 @@ function commit(repo: string, subject: string): string {
 function addTimelineSavePoint(
   store: StateStore,
   campaignId: string,
-  input: { id: string; trigger: "init" | "epoch_finish" | "pr_sync"; commitSha: string; score: number; at: string },
+  input: {
+    id: string;
+    trigger: "init" | "epoch_finish" | "pr_sync" | "sync";
+    commitSha: string;
+    score: number | null;
+    reportPath?: string | null;
+    at: string;
+  },
 ): void {
   const point = addSavePoint(store, {
     campaignId,
@@ -38,7 +45,10 @@ function addTimelineSavePoint(
     label: input.trigger === "init" ? "prepare baseline" : input.trigger === "pr_sync" ? "PR sync" : "epoch 1 finish",
     commitSha: input.commitSha,
     matchedCodePercent: input.score,
-    payload: { measures: { matched_code_percent: input.score, matched_functions_percent: input.score - 1 } },
+    reportPath: input.reportPath,
+    payload: input.score === null
+      ? {}
+      : { measures: { matched_code_percent: input.score, matched_functions_percent: input.score - 1 } },
   });
   store.db.query(
     `INSERT INTO cycle_timeline_entries
@@ -157,6 +167,77 @@ function fixture(): {
 }
 
 describe("score tiers projection", () => {
+  test("selects a newer scoreless sync point and hydrates it from the fallback report", async () => {
+    const { store, repo } = fixture();
+    try {
+      store.db.query("UPDATE save_points SET trigger_kind = 'pr_sync', matched_code_percent = 98.2, payload_json = ? WHERE id = 'save-confirmed'")
+        .run(JSON.stringify({ measures: { matched_code_percent: 98.2, matched_functions_percent: 97.2 } }));
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+      addTimelineSavePoint(store, campaign.id, {
+        id: "save-sync", trigger: "sync", commitSha: "sync-head", score: null, at: "2026-08-26T02:00:00.000Z",
+      });
+      const reportPath = join(repo, "build/GALE01/report.json");
+      mkdirSync(join(repo, "build/GALE01"), { recursive: true });
+      writeFileSync(reportPath, JSON.stringify({ measures: { matched_code_percent: 100, matched_functions_percent: 99.5 } }));
+      const changesPath = join(repo, "sync-changes.json");
+      writeFileSync(changesPath, JSON.stringify({ units: [] }));
+      let gateInput: { oursReportPath?: string; changesOutPath?: string } | undefined;
+
+      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
+        runMasterBreakageGate: async (input) => {
+          gateInput = input;
+          return {
+            status: "pass", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: null,
+            oursReportPath: input.oursReportPath, changesPath, breakages: [], moved: [], reasons: [],
+          };
+        },
+      });
+
+      expect(projection.confirmed).toMatchObject({
+        savePointId: "save-sync", score: 100,
+        measures: { matched_code_percent: 100, matched_functions_percent: 99.5 },
+      });
+      expect(gateInput?.oursReportPath).toBe(reportPath);
+      expect(gateInput?.changesOutPath).toEndWith("dashboard_master_changes/cycle-score-tiers-save-sync.json");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("uses score and report path stored on a sync point directly", async () => {
+    const { store, repo } = fixture();
+    try {
+      const reportPath = join(repo, "published-sync-report.json");
+      writeFileSync(reportPath, JSON.stringify({ measures: { matched_code_percent: 12 } }));
+      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+      addTimelineSavePoint(store, campaign.id, {
+        id: "save-sync-scored", trigger: "sync", commitSha: "sync-head", score: 99.75, reportPath,
+        at: "2026-08-26T02:00:00.000Z",
+      });
+      const changesPath = join(repo, "scored-sync-changes.json");
+      writeFileSync(changesPath, JSON.stringify({ units: [] }));
+      let oursReportPath: string | undefined;
+
+      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
+        runMasterBreakageGate: async (input) => {
+          oursReportPath = input.oursReportPath;
+          return {
+            status: "pass", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: null,
+            oursReportPath: input.oursReportPath, changesPath, breakages: [], moved: [], reasons: [],
+          };
+        },
+      });
+
+      expect(projection.confirmed).toMatchObject({
+        savePointId: "save-sync-scored", score: 99.75,
+        measures: { matched_code_percent: 99.75, matched_functions_percent: 98.75 },
+      });
+      expect(oursReportPath).toBe(reportPath);
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("uses anchor/save-point sources and is invariant across run restaging artifacts", async () => {
     const { store, repo, runOne, runTwo } = fixture();
     try {
