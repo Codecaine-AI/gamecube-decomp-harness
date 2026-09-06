@@ -208,8 +208,18 @@ describe("lintBannedIdioms", () => {
   });
 
   test("finds K&R headers without flagging ANSI headers, calls, or macros", () => {
-    expect(lintBannedIdioms(cDiff("int ftCo_Attack(fp, arg)" )).reasons.some((reason) => reason.includes("kr-style-declaration"))).toBe(true);
-    const accepted = lintBannedIdioms(cDiff("static void ftCo_Attack(Fighter* fp, s32 arg)", "    ftCo_Attack(fp, arg);", "GET_FIGHTER(gobj)"));
+    expect(lintBannedIdioms(cDiff("int foo(a, b)" )).reasons.some((reason) => reason.includes("kr-style-declaration"))).toBe(true);
+    expect(lintBannedIdioms(cDiff("static void bar(x)", "int x;" )).reasons.some((reason) => reason.includes("kr-style-declaration"))).toBe(true);
+    const accepted = lintBannedIdioms(cDiff(
+      "void mnSnap_InitDialogText(void)",
+      "static void mnSnap_InitDialogText(void)",
+      "inline void mnSnap_InitDialogText(void)",
+      "static inline void mnSnap_InitDialogText(void)",
+      "void ftCo_Attack(int a)",
+      "static void ftCo_Attack(Fighter* fp, s32 arg)",
+      "    ftCo_Attack(fp, arg);",
+      "GET_FIGHTER(gobj)",
+    ));
     expect(accepted.reasons.some((reason) => reason.includes("kr-style-declaration"))).toBe(false);
   });
 

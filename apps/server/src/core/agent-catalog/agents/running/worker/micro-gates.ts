@@ -192,6 +192,7 @@ const STATIC_FUNCTION_RE = /^\s*static\b[^=;(]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/;
 const STATIC_DEFINITION_RE = /^\s*static\b[^=;]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*$/;
 const KR_FUNCTION_RE = /^\s*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s+[A-Za-z_][A-Za-z0-9_]*)*\s*\**\s*[A-Za-z_][A-Za-z0-9_]*\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*\)\s*$/;
 const CONTROL_KEYWORDS = new Set(["if", "for", "while", "switch", "return", "else", "do", "goto", "case"]);
+const TYPE_KEYWORDS = new Set(["void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "struct", "union", "enum"]);
 
 export function lintBannedIdioms(diffText: string, context: BannedIdiomContext = {}): WorkerMicroGateResult {
   const gate = "banned_idioms" as const;
@@ -423,7 +424,8 @@ function isKrStyleHeader(body: string): boolean {
   if (!KR_FUNCTION_RE.test(body) || /[;{=]/.test(body)) return false;
   const beforeParen = body.slice(0, body.indexOf("("));
   const identifiers = beforeParen.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [];
-  return identifiers.length >= 2 && !CONTROL_KEYWORDS.has(identifiers[0]!);
+  const parameters = body.slice(body.indexOf("(") + 1, body.lastIndexOf(")")).split(",").map((parameter) => parameter.trim());
+  return identifiers.length >= 2 && !CONTROL_KEYWORDS.has(identifiers[0]!) && parameters.every((parameter) => !TYPE_KEYWORDS.has(parameter));
 }
 
 function stripLineCommentsAndStrings(source: string): string {
