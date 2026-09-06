@@ -1066,6 +1066,7 @@ async function defaultValidation(
   const cycleBuild = resolve(cycleWorktree, "build");
   const cycleBuildNinja = resolve(cycleWorktree, "build.ninja");
   const cycleBaseline = resolve(cycleBuild, "GALE01/baseline.json");
+  const cycleReport = resolve(cycleBuild, "GALE01/report.json");
   if (!existsSync(cycleBuildNinja)) {
     throw new Error(
       `Incremental sync validation requires the existing cycle build (${cycleBuildNinja}); refusing a full rebuild`,
@@ -1079,6 +1080,16 @@ async function defaultValidation(
   const stagingBuild = resolve(worktreePath, "build");
   if (!existsSync(resolve(stagingBuild, "GALE01/baseline.json"))) {
     cpSync(cycleBuild, stagingBuild, { recursive: true, mode: constants.COPYFILE_FICLONE });
+  }
+  if (existsSync(cycleReport)) {
+    copyFileSync(cycleReport, resolve(stagingBuild, "GALE01/baseline.json"), constants.COPYFILE_FICLONE);
+    const report = JSON.parse(readFileSync(cycleReport, "utf8")) as {
+      measures?: { matched_code_percent?: number };
+    };
+    uiLog(
+      "stdout",
+      `sync validation: staged baseline := cycle report (matched_code_percent=${String(report.measures?.matched_code_percent)})`,
+    );
   }
   for (const name of ["build.ninja", ".ninja_deps", ".ninja_log"]) {
     const source = resolve(cycleWorktree, name);
