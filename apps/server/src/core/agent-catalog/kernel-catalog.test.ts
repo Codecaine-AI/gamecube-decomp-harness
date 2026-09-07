@@ -412,6 +412,20 @@ describe("meleeKernelAgentCatalog", () => {
     expect(payload.warnings).toEqual([]);
     expect(worker?.renderedTools).toContain("<available_tools>");
     expect(worker?.renderedTools).toContain('tool name="asm_window_search"');
+    expect(worker?.renderedTools).toContain('tool name="mwcc_alloc_analyze"');
+    expect(worker?.renderedTools).toContain("fixed_objects");
+    expect(worker?.tools).toContain("mwcc_alloc_analyze");
+    expect(rendered).toContain("capture=trace");
+    expect(rendered).toContain("trace_detail=full");
+    expect(rendered).toContain("Legacy allocator coloring modes are GPR-only");
+    expect(rendered).toContain("retains GPR/FPR coloring graphs when emitted");
+    expect(rendered).toContain("`source-rank` currently selects GPR snapshots");
+    expect(rendered).not.toContain("expect no coloring evidence for `f` registers");
+    expect(worker?.renderedTools).toContain("trace_detail defaults to stages");
+    expect(rendered).toContain("A modeled solver witness does not prove a source match");
+    expect(rendered).toContain("Require baseline replay agreement");
+    expect(samplePrompt("worker").systemPrompt).toContain("capture=trace");
+    expect(samplePrompt("worker").systemPrompt).toContain("A modeled solver witness does not prove a source match");
     expect(worker?.tools).toEqual(expect.arrayContaining([...workerKnowledgeV2ToolIds]));
     for (const toolId of workerKnowledgeV2ToolIds) {
       expect(worker?.renderedTools).toContain(`tool name="${toolId}"`);

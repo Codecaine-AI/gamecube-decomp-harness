@@ -232,7 +232,9 @@ export const prompt = definePrompt({
           bulletList([
               "`mwcc_debug_diagnose_regflow` with `show_lines` names the semantic values that occupy the wrong operands in one compact window.",
               "`mwcc_alloc_snapshot` with `capture` set to `pair`, then `mwcc_alloc_compare` on the returned paths, shows which virtual register changed color, degree, interference neighbors, or simplify-order position.",
-              "These tools do not name a C local. You establish that mapping from the PCode operands and the source. `before` and `after` are two stages of one compile, not candidate versus target.",
+              "For register allocation, stack, or scheduling residuals, use `mwcc_alloc_snapshot` with `capture=trace` for detailed compiler PCode/graph stages. `trace_detail` defaults to `stages`; request `full` for creation records and stack/local objects, which can take minutes. Capture runs only in the sandbox. Check reported omissions and function identity method before drawing conclusions.",
+              "Use `mwcc_alloc_analyze` modes `provenance` and `explain` for allocator decisions, `inverse` for bounded allocation hypotheses, `source-rank` for source candidates, `stack` for frame decisions, and `origins` to trace values through retained stages. Targets use numeric vreg=physical. Map the evidence back to PCode operands and source.",
+              "Require baseline replay agreement before trusting solver results. A modeled solver witness does not prove a source match. Rebuild the edited source and verify with `checkdiff_run`. `before` and `after` are two stages of one compile, not candidate versus target.",
               "The edit for this class changes one lifetime: split a value into two locals, reuse an existing temporary, rescope a local, remove a redundant induction variable, or derive a value from a loop index instead of carrying it.",
           ]),
         ],
@@ -242,7 +244,7 @@ export const prompt = definePrompt({
         "technique",
         [
           bulletList([
-              "Allocator capture is GPR-only. Expect no coloring evidence for `f` registers.",
+              "Legacy allocator coloring modes are GPR-only. `capture=trace` retains GPR/FPR coloring graphs when emitted, so use those graphs and detailed PCode to investigate float values. `source-rank` currently selects GPR snapshots; check each analysis mode and baseline replay before applying its results to FPRs.",
               "Work from objdump and regflow, and probe one float lifetime at a time: distinct temporaries, promotion to function scope, literal form, reuse of an existing float temporary for a second comparison.",
           ]),
         ],
@@ -254,7 +256,7 @@ export const prompt = definePrompt({
           bulletList([
               "`mwcc_debug_diagnose_stack` with `show_lines` and `show_mwcc` reports target and current frame sizes, slot drift, and candidate locals.",
               "A uniform displacement across all stack references is one missing or extra slot: fix one lifetime or one inline boundary first; use `PAD_STACK` only when the displacement is uniform and no local explains it.",
-              "Scattered drift is not one slot. Look for a declaration-order or aggregate-ownership change.",
+              "Use `capture=trace` with `trace_detail=full` and `mwcc_alloc_analyze` in `stack` mode to inspect retained frame and local-object decisions before changing declaration order or aggregate ownership.",
           ]),
         ],
         { attrs: { id: "4", name: "stack_slot_or_frame_size", title: "Stack slot or frame size" } },
@@ -263,7 +265,7 @@ export const prompt = definePrompt({
         "technique",
         [
           bulletList([
-              "Read the dependency order in the emitted sequence and in `mwcc_debug_dump_function` output; use regflow only when the residual is also a compact register window.",
+              "Read dependency order in the emitted sequence and detailed PCode stages from `capture=trace`. Use `mwcc_alloc_analyze` in `origins` mode to trace value definitions, plus `mwcc_debug_dump_function` when pass text is needed; use regflow for a compact register window.",
               "The edit for this class changes one dependency: a pointer initialization, a post-increment store, a call placement, or a needless argument that forces an extra store.",
           ]),
         ],

@@ -32,10 +32,11 @@ def main() -> None:
     parser.add_argument("--function", required=True, help="Function symbol to capture.")
     parser.add_argument(
         "--capture",
-        choices=("pcode", "coloring", "pair"),
+        choices=("pcode", "coloring", "pair", "trace"),
         default="pair",
         help="Allocator state to capture.",
     )
+    parser.add_argument("--trace-detail", choices=("stages", "full"), default="stages")
     parser.add_argument(
         "--timeout-seconds",
         type=int,
@@ -47,7 +48,7 @@ def main() -> None:
 
     gdb_path = shutil.which("gdb-multiarch")
     qemu_path = shutil.which("qemu-i386")
-    if not gdb_path or not qemu_path:
+    if sys.platform != "linux" or not gdb_path or not qemu_path:
         print_json(
             {
                 "status": "sandbox_required",
@@ -66,6 +67,8 @@ def main() -> None:
         args.function,
         "--capture",
         args.capture,
+        "--trace-detail",
+        args.trace_detail,
         "--timeout-seconds",
         str(args.timeout_seconds),
         "--json",

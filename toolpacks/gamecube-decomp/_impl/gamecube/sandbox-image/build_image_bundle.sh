@@ -80,6 +80,9 @@ require_file "$MWCC_ALLOC_DIR/allocator_snapshot.py"
 require_file "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py"
 require_file "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py"
 require_file "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py"
+require_file "$MWCC_ALLOC_DIR/gdb_modern_capture.py"
+require_file "$MWCC_ALLOC_DIR/../api/analyze.py"
+require_file "$MWCC_ALLOC_DIR/../vendor/mwcc-decomp/PIN.json"
 require_dir "$TOOLPACK_SOURCE"
 require_file "$CHECKOUT/configure.py"
 require_file "$CHECKOUT/tools/download_tool.py"
@@ -160,9 +163,14 @@ cp -a "$OBJDIFF_DIR/README.md" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
 cp -a "$CACHE_SHIM" "$CACHE_INSTALLER" "$PAYLOAD/image-tools/"
 cp -a "$MWCC_ALLOC_DIR/allocator_snapshot.py" \
   "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py" \
+  "$MWCC_ALLOC_DIR/gdb_modern_capture.py" \
   "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py" \
   "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py" \
   "$PAYLOAD/melee/build/tools/mwcc-alloc/"
+cp -a "$MWCC_ALLOC_DIR/../api/analyze.py" \
+  "$PAYLOAD/melee/build/tools/mwcc-alloc/mwcc_alloc_analyze.py"
+cp -a "$MWCC_ALLOC_DIR/../vendor" "$PAYLOAD/melee/build/tools/mwcc-alloc/"
+find "$PAYLOAD/melee/build/tools/mwcc-alloc/vendor" -name "*.pyc" -delete
 
 # The optimized Linux wibo is the real executable. The image-side cache
 # installer will rename it to wibo-real and install the shim at this path.

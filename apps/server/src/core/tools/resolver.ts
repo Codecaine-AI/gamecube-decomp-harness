@@ -12,7 +12,7 @@ import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
 import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
 import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.js";
-import { runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
+import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
 import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
 
 export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
@@ -364,7 +364,14 @@ export async function runRegisteredToolApi(
     });
     return { ...payload, resolved_tool: resolvedTool };
   }
+  if (toolId === "mwcc_alloc" && scriptName === "snapshot.py" && !context.sandboxHandle) {
+    return { status: "sandbox_required", guidance: "MWCC capture requires a worker sandbox.", resolved_tool: resolvedTool };
+  }
   if (toolId === "mwcc_alloc" && context.sandboxHandle) {
+    if (scriptName === "analyze.py") {
+      const payload = await runSandboxMwccAllocAnalyze({ sandboxHandle: context.sandboxHandle, workspaceRoot: resolved.gameRepoRoot, args });
+      return { ...payload, resolved_tool: resolvedTool };
+    }
     if (scriptName === "snapshot.py") {
       const payload = await runSandboxMwccAllocSnapshot({
         sandboxHandle: context.sandboxHandle,

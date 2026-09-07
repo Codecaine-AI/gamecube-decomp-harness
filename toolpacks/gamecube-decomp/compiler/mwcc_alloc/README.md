@@ -43,7 +43,7 @@ deadline, kills and reaps them on every exit path, then returns JSON.
 No qemu, GDB, daemon, or other background process may survive the command. The
 sandbox run-and-sleep quiescence barrier depends on this.
 
-The CLI gets the function's 1-based capture index from the built PowerPC ELF
+Legacy modes get the function's 1-based capture index from the built PowerPC ELF
 symbol table. This assumes MWCC runs one allocator pass per emitted function in
 object symbol order. Check neighboring captures if the result looks wrong.
 
@@ -60,9 +60,32 @@ python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py \
 
 `pcode` keeps the pre-coloring allocator snapshot. `coloring` keeps the first
 GPR before-coloring graph. `pair` keeps the allocator snapshot and every GPR
-before/after pair. A qemu-emulated compile can take several minutes.
+before/after pair.
 
-On a macOS host without `gdb-multiarch` and `qemu-i386`, the API returns
+`trace` defaults to `--trace-detail stages`. It retains nine PCode stages,
+allocator and GPR/FPR coloring, the compiled object, and GDB/qemu logs. The
+stage profile omits creation/clone/virtual-register event, stack/local-object,
+home-list, code-motion and peephole event tracing. Each artifact and result
+lists these omissions; no empty files stand in for uncollected evidence.
+`--trace-detail full` enables those expensive breakpoint classes.
+
+Use the current synced capture entry point in existing sandboxes:
+
+```sh
+python3 /opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py \
+  --repo-root "$PWD" --unit src/melee/mn/mnSnap.c \
+  --function mnSnap_80257F24 --capture trace --trace-detail stages --json
+```
+
+Trace checks the compiler hash before building the current unit. It selects
+the requested function by its index in the resulting object, rejects decoded
+nonempty mismatching names, and compares the capture object's function order.
+Some compiler function objects have an empty name cache, so this fallback
+retains an explicit symbol-order caveat. Every successful trace requires all
+artifacts for its chosen profile. Timeout and failure preserve unvalidated
+partial artifacts and logs. A qemu-emulated full trace can take several minutes.
+
+On a macOS host, the snapshot API returns
 `sandbox_required`. Attach a sandbox-backed worker claim or run the command in
 the sandbox image.
 
@@ -120,7 +143,8 @@ Do this in the existing Linux image build pipeline, not in this macOS
 worktree.
 
 1. Add the `gdb-multiarch` and `qemu-user` apt packages to the sandbox image.
-2. Run the existing bundle builder. It copies the four `sandbox/*.py` files to
+2. Run the existing bundle builder. It copies the four legacy `sandbox/*.py` files, the analysis wrapper,
+   and the pinned modern Python vendor tree to
    `$MELEE_ROOT/build/tools/mwcc-alloc/` in the bundle. It also bakes stock upstream wibo 1.2.0 to `$MELEE_ROOT/build/tools/wibo-qemu`; the optimized wibo crashes under qemu-user, so captures require the stock binary.
 
    ```sh
@@ -161,3 +185,76 @@ python3 -m unittest discover \
   -s toolpacks/gamecube-decomp/compiler/mwcc_alloc/tests \
   -v
 ```
+
+## Modern Analysis
+
+`vendor/mwcc-decomp` contains the required Python modules and register-site
+catalogs from [MarkMcCaskey/mwcc-decomp](https://github.com/MarkMcCaskey/mwcc-decomp)
+at `0f0e1dbc7496d1a0bdf00798ff6752e813e0d0d0`, licensed CC0-1.0.
+`PIN.json` records hashes for every vendored file. No binaries, capture data,
+or Git metadata are vendored. Legacy capture and compare code remains separate.
+
+Run analysis on saved JSON using `api/analyze.py`. The sandbox runtime name is
+`/opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/analyze.py` from the
+synced toolpack. New image bundles also include the baked analysis wrapper;
+current sandboxes use the synced path. Both return one JSON object with
+`status`, `mode`, `format`, and `result` or `error`. Every completed analysis saves the full raw
+result as an artifact, suitable as input for later analysis. `--output` chooses
+its location; the default is a unique file under `build/mwcc-alloc/analysis/`.
+Tool output contains its path and at most 8 KiB of result facts. Artifacts have
+a 128 MiB serialization limit and never overwrite an input file. Input and output paths must resolve inside `--repo-root`,
+including symlinks. Analysis never executes a compiler and also runs on macOS.
+
+| Mode | `--input` | Additional arguments |
+| --- | --- | --- |
+| `provenance` | Allocator snapshot | Optional repeated `--coloring`, `--creations` |
+| `explain` | Provenance JSON | Required `--register gpr:N`, `fpr:N`, or `vr:N` |
+| `inverse` | Before-coloring snapshot | Required `--after` and repeated `--target N=N`; optional `--provenance`, `--degree-search` |
+| `source-rank` | Capture directory | Required `--function-index` and repeated `--target N=N`; optional repeated `--fixed-object vN` |
+| `stack` | Stack-frame trace | Optional `--provenance`, `--after` comparison trace |
+| `origins` | Provenance JSON | Optional `--after` comparison provenance |
+
+For example, build provenance before explaining a register:
+
+```sh
+python3 /opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/analyze.py --repo-root "$PWD" \
+  --mode provenance --input build/mwcc-alloc/example/allocator-0001.json \
+  --coloring build/mwcc-alloc/example/coloring-0001-gpr-01-after.json \
+  --creations build/mwcc-alloc/example/pcode-creations-0001-scheduled.json \
+  --output build/mwcc-alloc/example/provenance.json --json
+python3 /opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/analyze.py --repo-root "$PWD" \
+  --mode explain --input build/mwcc-alloc/example/provenance.json \
+  --register gpr:41 --json
+```
+
+Targets always use numeric `vreg=physical`, such as `41=17`, in both solver
+modes. `source-rank` requires the first GPR before/after pair and scheduled
+PCode from the named index. It does not substitute final-round graphs or an
+allocator snapshot. Fixed objects preserve the listed object webs during
+source-rank search; the upstream model also fixes object web 32 automatically.
+
+Provenance joins reject conflicting compiler, function index, decoded name, or
+function-object pointer evidence, including conflicts between coloring inputs.
+Older captures with missing identity fields remain supported.
+
+Solvers compare baseline replay with captured colors before searching. A
+mismatch returns `baseline_replay_mismatch` without solver conclusions. A
+large inverse prefix uses at most 256 pair transpositions and returns
+`search_limited`, including any witness and every changed color. This does
+not establish source feasibility or prove impossibility when no witness is
+found. Apply source changes separately and verify with compile/checkdiff.
+Missing creation events make origin information incomplete, even when the
+reported origin groups are empty.
+
+Source-rank has a global 256-replay budget across all removable-object subsets.
+It divides the sample/permutation allowance by the subset count. If subsets
+alone exceed 256, it requests more fixed objects instead of starting a larger
+search. No-witness results are reported as `search_limited`, never as proof
+that a matching C source cannot exist.
+
+Each analysis has a 45-second deadline, a 32 MiB per-file and 128 MiB total
+input limit, at most 4096 solver nodes, 16 targets, 64 coloring inputs, and 64
+fixed objects. Virtual registers are 0 through 65535, physical registers 0
+through 31, function indices 1 through 100000, and degree-search bounds 0
+through 8. Expected failures use `invalid_arguments`, `invalid_input`,
+`baseline_replay_mismatch`, `search_limited`, or `timeout` and exit zero.

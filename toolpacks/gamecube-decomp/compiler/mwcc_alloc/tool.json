@@ -1,27 +1,35 @@
 {
   "id": "mwcc_alloc",
-  "title": "MWCC allocator snapshots",
+  "title": "MWCC allocator capture and analysis",
   "trust_tier": "tool_evidence",
-  "description": "Capture and compare stock MWCC register-allocator state for a specific function.",
+  "description": "Capture stock MWCC PCode stages, register allocation and stack traces; analyze saved evidence offline.",
   "operation_mode": "live_runner_v1",
   "runner_status": "live_smoke_required",
   "status_message": "Live runner v1: allocator captures use the stock hash-gated MWCC compiler under qemu-i386 with a synchronous gdb-multiarch driver.",
   "limitations": [
     "Capture uses the stock compiler and does not require an instrumented build.",
-    "Capture is sandbox-only; the host entry point returns sandbox_required when the Linux debugging tools are unavailable.",
-    "Qemu-emulated compiler runs are slow and can take minutes.",
-    "Allocator addresses are valid only for the hash-gated GC/1.2.5 and GC/1.2.5n compiler binaries.",
-    "Function-index mapping uses a symbol-table-order heuristic and should be checked against neighboring captures when results look wrong."
+    "Capture is Linux sandbox-only; offline analysis can also run on macOS.",
+    "Qemu-emulated full traces can take minutes.",
+    "Allocator addresses are valid only for hash-gated GC/1.2.5 and GC/1.2.5n binaries.",
+    "Trace uses the current object function index when compiler names are absent, checks decoded names and object order, and reports the remaining symbol-order caveat.",
+    "Offline solver results require baseline replay agreement and real compile/checkdiff verification. Searches have fixed time and input limits.",
+    "Trace defaults to stages and graphs. Full event, creation and stack tracing is opt-in; omitted event classes are explicitly listed.",
+    "Analysis always saves a full workspace artifact and returns at most 8 KiB of result facts."
   ],
   "commands": {
-    "snapshot": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py --repo-root <repo_root> --unit <unit> --function <symbol> --capture <pcode|coloring|pair> --json",
-    "compare": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare.py --before <path> --after <path> --json"
+    "snapshot": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py --repo-root <repo_root> --unit <unit> --function <symbol> --capture <pcode|coloring|pair|trace> --json",
+    "compare": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare.py --before <path> --after <path> --json",
+    "analyze": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/analyze.py --repo-root <repo_root> --mode <provenance|explain|inverse|source-rank|stack|origins> --input <path> --json"
   },
   "capabilities": [
     "mwcc_alloc",
     "register_allocator_snapshot",
     "interference_graph",
-    "coloring_diff"
+    "coloring_diff",
+    "allocator_provenance",
+    "allocator_inverse_coloring",
+    "allocator_source_rank",
+    "allocator_stack_trace"
   ],
   "category": "compiler",
   "path": "compiler/mwcc_alloc",
@@ -38,8 +46,10 @@
     "outputs": [
       "allocator_snapshot",
       "coloring_snapshot",
-      "coloring_diff"
+      "coloring_diff",
+      "allocator_trace",
+      "allocator_analysis"
     ],
-    "agent_guidance": "Use when register allocation, interference edges, coloring order, or spill choices need evidence from the stock compiler."
+    "agent_guidance": "Use trace for source identity, PCode stages, GPR/FPR allocation, creation origins and stack evidence. Analyze saved files with provenance, explain, inverse, source-rank, stack or origins; validate baseline replay before using solver hypotheses."
   }
 }

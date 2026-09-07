@@ -9,6 +9,7 @@ import { isAbsolute, resolve } from "node:path";
 import { runKnowledgeToolApiForContext } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+import { validateMwccAllocAnalyzeArgs } from "./mwcc-alloc.js";
 import { mwccDebugCompilerProvisioned } from "./mwcc-debug-capability.js";
 
 const evidenceToolRoles = [
@@ -895,15 +896,16 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
   toolId: "mwcc_alloc",
   scriptName: "snapshot.py",
   label: "MWCC Allocator Snapshot",
-  purpose: "Capture live MWCC register-allocator/coloring state for one function.",
-  description: "Capture selected PCode or GPR-only allocator coloring for one function under stock MWCC; pair mode captures two stages of one compile. Returns blocks or GPR color, interference, and simplify-order data, not FPR coloring, retail comparison, source identities, or live intervals. Use it after a full diff isolates a register-only GPR residual.",
-  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
+  purpose: "Capture MWCC PCode, allocator, creation, and stack trace evidence for one function.",
+  description: "Capture selected PCode or GPR coloring under stock MWCC. pair captures two stages of one compile; trace defaults to stages for PCode/graph evidence; trace_detail=full also requests creation records and stack/local object files for mwcc_alloc_analyze. Read identity and omission metadata before using the capture. Capture runs only in the sandbox with hash-gated GC 1.2.5/1.2.5n. Use trace for register allocation, stack, or scheduling residuals.",
+  guidance: "After a full diff identifies register allocation, stack, or scheduling residuals, use capture=trace and mwcc_alloc_analyze to investigate the compiler decisions. Legacy coloring modes are GPR-only; trace retains emitted GPR/FPR coloring graphs; before/after are two stages of one compile, not candidate vs target. Full tracing can take minutes under qemu; use stages first and batch questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
   parameters: {
     type: "object",
     properties: {
       unit: { type: "string", description: "Workspace-relative translation unit path." },
       function: { type: "string", description: "Function symbol to capture." },
-      capture: { type: "string", enum: ["pcode", "coloring", "pair"], description: "Allocator state to capture. Defaults to pair." },
+      capture: { type: "string", enum: ["pcode", "coloring", "pair", "trace"], description: "Allocator state to capture. Defaults to pair." },
+      trace_detail: { type: "string", enum: ["stages", "full"], description: "Only for capture=trace. stages is the default PCode/graph capture; full also requests creation, stack, and local-object tracing and can take minutes." },
       timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
     },
     required: ["unit", "function"],
@@ -915,7 +917,11 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
     const fn = stringParam(params, "function");
     if (!unit || !fn) return { status: "missing_unit_or_function" };
     const capture = stringParam(params, "capture") || "pair";
-    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800))];
+    const detail = params.trace_detail;
+    if (detail !== undefined && (capture !== "trace" || !["stages", "full"].includes(String(detail)))) {
+      return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: "trace_detail requires capture=trace and must be stages or full" };
+    }
+    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800)), ...(detail === undefined ? [] : ["--trace-detail", String(detail)])];
   },
 });
 
@@ -946,6 +952,50 @@ export const mwccAllocCompareToolRegistration = knowledgeApiTool({
   },
 });
 
+/** Read-only analysis of retained MWCC compiler traces. */
+export const mwccAllocAnalyzeToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_analyze",
+  toolId: "mwcc_alloc",
+  scriptName: "analyze.py",
+  label: "MWCC Trace Analysis",
+  purpose: "Analyze allocator provenance, source candidates, stack frames, and value origins.",
+  description: "Read-only offline analysis of retained MWCC traces. provenance reads allocator input with optional coloring/creations; explain reads provenance and requires register; inverse reads before coloring and requires after/targets; source-rank reads GPR snapshots from a capture directory and requires function_index/targets, with optional fixed_objects to pin known parameter/inline/shadow strata; stack reads a stack-frame trace with optional provenance/after; origins reads provenance with optional after. Paths are workspace-relative. Targets use numeric vreg=physical. No compiler execution.",
+  guidance: "Use detailed trace evidence for register allocation, stack, and scheduling residuals. Require baseline replay agreement before trusting inverse results. A modeled solver witness does not prove a source match; rebuild the source and verify with checkdiff.",
+  parameters: {
+    type: "object",
+    properties: {
+      mode: { type: "string", enum: ["provenance", "explain", "inverse", "source-rank", "stack", "origins"] },
+      input: { type: "string" },
+      after: { type: "string" },
+      provenance: { type: "string" },
+      creations: { type: "string" },
+      coloring: { type: "array", items: { type: "string" }, maxItems: 64 },
+      targets: { type: "array", items: { type: "string", pattern: "^[0-9]+=[0-9]+$" }, maxItems: 16 },
+      fixed_objects: { type: "array", items: { type: "string", pattern: "^v[0-9]+$" }, maxItems: 64, description: "source-rank only: pin known parameter/inline/shadow objects as vN, N 0..65535." },
+      function_index: { type: "integer", minimum: 1, maximum: 100000 },
+      register: { type: "string", pattern: "^(gpr|fpr|vr):[0-9]+$" },
+      degree_search: { type: "integer", minimum: 0, maximum: 8 },
+      output: { type: "string" },
+    },
+    required: ["mode", "input"],
+    additionalProperties: false,
+  },
+  executionMode: "parallel",
+  args(params, context) {
+    const args = ["--repo-root", context.repoRoot];
+    for (const key of ["mode", "input", "after", "provenance", "creations", "function_index", "register", "degree_search", "output"]) {
+      if (params[key] !== undefined) args.push(`--${key.replaceAll("_", "-")}`, String(params[key]));
+    }
+    for (const [key, flag] of [["coloring", "--coloring"], ["targets", "--target"], ["fixed_objects", "--fixed-object"]]) {
+      if (params[key] !== undefined && (!Array.isArray(params[key]) || !(params[key] as unknown[]).every(value => typeof value === "string"))) {
+        return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: `${key} must be an array of strings` };
+      }
+      for (const value of (params[key] ?? []) as string[]) args.push(flag, value);
+    }
+    return validateMwccAllocAnalyzeArgs(args);
+  },
+});
+
 /** All callable decomp capability wrappers, reusable across profiles. */
 export const capabilityToolRegistrations = [
   mwccDebugLookupToolRegistration,
@@ -972,4 +1022,5 @@ export const capabilityToolRegistrations = [
   reviewLintSdata2OrderHelperToolRegistration,
   mwccAllocSnapshotToolRegistration,
   mwccAllocCompareToolRegistration,
+  mwccAllocAnalyzeToolRegistration,
 ] as const;

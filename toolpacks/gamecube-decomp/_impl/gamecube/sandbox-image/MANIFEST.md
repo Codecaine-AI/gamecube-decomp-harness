@@ -138,3 +138,35 @@ docker push <registry>/daytona-melee:<revision>
 # Set games/melee/local.game.json snapshot_name to the registered snapshot name.
 # Set games/melee/local.game.json snapshot_baked_rev to the checkout revision baked above.
 ```
+
+### Modern MWCC Capture and Analysis
+
+The bundle also includes `build/tools/mwcc-alloc/mwcc_alloc_analyze.py` and
+`build/tools/mwcc-alloc/vendor/mwcc-decomp/`. The vendor is pinned by its
+`PIN.json` to `0f0e1dbc7496d1a0bdf00798ff6752e813e0d0d0`, CC0-1.0.
+It contains Python capture/analysis modules, register-site catalogs and the
+license, with no compiler binaries or captured artifacts.
+
+The local `gdb_modern_capture.py` shim selects the stage or full profile without
+editing the pinned vendor. For acceptance, run `--capture trace` on a known
+function in the Linux sandbox. The default stage profile must return `ok`,
+all nine PCode stages, allocator, GPR/FPR coloring and `capture.o`. Its result
+must explain the numeric symbol-order fallback when compiler names are absent.
+Also run `--trace-detail full` on a small function and require its creation,
+stack/local-object artifacts plus any emitted home-list artifacts. Stage
+results must label these omitted event classes. Timeouts retain partial JSON,
+objects and GDB/qemu logs for diagnosis.
+Check that qemu and GDB are gone before sleeping the sandbox. A failed or timed
+out capture is not acceptance evidence.
+
+Run the installed `mwcc_alloc_analyze.py --repo-root "$MELEE_ROOT" --mode
+provenance --input <saved allocator JSON> --output <provenance JSON> --json`,
+then `--mode explain --input <provenance JSON> --register gpr:<N> --json`.
+For inverse/source-rank, require baseline replay agreement before interpreting
+any witness. Complete analysis remains inside its 45-second internal deadline.
+
+New sandbox seeds synchronize the current host toolpack to
+`/opt/toolpacks/gamecube-decomp/`. Trace and analysis dispatch use that synced
+suite immediately; legacy captures can use the baked scripts. Image acceptance
+must verify both synced execution and the new bundle layout. Analysis returns
+a bounded summary and a complete workspace artifact, not an inline PCode dump.

@@ -106,8 +106,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--unit", required=True)
     parser.add_argument("--function", required=True)
     parser.add_argument(
-        "--capture", choices=("pcode", "coloring", "pair"), default="pair"
+        "--capture", choices=("pcode", "coloring", "pair", "trace"), default="pair"
     )
+    parser.add_argument("--trace-detail", choices=("stages", "full"), default="stages")
     parser.add_argument("--out-dir")
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--json", action="store_true")
@@ -162,16 +163,20 @@ def provisioning_probe() -> Optional[dict]:
 def run_command(
     command: Sequence[str], cwd: Path, timeout_seconds: int
 ) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        list(command),
-        cwd=str(cwd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        errors="replace",
-        timeout=timeout_seconds,
-        check=False,
+    process = subprocess.Popen(
+        list(command), cwd=str(cwd), stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True, errors="replace",
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
+        return subprocess.CompletedProcess(list(command), process.returncode, stdout, stderr)
+    finally:
+        # Ninja can spawn compiler children. A build timeout must reap the
+        # whole group before the sandbox quiescence barrier can complete.
+        terminate_process(process)
+        process.communicate()
+
 
 
 def object_path_for_unit(unit: str) -> str:
@@ -412,6 +417,8 @@ def capture_with_debugger(
     compiler_label: str,
     capture_index: int,
     timeout_seconds: int,
+    trace_function: Optional[str] = None,
+    trace_detail: str = "stages",
 ) -> dict:
     deadline = time.monotonic() + timeout_seconds
     qemu_stdout = ""
@@ -467,6 +474,17 @@ def capture_with_debugger(
                     "MWCC_ALLOC_ONLY_INDEX": str(capture_index),
                 }
             )
+            debugger_script = SCRIPT_DIR / "gdb_allocator_snapshot.py"
+            auto_command = f"mwcc-auto-capture {shlex.quote(str(capture_dir))}"
+            if trace_function is not None:
+                modern_debugger_script()
+                debugger_script = SCRIPT_DIR / "gdb_modern_capture.py"
+                gdb_env["MWCC_ALLOC_TRACE_DETAIL"] = trace_detail
+                target = "ninji" if compiler_label == "GC/1.2.5n" else "stock"
+                auto_command += f" {capture_index or trace_function} {target}"
+                # Modern capture selects the compiler's source identity by name.
+                # It does not consume the legacy ONLY_INDEX environment variable.
+                gdb_env.pop("MWCC_ALLOC_ONLY_INDEX", None)
             gdb_command = [
                 "gdb-multiarch",
                 "-nx",
@@ -476,9 +494,9 @@ def capture_with_debugger(
                 "-ex",
                 "set architecture i386",
                 "-ex",
-                f"source {SCRIPT_DIR / 'gdb_allocator_snapshot.py'}",
+                f"source {debugger_script}",
                 "-ex",
-                f"mwcc-auto-capture {capture_dir}",
+                auto_command,
                 "-ex",
                 f"target remote 127.0.0.1:{port}",
                 "-ex",
@@ -702,7 +720,184 @@ def pair_diffs(
     return results
 
 
+TRACE_OMISSIONS = ["creation", "clone", "virtual_register_events", "stack", "local_objects",
+                   "home_list", "code_motion", "peephole_events"]
+
+TRACE_STAGES = (
+    "initial", "optimized", "scheduled", "forward_peephole", "register_coloring",
+    "epilogue_prologue", "epilogue_merge", "post_allocation_peephole", "final",
+)
+
+
+def modern_debugger_script() -> Path:
+    # The installed runtime keeps vendor beside the wrapper; the source tree
+    # keeps it beside sandbox/. Never fall back to an unpinned checkout.
+    for base in (SCRIPT_DIR, SCRIPT_DIR.parent):
+        candidate = base / "vendor/mwcc-decomp/tools/gdb/allocator_snapshot.py"
+        if candidate.is_file():
+            return candidate
+    raise ArgumentError("Pinned modern MWCC capture tooling is not provisioned")
+
+
+def workspace_path(repo_root: Path, relative: str) -> Path:
+    path = (repo_root / relative).resolve()
+    if not path.is_relative_to(repo_root):
+        raise ArgumentError(f"Path escapes the workspace: {relative}")
+    return path
+
+
+def trace_files(capture_dir: Path, function: str, compiler_hash: str, detail="full", expected_index=None):
+    """Validate identity before retaining every modern artifact, including FPR."""
+    selected = []
+    indices = set()
+    names = set()
+    for path in sorted(capture_dir.glob("*.json")):
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        identity = snapshot.get("function_identity") or {}
+        if identity.get("name") and identity.get("name") != function:
+            raise ValueError(f"Unexpected function identity in {path.name}")
+        index = snapshot.get("capture_index")
+        if type(index) is not int or index < 1:
+            raise ValueError(f"Missing function index in {path.name}")
+        if snapshot.get("target_sha256") != compiler_hash:
+            raise ValueError(f"Unexpected compiler identity in {path.name}")
+        if expected_index is not None and index != expected_index:
+            raise ValueError(f"Unexpected function index in {path.name}")
+        indices.add(index)
+        names.add(path.name)
+        selected.append((path, {
+            "kind": snapshot.get("format"), "function_identity": identity,
+            "capture_index": index, "bytes": path.stat().st_size,
+        }))
+    if len(indices) != 1:
+        raise ValueError("Trace must contain exactly one selected function")
+    index = next(iter(indices))
+    required = {f"pcode-{index:04d}-{stage}.json" for stage in TRACE_STAGES}
+    if detail == "full":
+        required |= {f"pcode-creations-{index:04d}-{stage}.json" for stage in TRACE_STAGES}
+        required |= {f"{kind}-{index:04d}.json" for kind in ("stack-frame", "local-objects")}
+    required.add(f"allocator-{index:04d}.json")
+    missing = required - names
+    if missing:
+        raise ValueError("Incomplete trace; missing " + ", ".join(sorted(missing)))
+    return index, selected
+
+
+def execute_trace(args: argparse.Namespace) -> dict:
+    started = time.monotonic()
+    deadline = started + args.timeout_seconds
+    if sys.platform != "linux":
+        return {"status": "sandbox_required", "guidance": "Trace capture requires the Linux sandbox."}
+    probe = provisioning_probe()
+    if probe is not None:
+        return probe
+    modern_debugger_script()
+    repo_root = args.repo_root
+    workspace_path(repo_root, args.unit)
+    output_dir = workspace_path(repo_root, args.out_dir)
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise ArgumentError("Trace output directory must be empty; choose a new --out-dir")
+    retained = {}
+
+    def remaining(limit):
+        budget = deadline - time.monotonic()
+        if budget <= 0:
+            raise subprocess.TimeoutExpired("trace capture", args.timeout_seconds)
+        return min(limit, budget)
+
+    try:
+        # Resolve and hash the compiler before allowing any build.
+        commands = run_command(
+            ["ninja", "-t", "commands", object_path_for_unit(args.unit)],
+            repo_root, remaining(60),
+        )
+        if commands.returncode:
+            return {"status": "unit_build_failed", "stderr_tail": tail(commands.stderr or commands.stdout)}
+        with tempfile.TemporaryDirectory(prefix="mwcc-trace-") as temporary:
+            temporary_path = Path(temporary)
+            capture_object = temporary_path / "capture.o"
+            capture_dir = temporary_path / "snapshots"
+            capture_dir.mkdir()
+            compiler_path, compile_args, stripped = extract_compile_command(
+                commands.stdout, repo_root, capture_object,
+            )
+            compiler_hash = sha256_file(compiler_path)
+            compiler_label = COMPILER_HASHES.get(compiler_hash)
+            if compiler_label is None:
+                return {"status": "compiler_hash_mismatch", "sha256": compiler_hash,
+                        "compiler_path": str(compiler_path), "accepted": list(COMPILER_HASHES)}
+            build = run_command(["ninja", object_path_for_unit(args.unit)], repo_root, remaining(300))
+            if build.returncode:
+                return {"status": "unit_build_failed", "stderr_tail": tail(build.stderr or build.stdout)}
+            functions = read_elf_functions(repo_root / object_path_for_unit(args.unit))
+            if args.function not in functions:
+                return {"status": "function_not_found", "unit_functions": functions[:50]}
+            capture_index = functions.index(args.function) + 1
+            wibo = select_wibo(repo_root)
+            if wibo is None:
+                return {"status": "debug_tools_not_provisioned", "missing": ["wibo-elf"]}
+            result = capture_with_debugger(
+                repo_root, wibo, compiler_path, compile_args, capture_dir,
+                compiler_hash, compiler_label, capture_index, remaining(args.timeout_seconds),
+                trace_function=args.function, trace_detail=args.trace_detail,
+            )
+            output_dir.mkdir(parents=True, exist_ok=True)
+            retained_files = []
+            for source in sorted(capture_dir.glob("*.json")) + ([capture_object] if capture_object.is_file() else []):
+                destination = output_dir / source.name
+                shutil.copy2(source, destination)
+                retained_files.append({"path": str(destination.relative_to(repo_root)), "kind": "unvalidated_partial"})
+            for key in ("gdb_stdout", "gdb_stderr", "qemu_stdout", "qemu_stderr"):
+                destination = output_dir / (key + ".log")
+                destination.write_text(result.get(key, ""), encoding="utf-8")
+                retained_files.append({"path": str(destination.relative_to(repo_root)), "kind": "log"})
+            retained = {"out_dir": str(output_dir.relative_to(repo_root)), "files": retained_files,
+                        "trace_detail": args.trace_detail, "partial": True,
+                        "omissions": TRACE_OMISSIONS if args.trace_detail == "stages" else []}
+            if result.get("timed_out"):
+                return {**retained, "status": "timeout", "gdb_stderr_tail": tail(result.get("gdb_stderr", "")),
+                        "qemu_stderr_tail": tail(result.get("qemu_stderr", ""))}
+            if result.get("gdb_returncode") != 0 or result.get("qemu_returncode") != 0:
+                return {**retained, "status": "capture_failed", "gdb_stderr_tail": tail(result.get("gdb_stderr", "")),
+                        "qemu_stderr_tail": tail(result.get("qemu_stderr", ""))}
+            index, selected = trace_files(capture_dir, args.function, compiler_hash, args.trace_detail, capture_index)
+            if not capture_object.is_file():
+                raise ValueError("Capture did not produce the compiled object")
+            if read_elf_functions(capture_object) != functions:
+                raise ValueError("Captured object function order differs from the selection object")
+            files = [item for item in retained_files if item["kind"] == "log"]
+            for source, summary in selected:
+                destination = output_dir / source.name
+                shutil.move(str(source), str(destination))
+                summary["path"] = str(destination.relative_to(repo_root))
+                files.append(summary)
+            object_destination = output_dir / "capture.o"
+            shutil.move(str(capture_object), str(object_destination))
+            files.append({"path": str(object_destination.relative_to(repo_root)), "kind": "compiled_object"})
+            return {
+                "status": "ok", "format": "mwcc-alloc-trace-v1", "capture": "trace",
+                "unit": args.unit, "function": args.function,
+                "compiler": {"path": str(compiler_path), "sha256": compiler_hash, "label": compiler_label},
+                "trace_detail": args.trace_detail,
+                "omissions": TRACE_OMISSIONS if args.trace_detail == "stages" else [],
+                "selection": {"method": "symtab_order_fallback", "capture_index": index,
+                              "caveat": "Compiler source name may be unavailable. Index assumes one allocator pass per emitted function in current object symbol order; decoded nonempty names are checked.",
+                              "function_identity": selected[0][1]["function_identity"]},
+                "out_dir": str(output_dir.relative_to(repo_root)), "files": files,
+                "sjiswrap_stripped": stripped,
+                "duration_seconds": round(time.monotonic() - started, 3),
+            }
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout"}
+    except ArgumentError:
+        raise
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        return {**retained, "status": "capture_failed", "error": str(error)}
+
+
 def execute(args: argparse.Namespace) -> dict:
+    if args.capture == "trace":
+        return execute_trace(args)
     started = time.monotonic()
     probe = provisioning_probe()
     if probe is not None:

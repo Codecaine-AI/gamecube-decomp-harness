@@ -10,7 +10,12 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   mwcc_alloc_snapshot: {
     provider: "mwcc_alloc",
     type: "compiler_analysis",
-    useWhen: "After a residual is classified as register-only GPR: capture PCode and GPR coloring (vreg to physical register, interference neighbors, simplify order) for two stages of one compile. No FPR coloring. Before/after are not candidate vs target.",
+    useWhen: "Use trace capture for PCode and emitted GPR/FPR graph evidence after classifying register allocation, stack, or scheduling residuals. trace_detail defaults to stages; full requests creation and stack/local tracing. Check identity and omission metadata. pair preserves two-stage GPR coloring comparison.",
+  },
+  mwcc_alloc_analyze: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Analyze retained trace evidence with provenance, explain, inverse, source-rank, stack, or origins. source-rank selects GPR snapshots and accepts fixed_objects to pin known parameter/inline/shadow strata. Require baseline replay agreement; a modeled solver witness does not prove a source match.",
   },
   mwcc_alloc_compare: {
     provider: "mwcc_alloc",
