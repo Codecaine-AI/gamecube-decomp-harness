@@ -202,7 +202,10 @@ export async function submitCandidate(dir: string, id: string, hypothesis: strin
     const output = resolve(workerDir(dir, id), "checkpoints", cid);
     await mkdir(output, { recursive: true });
     if ((await checked(handle, s, ["git", "rev-parse", "HEAD"])).trim() !== w.baseRev) throw new Error("Worker changed its base commit; assign a fresh attempt instead");
-    const changed = (await checked(handle, s, ["git", "diff", "HEAD", "--name-only", "-z"])).split("\0").filter(Boolean);
+    // Encode before crossing the sandbox transport, which normalizes NUL bytes.
+    const changed = JSON.parse(await checked(handle, s, ["python3", "-c",
+      "import json,subprocess; print(json.dumps(subprocess.check_output(['git','diff','HEAD','--name-only','-z']).decode().split('\\0')[:-1]))",
+    ])) as string[];
     if (changed.length !== 1 || changed[0] !== s.target.source_path) throw new Error("Submission must change only the target source file");
     if ((await checked(handle, s, ["git", "diff", "--cached", "--name-only"])).trim()) throw new Error("Leave edits unstaged so validation sees the complete change");
     if ((await checked(handle, s, ["git", "ls-files", "--others", "--exclude-standard", "--", "src", "include", "config"])).trim()) throw new Error("Untracked source/header/config files would escape the submitted patch");
