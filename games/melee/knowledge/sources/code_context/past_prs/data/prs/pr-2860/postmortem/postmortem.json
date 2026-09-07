@@ -1,0 +1,233 @@
+{
+  "schema_version": "melee_pr_postmortem_v1",
+  "object_id": "pr-2860",
+  "pr": {
+    "number": 2860,
+    "title": "Generalize neutral special collision transitions",
+    "url": "https://github.com/doldecomp/melee/pull/2860",
+    "state": "MERGED",
+    "author": "MarkMcCaskey",
+    "created_at": "2026-07-16T07:49:41Z",
+    "merged_at": "2026-07-17T09:07:15Z"
+  },
+  "agent_status": "scaffolded_without_agent",
+  "intake_role": "pr_intake",
+  "summary": "Generalize neutral special collision transitions is a merged PR touching 74 changed file(s), primarily in fighter. Draft classification: decomp-matching, headers, naming, tooling.",
+  "change_classification": {
+    "primary_type": "decomp-matching",
+    "categories": [
+      "decomp-matching",
+      "headers",
+      "naming",
+      "tooling"
+    ],
+    "systems": [
+      "fighter"
+    ]
+  },
+  "key_files": [
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c",
+      "role": "+61/-73 across 20 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftFox/ftFx_SpecialLw.c",
+      "role": "+27/-50 across 13 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftMewtwo/ftMt_SpecialN.c",
+      "role": "+21/-49 across 12 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftNess/ftNs_SpecialLw.c",
+      "role": "+21/-40 across 11 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c",
+      "role": "+23/-34 across 11 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftYoshi/ftYs_SpecialN.c",
+      "role": "+21/-35 across 7 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c",
+      "role": "+22/-32 across 11 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftDonkey/ftDk_SpecialN.c",
+      "role": "+21/-30 across 11 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftLuigi/ftLg_SpecialS.c",
+      "role": "+17/-33 across 6 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftKirby/ftkirbyspecialyoshi.c",
+      "role": "+20/-26 across 9 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftNess/ftNs_SpecialN.c",
+      "role": "+13/-30 across 7 hunks",
+      "evidence_refs": []
+    },
+    {
+      "path": "src/melee/ft/chara/ftGameWatch/ftGw_SpecialLw.c",
+      "role": "+13/-25 across 6 hunks",
+      "evidence_refs": []
+    }
+  ],
+  "what_changed": [
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialn.c: +61/-73 across 20 hunks",
+    "src/melee/ft/chara/ftFox/ftFx_SpecialLw.c: +27/-50 across 13 hunks",
+    "src/melee/ft/chara/ftMewtwo/ftMt_SpecialN.c: +21/-49 across 12 hunks",
+    "src/melee/ft/chara/ftNess/ftNs_SpecialLw.c: +21/-40 across 11 hunks",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c: +23/-34 across 11 hunks",
+    "src/melee/ft/chara/ftYoshi/ftYs_SpecialN.c: +21/-35 across 7 hunks",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c: +22/-32 across 11 hunks",
+    "src/melee/ft/chara/ftDonkey/ftDk_SpecialN.c: +21/-30 across 11 hunks"
+  ],
+  "smart_moves": [],
+  "decomp_lessons": [
+    "Run the Pi postmortem agent for evidence-backed lessons before relying on this draft."
+  ],
+  "naming_conventions": [],
+  "assembly_or_matching_tactics": [],
+  "review_feedback": [
+    "src/melee/ft/chara/ftDonkey/ftDk_SpecialHi.c: If you could extract these flags to a named variable, that'd be great. Also there's usually a base of flags that are combined in different cases, like adding a couple flags for an aerial state. The flags can be found in `ft/forward.h` and we have a helper tool (`cargo run -\n\n[truncated]\n",
+    "src/melee/ft/chara/ftDonkey/ftDk_SpecialN.c: Referencing my comment above, we can see that the Cancel flags and the non-Cancel flags differ a bit but are mostly the same. We can take the difference using a bitwise AND and NOT, then pass it to our tool: ``` ❯ qalc -t -b 16 '0x0C4D508E & ~0x0C4D5080' | xargs cargo run -r\n\n[truncated]\n",
+    "src/melee/ft/chara/ftKoopa/ftKp_SpecialS.c: If Claude could pull out the motion ID here from `ftKoopa/forward.h`, that'd be helpful: ```suggestion ftCommon_GroundToAirStateChange(gobj, fp, ftKp_MS_SpecialAirSStart, transition_flags1); ```",
+    "src/melee/ft/fttransition.h: Delete this file and move the function definitions to `src/melee/ft/chara/ftCommon/inlines.h`.",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialdonkey.c: Extract these duplicated flags. They're probably the same ones `ftDk_SpecialN` uses, in which case they belong in `src/melee/ft/chara/ftDonkey/forward.h`.",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialgamewatch.c: Extract flags to file-scoped const.",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c: Extract flags to file-scoped const.",
+    "src/melee/ft/chara/ftKirby/ftkirbyspecialmewtwo.c: This looks like an inline, no? `ftKb_MtSpecialAirNLoopFull_Coll` might just be calling this function. If using an inline breaks the match, just extract the flags to a file-scoped const."
+  ],
+  "searchable_terms": [
+    "markmccaskey",
+    "generalize",
+    "neutral",
+    "special",
+    "collision",
+    "transitions",
+    "src",
+    "melee",
+    "chara",
+    "ftcaptain",
+    "ftca_specialn",
+    "ftcommon",
+    "forward",
+    "ftco_attack100",
+    "inlines",
+    "ftdonkey",
+    "ftdk_specialhi",
+    "ftdk_specialn",
+    "ftdk_specials",
+    "ftfox",
+    "ftfx_specialhi",
+    "ftfx_speciallw",
+    "ftfx_specials",
+    "ftgamewatch",
+    "ftgw_speciallw",
+    "ftgw_specialn",
+    "ftkirby",
+    "ftkirbyspecialdonkey",
+    "ftkirbyspecialgamewatch",
+    "ftkirbyspecialhi",
+    "ftkirbyspecialmewtwo",
+    "ftkirbyspecialn",
+    "ftkirbyspecialness",
+    "ftkirbyspecialpeach",
+    "ftkirbyspecialsamus",
+    "ftkirbyspecialseak",
+    "ftkirbyspecialyoshi",
+    "ftkirbyspecialzelda",
+    "ftkoopa",
+    "ftkp_specialn",
+    "ftkp_specials",
+    "ftlink",
+    "ftlk_speciallw",
+    "ftlk_specialn",
+    "ftlk_specials",
+    "ftluigi",
+    "ftlg_specialn",
+    "ftlg_specials",
+    "ftmario",
+    "ftmr_specialn",
+    "ftmr_specials",
+    "ftmars",
+    "ftms_speciallw",
+    "ftms_specialn",
+    "ftms_specials",
+    "ftmewtwo",
+    "ftmt_specialhi",
+    "ftmt_speciallw",
+    "ftmt_specialn",
+    "ftmt_specials",
+    "ftnana",
+    "ftnn_specialhi",
+    "ftness",
+    "ftns_specialhi",
+    "ftns_speciallw",
+    "ftns_specialn",
+    "ftpeach",
+    "ftpe_speciallw",
+    "ftpe_specialn",
+    "ftpe_specials",
+    "ftpikachu",
+    "ftpk_specialhi",
+    "ftpk_speciallw",
+    "ftpk_specialn",
+    "ftpk_specials",
+    "ftpopo",
+    "ftpp_specialhi",
+    "ftpp_speciallw",
+    "ftpp_specials",
+    "ftpurin"
+  ],
+  "follow_up_queries": [
+    "Search past PR records for files related to PR 2860",
+    "Search review comments for Generalize neutral special collision transitions"
+  ],
+  "evidence_quality": {
+    "status": "weak",
+    "evidence_refs": [
+      "games/melee/knowledge/sources/code_context/past_prs/data/prs/pr-2860"
+    ],
+    "notes": [
+      "Deterministic scaffold; no PR intake agent reviewed the evidence."
+    ]
+  },
+  "curator_handoff": {
+    "accepted_candidate_records": [],
+    "source_update_candidates": [],
+    "rejection_notes": [
+      "Scaffolded PR records should stay proposal-only until PR intake runs."
+    ]
+  },
+  "confidence": 0.25,
+  "agent_runtime": {
+    "runner": "orchestrator_kernel_pr_indexer",
+    "provider": "codex-lb",
+    "model": "gpt-6-astra",
+    "thinking": "xhigh",
+    "tools": "read,grep,find,ls",
+    "agent_timeout_seconds": 10800,
+    "orchestrator_state_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state",
+    "orchestrator_run_id": "74c57aa6-72b1-410b-9387-e3b44abb96bc",
+    "orchestrator_project_id": "melee",
+    "orchestrator_prepare_intake": false,
+    "orchestrator_kernel_database_url_configured": false,
+    "legacy_session_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/.pi-sessions/pr-review"
+  }
+}

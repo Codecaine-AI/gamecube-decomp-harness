@@ -14,6 +14,7 @@
  * supplies the read-only target history and source-evidence tools.
  */
 export const defaultWorkerToolProfile = [
+  "knowledge_render_file",
   "knowledge_record",
   "pr_search",
   "discord_search",
@@ -82,6 +83,7 @@ export const defaultQaRepairToolProfile = [
 
 /** Default librarian tools for citable knowledge-v2 sources and graph context. */
 export const defaultLibrarianToolProfile = [
+  "knowledge_render_file",
   "code_graph_search",
   "graph_related_functions",
   "discord_search",

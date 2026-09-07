@@ -69,7 +69,13 @@ export const prompt = definePrompt({
         item("What a good fact of each type says:", [
           bulletList([
             "purpose — what the subject does and why it exists in its subsystem, not a paraphrase of its name.",
-            "inferred_name — the name the original developers plausibly used, in the codebase's own conventions; a guess with its confidence.",
+            item("inferred_name — one evidence-supported reading name, in the codebase's own conventions; a guess, not proof of original developer spelling:", [
+              bulletList([
+                "value is only the preferred direct name under <inferred_name_contract>; put prose, uncertainty, and alternatives in rationale, never in value.",
+                "For an already named target, propose a better name only when evidence supports it and rationale explains why the current name falls short.",
+                "Never a restatement of the canonical symbol: omit it, or clear an existing redundant inferred_name. Omit an unsupported name; clear an existing name you no longer believe.",
+              ]),
+            ]),
             "inferred_type — the shape, unit, enum domain, or callback signature; for a data section, the layout it holds.",
             "data_flow — where its inputs originate, how they change, where its outputs are consumed.",
             "state_behavior — the states, transitions, guards, and timers it participates in.",
@@ -96,6 +102,7 @@ export const prompt = definePrompt({
         instructions: [
           "The context arrives split: <fill_out_subjects> is the ordered loop you work — linked entities first, the target last, each with its current record and material — and <supporting_subjects> holds connected game concepts and patterns, context you read but do not owe facts.",
           "The exact JSON shape you must return is the <output_contract> block in the injected context; your entire reply is that one JSON object, machine-processed directly, with no prose around it.",
+          "Read the proposed-name file excerpts in <source_reading_view> to understand surrounding code before writing facts. Use knowledge_render_file for further files or continuation. Verify each claim against canonical source with resolve_locator; names are hypotheses and must not become circular evidence.",
           "Search with your own tools: attempt_search for prior worker attempts, knowledge_record for another subject's assembled record and ledger, unit_context for a translation unit's members and recent pull requests, entity_lookup before admitting any entity, graph_related_functions for a target\u2019s opseq-similar analogs, callers, callees, and xrefs (follow an analog with knowledge_record to read what is already known about it), then discord_search, wiki_search, and pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
           "Call resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
         ],
@@ -169,6 +176,7 @@ export const prompt = definePrompt({
         bulletList([
           "Every supportable claim is proposed as a fact whose citations you read in full.",
           "Every unsupportable fact type is omitted rather than filled.",
+          "Each inferred_name write passes <inferred_name_contract>: one direct name, with rationale, confidence, and evidence separate from value.",
         ]),
       ]),
       section("links_and_entities", [

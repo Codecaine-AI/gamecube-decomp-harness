@@ -14,6 +14,7 @@ import {
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
+import { formatSourceView, renderSourceView, sourceViewForText, sourceViewStartLine, SOURCE_VIEW_MAX_BYTES, type SourceName } from "@server/core/knowledge-v2/source-view.js";
 import {
   renderTemplate,
   stableJson,
@@ -71,6 +72,8 @@ export interface WorkerPromptOptions {
   contextBudget?: WorkerPromptContextBudget;
   /** Sandbox-prefetched target source; undefined keeps local rendering unchanged. */
   targetSourceText?: string | null;
+  /** Explicit catalog/test fixtures; real workers load current names from the KB. */
+  sourceNames?: readonly SourceName[];
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -79,6 +82,7 @@ export interface WorkerPromptInputXmlOptions {
   game?: RunGameMetadata;
   contextBudget?: WorkerPromptContextBudget;
   targetSourceText?: string | null;
+  sourceNames?: readonly SourceName[];
 }
 
 export interface WorkerPromptInputXml {
@@ -173,6 +177,7 @@ function targetFileXml(
   contextBudget: WorkerPromptContextBudget,
   targetSourceText?: string | null,
   indent = "    ",
+  proposedView?: string,
 ): string {
   const budget = WORKER_CONTEXT_BUDGETS[contextBudget];
   const fileText = targetSourceText !== undefined
@@ -211,7 +216,7 @@ function targetFileXml(
   }
   return [
     `${indent}<target_file${attrs}>`,
-    cdata(inlineText ?? ""),
+    ...(proposedView ? ["<proposed_name_view read_only=\"true\">", cdata(proposedView), "</proposed_name_view>"] : [cdata(inlineText ?? "")]),
     `${indent}</target_file>`,
   ].join("\n");
 }
@@ -240,6 +245,7 @@ function targetXml(
   primarySourceAbs: string,
   contextBudget: WorkerPromptContextBudget,
   targetSourceText?: string | null,
+  proposedView?: string,
 ): string {
   const editabilityXml = contextHints.editability
     ? `        <editability${optionalAttribute("mode", contextHints.editability.mode)}${optionalAttribute("reason", contextHints.editability.reason)}/>`
@@ -293,6 +299,7 @@ function targetXml(
       contextBudget,
       targetSourceText,
       "        ",
+      proposedView,
     ),
     "    </target>",
   ]
@@ -614,6 +621,20 @@ export function workerPromptInputXml(
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
   const contextHints = targetContextHints(options.packet, options.game);
+  const source = options.targetSourceText !== undefined ? options.targetSourceText
+    : primarySourceAbs && existsSync(primarySourceAbs) ? readFileSync(primarySourceAbs, "utf8") : null;
+  let proposedView: string | undefined;
+  if (source !== null && Buffer.byteLength(source) <= SOURCE_VIEW_MAX_BYTES) {
+    const viewOptions = {
+      maxChars: WORKER_CONTEXT_BUDGETS[contextBudget].sourceLimit,
+      maxLines: 2000,
+      startLine: sourceViewStartLine(source, String(target.symbol ?? ""), WORKER_CONTEXT_BUDGETS[contextBudget].sourceLimit),
+    };
+    const view = options.sourceNames
+      ? renderSourceView({ ...viewOptions, path: primarySourcePath, source, names: options.sourceNames })
+      : sourceViewForText(primarySourcePath, source, { ...viewOptions, gameId: options.game?.gameId });
+    if (view.substitutions > 0) proposedView = formatSourceView(view);
+  }
   return {
     targetXml: targetXml(
       target,
@@ -622,7 +643,8 @@ export function workerPromptInputXml(
       primarySourcePath,
       primarySourceAbs,
       contextBudget,
-      options.targetSourceText,
+      source,
+      proposedView,
     ),
     firstDiffXml: firstDiffXml(options.packet, contextBudget),
   };
@@ -638,6 +660,7 @@ export function buildWorkerKernelContext(
     game: options.game,
     contextBudget,
     targetSourceText: options.targetSourceText,
+    sourceNames: options.sourceNames,
   });
   const targetKnowledgeXml = workerTargetKnowledgeXml(
     options.packet,

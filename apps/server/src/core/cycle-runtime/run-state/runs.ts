@@ -560,10 +560,10 @@ export function createRun(
     epoch_configure_command: "",
     goal_kind: goalKind,
     goal_value: goalValue,
-    model: "gpt-5.6-sol",
+    model: "gpt-6-astra",
     provider: "codex-lb",
     sandbox_profile: "",
-    thinking_level: "xhigh",
+    thinking_level: "medium",
     worker_configure_command: "",
   };
   const baseRevision = options.baseRevision?.trim() || cycle?.headRevision || cycle?.baseRevision || gitHead(game?.repoRoot) || "";

@@ -596,6 +596,29 @@ describe("code citation cache", () => {
 });
 
 describe("every gate", () => {
+  test("rejects naming prose before writing, accepts direct names, and permits clearing legacy prose", async () => {
+    const store = openStore("direct-names");
+    seedMechanicalSubjects(store);
+    seedResolvableSources(store);
+    const proposal = (value: string, op = "write") => ({
+      subject: { target_stable_key: "unit-one:func_one" }, type: "inferred_name", op, value,
+      rationale: "The cited body supports the proposed role.", confidence: 0.7,
+      evidence: [{ kind: "discord", locator: "discord://message/discord-1", why: "Names the role." }],
+    });
+    const options = applyOptions(makeTempDir("direct-name-checkout"));
+    const rejected = await applyLibrarianPass(store, {
+      facts: [proposal("Likely func_Update."), proposal("func_one")],
+    }, options);
+    expect(rejected.items.map((item) => item.reason)).toEqual(["invalid_inferred_name", "redundant_inferred_name"]);
+    expect(store.db.query("SELECT * FROM fact").all()).toHaveLength(0);
+    const accepted = await applyLibrarianPass(store, { facts: [proposal("func_Update")] }, options);
+    expect(accepted.items[0]?.action).toBe("applied");
+    expect(store.db.query("SELECT value FROM fact").get()).toEqual({ value: "func_Update" });
+    const cleared = await applyLibrarianPass(store, { facts: [proposal("", "clear")] }, options);
+    expect(cleared.items[0]?.action).toBe("applied");
+    expect(store.db.query("SELECT * FROM fact").all()).toHaveLength(0);
+  });
+
   test("throws only for malformed envelope collection shapes", async () => {
     const store = openStore("bad-envelope");
     const options = applyOptions(makeTempDir("bad-envelope-checkout"));
@@ -731,7 +754,7 @@ describe("every gate", () => {
       subject: { target_stable_key: "unit-one:func_one" },
       type: ["purpose", "inferred_name", "inferred_type", "data_flow", "state_behavior"][index],
       op: "write",
-      value: `claim-${index}`,
+      value: `claim_${index}`,
       rationale: "citation check",
       confidence: 0.5,
       evidence: [{ ...citation, why: "missing source" }],
@@ -1260,6 +1283,7 @@ describe("librarian rejection retry contract", () => {
       "ambiguous_entity_locator", "ambiguous_target", "code_revision_unresolvable",
       "code_span_out_of_range", "follow_up_cap", "follow_up_in_scope", "internal_error",
       "invalid_confidence", "invalid_entity_kind", "invalid_fact_type", "invalid_kind", "invalid_op",
+      "invalid_inferred_name", "redundant_inferred_name",
       "irrelevant_pr_citation", "kind_locator_mismatch", "malformed_envelope", "malformed_locator",
       "mechanical_merge_rejected", "missing_field", "missing_pr_citation", "out_of_scope",
       "pr_comment_not_found", "pr_comments_unavailable", "submission_not_found", "unknown_envelope_key",

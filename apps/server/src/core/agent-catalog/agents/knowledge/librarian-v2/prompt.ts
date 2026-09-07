@@ -115,11 +115,12 @@ export const prompt = definePrompt({
         item("What a good fact of each type says:", [
           bulletList([
             "purpose — what the subject does and why it exists in its subsystem, not a paraphrase of its name.",
-            item("inferred_name — the name the original developers plausibly used, in the codebase's own conventions:", [
+            item("inferred_name — one evidence-supported reading name, in the codebase's own conventions; a guess, not proof of original developer spelling:", [
               bulletList([
                 "On a placeholder-named target (an address-style symbol such as `fn_800D0F30` or `lbl_803B7B40`) it is the guess, with its confidence.",
                 "On a target that already carries a real symbol, propose one only when the evidence argues for a better name; the rationale says why the current name falls short.",
-                "Never a restatement of the symbol.",
+                "value is only the preferred direct name under <inferred_name_contract>; put prose, uncertainty, and alternatives in rationale, never in value.",
+                "Never a restatement of the canonical symbol: omit it, or clear an existing redundant inferred_name.",
               ]),
             ]),
             "inferred_type — the shape, unit, enum domain, or callback signature; for a data section, the layout it holds.",
@@ -169,6 +170,7 @@ export const prompt = definePrompt({
           "Fields that steer the pass: `head_revision` in <pass> is the only git revision a `code://` citation may carry; each touched target carries `renamed_from`, the stable keys of rows reconciliation marked as moved into it; a touched subject may carry `drift`, the code citations on its facts that no longer match the head (status `drifted`) or no longer resolve (status `unresolvable`).",
           "The writable scope is the touched subjects and nothing else: their `target_stable_key` and `entity_locator` values. A fact or link on any other subject is rejected `out_of_scope`; put what you learned about it in `follow_ups` instead.",
           "The exact JSON shape you must return is the <output_contract> block in the injected context; your entire reply is that one JSON object, machine-processed directly, with no prose around it.",
+          "Read the proposed-name file excerpts in <source_reading_view> to understand surrounding code before writing facts. Use knowledge_render_file for further files or continuation. Verify each claim against canonical source with resolve_locator; names are hypotheses and must not become circular evidence.",
           "Search with your own tools: attempt_search for prior worker attempts, knowledge_record for another subject's assembled record and ledger, unit_context for a translation unit's members and recent pull requests, entity_lookup before admitting any entity, graph_related_functions for a target’s opseq-similar analogs, callers, callees, and xrefs (follow an analog with knowledge_record to read what is already known about it), then discord_search, wiki_search, and pr_search for source text (keyword by default; vector and hybrid fall back to keyword when embeddings are unavailable).",
           "Call resolve_locator and read the underlying record in full before citing any locator; search snippets are never evidence; every tool on your roster is read-only and never writes the store.",
         ],
@@ -332,6 +334,7 @@ export const prompt = definePrompt({
           "In a pr_imported pass every fact and link cites a discussion comment of the triggering PR that references its subject, and subjects the discussion never touches contribute nothing.",
           "Claims the material contradicts are revised or cleared; claims that still stand are left untouched.",
           "Every unsupportable fact type is omitted rather than filled.",
+          "Each inferred_name write passes <inferred_name_contract>: one direct name, with rationale, confidence, and evidence separate from value.",
         ]),
       ]),
       section("links_and_entities", [

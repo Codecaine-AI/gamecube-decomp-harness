@@ -8,6 +8,7 @@ export const agent = defineHarnessAgent({
   description: "Fill out the knowledge records of one target and its directly linked entities by researching every available source, subject by subject.",
   model: "codex-lb/gpt-5.6-sol",
   coreTools: [
+    "knowledge_render_file",
     "code_graph_search",
     "graph_related_functions",
     "discord_search",

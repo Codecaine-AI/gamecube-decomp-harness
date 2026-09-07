@@ -15,6 +15,8 @@ export interface AgentToolRuntimeContext {
   cwd: string;
   repoRoot: string;
   stateDir?: string;
+  /** Checkout pinned by a librarian pass for source views and canonical evidence. */
+  knowledgeCheckoutRoot?: string;
   game?: RunGameMetadata;
   toolPlatform?: ToolPlatform;
   worktreeId?: string;

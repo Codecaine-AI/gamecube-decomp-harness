@@ -589,11 +589,11 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(baseline.sourceSnapshotPaths?.sort()).toEqual(["src/melee/ft/ftcoll.c", "src/melee/gr/ground.c"]);
     expect(calls[3]).toEqual({
       command: ["ninja", "build/GALE01/src/melee/ft/ftcoll.o"],
-      options: { compile: true },
+      options: undefined,
     });
     expect(calls[4]?.command).toEqual(["cat", "build.ninja"]);
     expect(calls[5]?.command).toContain("/dev/stdout");
-    expect(calls[5]?.options).toEqual({ compile: false });
+    expect(calls[5]?.options).toBeUndefined();
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.c"), "utf8")).toBe("int sandbox_source;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int sandbox_extra;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);

@@ -19,6 +19,7 @@ import {
   type SubjectRef,
 } from "../records/index.js";
 import { parseLocator } from "../locator.js";
+import { inferredNameProblem } from "../naming.js";
 import { resolvePrComment } from "../ingest/prs.js";
 import {
   createCodeFileCache,
@@ -65,6 +66,7 @@ export const APPLY_REJECT_REASONS = [
   "ambiguous_entity_locator", "ambiguous_target", "code_revision_unresolvable",
   "code_span_out_of_range", "follow_up_cap", "follow_up_in_scope", "internal_error",
   "invalid_confidence", "invalid_entity_kind", "invalid_fact_type", "invalid_kind", "invalid_op",
+  "invalid_inferred_name", "redundant_inferred_name",
   "irrelevant_pr_citation", "kind_locator_mismatch", "malformed_envelope", "malformed_locator",
   "mechanical_merge_rejected", "missing_field", "missing_pr_citation", "out_of_scope",
   "pr_comment_not_found", "pr_comments_unavailable", "submission_not_found", "unknown_envelope_key",
@@ -98,6 +100,8 @@ export const REJECTION_MESSAGES: Record<ApplyRejectReason, (context: RejectionMe
   invalid_confidence: () => "confidence must be a finite number from 0 through 1. Replace it with a number in that range.",
   invalid_entity_kind: () => "Curated entity kind must be game_concept or pattern. Use one of those kinds or drop the entity.",
   invalid_fact_type: () => "Fact type is invalid. Use purpose, inferred_name, inferred_type, data_flow, state_behavior, or game_mapping.",
+  invalid_inferred_name: () => "inferred_name.value must be the direct name only: one C identifier for a function, struct, field, or parameter; one short label or filename for other subjects. Remove quotes, backticks, sentence framing, and alternatives. Put explanations and competing names in rationale. If no name is supportable, omit the write or clear the existing inferred_name.",
+  redundant_inferred_name: () => "The inferred name already equals target.symbol. Clear the existing inferred_name or omit this write; keep the canonical source symbol unchanged.",
   invalid_kind: () => "Citation kind is invalid. Use pr, discord, attempt, wiki, or code and make the locator use the same scheme.",
   invalid_op: () => "Fact op must be write or clear. Use write with a claim, or clear with an empty value.",
   irrelevant_pr_citation: ({ subject, prNumber }) => `The cited PR comment does not name ${shown(subject)} in its body or diff hunk. Cite a relevant comment as pr://${shown(prNumber, "<n>")}/comment/<i>.`,
@@ -169,6 +173,8 @@ interface ResolvedSubject {
   entityId?: string;
   entityLocator?: string;
   entityKind?: EntityKind;
+  targetKind?: "function" | "data";
+  symbol?: string | null;
   curated: boolean;
 }
 
@@ -459,8 +465,10 @@ function resolveSubject(
       id: string;
       stable_key: string;
       identity_status: string;
+      kind: "function" | "data";
+      symbol: string | null;
     }, [string]>(
-      "SELECT id, stable_key, identity_status FROM target WHERE stable_key = ? ORDER BY id",
+      "SELECT id, stable_key, identity_status, kind, symbol FROM target WHERE stable_key = ? ORDER BY id",
     ).all(raw.target_stable_key);
     const current = rows.filter((row) => row.identity_status === "current");
     if (current.length > 1 || (current.length === 0 && rows.length > 1)) {
@@ -473,6 +481,8 @@ function resolveSubject(
       value: {
         ref: { targetId: row.id },
         targetStableKey: row.stable_key,
+        targetKind: row.kind,
+        symbol: row.symbol,
         curated: false,
       },
     };
@@ -643,6 +653,10 @@ async function applyFactItem(
     subject: subject.value.targetStableKey ?? subject.value.entityLocator,
     writableSubjects: [...options.scope.targetStableKeys, ...options.scope.entityLocators],
   });
+  if (fact.type === "inferred_name" && fact.op === "write") {
+    const problem = inferredNameProblem(fact.value, subject.value);
+    if (problem) return rejected(item, problem);
+  }
   const requiredCitation = checkRequiredCitation(
     store, fact.evidence, options.requiredCitation, options, [subject.value], fact.type,
   );

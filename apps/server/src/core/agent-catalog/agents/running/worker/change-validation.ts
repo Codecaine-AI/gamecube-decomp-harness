@@ -512,7 +512,7 @@ async function runValidationCommand(
 ): Promise<WorkerValidationCommandResult> {
   let result: CommandResult;
   try {
-    result = await workspaceExec.exec(command, { compile: command[0] === "ninja" });
+    result = await workspaceExec.exec(command);
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
     result = { exitCode: 127, stdout: "", stderr: message };

@@ -1,0 +1,1345 @@
+Reading additional input from stdin...
+OpenAI Codex v0.152.1
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a06ce2-6782-79c1-9661-8b046678a3fd
+--------
+user
+# Task C: Worker tool descriptions and two tool fixes
+
+Repo: `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness`. Work only in `apps/server/src/core/tools/**` (metadata, wrappers, tests) and `toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py`. Do NOT touch files with uncommitted changes (`git status`). Use sub-agents / parallel execution wherever the work can be split — optimize for wall-clock speed.
+
+## Why
+The worker prompt was rewritten to a diff-first loop with an explicit tooling section. The model-facing tool descriptions (`use_when` / description strings in `apps/server/src/core/tools/metadata/capabilities.ts` and the wrapper descriptions in `apps/server/src/core/tools/wrappers/capabilities.ts` / `knowledge.ts`) must agree with it and with what the tools actually return.
+
+## Description updates (model-facing strings only; keep ids, params, and behavior)
+1. `graph_related_functions`: replace "opseq analogs" wording with "instruction-shape analogs" (callers, callees, data references, corroborating xrefs). The "opseq" concept is retired.
+2. `source_permuter_run`: describe it as a bounded probe: "Search source mutations in named functions and return the best scalar score and one source diff. Returns no instruction rows; replay the candidate and read its delta with checkdiff_run. Use only on a named region after the residual is classified." Remove "last-resort" wording.
+3. `source_permuter_replay`: "Replay a saved permuter recipe and return its score and source diff; read the instruction delta with checkdiff_run afterwards."
+4. `mwcc_alloc_snapshot` / `mwcc_alloc_compare`: state explicitly "GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target."
+5. `mwcc_debug_diagnose_regflow`: "one compact register-only window; not full liveness or FPR coloring."
+6. `checkdiff_run`: mention that `full_diff` returns up to 24 mismatching rows with kind and both sides (left = target, right = current), and that instruction parity can still hide strict relocation/data differences.
+7. `direct_compile_tu`: "Pass exactly one of `function` or `unit`."
+8. `kv2_attempt_search`: mention that it accepts either a target stable key or a text query and returns run narratives (summary, observations) with the hits.
+
+## Fix 1 — `direct_compile_tu` argparse conflict
+`toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py` lines ~20–24 declare `--function` and `--unit` mutually exclusive, but the server wrapper (`apps/server/src/core/tools/wrappers/capabilities.ts` ~225–252) forwards both when both are supplied. Fix on the wrapper side: if both are supplied, forward only `function` (it implies the unit) and add a `note` field in the result saying `unit` was ignored. Add a wrapper test.
+
+## Fix 2 — permuter invocation guard
+In the `source_permuter_run` wrapper, if the adapter reports "function not found" / parse failure at the source path (see `toolpacks/gamecube-decomp/source_editing/source_permuter/api/run.py`), surface it as a top-level `status: "failed"` with `reason`, not an outer `ok` with a nested failure. Add a test.
+
+## Rules
+- Tests: `cd apps/server && bun test src/core/tools` must pass. Check `apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts` and `kernel-catalog.test.ts` for any assertion on the strings you change (grep for "opseq", "last resort", "last-resort") and report them; do not edit those two test files — another task owns them.
+- Print a summary: each description before/after (one line each), files changed, tests added. Print DONE.
+codex
+First: I’m checking `git status` and the tool metadata/wrapper layout, then I’ll split description audits and wrapper fixes across parallel agents.
+exec
+/bin/zsh -lc "git status --short && sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md' && rg -n \"graph_related_functions|source_permuter_run|source_permuter_replay|mwcc_alloc_snapshot|mwcc_alloc_compare|mwcc_debug_diagnose_regflow|checkdiff_run|direct_compile_tu|kv2_attempt_search\" apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 321ms:
+ M apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts
+?? analysis/worker-prompt-audit-2026-09-03/
+?? games/melee/knowledge/backups/
+?? games/melee/knowledge/knowledge.sqlite-shm
+?? games/melee/knowledge/knowledge.sqlite-wal
+?? objectives/knowledge-system-v2/
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+apps/server/src/core/tools/metadata/capabilities.ts:10:  mwcc_alloc_snapshot: {
+apps/server/src/core/tools/metadata/capabilities.ts:15:  mwcc_alloc_compare: {
+apps/server/src/core/tools/metadata/capabilities.ts:18:    useWhen: "Cheaply compare the before/after coloring snapshot paths returned by mwcc_alloc_snapshot.",
+apps/server/src/core/tools/metadata/capabilities.ts:20:  checkdiff_run: {
+apps/server/src/core/tools/metadata/capabilities.ts:30:  direct_compile_tu: {
+apps/server/src/core/tools/metadata/capabilities.ts:50:  mwcc_debug_diagnose_regflow: {
+apps/server/src/core/tools/metadata/capabilities.ts:65:  source_permuter_run: {
+apps/server/src/core/tools/metadata/capabilities.ts:70:  source_permuter_replay: {
+apps/server/src/core/tools/metadata/knowledge-v2.ts:20:  kv2_attempt_search: {
+apps/server/src/core/tools/metadata/knowledge.ts:20:  graph_related_functions: {
+apps/server/src/core/tools/profiles/defaults.ts:20:  "graph_related_functions",
+apps/server/src/core/tools/profiles/defaults.ts:26:  "kv2_attempt_search",
+apps/server/src/core/tools/profiles/defaults.ts:29:  "checkdiff_run",
+apps/server/src/core/tools/profiles/defaults.ts:31:  "direct_compile_tu",
+apps/server/src/core/tools/profiles/defaults.ts:35:  "mwcc_debug_diagnose_regflow",
+apps/server/src/core/tools/profiles/defaults.ts:37:  "mwcc_alloc_snapshot",
+apps/server/src/core/tools/profiles/defaults.ts:38:  "mwcc_alloc_compare",
+apps/server/src/core/tools/profiles/defaults.ts:39:  "source_permuter_run",
+apps/server/src/core/tools/profiles/defaults.ts:40:  "source_permuter_replay",
+apps/server/src/core/tools/profiles/defaults.ts:63:  "checkdiff_run",
+apps/server/src/core/tools/profiles/defaults.ts:65:  "direct_compile_tu",
+apps/server/src/core/tools/profiles/defaults.ts:78:  "checkdiff_run",
+apps/server/src/core/tools/profiles/defaults.ts:80:  "direct_compile_tu",
+apps/server/src/core/tools/profiles/defaults.ts:91:  "graph_related_functions",
+apps/server/src/core/tools/profiles/defaults.ts:95:  "kv2_attempt_search",
+apps/server/src/core/tools/wrappers/knowledge.ts:146:  id: "graph_related_functions",
+apps/server/src/core/tools/wrappers/knowledge.ts:152:      name: "graph_related_functions",
+apps/server/src/core/tools/wrappers/knowledge.ts:155:      promptSnippet: "graph_related_functions: retrieve structured opseq and callgraph relationships for a file or function.",
+apps/server/src/core/tools/wrappers/knowledge.ts:156:      promptGuidelines: ["Use graph_related_functions when analog or caller/callee relationships matter; pass source_path for all functions in a file."],
+apps/server/src/core/tools/wrappers/knowledge.ts:161:          "graph_related_functions",
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:274:  id: "kv2_attempt_search",
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:280:      name: "kv2_attempt_search",
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:283:      promptSnippet: "kv2_attempt_search: inspect structured prior attempts before searching their hypothesis text.",
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:294:        return jsonToolResult("kv2_attempt_search", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-roles.test.ts:10:  "graph_related_functions",
+apps/server/src/core/tools/wrappers/knowledge-roles.test.ts:21:      graph_related_functions: sourceContextRoles,
+apps/server/src/core/tools/wrappers/capabilities.ts:182:  id: "checkdiff_run",
+apps/server/src/core/tools/wrappers/capabilities.ts:188:  guidance: "Use checkdiff_run after a concrete source edit or mismatch hypothesis needs verifier evidence; prefer it over raw tools/asm-differ/diff.py shell commands and preserve stdout/stderr plus command provenance in the report.",
+apps/server/src/core/tools/wrappers/capabilities.ts:227:  id: "direct_compile_tu",
+apps/server/src/core/tools/wrappers/capabilities.ts:233:  guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+apps/server/src/core/tools/wrappers/capabilities.ts:396:  "mwcc_debug_diagnose_regflow",
+apps/server/src/core/tools/wrappers/capabilities.ts:400:  "Use mwcc_debug_diagnose_regflow for late register-only windows; do not use it as a substitute for fixing instruction sequence, calls, types, or source structure first.",
+apps/server/src/core/tools/wrappers/capabilities.ts:421:  id: "source_permuter_run",
+apps/server/src/core/tools/wrappers/capabilities.ts:427:  guidance: "Use source_permuter_run only as an expensive last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
+apps/server/src/core/tools/wrappers/capabilities.ts:478:  id: "source_permuter_replay",
+apps/server/src/core/tools/wrappers/capabilities.ts:484:  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; it is an expensive last-resort tool that runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the diff before applying anything.",
+apps/server/src/core/tools/wrappers/capabilities.ts:845:  id: "mwcc_alloc_snapshot",
+apps/server/src/core/tools/wrappers/capabilities.ts:851:  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures before/after coloring snapshots you can feed to mwcc_alloc_compare.",
+apps/server/src/core/tools/wrappers/capabilities.ts:875:  id: "mwcc_alloc_compare",
+apps/server/src/core/tools/wrappers/capabilities.ts:881:  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. Deltas show interference, physical-register, and simplify-order movement.",
+apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts:11:  "kv2_attempt_search",
+apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts:30:      kv2_attempt_search: ["librarian", "worker"],
+
+codex
+The worktree has unrelated changes only, outside the allowed files. I’m leaving them untouched. The required `unslop` skill applies to the model-facing prose, so I’ll keep every description concrete and literal.
+exec
+/bin/zsh -lc "rg -n -i \"opseq|last[ -]resort\" apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts apps/server/src/core/agent-catalog/kernel-catalog.test.ts; sed -n '1,120p' apps/server/src/core/tools/metadata/capabilities.ts; sed -n '1,60p' apps/server/src/core/tools/metadata/knowledge.ts; sed -n '1,50p' apps/server/src/core/tools/metadata/knowledge-v2.ts; sed -n '160,270p' apps/server/src/core/tools/wrappers/capabilities.ts; sed -n '380,510p' apps/server/src/core/tools/wrappers/capabilities.ts; sed -n '820,900p' apps/server/src/core/tools/wrappers/capabilities.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:42:              tool_id: "opseq",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:43:              source_id: "opseq_similarity",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:52:              evidence_ref: "opseq:test",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:198:    expect(renderedContext).toContain('"top_opseq_analog"');
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:207:    expect(renderedContext).not.toContain("opseq_similar_functions");
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:362:    expect(systemPrompt).toContain("Use opseq similarity leads to find instruction-shape analogs before adapting duplicates or broad rewrites.");
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:370:      "`source_permuter_run` is expensive. Use it only as a last resort",
+import type { AgentToolPromptMetadata } from "../types.js";
+
+/** Prompt metadata for callable decomp capabilities backed by the enabled toolpack. */
+export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
+  mwcc_debug_lookup: {
+    provider: "mwcc_debug",
+    type: "compiler_analysis",
+    useWhen: "Search cached MWCC compiler-shape notes after lighter evidence stops explaining a mismatch.",
+  },
+  mwcc_alloc_snapshot: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Capture slow, expensive live allocator evidence only after checkdiff, cached MWCC debug evidence, and source-shape analysis stall on a register-allocation-only mismatch.",
+  },
+  mwcc_alloc_compare: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Cheaply compare the before/after coloring snapshot paths returned by mwcc_alloc_snapshot.",
+  },
+  checkdiff_run: {
+    provider: "checkdiff",
+    type: "verification",
+    useWhen: "Run focused checkdiff/objdiff output for one function instead of raw asm-differ shell commands.",
+  },
+  checkdiff_summary: {
+    provider: "checkdiff",
+    type: "verification",
+    useWhen: "Run PASS/FAIL summaries for a target and affected neighbors instead of raw asm-differ shell commands.",
+  },
+  direct_compile_tu: {
+    provider: "checkdiff",
+    type: "verification",
+    useWhen: "Compile one function's translation unit to separate build failure from objdiff mismatch.",
+  },
+  objdiff_score_candidate: {
+    provider: "objdiff_score",
+    type: "verification",
+    useWhen: "Score an already-built candidate object for a known function.",
+  },
+  mwcc_debug_dump_function: {
+    provider: "mwcc_debug",
+    type: "diagnostics",
+    useWhen: "Dump function-filtered mwcc_debug pcdump evidence for a concrete compiler-pass question.",
+  },
+  mwcc_debug_diagnose_stack: {
+    provider: "mwcc_debug",
+    type: "diagnostics",
+    useWhen: "Diagnose stack/frame mismatch evidence after source-shape and type evidence are checked.",
+  },
+  mwcc_debug_diagnose_regflow: {
+    provider: "mwcc_debug",
+    type: "diagnostics",
+    useWhen: "Diagnose late register-flow windows when instruction sequence, calls, types, and structure are already close.",
+  },
+  mwcc_debug_diagnose_inlines: {
+    provider: "mwcc_debug",
+    type: "diagnostics",
+    useWhen: "Diagnose inline/helper extraction boundaries when mismatch evidence points there.",
+  },
+  mwcc_debug_raw_dump: {
+    provider: "mwcc_debug",
+    type: "diagnostics",
+    useWhen: "Inspect raw function-filtered pcdump when summarized MWCC output is insufficient.",
+  },
+  source_permuter_run: {
+    provider: "source_permuter",
+    type: "exploration",
+    useWhen: "Run an expensive last-resort bounded non-mutating source-shape search inside the claim sandbox after cheaper evidence is exhausted; jobs default to all sandbox cores, with no cross-worker queue.",
+  },
+  source_permuter_replay: {
+    provider: "source_permuter",
+    type: "exploration",
+    useWhen: "Replay a saved non-mutating source-permutation recipe as an expensive last-resort tool inside the claim sandbox; jobs default to all sandbox cores, with no cross-worker queue.",
+  },
+  source_mutation_preview: {
+    provider: "source_permuter",
+    type: "exploration",
+    useWhen: "Preview source mutation passes as a diff before spending compile time.",
+  },
+  type_oracle_lookup: {
+    provider: "type_oracle",
+    type: "diagnostics",
+    useWhen: "Check clang expression/span types before temporary extraction or pointer/value type changes.",
+  },
+  struct_infer_from_asm: {
+    provider: "struct_infer",
+    type: "conversion",
+    useWhen: "Infer candidate struct fields from a specific pointer register and offset pattern.",
+  },
+  m2c_decompile: {
+    provider: "m2c_decomp",
+    type: "exploration",
+    useWhen: "Generate an m2c scaffold as a reading aid only; formatting is best-effort.",
+  },
+  asm_window_search: {
+    provider: "asm_window_search",
+    type: "exploration",
+    useWhen: "Find matched donor functions for a specific normalized instruction window when whole-function analogs are too broad.",
+  },
+  type_layout_lookup: {
+    provider: "type_layout_lookup",
+    type: "diagnostics",
+    useWhen: "Compare record layouts, union aliases, and cast-only overlay evidence before changing a type.",
+  },
+  include_fixer_preview: {
+    provider: "include_fixer",
+    type: "source_review",
+    useWhen: "Preview missing include additions when compile diagnostics point to undeclared functions.",
+  },
+  item_state_table_preview: {
+    provider: "item_state_table",
+    type: "conversion",
+    useWhen: "Preview an ItemStateTable C definition from an asm data label.",
+  },
+  review_lint_scan: {
+    provider: "review_lint",
+    type: "source_review",
+    useWhen: "Scan source text or files for decomp review anti-patterns before reporting retained edits.",
+  },
+  review_lint_sdata2_order_helper: {
+import type { AgentToolPromptMetadata } from "../types.js";
+
+/** Prompt metadata for wrappers over game-owned knowledge sources. */
+export const knowledgeToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
+  code_graph_file_card: {
+    provider: "code_graph",
+    type: "target_context",
+    useWhen: "Get the file card for a specific source file.",
+  },
+  code_graph_search: {
+    provider: "code_graph",
+    type: "local_search",
+    useWhen: "Search local source paths, symbols, functions, units, and graph metadata.",
+  },
+  knowledge_graph_search: {
+    provider: "knowledge_graph",
+    type: "cross_source_search",
+    useWhen: "Search every active graph source when the evidence source is not known in advance.",
+  },
+  graph_related_functions: {
+    provider: "knowledge_graph",
+    type: "function_relationships",
+    useWhen: "Retrieve opseq analogs, callers, callees, data references, and corroborating xref evidence for a file or function.",
+  },
+  past_prs_search: {
+    provider: "past_prs",
+    type: "history",
+    useWhen: "Find prior accepted or rejected PR evidence for a file, subsystem, tactic, or review risk.",
+  },
+};
+import type { AgentToolPromptMetadata } from "../types.js";
+
+/** Prompt metadata for read-only knowledge-v2 tools. */
+export const knowledgeV2ToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
+  kv2_discord_search: {
+    provider: "knowledge_v2",
+    type: "discord_search",
+    useWhen: "Search archived Discord messages by text, channel, author, or time range.",
+  },
+  kv2_wiki_search: {
+    provider: "knowledge_v2",
+    type: "wiki_search",
+    useWhen: "Search the latest mirrored wiki revision for game-mechanics evidence.",
+  },
+  kv2_pr_search: {
+    provider: "knowledge_v2",
+    type: "pull_request_search",
+    useWhen: "Search archived pull request summaries and discussion for historical evidence.",
+  },
+  kv2_attempt_search: {
+    provider: "knowledge_v2",
+    type: "attempt_search",
+    useWhen: "Read structured prior worker attempts, then narrow by hypothesis text when needed.",
+  },
+  kv2_subject_record: {
+    provider: "knowledge_v2",
+    type: "subject_record",
+    useWhen: "Inspect the assembled record for another target or entity before proposing changes.",
+  },
+  kv2_entity_lookup: {
+    provider: "knowledge_v2",
+    type: "entity_lookup",
+    useWhen: "Find existing entities by kind or locator prefix before admitting a duplicate.",
+  },
+  kv2_resolve_locator: {
+    provider: "knowledge_v2",
+    type: "locator_resolution",
+    useWhen: "Read the exact source material behind a Discord, wiki, PR, attempt, or code locator.",
+  },
+  kv2_unit_context: {
+    provider: "knowledge_v2",
+    type: "unit_context",
+    useWhen: "Inspect a unit's member targets, aggregate match state, and recent pull requests.",
+  },
+};
+          const args = definition.args(params, context);
+          if (!Array.isArray(args)) return jsonToolResult(definition.id, args);
+          return jsonToolResult(definition.id, await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]));
+        },
+      };
+    },
+  };
+}
+
+/** Tool for cached MWCC compiler-shape and debug evidence. */
+export const mwccDebugLookupToolRegistration = specializedTool({
+  id: "mwcc_debug_lookup",
+  toolId: "mwcc_debug",
+  scriptName: "lookup_dump.py",
+  label: "MWCC Debug Lookup",
+  purpose: "Look up cached MWCC compiler-shape/debug notes.",
+  description: "Query MWCC debug evidence for compiler behavior, pcdump notes, register allocation, stack/frame, local lifetime, coalescing, scheduling, and varargs/assert shapes.",
+  guidance: "Use mwcc_debug_lookup only after lighter local/source/tool evidence stops explaining a late compiler-shape mismatch.",
+});
+
+/** Tool for running focused checkdiff output for one function. */
+export const checkdiffRunToolRegistration = knowledgeApiTool({
+  id: "checkdiff_run",
+  toolId: "checkdiff",
+  scriptName: "run.py",
+  label: "Checkdiff Run",
+  purpose: "Run focused checkdiff/objdiff output for one function.",
+  description: "Compile the owning translation unit through the tool-local helper and return focused checkdiff output for one function.",
+  guidance: "Use checkdiff_run after a concrete source edit or mismatch hypothesis needs verifier evidence; prefer it over raw tools/asm-differ/diff.py shell commands and preserve stdout/stderr plus command provenance in the report.",
+  parameters: {
+    type: "object",
+    properties: {
+      function: { type: "string", description: "Function symbol to diff." },
+      full_diff: { type: "boolean", description: "Show matching lines instead of collapsed context." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+    },
+    required: ["function"],
+    additionalProperties: false,
+  },
+  args(params, context) {
+    const fn = stringParam(params, "function");
+    if (!fn) return { status: "missing_function" };
+    const args = ["--repo-root", context.repoRoot, "--function", fn, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 180, 10, 900))];
+    if (boolParam(params, "full_diff")) args.push("--full-diff");
+    return args;
+  },
+});
+
+/** Tool for running checkdiff summary mode over multiple functions. */
+export const checkdiffSummaryToolRegistration = knowledgeApiTool({
+  id: "checkdiff_summary",
+  toolId: "checkdiff",
+  scriptName: "summary.py",
+  label: "Checkdiff Summary",
+  purpose: "Run PASS/FAIL checkdiff summaries for one or more functions.",
+  description: "Compile each owning translation unit once and return checkdiff PASS/FAIL summary lines.",
+  guidance: "Use checkdiff_summary for batch validation or neighbor checks when full diffs are unnecessary; prefer it over raw tools/asm-differ/diff.py shell commands.",
+  parameters: functionsParameters,
+  args(params, context) {
+    const functions = stringListParam(params.functions);
+    if (!functions.length) return { status: "missing_functions" };
+    return ["--repo-root", context.repoRoot, "--functions", functions.join(","), "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 240, 10, 1200))];
+  },
+});
+
+/** Tool for compiling one translation unit directly with the exact MWCC build edge. */
+export const directCompileTuToolRegistration = knowledgeApiTool({
+  id: "direct_compile_tu",
+  toolId: "checkdiff",
+  scriptName: "direct_compile.py",
+  label: "Direct Compile TU",
+  purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+  description: "Run the tool-local direct-compile path for a function or unit without running objdiff.",
+  guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+  parameters: {
+    type: "object",
+    properties: {
+      function: { type: "string", description: "Function symbol whose owning unit should compile." },
+      unit: { type: "string", description: "Unit path without src/ prefix or .c suffix." },
+      keep_object: { type: "boolean", description: "Keep the temporary object path after the API exits." },
+    },
+    additionalProperties: false,
+  },
+  args(params, context) {
+    const fn = stringParam(params, "function");
+    const unit = stringParam(params, "unit");
+    if (!fn && !unit) return { status: "missing_function_or_unit" };
+    const args = ["--repo-root", context.repoRoot];
+    if (fn) args.push("--function", fn);
+    if (unit) args.push("--unit", unit);
+    if (boolParam(params, "keep_object")) args.push("--keep-object");
+    return args;
+  },
+});
+
+/** Tool for scoring an already-built candidate object with objdiff. */
+export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
+  id: "objdiff_score_candidate",
+  toolId: "objdiff_score",
+  scriptName: "score_candidate.py",
+  label: "objdiff Score Candidate",
+  purpose: "Score a known candidate object for one function against the target object.",
+  description: "Run objdiff score and percent diff for a supplied candidate object path.",
+  guidance: "Use objdiff_score_candidate only when a candidate .o already exists; normal source edit validation should use checkdiff first.",
+  parameters: {
+    type: "object",
+    properties: {
+      function: { type: "string", description: "Function symbol to score." },
+      candidate_object: { type: "string", description: "Path to candidate .o file." },
+      unit: { type: "string", description: "Optional unit path if function lookup should be skipped." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+      if (boolParam(params, "show_lines")) args.push("--show-lines");
+      if (boolParam(params, "show_mwcc")) args.push("--show-mwcc");
+      return args;
+    },
+  });
+}
+
+export const mwccDebugDiagnoseStackToolRegistration = mwccDiagnoseTool(
+  "mwcc_debug_diagnose_stack",
+  "MWCC Diagnose Stack",
+  "stack",
+  "Diagnose stack/frame mismatch evidence for one function.",
+  "Use mwcc_debug_diagnose_stack when checkdiff shows stack/frame rows or frame-size drift after source-shape and type evidence have been checked.",
+);
+
+export const mwccDebugDiagnoseRegflowToolRegistration = mwccDiagnoseTool(
+  "mwcc_debug_diagnose_regflow",
+  "MWCC Diagnose Regflow",
+  "regflow",
+  "Diagnose compact register-flow/register-coloring mismatch windows.",
+  "Use mwcc_debug_diagnose_regflow for late register-only windows; do not use it as a substitute for fixing instruction sequence, calls, types, or source structure first.",
+);
+
+export const mwccDebugDiagnoseInlinesToolRegistration = mwccDiagnoseTool(
+  "mwcc_debug_diagnose_inlines",
+  "MWCC Diagnose Inlines",
+  "inlines",
+  "Find inline/helper extraction boundaries that might explain a mismatch.",
+  "Use mwcc_debug_diagnose_inlines when mismatch evidence suggests helper extraction or inline boundary movement.",
+);
+
+export const mwccDebugRawDumpToolRegistration = mwccDiagnoseTool(
+  "mwcc_debug_raw_dump",
+  "MWCC Raw Dump",
+  "raw",
+  "Return the raw function-filtered mwcc_debug pcdump.",
+  "Use mwcc_debug_raw_dump only when a specific compiler-pass detail is needed and summarized dump/diagnose output is insufficient.",
+);
+
+/** Tool for bounded source-permutation search. */
+export const sourcePermuterRunToolRegistration = knowledgeApiTool({
+  id: "source_permuter_run",
+  toolId: "source_permuter",
+  scriptName: "run.py",
+  label: "Source Permuter Run",
+  purpose: "Run a bounded non-mutating source permutation search for one function.",
+  description: "Search source-level mutations, compile candidates with MWCC, and return the best diff without applying it.",
+  guidance: "Use source_permuter_run only as an expensive last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
+  parameters: {
+    type: "object",
+    properties: {
+      function: { type: "string", description: "Function symbol whose object code is scored." },
+      mutate_functions: { type: "array", items: { type: "string" }, description: "Optional functions in the same TU to mutate." },
+      max_iters: { type: "number", description: "Maximum compiled candidates." },
+      timeout_seconds: { type: "number", description: "Maximum search runtime." },
+      jobs: { type: "number", description: "Worker threads, capped by the source-permuter API policy." },
+      seed: { type: "number", description: "Random seed." },
+      keep_prob: { type: "number", description: "Probability of stacking another mutation." },
+      no_narrow: { type: "boolean", description: "Skip post-search narrowing." },
+      save_replay: { type: "string", description: "Optional replay JSON path." },
+    },
+    required: ["function"],
+    additionalProperties: false,
+  },
+  args: sourcePermuterRunArgs,
+});
+
+/** Build source-permuter arguments with sandbox auto-parallelism and serial host fallback. */
+export function sourcePermuterRunArgs(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown> {
+  const fn = stringParam(params, "function");
+  if (!fn) return { status: "missing_function" };
+  const args = [
+    "--repo-root",
+    context.repoRoot,
+    "--function",
+    fn,
+    "--max-iters",
+    String(boundedNumber(params.max_iters, 32, 1, 10_000)),
+    "--timeout-seconds",
+    String(boundedNumber(params.timeout_seconds, 90, 5, 900)),
+    "--seed",
+    String(boundedNumber(params.seed, 0, 0, 2_147_483_647)),
+    "--apply",
+    "never",
+  ];
+  if (params.jobs !== undefined) args.push("--jobs", String(boundedNumber(params.jobs, 1, 1, 16)));
+  else if (!context.sandboxHandle) args.push("--jobs", "1");
+  const mutateFunctions = stringListParam(params.mutate_functions);
+  for (const mutateFn of mutateFunctions) args.push("--mutate-function", mutateFn);
+  if (typeof params.keep_prob === "number") args.push("--keep-prob", String(params.keep_prob));
+  if (boolParam(params, "no_narrow")) args.push("--no-narrow");
+  const saveReplay = stringParam(params, "save_replay");
+  if (saveReplay) args.push("--save-replay", gamePath(context, saveReplay));
+  return args;
+}
+
+/** Tool for replaying a saved source-permutation recipe without applying it. */
+export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
+  id: "source_permuter_replay",
+  toolId: "source_permuter",
+  scriptName: "replay.py",
+  label: "Source Permuter Replay",
+  purpose: "Replay a saved source-permutation recipe without writing source.",
+  description: "Replay a permuter recipe against current source and return the resulting candidate diff/score.",
+  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; it is an expensive last-resort tool that runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the diff before applying anything.",
+  parameters: {
+    type: "object",
+    properties: {
+      replay: { type: "string", description: "Path to replay JSON recipe." },
+      function: { type: "string", description: "Optional function guard." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+    },
+    required: ["replay"],
+    additionalProperties: false,
+  },
+  args(params, context) {
+    const replay = stringParam(params, "replay");
+    if (!replay) return { status: "missing_replay" };
+    const args = ["--repo-root", context.repoRoot, "--replay", gamePath(context, replay), "--apply", "never", "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 120, 10, 900))];
+    const fn = stringParam(params, "function");
+    if (fn) args.push("--function", fn);
+    return args;
+  },
+});
+
+/** Tool for previewing one or more source mutation steps as a diff. */
+export const sourceMutationPreviewToolRegistration = knowledgeApiTool({
+  id: "source_mutation_preview",
+  toolId: "source_permuter",
+  scriptName: "preview_mutation.py",
+  label: "Source Mutation Preview",
+      apply: { type: "boolean", description: "Write or replace the helper in source. Defaults to false preview mode." },
+      validate: { type: "boolean", description: "After apply, direct-compile the TU and compare .sdata2 order." },
+      prefer_named_macros: { type: "boolean", description: "Emit known game macros such as S32_TO_F32 instead of raw double literals." },
+    },
+    additionalProperties: false,
+  },
+  args(params, context) {
+    const source = stringParam(params, "source");
+    const unit = stringParam(params, "unit");
+    if (!source && !unit) return { status: "missing_source_or_unit" };
+    const args = ["--repo-root", context.repoRoot];
+    if (source) args.push("--source", gamePath(context, source));
+    else args.push("--unit", unit);
+    for (const symbol of stringListParam(params.symbols)) args.push("--symbol", symbol);
+    const name = stringParam(params, "name");
+    if (name) args.push("--name", name);
+    if (boolParam(params, "apply")) args.push("--apply");
+    if (boolParam(params, "validate")) args.push("--validate");
+    if (boolParam(params, "prefer_named_macros")) args.push("--prefer-named-macros");
+    return args;
+  },
+});
+
+/** Tool for capturing live MWCC register-allocator state for one function. */
+export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_snapshot",
+  toolId: "mwcc_alloc",
+  scriptName: "snapshot.py",
+  label: "MWCC Allocator Snapshot",
+  purpose: "Capture live MWCC register-allocator/coloring state for one function.",
+  description: "Capture PCode blocks, the interference graph, and simplify order by running the stock MWCC under qemu+gdb in the sandbox.",
+  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures before/after coloring snapshots you can feed to mwcc_alloc_compare.",
+  parameters: {
+    type: "object",
+    properties: {
+      unit: { type: "string", description: "Workspace-relative translation unit path." },
+      function: { type: "string", description: "Function symbol to capture." },
+      capture: { type: "string", enum: ["pcode", "coloring", "pair"], description: "Allocator state to capture. Defaults to pair." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+    },
+    required: ["unit", "function"],
+    additionalProperties: false,
+  },
+  executionMode: "sequential",
+  args(params, context) {
+    const unit = stringParam(params, "unit");
+    const fn = stringParam(params, "function");
+    if (!unit || !fn) return { status: "missing_unit_or_function" };
+    const capture = stringParam(params, "capture") || "pair";
+    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800))];
+  },
+});
+
+/** Tool for comparing two MWCC coloring snapshots. */
+export const mwccAllocCompareToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_compare",
+  toolId: "mwcc_alloc",
+  scriptName: "compare.py",
+  label: "MWCC Coloring Compare",
+  purpose: "Diff two MWCC coloring snapshots per virtual register.",
+  description: "Compare two allocator coloring snapshots and report changes for each virtual register.",
+  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. Deltas show interference, physical-register, and simplify-order movement.",
+  parameters: {
+    type: "object",
+    properties: {
+      before: { type: "string", description: "Workspace-relative path to the before snapshot JSON." },
+      after: { type: "string", description: "Workspace-relative path to the after snapshot JSON." },
+    },
+    required: ["before", "after"],
+    additionalProperties: false,
+  },
+  executionMode: "parallel",
+  args(params, context) {
+    const before = stringParam(params, "before");
+    const after = stringParam(params, "after");
+    if (!before || !after) return { status: "missing_before_or_after" };
+    return ["--repo-root", context.repoRoot, "--before", before, "--after", after];
+  },
+});
+
+/** All callable decomp capability wrappers, reusable across profiles. */
+
+codex
+The requested grep found assertions in `prompt.test.ts` for both retired terms: `opseq` at lines 42, 43, 52, 198, 207, and 362; `last resort` at line 370. `kernel-catalog.test.ts` has no matching assertion. I will report these without editing either file.
+exec
+/bin/zsh -lc 'rg -n "function knowledgeApiTool|jsonToolResult|sourcePermuterRun|directCompileTu|runKnowledgeToolApiForContext" apps/server/src/core/tools/wrappers apps/server/src/core/tools/**/*.test.ts | head -200; git diff -- apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:4:const { sourcePermuterRunArgs } = await import("./capabilities.js");
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:21:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn" }, context(true)))).toEqual([]);
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:22:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn" }, context(false)))).toEqual(["--jobs", "1"]);
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:23:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn", jobs: 32 }, context(true)))).toEqual(["--jobs", "16"]);
+apps/server/src/core/tools/wrappers/capabilities.ts:9:import { runKnowledgeToolApiForContext } from "../runtime/execution.js";
+apps/server/src/core/tools/wrappers/capabilities.ts:11:import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+apps/server/src/core/tools/wrappers/capabilities.ts:132:          if (!query) return jsonToolResult(definition.id, { status: "missing_query" });
+apps/server/src/core/tools/wrappers/capabilities.ts:133:          return jsonToolResult(
+apps/server/src/core/tools/wrappers/capabilities.ts:135:            await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, ["--query", query, "--limit", String(boundedLimit(params.limit)), "--json"]),
+apps/server/src/core/tools/wrappers/capabilities.ts:144:function knowledgeApiTool(definition: KnowledgeApiToolDefinition): AgentToolRegistration {
+apps/server/src/core/tools/wrappers/capabilities.ts:161:          if (!Array.isArray(args)) return jsonToolResult(definition.id, args);
+apps/server/src/core/tools/wrappers/capabilities.ts:162:          return jsonToolResult(definition.id, await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]));
+apps/server/src/core/tools/wrappers/capabilities.ts:226:export const directCompileTuToolRegistration = knowledgeApiTool({
+apps/server/src/core/tools/wrappers/capabilities.ts:420:export const sourcePermuterRunToolRegistration = knowledgeApiTool({
+apps/server/src/core/tools/wrappers/capabilities.ts:444:  args: sourcePermuterRunArgs,
+apps/server/src/core/tools/wrappers/capabilities.ts:448:export function sourcePermuterRunArgs(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown> {
+apps/server/src/core/tools/wrappers/capabilities.ts:905:  directCompileTuToolRegistration,
+apps/server/src/core/tools/wrappers/capabilities.ts:912:  sourcePermuterRunToolRegistration,
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:4:const { sourcePermuterRunArgs } = await import("./capabilities.js");
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:21:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn" }, context(true)))).toEqual([]);
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:22:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn" }, context(false)))).toEqual(["--jobs", "1"]);
+apps/server/src/core/tools/wrappers/source-permuter-args.test.ts:23:    expect(jobsArgs(sourcePermuterRunArgs({ function: "fn", jobs: 32 }, context(true)))).toEqual(["--jobs", "16"]);
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:13:import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:211:        return jsonToolResult("kv2_discord_search", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:239:        return jsonToolResult("kv2_wiki_search", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:266:        return jsonToolResult("kv2_pr_search", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:294:        return jsonToolResult("kv2_attempt_search", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:320:        return jsonToolResult("kv2_subject_record", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:347:        return jsonToolResult("kv2_entity_lookup", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:372:        return jsonToolResult("kv2_resolve_locator", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge-v2.ts:399:        return jsonToolResult("kv2_unit_context", { ...payload });
+apps/server/src/core/tools/wrappers/knowledge.ts:4:import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+apps/server/src/core/tools/wrappers/knowledge.ts:72:          if (!query) return jsonToolResult(definition.id, { status: "missing_query" });
+apps/server/src/core/tools/wrappers/knowledge.ts:74:          return jsonToolResult(
+apps/server/src/core/tools/wrappers/knowledge.ts:101:        return jsonToolResult("code_graph_file_card", graphFileCard(context, sourcePath));
+apps/server/src/core/tools/wrappers/knowledge.ts:134:        if (!query) return jsonToolResult("knowledge_graph_search", { status: "missing_query" });
+apps/server/src/core/tools/wrappers/knowledge.ts:135:        return jsonToolResult(
+apps/server/src/core/tools/wrappers/knowledge.ts:160:        return jsonToolResult(
+
+collab: Wait
+collab: Wait
+codex
+The two implementation tracks are still running. The key wrapper shape is confirmed: adapter JSON currently lands under `parsed`, which explains why permuter failures appear inside an outer successful result. The fix needs a tool-specific result normalizer, not an adapter change.
+exec
+/bin/zsh -lc 'git status --short apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py && git diff -- apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+collab: Wait
+exec
+/bin/zsh -lc 'git status --short apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+ M apps/server/src/core/tools/metadata/capabilities.ts
+ M apps/server/src/core/tools/metadata/knowledge-v2.ts
+ M apps/server/src/core/tools/metadata/knowledge.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2.ts
+ M apps/server/src/core/tools/wrappers/knowledge.ts
+
+collab: Wait
+collab: Wait
+exec
+/bin/zsh -lc 'git status --short apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py && git diff --stat -- apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+ M apps/server/src/core/tools/metadata/capabilities.ts
+ M apps/server/src/core/tools/metadata/knowledge-v2.ts
+ M apps/server/src/core/tools/metadata/knowledge.ts
+ M apps/server/src/core/tools/wrappers/capabilities.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2.ts
+ M apps/server/src/core/tools/wrappers/knowledge.ts
+ .../server/src/core/tools/metadata/capabilities.ts | 14 ++--
+ .../server/src/core/tools/metadata/knowledge-v2.ts |  2 +-
+ apps/server/src/core/tools/metadata/knowledge.ts   |  2 +-
+ .../server/src/core/tools/wrappers/capabilities.ts | 80 ++++++++++++++++------
+ .../server/src/core/tools/wrappers/knowledge-v2.ts |  8 +--
+ apps/server/src/core/tools/wrappers/knowledge.ts   | 10 +--
+ 6 files changed, 78 insertions(+), 38 deletions(-)
+
+codex
+Description updates are complete and their two role-test files pass: 3 tests, 47 assertions. The wrapper-fix track is now editing the capability wrapper and tests; after it finishes I’ll run the required full `src/core/tools` suite.
+collab: Wait
+exec
+/bin/zsh -lc "git diff -- apps/server/src/core/tools/wrappers/capabilities.ts | sed -n '1,260p'; git status --short apps/server/src/core/tools" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 22ms:
+ M apps/server/src/core/tools/metadata/capabilities.ts
+ M apps/server/src/core/tools/metadata/knowledge-v2.ts
+ M apps/server/src/core/tools/metadata/knowledge.ts
+ M apps/server/src/core/tools/wrappers/capabilities.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2.ts
+ M apps/server/src/core/tools/wrappers/knowledge.ts
+?? apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts
+
+collab: Wait
+exec
+/bin/zsh -lc "sed -n '1,260p' apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { describe, expect, test } from "bun:test";
+import type { AgentToolRuntimeContext } from "../types.js";
+import {
+  annotateIgnoredDirectCompileUnit,
+  directCompileTuArgs,
+  promoteSourcePermuterInvocationFailure,
+} from "./capabilities.js";
+
+const context = { repoRoot: "/opt/melee" } as AgentToolRuntimeContext;
+
+describe("capability wrapper result normalization", () => {
+  test("direct_compile_tu prefers function and reports that unit was ignored", () => {
+    const params = { function: "PlayerThink", unit: "melee/player" };
+
+    expect(directCompileTuArgs(params, context)).toEqual([
+      "--repo-root",
+      "/opt/melee",
+      "--function",
+      "PlayerThink",
+    ]);
+    expect(annotateIgnoredDirectCompileUnit({ status: "ok" }, params)).toEqual({
+      status: "ok",
+      note: "unit was ignored because function implies the unit.",
+    });
+  });
+
+  test("source_permuter_run promotes function lookup and source parse failures", () => {
+    expect(promoteSourcePermuterInvocationFailure({
+      status: "ok",
+      parsed: {
+        status: "failed",
+        stderr: "error: function 'MissingFn' not found in /opt/melee/src/melee/player.c",
+      },
+    })).toMatchObject({
+      status: "failed",
+      reason: "error: function 'MissingFn' not found in /opt/melee/src/melee/player.c",
+    });
+
+    expect(promoteSourcePermuterInvocationFailure({
+      status: "ok",
+      parsed: {
+        status: "failed",
+        reason: "parse failure at source path /opt/melee/src/melee/player.c",
+      },
+    })).toMatchObject({
+      status: "failed",
+      reason: "parse failure at source path /opt/melee/src/melee/player.c",
+    });
+  });
+});
+
+collab: Wait
+codex
+Both fixes are implemented and the agent’s full tool suite passed. I’m doing the final audit now: exact requested wording, no remaining permuter “last-resort” text, diff hygiene, and an independent full test run.
+exec
+/bin/zsh -lc "rg -n -i \"opseq|last[ -]resort\" apps/server/src/core/tools/metadata apps/server/src/core/tools/wrappers; git diff --check; git diff --name-only -- apps/server/src/core/tools toolpacks/gamecube-decomp/validation/checkdiff/api/direct_compile.py; git diff -- apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts apps/server/src/core/tools/wrappers/capabilities.ts | sed -n '1,320p'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/tools/wrappers/capabilities.ts:891:  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
+apps/server/src/core/tools/wrappers/knowledge.ts:144:/** Tool for graph-owned opseq analogs, callers, callees, and data references. */
+apps/server/src/core/tools/wrappers/knowledge.ts:149:  capabilities: ["knowledge_graph", "opseq_similarity", "call_graph", "function_relationships"],
+apps/server/src/core/tools/metadata/capabilities.ts
+apps/server/src/core/tools/metadata/knowledge-v2.ts
+apps/server/src/core/tools/metadata/knowledge.ts
+apps/server/src/core/tools/wrappers/capabilities.ts
+apps/server/src/core/tools/wrappers/knowledge-v2.ts
+apps/server/src/core/tools/wrappers/knowledge.ts
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 0042542e..86de34c3 100644
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -50,6 +50,7 @@ interface KnowledgeApiToolDefinition {
+   parameters: Record<string, unknown>;
+   executionMode?: "parallel" | "sequential";
+   args(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown>;
++  normalizeResult?(result: Record<string, unknown>, params: Record<string, unknown>): Record<string, unknown>;
+ }
+ 
+ const functionParameters = {
+@@ -159,7 +160,8 @@ function knowledgeApiTool(definition: KnowledgeApiToolDefinition): AgentToolRegi
+         async execute(_toolCallId, params) {
+           const args = definition.args(params, context);
+           if (!Array.isArray(args)) return jsonToolResult(definition.id, args);
+-          return jsonToolResult(definition.id, await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]));
++          const result = await runKnowledgeToolApiForContext(context, definition.toolId, definition.scriptName, [...args, "--json"]);
++          return jsonToolResult(definition.id, definition.normalizeResult?.(result, params) ?? result);
+         },
+       };
+     },
+@@ -184,13 +186,13 @@ export const checkdiffRunToolRegistration = knowledgeApiTool({
+   scriptName: "run.py",
+   label: "Checkdiff Run",
+   purpose: "Run focused checkdiff/objdiff output for one function.",
+-  description: "Compile the owning translation unit through the tool-local helper and return focused checkdiff output for one function.",
++  description: "Compile the owning translation unit and return focused checkdiff output for one function. full_diff returns up to 24 mismatching rows with kind and both sides (left = target, right = current). Instruction parity can still hide strict relocation/data differences.",
+   guidance: "Use checkdiff_run after a concrete source edit or mismatch hypothesis needs verifier evidence; prefer it over raw tools/asm-differ/diff.py shell commands and preserve stdout/stderr plus command provenance in the report.",
+   parameters: {
+     type: "object",
+     properties: {
+       function: { type: "string", description: "Function symbol to diff." },
+-      full_diff: { type: "boolean", description: "Show matching lines instead of collapsed context." },
++      full_diff: { type: "boolean", description: "Return up to 24 mismatching rows with kind and both sides." },
+       timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+     },
+     required: ["function"],
+@@ -229,7 +231,7 @@ export const directCompileTuToolRegistration = knowledgeApiTool({
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+@@ -240,18 +242,28 @@ export const directCompileTuToolRegistration = knowledgeApiTool({
+     },
+     additionalProperties: false,
+   },
+-  args(params, context) {
+-    const fn = stringParam(params, "function");
+-    const unit = stringParam(params, "unit");
+-    if (!fn && !unit) return { status: "missing_function_or_unit" };
+-    const args = ["--repo-root", context.repoRoot];
+-    if (fn) args.push("--function", fn);
+-    if (unit) args.push("--unit", unit);
+-    if (boolParam(params, "keep_object")) args.push("--keep-object");
+-    return args;
+-  },
++  args: directCompileTuArgs,
++  normalizeResult: annotateIgnoredDirectCompileUnit,
+ });
+ 
++/** Build direct-compile arguments, preferring function because it identifies the unit. */
++export function directCompileTuArgs(params: Record<string, unknown>, context: AgentToolRuntimeContext): string[] | Record<string, unknown> {
++  const fn = stringParam(params, "function");
++  const unit = stringParam(params, "unit");
++  if (!fn && !unit) return { status: "missing_function_or_unit" };
++  const args = ["--repo-root", context.repoRoot];
++  if (fn) args.push("--function", fn);
++  else args.push("--unit", unit);
++  if (boolParam(params, "keep_object")) args.push("--keep-object");
++  return args;
++}
++
++/** Tell the caller when a redundant unit selector was omitted from the CLI call. */
++export function annotateIgnoredDirectCompileUnit(result: Record<string, unknown>, params: Record<string, unknown>): Record<string, unknown> {
++  if (!stringParam(params, "function") || !stringParam(params, "unit")) return result;
++  return { ...result, note: "unit was ignored because function implies the unit." };
++}
++
+ /** Tool for scoring an already-built candidate object with objdiff. */
+ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
+   id: "objdiff_score_candidate",
+@@ -396,7 +408,7 @@ export const mwccDebugDiagnoseRegflowToolRegistration = mwccDiagnoseTool(
+   "mwcc_debug_diagnose_regflow",
+   "MWCC Diagnose Regflow",
+   "regflow",
+-  "Diagnose compact register-flow/register-coloring mismatch windows.",
++  "Return one compact register-only window; not full liveness or FPR coloring.",
+   "Use mwcc_debug_diagnose_regflow for late register-only windows; do not use it as a substitute for fixing instruction sequence, calls, types, or source structure first.",
+ );
+ 
+@@ -423,8 +435,8 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
+   scriptName: "run.py",
+   label: "Source Permuter Run",
+   purpose: "Run a bounded non-mutating source permutation search for one function.",
+-  description: "Search source-level mutations, compile candidates with MWCC, and return the best diff without applying it.",
+-  guidance: "Use source_permuter_run only as an expensive last-resort source-shape search after cheaper source review, reference matching, mismatch lookup, mutation preview, and checkdiff evidence are exhausted; it runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
++  description: "Search source mutations in named functions and return the best scalar score and one source diff. Returns no instruction rows; replay the candidate and read its delta with checkdiff_run. Use only on a named region after the residual is classified.",
++  guidance: "source_permuter_run runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
+   parameters: {
+     type: "object",
+     properties: {
+@@ -442,6 +454,7 @@ export const sourcePermuterRunToolRegistration = knowledgeApiTool({
+     additionalProperties: false,
+   },
+   args: sourcePermuterRunArgs,
++  normalizeResult: promoteSourcePermuterInvocationFailure,
+ });
+ 
+ /** Build source-permuter arguments with sandbox auto-parallelism and serial host fallback. */
+@@ -473,6 +486,33 @@ export function sourcePermuterRunArgs(params: Record<string, unknown>, context:
+   return args;
+ }
+ 
++function recordValue(value: unknown): Record<string, unknown> | null {
++  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
++}
++
++function firstFailureReason(payload: Record<string, unknown>): string {
++  for (const key of ["reason", "message", "error", "error_summary", "stderr", "stdout", "parse_error"]) {
++    const value = payload[key];
++    if (typeof value === "string" && value.trim()) return value.trim();
++  }
++  return "Source permuter could not find or parse the requested function at its source path.";
++}
++
++/** Promote source-selection failures printed by the adapter into the wrapper result. */
++export function promoteSourcePermuterInvocationFailure(result: Record<string, unknown>): Record<string, unknown> {
++  const nested = recordValue(result.parsed);
++  if (!nested || nested.status === "ok") return result;
++
++  const evidence = [nested.status, nested.reason, nested.message, nested.error, nested.error_summary, nested.stderr, nested.stdout, nested.parse_error]
++    .filter((value): value is string => typeof value === "string")
++    .join("\n");
++  const functionMissing = /function(?:_|[\s-])*not(?:_|[\s-])*found|function[^\n]*not in [^\n]*report\.json|function[^\n]*not found in/i.test(evidence);
++  const sourceParseFailed = /(?:parse|parsing|parser)(?:_|[\s-])*(?:failure|failed|error)[^\n]*(?:source|path|[/\\]src[/\\]|\.c\b)|(?:source|path|[/\\]src[/\\]|\.c\b)[^\n]*(?:parse|parsing|parser)(?:_|[\s-])*(?:failure|failed|error)/i.test(evidence);
++  if (!functionMissing && !sourceParseFailed) return result;
++
++  return { ...result, status: "failed", reason: firstFailureReason(nested) };
++}
++
+ /** Tool for replaying a saved source-permutation recipe without applying it. */
+ export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
+   id: "source_permuter_replay",
+@@ -480,8 +520,8 @@ export const sourcePermuterReplayToolRegistration = knowledgeApiTool({
+   scriptName: "replay.py",
+   label: "Source Permuter Replay",
+   purpose: "Replay a saved source-permutation recipe without writing source.",
+-  description: "Replay a permuter recipe against current source and return the resulting candidate diff/score.",
+-  guidance: "Use source_permuter_replay when a previous candidate recipe needs validation against the current checkout; it is an expensive last-resort tool that runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the diff before applying anything.",
++  description: "Replay a saved permuter recipe and return its score and source diff; read the instruction delta with checkdiff_run afterwards.",
++  guidance: "source_permuter_replay runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue. Inspect the source diff before applying anything.",
+   parameters: {
+     type: "object",
+     properties: {
+@@ -848,7 +888,7 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
+   label: "MWCC Allocator Snapshot",
+   purpose: "Capture live MWCC register-allocator/coloring state for one function.",
+   description: "Capture PCode blocks, the interference graph, and simplify order by running the stock MWCC under qemu+gdb in the sandbox.",
+-  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures before/after coloring snapshots you can feed to mwcc_alloc_compare.",
++  guidance: "Use this as last-resort register-shape evidence only after checkdiff/mwcc_debug_lookup and source-shape evidence stall on a register-allocation-only mismatch. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. A call takes minutes because the compile runs under qemu, so batch your questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
+   parameters: {
+     type: "object",
+     properties: {
+@@ -878,7 +918,7 @@ export const mwccAllocCompareToolRegistration = knowledgeApiTool({
+   label: "MWCC Coloring Compare",
+   purpose: "Diff two MWCC coloring snapshots per virtual register.",
+   description: "Compare two allocator coloring snapshots and report changes for each virtual register.",
+-  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. Deltas show interference, physical-register, and simplify-order movement.",
++  guidance: "Feed it the before/after paths returned by mwcc_alloc_snapshot. GPR coloring only; no FPR coloring; before/after are two stages of one compile, not candidate vs target. Deltas show interference, physical-register, and simplify-order movement.",
+   parameters: {
+     type: "object",
+     properties: {
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/tools/wrappers/capabilities.ts
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+exec
+/bin/zsh -lc 'bun test src/core/tools' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server
+ succeeded in 703ms:
+
+ 49 pass
+ 0 fail
+ 229 expect() calls
+Ran 49 tests across 12 files. [826.00ms]
+
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+exec
+/bin/zsh -lc 'git diff --check && git status --short && rg -n -i "source_permuter_(run|replay).*last[ -]resort|last[ -]resort.*source_permuter" apps/server/src/core/tools || true; rg -n -i "opseq|last[ -]resort" apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts apps/server/src/core/agent-catalog/kernel-catalog.test.ts' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 523ms:
+ M apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/packet.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts
+ M apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+ M apps/server/src/core/knowledge-v2/card.test.ts
+ M apps/server/src/core/knowledge-v2/card.ts
+ M apps/server/src/core/knowledge-v2/index/fts.test.ts
+ M apps/server/src/core/knowledge-v2/index/fts.ts
+ M apps/server/src/core/knowledge-v2/tools.test.ts
+ M apps/server/src/core/knowledge-v2/tools.ts
+ M apps/server/src/core/tools/metadata/capabilities.ts
+ M apps/server/src/core/tools/metadata/knowledge-v2.ts
+ M apps/server/src/core/tools/metadata/knowledge.ts
+ M apps/server/src/core/tools/wrappers/capabilities.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2.ts
+ M apps/server/src/core/tools/wrappers/knowledge.ts
+?? analysis/worker-prompt-audit-2026-09-03/
+?? apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts
+?? games/melee/knowledge/backups/
+?? games/melee/knowledge/knowledge.sqlite-shm
+?? games/melee/knowledge/knowledge.sqlite-wal
+?? objectives/knowledge-system-v2/
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:67:              tool_id: "opseq",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:68:              source_id: "opseq_similarity",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:77:              evidence_ref: "opseq:test",
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:243:    expect(renderedContext).not.toContain('"top_opseq_analog"');
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts:248:    expect(renderedContext).not.toContain("opseq_similar_functions");
+
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+exec
+/bin/zsh -lc 'bun test src/core/tools && git diff --check' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server
+ succeeded in 350ms:
+
+ 49 pass
+ 0 fail
+ 229 expect() calls
+Ran 49 tests across 12 files. [431.00ms]
+
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+codex
+DONE: both wrapper fixes and all requested model-facing descriptions are complete.
+
+Description changes
+
+- `graph_related_functions`: “opseq analogs” → “instruction-shape analogs, callers, callees, data references, and corroborating xrefs.”
+- `source_permuter_run`: “expensive last-resort search” → bounded named-function mutation probe returning one scalar score and source diff; instruction deltas require `checkdiff_run`.
+- `source_permuter_replay`: “expensive last-resort replay” → saved-recipe replay returning its score and source diff; instruction deltas require `checkdiff_run`.
+- `mwcc_alloc_snapshot`: generic allocator evidence → GPR coloring only, no FPR coloring; before/after are stages of one compile.
+- `mwcc_alloc_compare`: generic snapshot comparison → GPR coloring only, no FPR coloring; not candidate versus target.
+- `mwcc_debug_diagnose_regflow`: generic register-flow diagnosis → one compact register-only window, not full liveness or FPR coloring.
+- `checkdiff_run`: generic focused diff → documents the 24-row limit, row kind, target/current sides, and strict relocation/data caveat.
+- `direct_compile_tu`: function-or-unit description → explicitly says, “Pass exactly one of `function` or `unit`.”
+- `kv2_attempt_search`: generic attempt history → accepts a stable target key or text query and returns summaries and observations with hits.
+
+Fixes
+
+1. `direct_compile_tu` now forwards only `function` when both selectors are supplied. Its result includes `note: "unit was ignored because function implies the unit."`
+2. `source_permuter_run` now promotes function lookup and source parsing failures to top-level `status: "failed"` with a `reason`.
+
+Files changed
+
+- `apps/server/src/core/tools/metadata/{capabilities,knowledge,knowledge-v2}.ts`
+- `apps/server/src/core/tools/wrappers/{capabilities,knowledge,knowledge-v2}.ts`
+- `apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts`
+
+`direct_compile.py` required no change.
+
+Tests added
+
+- Direct compile selector precedence and result note.
+- Permuter function-not-found and source-parse failure promotion.
+
+Validation
+
+- `cd apps/server && bun test src/core/tools`
+- 49 passed, 0 failed, 229 assertions.
+- `git diff --check` passed.
+- Current `prompt.test.ts` still contains `opseq` fixture/assertion references at lines 67, 68, 77, 243, and 248. No matching `last resort` assertion remains.
+- `kernel-catalog.test.ts` has no matching assertion.
+- Neither owned test file was edited.
+diff --git a/apps/server/src/core/tools/wrappers/capabilities.ts b/apps/server/src/core/tools/wrappers/capabilities.ts
+index 86de34c37006cc392cdf8ee2c9135f581957951d..d2a3685ba7918f87bc796647e496bdad04fa94eb
+--- a/apps/server/src/core/tools/wrappers/capabilities.ts
++++ b/apps/server/src/core/tools/wrappers/capabilities.ts
+@@ -231,7 +231,7 @@
+   scriptName: "direct_compile.py",
+   label: "Direct Compile TU",
+   purpose: "Compile one function's translation unit through the exact MWCC build rule.",
+-  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of function or unit.",
++  description: "Run the tool-local direct-compile path for a function or unit without running objdiff. Pass exactly one of `function` or `unit`.",
+   guidance: "Use direct_compile_tu to separate compiler/build failures from objdiff mismatches before deeper diagnosis.",
+   parameters: {
+     type: "object",
+
+tokens used
+66,712
+DONE: both wrapper fixes and all requested model-facing descriptions are complete.
+
+Description changes
+
+- `graph_related_functions`: “opseq analogs” → “instruction-shape analogs, callers, callees, data references, and corroborating xrefs.”
+- `source_permuter_run`: “expensive last-resort search” → bounded named-function mutation probe returning one scalar score and source diff; instruction deltas require `checkdiff_run`.
+- `source_permuter_replay`: “expensive last-resort replay” → saved-recipe replay returning its score and source diff; instruction deltas require `checkdiff_run`.
+- `mwcc_alloc_snapshot`: generic allocator evidence → GPR coloring only, no FPR coloring; before/after are stages of one compile.
+- `mwcc_alloc_compare`: generic snapshot comparison → GPR coloring only, no FPR coloring; not candidate versus target.
+- `mwcc_debug_diagnose_regflow`: generic register-flow diagnosis → one compact register-only window, not full liveness or FPR coloring.
+- `checkdiff_run`: generic focused diff → documents the 24-row limit, row kind, target/current sides, and strict relocation/data caveat.
+- `direct_compile_tu`: function-or-unit description → explicitly says, “Pass exactly one of `function` or `unit`.”
+- `kv2_attempt_search`: generic attempt history → accepts a stable target key or text query and returns summaries and observations with hits.
+
+Fixes
+
+1. `direct_compile_tu` now forwards only `function` when both selectors are supplied. Its result includes `note: "unit was ignored because function implies the unit."`
+2. `source_permuter_run` now promotes function lookup and source parsing failures to top-level `status: "failed"` with a `reason`.
+
+Files changed
+
+- `apps/server/src/core/tools/metadata/{capabilities,knowledge,knowledge-v2}.ts`
+- `apps/server/src/core/tools/wrappers/{capabilities,knowledge,knowledge-v2}.ts`
+- `apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts`
+
+`direct_compile.py` required no change.
+
+Tests added
+
+- Direct compile selector precedence and result note.
+- Permuter function-not-found and source-parse failure promotion.
+
+Validation
+
+- `cd apps/server && bun test src/core/tools`
+- 49 passed, 0 failed, 229 assertions.
+- `git diff --check` passed.
+- Current `prompt.test.ts` still contains `opseq` fixture/assertion references at lines 67, 68, 77, 243, and 248. No matching `last resort` assertion remains.
+- `kernel-catalog.test.ts` has no matching assertion.
+- Neither owned test file was edited.

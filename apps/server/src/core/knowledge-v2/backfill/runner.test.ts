@@ -371,6 +371,9 @@ describe("runBackfill sharding", () => {
         dryRun: true,
         shard: { index: shardIndex, count: 2 },
         runPiAgent: (options) => {
+          expect(options.toolContext?.knowledgeCheckoutRoot).toBe(join(f.root, "checkout"));
+          expect(options.prompt.kernelContext?.renderedContext).toContain("Proposed-name reading view: src/main.c");
+          expect(options.prompt.kernelContext?.renderedContext).toContain("void fixture(void) {}");
           claimsByShard[shardIndex].push(requestedTargetId(options));
           return modelResult({ facts: [], links: [], entities: [], merges: [] });
         },

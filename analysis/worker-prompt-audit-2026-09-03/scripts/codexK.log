@@ -1,0 +1,2960 @@
+Reading additional input from stdin...
+OpenAI Codex v0.153.3
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a0728f-5743-7c83-8acd-47d6813b0409
+--------
+user
+# Task K: Worker defaults → gpt-6-astra, medium thinking, 12 workers
+
+Repo: `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness`. Do not touch `games/melee/**`. Use sub-agents / parallel execution where useful.
+
+OpenAI's `gpt-6-astra` (reasoning effort values low/medium/high/xhigh/max; 1,050,000-token context; 128,000 max output; $10/$50 per 1M in/out) becomes the WORKER default. Only the worker: the librarian-v2, backfill-librarian, worker-summarizer agents, the sync/ingest defaults, and the build-fixer `codex exec` calls stay on `gpt-5.6-sol`.
+
+## Server
+1. `apps/server/src/core/agent-catalog/agents/running/worker/agent.ts`: `model: "codex-lb/gpt-6-astra"`, `thinking: "medium"`.
+2. `apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts` `initRunCommand`: defaults `body.model` → `"gpt-6-astra"`, `body.thinkingLevel` → `"medium"`.
+3. `apps/server/src/core/cycle-runtime/run-state/runs.ts` ~line 560–570 (default configuration snapshot): `model: "gpt-6-astra"`, `thinking_level: "medium"`, and `desired_workers`/workers default 12 if it is defined there.
+4. `apps/server/src/core/cycle-runtime/phases/running/process-command.ts` `runningScheduling`: default max workers 16 → 12.
+5. If any server-side list validates model ids or thinking levels (grep `gpt-5.6-terra`, `"xhigh"`, `ThinkingLevel`), add `gpt-6-astra` and make sure `medium` is accepted; if none exists, say so.
+6. Leave `DEFAULT_PI_MODEL` (`pi-agent.ts`) alone unless it is the only source of the worker default — check `run-loop.ts` `--worker-thinking-level` / worker model resolution and make the worker path resolve to the run's configuration snapshot as today.
+
+## Frontend
+7. `apps/frontend/src/components/app/_lib/runSettings.ts`: `RUN_MODEL_OPTIONS` = `["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"]`; default `model: "gpt-6-astra"`; keep `schedulingForWorkers(12)`; default `thinkingLevel` for the run = `"medium"`; bump the saved-settings version constant (the comment says to bump it when defaults change) so stale saved settings reset; keep `syncModel`/`syncThinking` as they are.
+8. `apps/frontend/src/components/app/index.tsx`: `DEFAULT_THINKING_LEVEL` `"xhigh"` → `"medium"`; review the line ~116 that coerces `medium` back to the default on a version mismatch so it does not undo the new default.
+9. The thinking-level select must offer low / medium / high / xhigh (and `max` if the select is a free list) — check the options source.
+
+## Tests
+Update `process-command.test.ts`, `process-control/runtime.test.ts`, and any test pinning `"xhigh"` or `gpt-5.6-sol` as the worker default (4 files). Run `cd apps/server && bun test src/core/cycle-runtime src/core/agent-catalog` and `bun run ui:check` — green. Print a table of every default changed (file, before → after) and DONE.
+warning: Under-development features enabled: chronicle. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /Users/Ford/.codex/config.toml.
+codex
+I’m splitting the server, frontend, and test-audit work in parallel, then I’ll integrate and run both required checks. I’m also applying the `unslop` skill because this repo requires it for all writing.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'; git status --short; rg --files -g 'AGENTS.md' -g '"'!games/melee/**'"'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 260ms:
+ M objectives/epoch-flow-redesign/current_state.md
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexA.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexB.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexC.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexD.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexE.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexF.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexG.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexH.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexI.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexJ.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexK.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexK_defaults.md
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackA.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackA2.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackB.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackB2.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackC.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackC2.log
+?? games/melee/knowledge/backups/
+?? games/melee/knowledge/knowledge.sqlite-shm
+?? games/melee/knowledge/knowledge.sqlite-wal
+AGENTS.md
+
+2026-09-05T17:13:22.264954Z ERROR codex_core::tools::router: error=failed to parse function arguments: unknown field `instruction`, expected one of `message`, `task_name`, `agent_type`, `model`, `reasoning_effort`, `fork_turns`, `fork_context` at line 1 column 44
+exec
+/bin/zsh -lc "rg -n 'gpt-5\\.6-terra|gpt-5\\.6-sol|gpt-6-astra|\"xhigh\"|ThinkingLevel|DEFAULT_PI_MODEL|worker-thinking-level|maxWorkers|desired_workers' apps/server apps/frontend --glob '"'!**/node_modules/**'"'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/frontend/src/components/app/index.tsx:30:const DEFAULT_THINKING_LEVEL = "xhigh";
+apps/frontend/src/components/app/index.tsx:68:    maxWorkers: body.maxWorkers,
+apps/frontend/src/components/app/index.tsx:69:    workerCount: body.maxWorkers,
+apps/frontend/src/components/app/index.tsx:99:  const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
+apps/frontend/src/components/app/index.tsx:100:  if (maxWorkers !== null) Object.assign(patch, schedulingForWorkers(maxWorkers));
+apps/frontend/src/components/app/index.tsx:268:          ...schedulingForWorkers(current.maxWorkers),
+apps/frontend/src/pages/workspace/_lib/model.ts:33:  | "maxWorkers"
+apps/frontend/src/pages/workspace/_lib/model.ts:35:  const maxWorkers = Math.max(1, Math.trunc(workers));
+apps/frontend/src/pages/workspace/_lib/model.ts:37:    maxWorkers,
+apps/frontend/src/components/details-rail/_components/sync-section.tsx:55:              options={["xhigh", "high", "medium", "low"]}
+apps/frontend/src/components/app/_lib/runSettings.test.ts:24:      thinkingLevel: "xhigh",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:39:          desired_workers: 32,
+apps/frontend/src/components/app/_lib/runSettings.test.ts:41:          model: "gpt-5.6-terra",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:43:          thinking_level: "xhigh",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:50:      maxWorkers: 32,
+apps/frontend/src/components/app/_lib/runSettings.test.ts:52:      model: "gpt-5.6-terra",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:54:      thinkingLevel: "xhigh",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:67:      inputs: { configuration_snapshot: { desired_workers: 32 } },
+apps/frontend/src/pages/workspace/cycles/active/subphases/run/components/RunControls.tsx:25:        <summary>{`Setup - ${text(form.provider, "codex-lb")} - ${form.maxWorkers} workers - timeout ${timeoutMinutes}m`}</summary>
+apps/frontend/src/pages/workspace/cycles/active/subphases/run/components/RunControls.tsx:27:          <SelectField label="Num workers" onChange={(event) => setForm(schedulingForWorkers(Number(event.currentTarget.value)))} options={[...workerCountOptions]} value={form.maxWorkers} />
+apps/frontend/src/components/app/_lib/runSettings.ts:6:// Bump to invalidate saved maxWorkers/model/syncIngestConcurrency when their defaults change.
+apps/frontend/src/components/app/_lib/runSettings.ts:10:export const RUN_MODEL_OPTIONS = ["gpt-5.6-sol", "gpt-5.6-terra"] as const;
+apps/frontend/src/components/app/_lib/runSettings.ts:13:  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
+apps/frontend/src/components/app/_lib/runSettings.ts:15:    maxWorkers,
+apps/frontend/src/components/app/_lib/runSettings.ts:27:  if (typeof snapshot.desired_workers === "number" && snapshot.desired_workers > 0) {
+apps/frontend/src/components/app/_lib/runSettings.ts:28:    patch.maxWorkers = Math.trunc(snapshot.desired_workers);
+apps/frontend/src/components/app/_lib/runSettings.ts:42:  | "maxWorkers"
+apps/frontend/src/components/app/_lib/runSettings.ts:64:    // 12-worker/gpt-5.6-sol/16-way sync-ingest defaults; drop them so the new
+apps/frontend/src/components/app/_lib/runSettings.ts:67:    if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
+apps/frontend/src/components/app/_lib/runSettings.ts:69:    if (currentVersion && (parsed.model === "gpt-5.6-sol" || parsed.model === "gpt-5.6-terra")) settings.model = parsed.model;
+apps/frontend/src/components/app/_lib/runSettings.ts:93:      maxWorkers: form.maxWorkers,
+apps/frontend/src/components/app/_lib/runSettings.ts:117:    ...schedulingForWorkers(merged.maxWorkers),
+apps/frontend/src/components/app/_lib/runSettings.ts:132:  model: "gpt-5.6-sol",
+apps/frontend/src/components/app/_lib/runSettings.ts:139:  syncModel: "gpt-5.6-sol",
+apps/frontend/src/components/details-rail/_components/run-setup.tsx:68:                value={form.maxWorkers}
+apps/frontend/src/components/details-rail/_components/run-setup.tsx:116:              options={["xhigh", "high", "medium", "low"]}
+apps/server/src/api/routes/process-control.test.ts:81:      message: "Requested maxWorkers conflicts with immutable run configuration desired_workers.",
+apps/server/src/api/routes/process-control.test.ts:87:      body: JSON.stringify({ runId: "run-1", maxWorkers: 8 }),
+apps/frontend/src/lib/api-types.ts:39:  maxWorkers: number;
+apps/frontend/src/lib/api-types.ts:104:  desired_workers?: number;
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:59:export const DEFAULT_PI_MODEL = "gpt-5.6-sol";
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:80:// The provider expects "xhigh"; "x-high"/"x_high" variants make it error and fall
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:82:function normalizeThinkingLevel(level: string): string {
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:84:  return normalized === "x-high" || normalized === "x_high" ? "xhigh" : normalized;
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:90:    model: options.model ?? DEFAULT_PI_MODEL,
+apps/server/src/infrastructure/agent-runtime/runtime/pi-agent.ts:91:    thinkingLevel: normalizeThinkingLevel(options.thinkingLevel ?? DEFAULT_PI_THINKING_LEVEL),
+apps/server/src/infrastructure/agent-runtime/runtime/index.ts:4:  DEFAULT_PI_MODEL,
+apps/server/src/core/shared/types/state.ts:3:  | "run_desired_workers_changed"
+apps/server/src/core/cycle/timeline.test.ts:57:         id, goal_kind, goal_value, desired_workers, status, created_at,
+apps/server/src/core/cycle/timeline.test.ts:645:           id, goal_kind, goal_value, desired_workers, status, created_at,
+apps/server/tests/smoke.ts:1618:  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
+apps/server/src/core/cycle-runtime/phases/sync/publication.test.ts:167:       id, goal_kind, goal_value, desired_workers, status, created_at,
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:184:            maxWorkers: 20,
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:188:            thinkingLevel: "xhigh",
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:195:      maxWorkers: 20,
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:199:      thinkingLevel: "xhigh",
+apps/server/src/core/orchestrator-state/run-envelope-cas.ts:60:  add("desired_workers", input.desiredWorkers);
+apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/agent.ts:9:  model: "codex-lb/gpt-5.6-sol",
+apps/server/src/core/orchestrator-state/storage/schema.ts:163:  desiredWorkers: integer("desired_workers").notNull(),
+apps/server/src/core/harness-state/event-query.ts:152:  "desired_workers", "enabled", "execution_class", "failed", "forced",
+apps/server/src/core/harness-state/event-query.ts:157:  "pending", "phase", "previous_desired_workers", "previous_phase",
+apps/server/src/core/agent-catalog/agents/knowledge/worker-summarizer/agent.ts:9:  model: "codex-lb/gpt-5.6-sol",
+apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/agent.ts:9:  model: "codex-lb/gpt-5.6-sol",
+apps/server/src/core/harness-state/lease.test.ts:51:        id, goal_kind, goal_value, desired_workers, status, created_at,
+apps/server/src/core/orchestrator-state/storage/migrations/final-schema.ts:385:    desired_workers INTEGER NOT NULL,
+apps/server/src/core/harness-state/events.test.ts:695:      "run.desired_workers_changed",
+apps/server/src/core/harness-state/events.test.ts:833:          ...envelope("run.drafted", "run", { desired_workers: 2, goal_kind: "score", goal_value: 100 }),
+apps/server/src/core/harness-state/events.test.ts:847:          ...envelope("run.desired_workers_changed", "run", { previous_desired_workers: 2, desired_workers: 3 }),
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts:74:      maxWorkers: 12,
+apps/server/src/core/harness-state/event-registry.ts:176:    desired_workers: required("integer"),
+apps/server/src/core/harness-state/event-registry.ts:222:  "run.desired_workers_changed": v1(
+apps/server/src/core/harness-state/event-registry.ts:227:      previous_desired_workers: required("integer"),
+apps/server/src/core/harness-state/event-registry.ts:228:      desired_workers: required("integer"),
+apps/server/src/core/agent-catalog/agents/running/worker/agent.ts:10:  model: "codex-lb/gpt-5.6-sol",
+apps/server/src/core/agent-catalog/agents/running/worker/agent.ts:44:  thinking: "xhigh",
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:106:    workerCount: numberValue(body.maxWorkers, 16),
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:138:  const { maxWorkers } = runningScheduling(body.maxWorkers);
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:146:    stringValue(body.model, "gpt-5.6-sol"),
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:148:    stringValue(body.thinkingLevel, "xhigh"),
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:154:    String(maxWorkers),
+apps/server/src/core/cycle-runtime/run-state/runs.ts:29:  desired_workers: number;
+apps/server/src/core/cycle-runtime/run-state/runs.ts:78:export type RunStatusPreservingEventType = "run.desired_workers_changed";
+apps/server/src/core/cycle-runtime/run-state/runs.ts:114:  "run.desired_workers_changed": {
+apps/server/src/core/cycle-runtime/run-state/runs.ts:115:    previous_desired_workers: number;
+apps/server/src/core/cycle-runtime/run-state/runs.ts:116:    desired_workers: number;
+apps/server/src/core/cycle-runtime/run-state/runs.ts:245:    desiredWorkers: Number(row.desired_workers),
+apps/server/src/core/cycle-runtime/run-state/runs.ts:339:  "run.desired_workers_changed": "preserve",
+apps/server/src/core/cycle-runtime/run-state/runs.ts:431:  return eventType !== "run.desired_workers_changed" && eventType !== "run.recovered";
+apps/server/src/core/cycle-runtime/run-state/runs.ts:534:          JSON.stringify({ desired_workers: input.patch.desiredWorkers ?? current.desiredWorkers, goal_kind: current.goalKind, goal_value: current.goalValue }),
+apps/server/src/core/cycle-runtime/run-state/runs.ts:558:    desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
+apps/server/src/core/cycle-runtime/run-state/runs.ts:563:    model: "gpt-5.6-sol",
+apps/server/src/core/cycle-runtime/run-state/runs.ts:566:    thinking_level: "xhigh",
+apps/server/src/core/cycle-runtime/run-state/runs.ts:595:        desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
+apps/server/src/core/cycle-runtime/run-state/runs.ts:603:           id, goal_kind, goal_value, desired_workers, status, created_at,
+apps/server/src/core/cycle-runtime/run-state/runs.ts:682:            desired_workers: next,
+apps/server/src/core/cycle-runtime/run-state/runs.ts:696:    eventType: "run.desired_workers_changed",
+apps/server/src/core/cycle-runtime/run-state/runs.ts:699:    payload: { previous_desired_workers: current.desiredWorkers, desired_workers: next },
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:43:      configurationSnapshot: { desired_workers: 4, nested: { beta: 2, alpha: 1 } },
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:198:        eventType: "run.desired_workers_changed",
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:201:        payload: { previous_desired_workers: 4, desired_workers: 5 },
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:203:    ).toThrow("run.desired_workers_changed must preserve run status");
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:370:      eventType: "run.desired_workers_changed",
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:371:      payload: { desired_workers: 7, previous_desired_workers: 4 },
+apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts:21:      desired_workers: desiredWorkers,
+apps/server/src/core/game-registry/runtime-defaults.ts:1:import { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL } from "@server/infrastructure/agent-runtime/runtime";
+apps/server/src/core/game-registry/runtime-defaults.ts:4:export { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL };
+apps/server/src/core/knowledge-v2/summarizer-job/index.test.ts:26:    (id, goal_kind, goal_value, desired_workers, status, created_at, game_id, revision, trace_id)
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:41:          desired_workers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:46:          model: "gpt-5.6-sol",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:49:          thinking_level: "xhigh",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:105:      maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:106:      model: "gpt-5.6-sol",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:110:      thinkingLevel: "xhigh",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:127:    const resumedResponse = await runtime.startManagedProcess({ gameId: "melee", runId: run.id, maxWorkers: 4 });
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:144:        "run.desired_workers_changed",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:165:          desired_workers: 2,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:170:          model: "gpt-5.6-sol",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:172:          thinking_level: "xhigh",
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:213:      maxWorkers: 8,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:221:      conflicts: [{ field: "maxWorkers", requested: 8, stored: 2 }],
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:292:      maxWorkers: 16,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:347:        maxWorkers: 2,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:488:      const response = await runtime.startManagedProcess({ gameId: "melee", runId: run.id, maxWorkers: 2 });
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.ts:200:          const stagedDesiredWorkers = currentRun.inputs?.configuration_snapshot.desired_workers;
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:16:      desired_workers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:21:      model: "gpt-5.6-sol",
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:24:      thinking_level: "xhigh",
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:34:      maxWorkers: 8,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:39:    const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:41:    expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:44:          field: "maxWorkers",
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:49:        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:57:        maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:78:    expect(plan.maxWorkers).toBe(4);
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:98:        maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:118:        maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:131:    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "xhigh"]);
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:138:        maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:168:        maxWorkers: 64,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:177:      runInputs: runInputs({ desired_workers: 64 }),
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:190:        maxWorkers: 4,
+apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts:209:      body: { maxWorkers: 4 },
+apps/server/src/core/game-registry/runtime-options.ts:4:import { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL, DEFAULT_STATE_DIR_NAME } from "./runtime-defaults.js";
+apps/server/src/core/game-registry/runtime-options.ts:58:    model: DEFAULT_PI_MODEL,
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:14:  maxWorkers?: unknown;
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:52:  maxWorkers: number;
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:77:  maxWorkers: "desired_workers",
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:150:    case "maxWorkers":
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:206:export function runningScheduling(maxWorkersValue: unknown): {
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:207:  maxWorkers: number;
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:209:  const maxWorkers = intValue(maxWorkersValue, 16, 1);
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:211:    maxWorkers,
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:228:  const maxWorkers = Number(policySnapshotValue("maxWorkers", configuration));
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:243:    String(maxWorkers),
+apps/server/src/core/cycle-runtime/phases/running/process-command.ts:254:  return { command, graphDbPath, maxWorkers, name, repoRoot, runId, stateDir };
+apps/server/src/core/cycle-runtime/phases/running/epochs/build-fixer.ts:69:    "codex", "exec", "-m", "gpt-5.6-sol", "-c", 'model_reasoning_effort="low"',
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:103:  maxWorkers: number;
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:131:  maxWorkers: number;
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:232:  maxWorkers: number;
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:238:  const openSlots = Math.max(0, params.maxWorkers - params.inFlightWorkers);
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:242:    maxWorkers: params.maxWorkers,
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:552:    const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:555:        `[run-loop] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:556:          `Raise the run's desired_workers (or re-init with --desired-workers) to use the full pool.`,
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:595:    const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:599:    const schedulerEpochConfig = schedulerEpochConfigFromArgs(globals, args, { workerPoolSize: maxWorkers });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:654:      concurrencyLimit: maxWorkers,
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:655:      thinkingLevel: workerThinkingLevel,
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts:1104:      maxWorkers,
+apps/server/src/core/cycle-runtime/phases/running/run-control-runtime.ts:4:  DEFAULT_PI_MODEL,
+apps/server/src/core/cycle-runtime/phases/running/run-control-runtime.ts:58:    model: DEFAULT_PI_MODEL,
+
+exec
+/bin/zsh -lc "sed -n '1,180p' apps/frontend/src/components/app/_lib/runSettings.ts; sed -n '1,150p' apps/frontend/src/components/app/index.tsx; sed -n '540,575p' apps/server/src/core/cycle-runtime/run-state/runs.ts; sed -n '570,615p' apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.ts; sed -n '1,90p' apps/server/src/core/cycle-runtime/phases/running/run-control-runtime.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import type { DashboardRun, FormState } from "@/lib/format";
+import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
+
+const RUN_SETTINGS_KEY = "runSettings.v1";
+const THINKING_LEVEL_SETTINGS_VERSION = 3;
+// Bump to invalidate saved maxWorkers/model/syncIngestConcurrency when their defaults change.
+const RUN_SETTINGS_VERSION = 6;
+const DEFAULT_THINKING_LEVEL = "low";
+
+export const RUN_MODEL_OPTIONS = ["gpt-5.6-sol", "gpt-5.6-terra"] as const;
+
+export function schedulingForWorkers(workers: number) {
+  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
+  return {
+    maxWorkers,
+  };
+}
+
+const HYDRATABLE_RUN_STATUSES = new Set(["ready", "active", "paused"]);
+
+export function runConfigurationFormPatch(run: DashboardRun | null | undefined): Partial<FormState> | null {
+  if (!run || !HYDRATABLE_RUN_STATUSES.has(String(run.status))) return null;
+  const snapshot = run.inputs?.configuration_snapshot;
+  if (!snapshot) return null;
+
+  const patch: Partial<FormState> = {};
+  if (typeof snapshot.desired_workers === "number" && snapshot.desired_workers > 0) {
+    patch.maxWorkers = Math.trunc(snapshot.desired_workers);
+  }
+  if (typeof snapshot.sandbox_profile === "string" && snapshot.sandbox_profile) patch.sandboxProfile = snapshot.sandbox_profile;
+  if (typeof snapshot.model === "string" && snapshot.model) patch.model = snapshot.model;
+  if (typeof snapshot.provider === "string" && snapshot.provider) patch.provider = snapshot.provider;
+  if (typeof snapshot.thinking_level === "string" && snapshot.thinking_level) patch.thinkingLevel = snapshot.thinking_level;
+  if (typeof snapshot.agent_timeout_seconds === "number" && snapshot.agent_timeout_seconds > 0) {
+    patch.agentTimeoutSeconds = Math.trunc(snapshot.agent_timeout_seconds);
+  }
+  return patch;
+}
+
+type SavedRunSettings = Pick<
+  FormState,
+  | "maxWorkers"
+  | "provider"
+  | "model"
+  | "sandboxProfile"
+  | "thinkingLevel"
+  | "agentTimeoutSeconds"
+  | "syncIngestConcurrency"
+  | "syncProvider"
+  | "syncModel"
+  | "syncThinking"
+> & {
+  thinkingLevelVersion?: number;
+  settingsVersion?: number;
+};
+
+function loadRunSettings(): Partial<SavedRunSettings> {
+  try {
+    const raw = localStorage.getItem(RUN_SETTINGS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const settings: Partial<SavedRunSettings> = {};
+    // Saved values written before the current settings version predate the
+    // 12-worker/gpt-5.6-sol/16-way sync-ingest defaults; drop them so the new
+    // defaults win until the user saves again.
+    const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
+    if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
+    if (parsed.provider === "codex-lb") settings.provider = parsed.provider;
+    if (currentVersion && (parsed.model === "gpt-5.6-sol" || parsed.model === "gpt-5.6-terra")) settings.model = parsed.model;
+    if (currentVersion && (parsed.sandboxProfile === "2-core" || parsed.sandboxProfile === "4-core")) settings.sandboxProfile = parsed.sandboxProfile;
+    if (typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
+      settings.thinkingLevel =
+        parsed.thinkingLevelVersion !== THINKING_LEVEL_SETTINGS_VERSION
+          ? DEFAULT_THINKING_LEVEL
+          : parsed.thinkingLevel;
+    }
+    if (typeof parsed.agentTimeoutSeconds === "number" && parsed.agentTimeoutSeconds > 0) settings.agentTimeoutSeconds = Math.trunc(parsed.agentTimeoutSeconds);
+    if (currentVersion && typeof parsed.syncIngestConcurrency === "number" && parsed.syncIngestConcurrency > 0) {
+      settings.syncIngestConcurrency = Math.trunc(parsed.syncIngestConcurrency);
+    }
+    if (typeof parsed.syncProvider === "string" && parsed.syncProvider) settings.syncProvider = parsed.syncProvider;
+    if (typeof parsed.syncModel === "string" && parsed.syncModel) settings.syncModel = parsed.syncModel;
+    if (typeof parsed.syncThinking === "string" && parsed.syncThinking) settings.syncThinking = parsed.syncThinking;
+    return settings;
+  } catch {
+    return {};
+  }
+}
+
+export function saveRunSettings(form: FormState) {
+  try {
+    const settings: SavedRunSettings = {
+      maxWorkers: form.maxWorkers,
+      provider: form.provider,
+      model: form.model,
+      sandboxProfile: form.sandboxProfile,
+      thinkingLevel: form.thinkingLevel,
+      thinkingLevelVersion: THINKING_LEVEL_SETTINGS_VERSION,
+      settingsVersion: RUN_SETTINGS_VERSION,
+      agentTimeoutSeconds: form.agentTimeoutSeconds,
+      syncIngestConcurrency: form.syncIngestConcurrency,
+      syncProvider: form.syncProvider,
+      syncModel: form.syncModel,
+      syncThinking: form.syncThinking,
+    };
+    localStorage.setItem(RUN_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Settings still apply for this cycle if storage is unavailable.
+  }
+}
+
+export function initialForm(): FormState {
+  const saved = loadRunSettings();
+  const merged = { ...defaultForm, ...saved };
+  return {
+    ...merged,
+    ...schedulingForWorkers(merged.maxWorkers),
+    agentTimeoutSeconds: saved.agentTimeoutSeconds ?? merged.agentTimeoutSeconds,
+  };
+}
+
+const defaultForm: FormState = {
+  gameId: "",
+  usePathOverrides: false,
+  repoRoot: "",
+  stateDir: "",
+  graphDbPath: "",
+  processName: "melee-live",
+  ...schedulingForWorkers(12),
+  goalValue: 100,
+  provider: "codex-lb",
+  model: "gpt-5.6-sol",
+  sandboxProfile: "2-core",
+  thinkingLevel: DEFAULT_THINKING_LEVEL,
+  agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,
+  // Sync knowledge-agent defaults mirror the job-runner's pi defaults.
+  syncIngestConcurrency: 16,
+  syncProvider: "codex-lb",
+  syncModel: "gpt-5.6-sol",
+  syncThinking: "medium",
+};
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { dashboardParams, fetchJson, fetchRunDetails, formBody, loadConfig, postJson } from "@/lib/api";
+import { asObject, numberValue, type Dashboard, type FormState, type JsonObject, type RunDetails, type UiConfig } from "@/lib/format";
+import { useDashboardStream } from "@/hooks/useDashboardStream";
+import { DetailsRail, type DetailsTab } from "@/components/details-rail";
+import { GameWorkspace, type DashboardAction } from "@/pages/workspace";
+import { deriveCycleView, harnessStateAction, harnessStateCompatibilityAction, harnessStateReadModel } from "@/pages/workspace/_lib/model";
+import { type ImprovedMode, type WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
+import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
+import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
+import { DashboardPage } from "@/pages/dashboard";
+import { GrainOverlay } from "@/components/app/_components/GrainOverlay";
+import { ConfirmActionOverlay, type ConfirmTone } from "@/components/app/_components/ConfirmActionOverlay";
+import { clampDetailsWidth, loadDetailsCollapsed, loadDetailsWidth, loadSidebarCollapsed, saveDetailsCollapsed, saveDetailsWidth, saveSidebarCollapsed } from "@/components/app/_lib/railState";
+import { initialForm, runConfigurationFormPatch, saveRunSettings, schedulingForWorkers } from "@/components/app/_lib/runSettings";
+import { useHotReload } from "@/components/app/_lib/useHotReload";
+import { RUN_CONTROL_ACTION_IDS, RUN_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedRunControls";
+import {
+  SYNC_CONTROL_ACTION_IDS,
+  SYNC_CONTROL_ENDPOINTS,
+  syncControlRequestPatch,
+  syncConfirmationMessage,
+} from "@/components/app/_lib/projectedSyncControls";
+import { PR_COMPATIBILITY_ACTION_IDS, PR_COMPATIBILITY_ENDPOINTS } from "@/components/app/_lib/projectedCompatibilityControls";
+import { KNOWLEDGE_CONTROL_ACTION_IDS, KNOWLEDGE_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedKnowledgeControls";
+import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components/app/_lib/projectedCycleControls";
+
+type Action = DashboardAction;
+const PROCESS_CONFIG_VERSION = 3;
+const DEFAULT_THINKING_LEVEL = "xhigh";
+
+// Multi-step server operations tracked by process.operation. Triggering one
+// auto-opens the details rail on the Logs tab so the activity card and live
+// output are in view the moment the work starts.
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
+
+function newCycleBody(body: JsonObject): JsonObject {
+  const next = { ...body };
+  delete next.runId;
+  delete next.activeRunId;
+  return next;
+}
+
+function cycleRouteSub(cycle: JsonObject): "run" | "pr" | "done" {
+  const phase = String(cycle.phase || "");
+  // The Prepare stage is retired: a preparing cycle opens on the Run page,
+  // which hosts the remaining setup inputs (baseline, worker config).
+  if (phase === "preparing") return "run";
+  if (phase === "running") return "run";
+  if (phase === "pr") return "pr";
+  return "done";
+}
+
+function cyclePhaseSummary(cycle: JsonObject): string {
+  const phase = String(cycle.phase || "active");
+  const subphase = String(cycle.activeSubphase || "");
+  return [phase, subphase].filter(Boolean).join(" / ");
+}
+
+function cycleScopedBody(body: JsonObject, cycle: JsonObject): JsonObject {
+  const cycleUuid = String(cycle.cycleUuid || cycle.cycle_uuid || cycle.id || "");
+  return cycleUuid ? { ...body, cycleUuid,  } : body;
+}
+
+function workerConfigBody(body: JsonObject): JsonObject {
+  return {
+    configVersion: PROCESS_CONFIG_VERSION,
+    maxWorkers: body.maxWorkers,
+    workerCount: body.maxWorkers,
+    agentTimeoutSeconds: body.agentTimeoutSeconds,
+    provider: body.provider,
+    model: body.model,
+    sandboxProfile: body.sandboxProfile,
+    thinkingLevel: body.thinkingLevel,
+  };
+}
+
+function positiveInteger(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
+}
+
+function stringConfigValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const stringValue = String(value);
+  return stringValue ? stringValue : null;
+}
+
+function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
+  const phases = asObject(cycle.phases);
+  const preparing = asObject(phases.preparing);
+  const running = asObject(phases.running);
+  const runningWorkers = asObject(running.workers);
+  const completion = asObject(preparing.completion);
+  const workerConfig = Object.keys(asObject(runningWorkers.workerConfig)).length > 0 ? asObject(runningWorkers.workerConfig) : asObject(completion.workerConfig);
+  if (Object.keys(workerConfig).length === 0) return null;
+
+  const patch: Partial<FormState> = {};
+  const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
+  if (maxWorkers !== null) Object.assign(patch, schedulingForWorkers(maxWorkers));
+
+  const agentTimeoutSeconds = positiveInteger(workerConfig.agentTimeoutSeconds);
+  if (agentTimeoutSeconds !== null) patch.agentTimeoutSeconds = agentTimeoutSeconds;
+
+  const provider = stringConfigValue(workerConfig.provider);
+  if (provider !== null) patch.provider = provider;
+
+  const model = stringConfigValue(workerConfig.model);
+  if (model !== null) patch.model = model;
+
+  const sandboxProfile = stringConfigValue(workerConfig.sandboxProfile);
+  if (sandboxProfile !== null) patch.sandboxProfile = sandboxProfile;
+
+  const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
+  if (thinkingLevel !== null) {
+    patch.thinkingLevel = thinkingLevel === "medium" && Number(workerConfig.configVersion) !== PROCESS_CONFIG_VERSION ? DEFAULT_THINKING_LEVEL : thinkingLevel;
+  }
+
+  return patch;
+}
+
+function styleSofteningVars(settings: GrainSettings): CSSProperties {
+  const { background, borders, font, icons } = settings.softening;
+  const bevelStrength = settings.cssBevel.enabled ? settings.cssBevel.strength : 0;
+  return {
+    "--style-soften-background-mix": `${background * 6}%`,
+    "--style-soften-border-mix": `${borders * 12}%`,
+    "--style-soften-font-glow": `${font * 0.22}px`,
+    "--style-soften-font-mix": `${font * 7}%`,
+    "--style-bevel-depth": `${settings.cssBevel.depth * bevelStrength}px`,
+    "--style-bevel-highlight-alpha": String(settings.cssBevel.highlight * bevelStrength * 0.26),
+    "--style-bevel-shadow-alpha": String(settings.cssBevel.shadow * bevelStrength * 0.34),
+    "--style-bevel-text-highlight-alpha": String(settings.cssBevel.text * bevelStrength * 0.12),
+    "--style-bevel-text-shadow-alpha": String(settings.cssBevel.text * bevelStrength * 0.18),
+    "--style-soften-icon-blur": `${icons * 0.08}px`,
+    "--style-soften-icon-glow": `${icons * 0.28}px`,
+    "--style-soften-icon-opacity": String(1 - icons * 0.04),
+  } as CSSProperties;
+}
+
+function styleEffectClass(settings: GrainSettings): string {
+  return settings.cssBevel.enabled && settings.cssBevel.strength > 0 ? "style-bevel-enabled" : "";
+}
+
+function cycleUrl(path: string, form: FormState): string {
+  const params = dashboardParams(form).toString();
+  return params ? `${path}?${params}` : path;
+}
+
+class ActiveCycleError extends Error {
+    return runFromRow(saved);
+  });
+}
+
+export function createRun(
+  store: StateStore,
+  goalKind: string,
+  goalValue: number,
+  desiredWorkers: number,
+  game?: RunGameMetadata,
+  options: CreateRunOptions = {},
+): RunRecord {
+  const id = randomUUID();
+  const cycle = activeCycleContext(store, game?.gameId, options.cycleUuid);
+  const gameId = game?.gameId ?? cycle?.gameId ?? null;
+  if (!gameId) throw new Error("Run creation requires a game id or an active game cycle");
+  const configurationSnapshot = options.configurationSnapshot ?? {
+    agent_timeout_seconds: 1800,
+    desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
+    dry_run_agents: false,
+    epoch_configure_command: "",
+    goal_kind: goalKind,
+    goal_value: goalValue,
+    model: "gpt-5.6-sol",
+    provider: "codex-lb",
+    sandbox_profile: "",
+    thinking_level: "xhigh",
+    worker_configure_command: "",
+  };
+  const baseRevision = options.baseRevision?.trim() || cycle?.headRevision || cycle?.baseRevision || gitHead(game?.repoRoot) || "";
+  const createdAt = now();
+  const traceId = `trace-run-${id}`;
+  const actor = options.actor ?? "runner";
+  const commandId = options.commandId ?? `command-run-create-${id}`;
+  const actionSpanId = options.spanId ?? newSpanId();
+  const run = immediateTransaction(store.db, () => {
+        created_by: "run-loop",
+      });
+      markEventHandled(store, flagEvent);
+    }
+    stopWorkerSummary = startWorkerSummaryIfEnabled({
+      args,
+      store: borrowedStore,
+      runId,
+      globals,
+      gameId,
+      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+      onFatalError: onFatalStateError,
+      onShutdownAbandoned: (count) => {
+        abandonedBackgroundBorrowers = Math.max(abandonedBackgroundBorrowers, count);
+      },
+    });
+    stopLibrarianConsumer = startLibrarianConsumerIfEnabled({
+      args,
+      store: borrowedStore,
+      runId,
+      globals,
+      gameId,
+      shouldClaim: () => getHarnessState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+    });
+    const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
+    const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
+    const workerConfigureCommand = stringArg(args, "--worker-configure-command", defaultConfigureCommand(globals));
+    const maintenanceIntervalMs = knowledgeMaintenanceIntervalMs(globals, args);
+    const epochCycleEnabled = true;
+    const schedulerEpochConfig = schedulerEpochConfigFromArgs(globals, args, { workerPoolSize: maxWorkers });
+    const epochWorktreeDir = stringArg(args, "--epoch-worktree", resolve(globals.stateDir, "epoch_worktree"));
+    const epochConfigureCommand = stringArg(args, "--epoch-configure-command", defaultConfigureCommand(globals));
+    const epochLinkPaths = stringArg(args, "--epoch-link-paths", "orig")
+      .split(",")
+      .map((path) => path.trim())
+      .filter(Boolean);
+    const epochPauseThreshold = nonNegativeInt(numberArg(args, "--epoch-regression-pause-threshold", 12));
+    const epochRequeueLimit = nonNegativeInt(numberArg(args, "--epoch-regression-requeue-limit", 32));
+    const cycleDraftPrEnabled = !booleanArg(args, "--no-cycle-draft-pr");
+    const ciParityEnabled = !booleanArg(args, "--no-ci-parity");
+    const preCommitGateEnabled = !booleanArg(args, "--no-pre-commit-gate");
+    const preCommitAutofixEnabled = !booleanArg(args, "--no-precommit-autofix");
+    const linkCompleteUnitsEnabled = booleanArg(args, "--link-complete-units");
+    const boundarySyncEnabled = !booleanArg(args, "--no-boundary-sync");
+    const syncMergePolicy = syncMergePolicyArg(args);
+    const breakageGateEnabled = !booleanArg(args, "--no-breakage-gate");
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import type { ResolvedGame } from "@server/core/game-registry";
+import {
+  DEFAULT_PI_MODEL,
+  DEFAULT_PI_PROVIDER,
+  DEFAULT_PI_THINKING_LEVEL,
+} from "@server/core/game-registry/runtime-defaults.js";
+import { getRun, openState } from "@server/core/cycle-runtime/run-state";
+import {
+  cancelRun,
+  forceReleaseDispatchLease,
+  hardStopRun,
+  recoverRun,
+  RunControlConfirmationRequiredError,
+} from "./run-control.js";
+
+type JsonObject = Record<string, unknown>;
+
+export interface RunControlGameContext {
+  graphDbPath: string;
+  game: ResolvedGame | null;
+  repoRoot: string;
+  stateDir: string;
+}
+
+export interface RunControlRuntimeDeps {
+  hasActiveLeaseProcess: (stateDir: string, leaseId: string) => { active: boolean };
+  hasActiveProcess: (stateDir: string) => { active: boolean };
+  resolveDashboardGame: (
+    input: JsonObject,
+    options: { useDefaultGame?: boolean },
+  ) => RunControlGameContext;
+  stopManaged: (body: JsonObject) => Promise<JsonObject>;
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function runIdFromBody(body: JsonObject, stateDir: string): string {
+  const explicit = stringValue(body.runId);
+  if (explicit) return explicit;
+  const store = openState(stateDir);
+  try {
+    const latest = store.db.query("SELECT id FROM runs ORDER BY created_at DESC LIMIT 1").get() as
+      | { id: string }
+      | null;
+    return latest?.id ?? "";
+  } finally {
+    store.db.close();
+  }
+}
+
+function globalsFor(paths: RunControlGameContext): GlobalArgs {
+  return {
+    dryRunAgents: false,
+    graphDbPath: paths.graphDbPath,
+    model: DEFAULT_PI_MODEL,
+    game: paths.game ?? undefined,
+    gameId: paths.game?.gameId,
+    provider: DEFAULT_PI_PROVIDER,
+    repoRoot: paths.repoRoot,
+    stateDir: paths.stateDir,
+    thinkingLevel: DEFAULT_PI_THINKING_LEVEL,
+  };
+}
+
+function requireConfirmed(body: JsonObject, action: string): void {
+  if (body.confirmed !== true) throw new RunControlConfirmationRequiredError(action);
+}
+
+function assertWorkflowCorrelation(body: JsonObject, runId: string): void {
+  const supplied = stringValue(body.correlationId, stringValue(body.correlation_id));
+  if (supplied && supplied !== runId) {
+    throw new Error(`Run action correlation_id must equal run id ${runId}`);
+  }
+}
+
+function currentStatus(paths: RunControlGameContext, runId: string): string {
+  const store = openState(paths.stateDir);
+  try {
+    const run = getRun(store, runId);
+    if (!run) throw new Error(`Run not found: ${runId}`);
+    return run.status;
+  } finally {
+    store.db.close();
+  }
+}
+
+export function createRunControlRuntime(deps: RunControlRuntimeDeps): {
+
+codex
+Step 1 of 3 is in progress. The audit confirms `DEFAULT_PI_MODEL` still feeds generic runtime globals, while the managed worker command overlays the run snapshot. I’m leaving that constant unchanged and checking the exact overlay path in tests.
+exec
+/bin/zsh -lc "sed -n '180,275p' apps/server/src/core/cycle-runtime/phases/running/process-command.ts; sed -n '80,170p' apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts; sed -n '1,230p' apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts; sed -n '260,315p' apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+  body: RunningProcessCommandBody,
+  runInputs: RunInputs,
+  runId: string,
+): RunningProcessConfigurationConflict[] {
+  const conflicts: RunningProcessConfigurationConflict[] = [];
+  for (const field of Object.keys(POLICY_FIELDS) as RunningProcessPolicyField[]) {
+    if (body[field] === undefined) continue;
+    const requested = normalizePolicyValue(field, body[field]);
+    const stored = policySnapshotValue(field, runInputs.configuration_snapshot);
+    if (canonicalJson(requested) === canonicalJson(stored)) continue;
+    conflicts.push({
+      blocker: {
+        code: "run_configuration_conflict",
+        message: `Requested ${field} conflicts with immutable run configuration ${POLICY_FIELDS[field]}.`,
+        source_kind: "run",
+        source_id: runId,
+        recoverable: false,
+      },
+      field,
+      requested,
+      stored,
+    });
+  }
+  return conflicts;
+}
+
+export function runningScheduling(maxWorkersValue: unknown): {
+  maxWorkers: number;
+} {
+  const maxWorkers = intValue(maxWorkersValue, 16, 1);
+  return {
+    maxWorkers,
+  };
+}
+
+export function buildRunningProcessCommand(input: RunningProcessCommandInput): RunningProcessCommandPlan {
+  const { body, graphDbPath, noRefillBatch, game, repoRoot, runId, runInputs, serverJobPath, stateDir } = input;
+  const configuration = runInputs.configuration_snapshot;
+  const conflicts = runningProcessConfigurationConflicts(body, runInputs, runId);
+  if (conflicts.length > 0) {
+    throw new Error(`Run ${runId} process request conflicts with its immutable configuration: ${conflicts.map((conflict) => conflict.field).join(", ")}`);
+  }
+
+  const name = processName(game?.processName ?? body.processName);
+  const provider = text(policySnapshotValue("provider", configuration));
+  const model = text(policySnapshotValue("model", configuration));
+  const thinkingLevel = text(policySnapshotValue("thinkingLevel", configuration));
+  const sandboxProfile = text(policySnapshotValue("sandboxProfile", configuration));
+  const maxWorkers = Number(policySnapshotValue("maxWorkers", configuration));
+  const workerConfigureCommand = String(policySnapshotValue("workerConfigureCommand", configuration));
+  const epochConfigureCommand = String(policySnapshotValue("epochConfigureCommand", configuration));
+  const epochTargetCap = configuration.epoch_target_cap ?? null;
+  const agentTimeoutSeconds = Number(policySnapshotValue("agentTimeoutSeconds", configuration));
+
+  const command = ["bun", serverJobPath];
+  if (game?.gameId) command.push("--game", game.gameId);
+  command.push("--repo-root", repoRoot, "--state-dir", stateDir, "--provider", provider, "--model", model, "--thinking-level", thinkingLevel);
+  if (sandboxProfile) command.push("--sandbox-profile", sandboxProfile);
+  if (Boolean(policySnapshotValue("dryRunAgents", configuration))) command.push("--dry-run-agents");
+  command.push("--agent-timeout-seconds", String(agentTimeoutSeconds));
+  command.push(
+    "run-loop",
+    "--max-workers",
+    String(maxWorkers),
+    "--graph-db",
+    graphDbPath,
+  );
+  if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
+  if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
+  if (epochTargetCap !== null) command.push("--epoch-target-cap", String(epochTargetCap));
+  if (noRefillBatch) {
+    command.push("--no-epoch-cycle", "--no-blocked-queue-replan", "--max-idle-iterations", "3");
+  }
+  if (runId) command.push("--run-id", runId);
+  return { command, graphDbPath, maxWorkers, name, repoRoot, runId, stateDir };
+}
+
+function prepareCycleWorktreeRoot(paths: PreparingRuntimeGameContext, cycle: CycleView | null): string {
+  const fallback = cycle
+    ? prepareWorktreePaths(paths, cycle.cycleUuid).cycleCurrentWorktreePath
+    : undefined;
+  return stringValue(
+    cycle?.phases.preparing.sync?.cycleCurrentWorktreePath,
+    stringValue(cycle?.phases.preparing.sync?.cycleWorktreePath, fallback ?? paths.repoRoot),
+  );
+}
+
+function activeCycleOrNull(paths: PreparingRuntimeGameContext, body: JsonObject): CycleView | null {
+  const gameId = gameIdFromContext(paths, body);
+  if (!gameId) return null;
+  const store = openState(paths.stateDir);
+  try {
+    const selector = cycleSelector(body, gameId);
+    const record = getCycleBySelector(store.db, selector) ?? getActiveCycle(store.db, gameId);
+    return record ? cycleView(record) : null;
+  } finally {
+    store.db.close();
+  }
+}
+
+function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefined): JsonObject {
+  return {
+    workerCount: numberValue(body.maxWorkers, 16),
+    agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
+    sandboxProfile: stringValue(body.sandboxProfile),
+  };
+}
+
+export function compactCheckpointResult(result: RunCheckpointResult): JsonObject {
+  const compactItem = (item: RunCheckpointResult["items"][number]): JsonObject => ({
+    workerStateId: item.workerStateId,
+    workerCheckpointId: item.workerCheckpointId || null,
+    symbol: item.symbol,
+    sourcePath: item.sourcePath,
+    patchPath: item.patchPath || null,
+  });
+  return {
+    checkpoint: result.checkpoint,
+    counts: result.counts,
+    eligibility: result.eligibility,
+    prCandidates: result.items.filter((item) => item.disposition === "pr_candidate").map(compactItem),
+    improvementCandidates: result.items.filter((item) => item.disposition === "improvement_candidate").map(compactItem),
+    carryForwardCount: result.items.filter((item) => !shipsInPr(item.disposition)).length,
+  };
+}
+
+function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null } {
+  const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
+  const { graphDbPath, game, stateDir } = paths;
+  const requestedRepoRoot = stringValue(body.cycleRepoRoot);
+  const repoRoot = requestedRepoRoot.trim()
+    ? requestedRepoRoot
+    : prepareCycleWorktreeRoot(paths, activeCycleOrNull(paths, body));
+  const commandPaths = { ...paths, repoRoot };
+  const { maxWorkers } = runningScheduling(body.maxWorkers);
+  const sandboxProfile = stringValue(body.sandboxProfile, game?.sandbox?.default_profile ?? "");
+  const command = [
+    ...serverJobPrefix(commandPaths, deps.serverJobPath),
+    ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
+    "--provider",
+    stringValue(body.provider, "codex-lb"),
+    "--model",
+    stringValue(body.model, "gpt-5.6-sol"),
+    "--thinking-level",
+    stringValue(body.thinkingLevel, "xhigh"),
+    "--agent-timeout-seconds",
+    String(numberValue(body.agentTimeoutSeconds, numberValue(game?.dashboard.agentTimeoutSeconds, 1800))),
+    ...(sandboxProfile ? ["--sandbox-profile", sandboxProfile] : []),
+    "init-run",
+    "--desired-workers",
+    String(maxWorkers),
+    "--goal-kind",
+    stringValue(body.goalKind, "matched_code_percent"),
+    "--goal-value",
+    String(game?.dashboard.goalValue ?? numberValue(body.goalValue, 100)),
+    "--graph-db",
+    graphDbPath,
+  ];
+  if (body.epochTargetCap !== undefined && body.epochTargetCap !== null) {
+    command.push("--epoch-target-cap", String(Math.max(0, Math.floor(numberValue(body.epochTargetCap, 0)))));
+  }
+  const workerConfigureCommand = stringValue(body.workerConfigureCommand).trim();
+  if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
+  const epochConfigureCommand = stringValue(body.epochConfigureCommand).trim();
+  if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
+  return { command, repoRoot, stateDir, graphDbPath, game };
+}
+import { describe, expect, test } from "bun:test";
+import type { RunInputs } from "@server/core/shared/types";
+import {
+  buildRunningProcessCommand,
+  runningProcessConfigurationConflicts,
+  runningScheduling,
+} from "./process-command.js";
+
+function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
+  return {
+    base_revision: "base-test",
+    policy_revision: "policy-test",
+    starting_knowledge_revision: "kg-test",
+    configuration_snapshot: {
+      agent_timeout_seconds: 1800,
+      desired_workers: 4,
+      dry_run_agents: false,
+      epoch_configure_command: "",
+      goal_kind: "matched_code_percent",
+      goal_value: 100,
+      model: "gpt-5.6-sol",
+      provider: "codex-lb",
+      sandbox_profile: "2-core",
+      thinking_level: "xhigh",
+      worker_configure_command: "",
+      ...configuration,
+    },
+  };
+}
+
+describe("running process command", () => {
+  test("derives worker count from requested workers", () => {
+    expect(runningScheduling(8)).toEqual({
+      maxWorkers: 8,
+    });
+  });
+
+  test("returns a typed blocker for request options that conflict with the stored snapshot", () => {
+    const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
+
+    expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
+      .toEqual([
+        expect.objectContaining({
+          field: "maxWorkers",
+          requested: 8,
+          stored: 4,
+          blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
+        }),
+        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
+        expect.objectContaining({ field: "sandboxProfile", requested: "4-core", stored: "2-core" }),
+      ]);
+  });
+
+  test("builds the run-loop command owned by the running phase", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        maxWorkers: 4,
+        provider: "codex-lb",
+        model: "gpt-5.5",
+        thinkingLevel: "medium",
+        dryRunAgents: true,
+      },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs({
+        dry_run_agents: true,
+        model: "gpt-5.5",
+        thinking_level: "medium",
+      }),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    expect(plan.name).toBe("melee-live");
+    expect(plan.maxWorkers).toBe(4);
+    expect(plan.command).toContain("run-loop");
+    expect(plan.command).not.toContain("babysit");
+    expect(plan.command).not.toContain("--force-recover-claims");
+    expect(plan.command).toContain("--dry-run-agents");
+    expect(plan.command).toContain("--run-id");
+    expect(plan.command).toContain("run-1");
+    expect(plan.command.slice(plan.command.indexOf("--sandbox-profile"), plan.command.indexOf("--sandbox-profile") + 2)).toEqual([
+      "--sandbox-profile",
+      "2-core",
+    ]);
+    expect(plan.command).not.toContain("--candidate-limit");
+    expect(plan.command).not.toContain("--queue-target-size");
+    expect(plan.command).not.toContain("--epoch-ready-queue-size");
+  });
+
+  test("passes configured worker timeout to run-loop", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        agentTimeoutSeconds: 3000,
+        maxWorkers: 4,
+      },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs({ agent_timeout_seconds: 3000 }),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    const timeoutFlag = plan.command.indexOf("--agent-timeout-seconds");
+    expect(plan.command.slice(timeoutFlag, timeoutFlag + 2)).toEqual(["--agent-timeout-seconds", "3000"]);
+    expect(plan.command).not.toContain("--ttl-seconds");
+  });
+
+  test("defaults worker thinking to xhigh", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        maxWorkers: 4,
+      },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs(),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    const thinkingFlag = plan.command.indexOf("--thinking-level");
+    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "xhigh"]);
+  });
+
+  test("forwards configure command overrides to run-loop", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        epochConfigureCommand: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+        maxWorkers: 4,
+        workerConfigureCommand: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+      },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs({
+        epoch_configure_command: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+        worker_configure_command: "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+      }),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    expect(plan.command.slice(plan.command.indexOf("--worker-configure-command"), plan.command.indexOf("--worker-configure-command") + 2)).toEqual([
+      "--worker-configure-command",
+      "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+    ]);
+    expect(plan.command.slice(plan.command.indexOf("--epoch-configure-command"), plan.command.indexOf("--epoch-configure-command") + 2)).toEqual([
+      "--epoch-configure-command",
+      "python3 configure.py --require-protos --wrapper /state/tools/wibo",
+    ]);
+  });
+
+  test("ignores deprecated queue overrides", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        epochReadyQueueSize: 64,
+        maxWorkers: 64,
+        queueLowWatermark: 64,
+        queueTargetSize: 64,
+      } as Record<string, unknown>,
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs({ desired_workers: 64 }),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    expect(plan.command).not.toContain("--queue-target-size");
+    expect(plan.command).not.toContain("--queue-low-watermark");
+    expect(plan.command).not.toContain("--epoch-ready-queue-size");
+  });
+
+  test("uses game dashboard worker timeout default", () => {
+    const plan = buildRunningProcessCommand({
+      body: {
+        maxWorkers: 4,
+      },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: false,
+      game: { gameId: "melee", processName: "melee-live", dashboard: { agentTimeoutSeconds: 2400 } },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs({ agent_timeout_seconds: 2400 }),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    const timeoutFlag = plan.command.indexOf("--agent-timeout-seconds");
+    expect(plan.command.slice(timeoutFlag, timeoutFlag + 2)).toEqual(["--agent-timeout-seconds", "2400"]);
+    expect(plan.command).not.toContain("--ttl-seconds");
+  });
+
+  test("uses no-refill mode for never-run repair batches", () => {
+    const plan = buildRunningProcessCommand({
+      body: { maxWorkers: 4 },
+      graphDbPath: "/state/graph.sqlite",
+      noRefillBatch: true,
+      game: { gameId: "melee" },
+      repoRoot: "/repo",
+      runId: "run-1",
+      runInputs: runInputs(),
+      serverJobPath: "/orch/apps/server/src/job-runner.ts",
+      stateDir: "/state",
+    });
+
+    expect(plan.command).toContain("--no-epoch-cycle");
+    expect(plan.command).toContain("--no-blocked-queue-replan");
+    const timeoutFlag = plan.command.indexOf("--agent-timeout-seconds");
+    expect(plan.command.slice(timeoutFlag, timeoutFlag + 2)).toEqual(["--agent-timeout-seconds", "1800"]);
+    expect(plan.command).not.toContain("--ttl-seconds");
+  });
+});
+    const runtime = createProcessControlRuntime({
+      json: (data, init) => new Response(JSON.stringify(data), init),
+      processController,
+      processStatus: () => ({}),
+      gameToSummary: () => ({
+        id: "melee",
+        displayName: "Melee",
+        kind: "doldecomp-melee",
+        repoRoot: game.repoRoot,
+        stateDir,
+        graphDbPath: game.graphDbPath,
+        processName: "melee-live",
+        baseRef: "origin/master",
+        descriptorPath: "/tmp/melee/game.json",
+        repoRootExists: true,
+        stateDirExists: true,
+        graphDbExists: true,
+      }),
+      resolveDashboardGame: () => ({
+        game,
+        repoRoot: game.repoRoot,
+        stateDir,
+        graphDbPath: game.graphDbPath,
+        usePathOverrides: false,
+      }),
+      runCli: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+      serverJobPath: "/tmp/orchestrator/apps/server/src/job-runner.ts",
+    });
+
+    const response = await runtime.startManagedProcess({
+      gameId: "melee",
+      runId: run.id,
+      maxWorkers: 16,
+    });
+
+    expect(response.status).toBe(200);
+    expect((spawned as StartManagedInput | null)?.env).toBeUndefined();
+  });
+
+  test("keeps the operator actor across start action spawn-failure compensation", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "process-control-spawn-failure-"));
+    try {
+      const store = openState(stateDir);
+      const run = createRun(
+        store,
+        "matched_code_percent",
+        100,
+        2,
+        { gameId: "melee", stateDir },
+        { baseRevision: "base-test" },
+      );
+      const baselineSequence = listGameEvents(store.db, { gameId: "melee" }).at(-1)!.sequence;
+      store.db.close();
+
+      const spawnError = new Error("managed process spawn failed");
+      const processController = {
+
+collab: Wait
+exec
+/bin/zsh -lc 'git diff -- apps/server apps/frontend; git status --short -- apps/server apps/frontend' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+collab: Wait
+exec
+/bin/zsh -lc "sed -n '1,180p' apps/frontend/src/components/app/_lib/runSettings.test.ts; rg -n 'thinkingLevel|Thinking level|Thinking Level' apps/frontend/src --glob '*.tsx' --glob '*.ts'; rg -n 'gpt-5\\.6-sol|xhigh|maxWorkers: 16|toBe\\(16\\)|desired_workers: 16' apps/server/src/core/cycle-runtime apps/server/src/core/agent-catalog apps/server/tests/smoke.ts --glob '*test.ts' --glob 'smoke.ts'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { beforeEach, describe, expect, test } from "bun:test";
+import type { DashboardRun } from "@/lib/format";
+import { initialForm, runConfigurationFormPatch } from "./runSettings";
+
+const savedSettings = new Map<string, string>();
+
+Object.defineProperty(globalThis, "localStorage", {
+  configurable: true,
+  value: {
+    getItem: (key: string) => savedSettings.get(key) ?? null,
+    setItem: (key: string, value: string) => savedSettings.set(key, value),
+  },
+});
+
+beforeEach(() => savedSettings.clear());
+
+describe("run settings", () => {
+  test("defaults workers to Astra with medium reasoning and 12 slots", () => {
+    expect(initialForm()).toMatchObject({
+      maxWorkers: 12,
+      model: "gpt-6-astra",
+      thinkingLevel: "medium",
+    });
+  });
+
+  test("drops worker settings from the previous defaults version", () => {
+    localStorage.setItem("runSettings.v1", JSON.stringify({
+      maxWorkers: 16,
+      model: "gpt-5.6-sol",
+      thinkingLevel: "xhigh",
+      thinkingLevelVersion: 3,
+      settingsVersion: 6,
+    }));
+
+    expect(initialForm()).toMatchObject({
+      maxWorkers: 12,
+      model: "gpt-6-astra",
+      thinkingLevel: "medium",
+    });
+  });
+});
+
+describe("run configuration form hydration", () => {
+  test.each(["ready", "active", "paused"])("maps an immutable %s run snapshot to form fields", (status) => {
+    const run: DashboardRun = {
+      id: "run-api-staged",
+      status,
+      inputs: {
+        configuration_snapshot: {
+          desired_workers: 32,
+          sandbox_profile: "4-core",
+          model: "gpt-5.6-terra",
+          provider: "codex-lb",
+          thinking_level: "xhigh",
+          agent_timeout_seconds: 1800,
+        },
+      },
+    };
+
+    expect(runConfigurationFormPatch(run)).toEqual({
+      maxWorkers: 32,
+      sandboxProfile: "4-core",
+      model: "gpt-5.6-terra",
+      provider: "codex-lb",
+      thinkingLevel: "xhigh",
+      agentTimeoutSeconds: 1800,
+    });
+  });
+
+  test("returns no patch when there is no current run, preserving saved-settings fallback", () => {
+    expect(runConfigurationFormPatch(null)).toBeNull();
+  });
+
+  test("returns no patch for a terminal run", () => {
+    expect(runConfigurationFormPatch({
+      id: "run-complete",
+      status: "completed",
+      inputs: { configuration_snapshot: { desired_workers: 32 } },
+    })).toBeNull();
+  });
+});
+apps/frontend/src/components/app/_lib/runSettings.test.ts:22:      thinkingLevel: "medium",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:30:      thinkingLevel: "xhigh",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:31:      thinkingLevelVersion: 3,
+apps/frontend/src/components/app/_lib/runSettings.test.ts:38:      thinkingLevel: "medium",
+apps/frontend/src/components/app/_lib/runSettings.test.ts:65:      thinkingLevel: "xhigh",
+apps/frontend/src/lib/api-types.ts:45:  thinkingLevel: string;
+apps/frontend/src/components/app/_lib/runSettings.ts:33:  if (typeof snapshot.thinking_level === "string" && snapshot.thinking_level) patch.thinkingLevel = snapshot.thinking_level;
+apps/frontend/src/components/app/_lib/runSettings.ts:46:  | "thinkingLevel"
+apps/frontend/src/components/app/_lib/runSettings.ts:53:  thinkingLevelVersion?: number;
+apps/frontend/src/components/app/_lib/runSettings.ts:71:    if (currentVersion && typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
+apps/frontend/src/components/app/_lib/runSettings.ts:72:      settings.thinkingLevel =
+apps/frontend/src/components/app/_lib/runSettings.ts:73:        parsed.thinkingLevelVersion !== THINKING_LEVEL_SETTINGS_VERSION
+apps/frontend/src/components/app/_lib/runSettings.ts:75:          : parsed.thinkingLevel;
+apps/frontend/src/components/app/_lib/runSettings.ts:97:      thinkingLevel: form.thinkingLevel,
+apps/frontend/src/components/app/_lib/runSettings.ts:98:      thinkingLevelVersion: THINKING_LEVEL_SETTINGS_VERSION,
+apps/frontend/src/components/app/_lib/runSettings.ts:134:  thinkingLevel: DEFAULT_THINKING_LEVEL,
+apps/frontend/src/components/app/index.tsx:74:    thinkingLevel: body.thinkingLevel,
+apps/frontend/src/components/app/index.tsx:114:  const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
+apps/frontend/src/components/app/index.tsx:115:  if (thinkingLevel !== null) {
+apps/frontend/src/components/app/index.tsx:116:    patch.thinkingLevel = thinkingLevel;
+apps/frontend/src/components/details-rail/_components/run-setup.tsx:115:              onChange={(event) => setForm({ thinkingLevel: event.currentTarget.value })}
+apps/frontend/src/components/details-rail/_components/run-setup.tsx:117:              value={form.thinkingLevel}
+apps/server/tests/smoke.ts:1618:  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:188:            thinkingLevel: "xhigh",
+apps/server/src/core/cycle-runtime/cycle-runtime.test.ts:199:      thinkingLevel: "xhigh",
+
+exec
+/bin/zsh -lc 'git diff --stat -- apps/server apps/frontend; git diff -- apps/frontend/src/components/app/_lib/runSettings.ts apps/frontend/src/components/app/index.tsx apps/frontend/src/components/app/_lib/runSettings.test.ts' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+ .../src/components/app/_lib/runSettings.test.ts     | 21 ++++++++++++++++-----
+ .../frontend/src/components/app/_lib/runSettings.ts | 14 +++++++-------
+ apps/frontend/src/components/app/index.tsx          |  4 ++--
+ .../details-rail/_components/run-setup.tsx          |  2 +-
+ .../agent-catalog/agents/running/worker/agent.ts    |  4 ++--
+ .../core/cycle-runtime/phases/preparing/runtime.ts  |  6 +++---
+ .../phases/running/process-command.test.ts          | 15 +++++++++------
+ .../cycle-runtime/phases/running/process-command.ts |  2 +-
+ .../phases/running/process-control/runtime.test.ts  | 16 ++++++++--------
+ .../phases/running/service/init-run.ts              |  2 +-
+ .../server/src/core/cycle-runtime/run-state/runs.ts |  4 ++--
+ 11 files changed, 52 insertions(+), 38 deletions(-)
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.test.ts b/apps/frontend/src/components/app/_lib/runSettings.test.ts
+index 5f22d231..d99ad589 100644
+--- a/apps/frontend/src/components/app/_lib/runSettings.test.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.test.ts
+@@ -15,17 +15,28 @@ Object.defineProperty(globalThis, "localStorage", {
+ beforeEach(() => savedSettings.clear());
+ 
+ describe("run settings", () => {
+-  test("defaults worker reasoning to low", () => {
+-    expect(initialForm().thinkingLevel).toBe("low");
++  test("defaults workers to Astra with medium reasoning and 12 slots", () => {
++    expect(initialForm()).toMatchObject({
++      maxWorkers: 12,
++      model: "gpt-6-astra",
++      thinkingLevel: "medium",
++    });
+   });
+ 
+-  test("drops a saved xhigh thinking level from an old settings version", () => {
++  test("drops worker settings from the previous defaults version", () => {
+     localStorage.setItem("runSettings.v1", JSON.stringify({
++      maxWorkers: 16,
++      model: "gpt-5.6-sol",
+       thinkingLevel: "xhigh",
+-      thinkingLevelVersion: 2,
++      thinkingLevelVersion: 3,
++      settingsVersion: 6,
+     }));
+ 
+-    expect(initialForm().thinkingLevel).toBe("low");
++    expect(initialForm()).toMatchObject({
++      maxWorkers: 12,
++      model: "gpt-6-astra",
++      thinkingLevel: "medium",
++    });
+   });
+ });
+ 
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 1174a294..4365ba8a 100644
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -4,10 +4,10 @@ import { DEFAULT_WORKER_TIMEOUT_SECONDS } from "@/lib/workerConfig";
+ const RUN_SETTINGS_KEY = "runSettings.v1";
+ const THINKING_LEVEL_SETTINGS_VERSION = 3;
+ // Bump to invalidate saved maxWorkers/model/syncIngestConcurrency when their defaults change.
+-const RUN_SETTINGS_VERSION = 6;
+-const DEFAULT_THINKING_LEVEL = "low";
++const RUN_SETTINGS_VERSION = 7;
++const DEFAULT_THINKING_LEVEL = "medium";
+ 
+-export const RUN_MODEL_OPTIONS = ["gpt-5.6-sol", "gpt-5.6-terra"] as const;
++export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+   const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
+@@ -61,14 +61,14 @@ function loadRunSettings(): Partial<SavedRunSettings> {
+     const parsed = JSON.parse(raw) as Record<string, unknown>;
+     const settings: Partial<SavedRunSettings> = {};
+     // Saved values written before the current settings version predate the
+-    // 12-worker/gpt-5.6-sol/16-way sync-ingest defaults; drop them so the new
++    // 12-worker/gpt-6-astra/medium-thinking/16-way sync-ingest defaults; drop them so the new
+     // defaults win until the user saves again.
+     const currentVersion = parsed.settingsVersion === RUN_SETTINGS_VERSION;
+     if (currentVersion && typeof parsed.maxWorkers === "number" && parsed.maxWorkers > 0) settings.maxWorkers = Math.trunc(parsed.maxWorkers);
+     if (parsed.provider === "codex-lb") settings.provider = parsed.provider;
+-    if (currentVersion && (parsed.model === "gpt-5.6-sol" || parsed.model === "gpt-5.6-terra")) settings.model = parsed.model;
++    if (currentVersion && RUN_MODEL_OPTIONS.some((model) => model === parsed.model)) settings.model = parsed.model;
+     if (currentVersion && (parsed.sandboxProfile === "2-core" || parsed.sandboxProfile === "4-core")) settings.sandboxProfile = parsed.sandboxProfile;
+-    if (typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
++    if (currentVersion && typeof parsed.thinkingLevel === "string" && parsed.thinkingLevel) {
+       settings.thinkingLevel =
+         parsed.thinkingLevelVersion !== THINKING_LEVEL_SETTINGS_VERSION
+           ? DEFAULT_THINKING_LEVEL
+@@ -129,7 +129,7 @@ const defaultForm: FormState = {
+   ...schedulingForWorkers(12),
+   goalValue: 100,
+   provider: "codex-lb",
+-  model: "gpt-5.6-sol",
++  model: "gpt-6-astra",
+   sandboxProfile: "2-core",
+   thinkingLevel: DEFAULT_THINKING_LEVEL,
+   agentTimeoutSeconds: DEFAULT_WORKER_TIMEOUT_SECONDS,
+diff --git a/apps/frontend/src/components/app/index.tsx b/apps/frontend/src/components/app/index.tsx
+index 8eb584c3..7bb183f2 100644
+--- a/apps/frontend/src/components/app/index.tsx
++++ b/apps/frontend/src/components/app/index.tsx
+@@ -27,7 +27,7 @@ import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components
+ 
+ type Action = DashboardAction;
+ const PROCESS_CONFIG_VERSION = 3;
+-const DEFAULT_THINKING_LEVEL = "xhigh";
++const DEFAULT_THINKING_LEVEL = "medium";
+ 
+ // Multi-step server operations tracked by process.operation. Triggering one
+ // auto-opens the details rail on the Logs tab so the activity card and live
+@@ -113,7 +113,7 @@ function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
+ 
+   const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
+   if (thinkingLevel !== null) {
+-    patch.thinkingLevel = thinkingLevel === "medium" && Number(workerConfig.configVersion) !== PROCESS_CONFIG_VERSION ? DEFAULT_THINKING_LEVEL : thinkingLevel;
++    patch.thinkingLevel = thinkingLevel;
+   }
+ 
+   return patch;
+
+collab: Wait
+exec
+/bin/zsh -lc "git diff -- apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts; rg -n 'gpt-5\\.6-sol|thinking_level: \"xhigh\"|defaults worker thinking to xhigh|maxWorkers: 16' apps/server/src/core/cycle-runtime apps/server/src/core/agent-catalog apps/server/tests/smoke.ts --glob '*test.ts' --glob 'smoke.ts'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+diff --git a/apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts b/apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts
+index 30888643..b45cf8bb 100644
+--- a/apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/running/process-command.test.ts
+@@ -18,10 +18,10 @@ function runInputs(configuration: Record<string, unknown> = {}): RunInputs {
+       epoch_configure_command: "",
+       goal_kind: "matched_code_percent",
+       goal_value: 100,
+-      model: "gpt-5.6-sol",
++      model: "gpt-6-astra",
+       provider: "codex-lb",
+       sandbox_profile: "2-core",
+-      thinking_level: "xhigh",
++      thinking_level: "medium",
+       worker_configure_command: "",
+       ...configuration,
+     },
+@@ -33,10 +33,13 @@ describe("running process command", () => {
+     expect(runningScheduling(8)).toEqual({
+       maxWorkers: 8,
+     });
++    expect(runningScheduling(undefined)).toEqual({
++      maxWorkers: 12,
++    });
+   });
+ 
+   test("returns a typed blocker for request options that conflict with the stored snapshot", () => {
+-    const inputs = runInputs({ desired_workers: 4, model: "gpt-5.6-sol" });
++    const inputs = runInputs({ desired_workers: 4, model: "gpt-6-astra" });
+ 
+     expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
+       .toEqual([
+@@ -46,7 +49,7 @@ describe("running process command", () => {
+           stored: 4,
+           blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
+         }),
+-        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-5.6-sol" }),
++        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-6-astra" }),
+         expect.objectContaining({ field: "sandboxProfile", requested: "4-core", stored: "2-core" }),
+       ]);
+   });
+@@ -112,7 +115,7 @@ describe("running process command", () => {
+     expect(plan.command).not.toContain("--ttl-seconds");
+   });
+ 
+-  test("defaults worker thinking to xhigh", () => {
++  test("uses the default medium worker thinking from the run snapshot", () => {
+     const plan = buildRunningProcessCommand({
+       body: {
+         maxWorkers: 4,
+@@ -128,7 +131,7 @@ describe("running process command", () => {
+     });
+ 
+     const thinkingFlag = plan.command.indexOf("--thinking-level");
+-    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "xhigh"]);
++    expect(plan.command.slice(thinkingFlag, thinkingFlag + 2)).toEqual(["--thinking-level", "medium"]);
+   });
+ 
+   test("forwards configure command overrides to run-loop", () => {
+diff --git a/apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts
+index 59a6f4ff..9ad709e4 100644
+--- a/apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts
+@@ -43,10 +43,10 @@ describe("process control runtime", () => {
+           epoch_configure_command: "",
+           goal_kind: "matched_code_percent",
+           goal_value: 100,
+-          model: "gpt-5.6-sol",
++          model: "gpt-6-astra",
+           provider: "codex-lb",
+           sandbox_profile: "",
+-          thinking_level: "xhigh",
++          thinking_level: "medium",
+           worker_configure_command: "",
+         },
+       },
+@@ -103,11 +103,11 @@ describe("process control runtime", () => {
+       agentTimeoutSeconds: 1800,
+       goalValue: 100,
+       maxWorkers: 4,
+-      model: "gpt-5.6-sol",
++      model: "gpt-6-astra",
+       gameId: "melee",
+       provider: "codex-lb",
+       runId: run.id,
+-      thinkingLevel: "xhigh",
++      thinkingLevel: "medium",
+     });
+     const payload = (await response.json()) as { command: string[]; leaseId: string };
+     const repoRootFlag = payload.command.indexOf("--repo-root");
+@@ -167,9 +167,9 @@ describe("process control runtime", () => {
+           epoch_configure_command: "",
+           goal_kind: "matched_code_percent",
+           goal_value: 100,
+-          model: "gpt-5.6-sol",
++          model: "gpt-6-astra",
+           provider: "codex-lb",
+-          thinking_level: "xhigh",
++          thinking_level: "medium",
+           worker_configure_command: "",
+         },
+       },
+@@ -238,7 +238,7 @@ describe("process control runtime", () => {
+   test("starts a managed process with a clean environment", async () => {
+     const stateDir = mkdtempSync(join(tmpdir(), "process-control-runtime-"));
+     const store = openState(stateDir);
+-    const run = createRun(store, "matched_code_percent", 100, 16, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
++    const run = createRun(store, "matched_code_percent", 100, 12, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
+     store.db.close();
+     let spawned: StartManagedInput | null = null;
+     const processController = {
+@@ -289,7 +289,7 @@ describe("process control runtime", () => {
+     const response = await runtime.startManagedProcess({
+       gameId: "melee",
+       runId: run.id,
+-      maxWorkers: 16,
++      maxWorkers: 12,
+     });
+ 
+     expect(response.status).toBe(200);
+diff --git a/apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts b/apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts
+index 29ac8982..799f98f5 100644
+--- a/apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts
++++ b/apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts
+@@ -10,7 +10,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
+   try {
+     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
+     const goalValue = numberArg(args, "--goal-value", globals.game?.dashboard.goalValue ?? 70);
+-    const desiredWorkers = numberArg(args, "--desired-workers", 16);
++    const desiredWorkers = numberArg(args, "--desired-workers", 12);
+     const epochTargetCap = args.has("--epoch-target-cap")
+       ? Math.max(0, Math.floor(numberArg(args, "--epoch-target-cap", 0)))
+       : null;
+apps/server/tests/smoke.ts:1618:  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
+
+exec
+/bin/zsh -lc "sed -n '1595,1625p' apps/server/tests/smoke.ts; sed -n '160,210p' apps/server/src/core/cycle-runtime/cycle-runtime.test.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+      !kernelWorkerContext.includes("path_facts_resolve") &&
+      !kernelWorkerContext.includes('"scheduling_signals"') &&
+      !kernelWorkerContext.includes('"priority_bonus"') &&
+      kernelWorkerContext.includes("<decomp_standards>") &&
+      kernelWorkerContext.includes("<available_tools>") &&
+      !kernelWorkerContext.includes("<current_state_json>") &&
+      !kernelWorkerContext.includes("<available_pi_tools_json>") &&
+      !kernelWorkerContext.includes("selected_agent_context_references") &&
+      !kernelWorkerContext.includes('"lease"'),
+  );
+  const workerOutput = readFileSync(worker.workerOutput, "utf8");
+  const workerCustomToolsLine = workerOutput
+    .split("\n")
+    .find((line) => line.startsWith("custom_tools: ")) ?? "";
+  const expectedWorkerTools = [...defaultWorkerToolProfile];
+  const deprecatedWorkerToolIds = [
+    "mismatch_db_search",
+    "discord_knowledge_search",
+    "ssbm_data_sheet_lookup_address",
+    "external_mirrors_search",
+    "external_symbol_lookup",
+    "path_facts_resolve",
+  ];
+  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
+  assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+  assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+  assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+  assertSmoke("worker dry-run omits old context guide tool", !workerCustomToolsLine.includes("worker_context_get"));
+  assertSmoke("worker dry-run omits generic lookup router by default", !workerCustomToolsLine.includes("decomp_lookup"));
+  assertSmoke("worker user prompt does not list lookup commands", !workerUserPrompt.includes('"lookup_commands"'));
+  assertSmoke("rendered prompts do not reference design doc", !renderedPrompts.includes("decomp-orchestrator-design.html"));
+    startRunning(db, { id: created.record.id }, cycleTransition);
+    stopCycleRun(db, { id: created.record.id }, "manual_stop", { ...cycleTransition, manualStopMode: "hard_stop" });
+
+    const restarted = updateRunningSubphase(db, { id: created.record.id }, "workers", cycleTransition);
+    expect(restarted.view.phases.running.status).toBe("active");
+    expect(restarted.view.phases.running.completed_at).toBe(null);
+    expect(restarted.view.phases.running.stop_reason).toBeUndefined();
+    expect(restarted.view.phases.running.manual_stop_mode).toBeUndefined();
+    expect(restarted.view.activeSubphase).toBe("workers");
+    db.close();
+  });
+
+  test("running subphase stores worker config metadata", () => {
+    const { db } = openTestDb();
+    const created = createNewCycle(db, { actor: "operator", gameId: "melee", cycleUuid: "cycle-uuid", id: "cycle:cycle-uuid" });
+    markPreparingComplete(db, { id: created.record.id }, cycleTransition);
+    startRunning(db, { id: created.record.id }, cycleTransition);
+
+    const updated = updateRunningSubphase(db, { id: created.record.id }, "workers", {
+      ...cycleTransition,
+      data: {
+        workers: {
+          workerConfig: {
+            configVersion: 2,
+            maxWorkers: 20,
+            agentTimeoutSeconds: 1800,
+            provider: "codex-lb",
+            model: "gpt-5.5",
+            thinkingLevel: "xhigh",
+          },
+        },
+      },
+    });
+    expect(updated.view.phases.running.workers?.workerConfig).toEqual({
+      configVersion: 2,
+      maxWorkers: 20,
+      agentTimeoutSeconds: 1800,
+      provider: "codex-lb",
+      model: "gpt-5.5",
+      thinkingLevel: "xhigh",
+    });
+    db.close();
+  });
+
+  test("represents error stop reason and force-to-PR escape hatch", () => {
+    const { db } = openTestDb();
+    const created = createNewCycle(db, { actor: "operator", gameId: "melee", cycleUuid: "cycle-uuid", id: "cycle:cycle-uuid" });
+    markPreparingComplete(db, { id: created.record.id }, cycleTransition);
+    startRunning(db, { id: created.record.id }, cycleTransition);
+    const stopped = stopCycleRun(db, { id: created.record.id }, "error", {
+      ...cycleTransition,
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/tests/smoke.ts
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+collab: Wait
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+collab: Wait
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/frontend/src/components/app/_lib/runSettings.ts
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+codex
+Step 2 of 3 is done. All requested defaults are changed, the four stale default tests are updated, and no server-side model or thinking allowlist exists. I’m running the full server suite and UI check now.
+exec
+/bin/zsh -lc 'bun test src/core/cycle-runtime src/core/agent-catalog' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+exec
+/bin/zsh -lc 'bun run ui:check' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+ succeeded in 5328ms:
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+codex
+The UI check is green. The full server suite is still running through its sync fixtures; no failures have appeared. The test output already confirms init-run now emits Astra, medium thinking, and 12 workers.
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+ succeeded in 212305ms:
+[ui] init-run started: bun /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-tMy9Zm/job-runner.ts --game melee --repo-root /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-tMy9Zm/worktrees/cycles/cycle-uuid/current --state-dir /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-tMy9Zm/state --provider codex-lb --model gpt-6-astra --thinking-level medium --agent-timeout-seconds 1800 init-run --desired-workers 12 --goal-kind matched_code_percent --goal-value 100 --graph-db /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-tMy9Zm/graph.sqlite
+[ui] init-run exit=0
+[ui] PR sync: 0 tracked record(s), 0 other open upstream
+[ui] PR sync: 1 tracked record(s), null other open upstream - Could not derive the upstream repo from the origin remote.
+[ui] PR sync: 1 tracked record(s), null other open upstream - Could not derive the upstream repo from the origin remote.
+[stderr] save-point (qa) failed (1): git commit failed
+[stderr] save-point (checkpoint) failed: process unavailable
+[stderr] save-point (qa) failed (1): capture failed
+[ui] baseline reused from cache for base-pr-ba
+[ui] production baseline installed at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/pr-baseline-repo-lCLFVk/build/GALE01/baseline.json
+[stdout] sync sync-seeds-cycle-baseline: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-seeds-cycle-baseline policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-iL2FLo/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-iL2FLo/cycle/build/GALE01/report.json'
+[stdout] sync sync-seeds-cycle-baseline policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-iL2FLo/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-iL2FLo/cycle/build/GALE01/report.json'
+[stdout] sync sync-seeds-cycle-baseline: linked 0 game asset files into staging worktree
+[stdout] sync validation: seeded cycle baseline at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-iL2FLo/cycle/build/GALE01/baseline.json
+[stdout] sync sync-links-assets: linked 1 game asset files into staging worktree
+[stdout] sync sync-terminal-pr-record: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-terminal-pr-record policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json'
+[stdout] sync sync-terminal-pr-record policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json'
+[stdout] sync sync-terminal-pr-record policy merge series-trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-vfeaCM/cycle/build/GALE01/report.json'
+[stdout] sync sync-conflicts: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-conflicts policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json'
+[stdout] sync sync-conflicts policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json'
+[stdout] sync sync-conflicts policy merge series.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json'
+[stdout] sync sync-conflicts policy merge series-trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-ryuGJY/cycle/build/GALE01/report.json'
+[stdout] sync sync-conflicts: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-conflicts: linked 0 game asset files into staging worktree
+[stdout] sync sync-upstream-returned: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-upstream-returned policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-Uob1Xo/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-Uob1Xo/cycle/build/GALE01/report.json'
+[stdout] sync sync-upstream-returned policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-Uob1Xo/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-Uob1Xo/cycle/build/GALE01/report.json'
+[stdout] sync sync-upstream-returned: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[stdout] sync sync-cancel: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-cancel policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-8X9njv/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-8X9njv/cycle/build/GALE01/report.json'
+[stdout] sync sync-cancel policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-8X9njv/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-8X9njv/cycle/build/GALE01/report.json'
+[stdout] sync sync-recover-bare: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-recover-bare policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-W5fi6k/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-W5fi6k/cycle/build/GALE01/report.json'
+[stdout] sync sync-recover-bare policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-W5fi6k/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-W5fi6k/cycle/build/GALE01/report.json'
+[stdout] sync sync-recover-staged-resume: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-recover-staged-resume policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-hhfNgT/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-hhfNgT/cycle/build/GALE01/report.json'
+[stdout] sync sync-recover-staged-resume policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-hhfNgT/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-hhfNgT/cycle/build/GALE01/report.json'
+[stdout] sync sync-revalidate-conflict: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-revalidate-conflict policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-V5QI8a/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-V5QI8a/cycle/build/GALE01/report.json'
+[stdout] sync sync-revalidate-conflict policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-V5QI8a/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-V5QI8a/cycle/build/GALE01/report.json'
+[stdout] sync sync-revalidate-conflict: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-prune-merged-series: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-prune-merged-series policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json'
+[stdout] sync sync-prune-merged-series policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json'
+[stdout] sync sync-prune-merged-series policy merge series.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json'
+[stdout] sync sync-prune-merged-series policy merge series-trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-egMe1B/cycle/build/GALE01/report.json'
+[stderr] sync sync-prune-merged-series: dropping staged PR workspace codex/split-01-series: series merged/closed upstream
+[stdout] sync sync-recover-discard: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #101
+[stdout] sync sync-recover-discard policy merge ambiguous.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-F0jodZ/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-F0jodZ/cycle/build/GALE01/report.json'
+[stdout] sync sync-recover-discard policy merge trivial.c: ours=[] upstream=[] strategy=majority_fallback fallback=no_functions:upstream upstream-report-fallback=cycle report unavailable at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-F0jodZ/cycle/build/GALE01/report.json: ENOENT: no such file or directory, open '/var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/sync-engine-F0jodZ/cycle/build/GALE01/report.json'
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[stdout] discord mirror test fixture
+[stderr] sync trace emission failed (sync.start/started) for sync-trace-guarded: agent kernel is unreachable
+[stderr] sync trace emission failed (sync.ingest/started) for sync-trace-guarded: agent kernel is unreachable
+[stderr] sync trace emission failed (sync.validate/completed) for sync-trace-guarded: agent kernel is unreachable
+[stderr] sync trace emission skipped: sync sync-trace-orphan has no resolvable cycle (cycle-that-never-existed)
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #8123
+[stdout] discord mirror test fixture
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #41
+[stdout] refresh complete
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #41
+[stderr] refresh unavailable; using mirror
+[stdout] sync sync-distinct-roots: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #711
+[stdout] sync sync-distinct-roots: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #711
+[stdout] sync sync-distinct-roots-cancel: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #712
+[stdout] sync sync-distinct-roots-cancel: linked 0 game asset files into staging worktree
+[stdout] sync sync-distinct-roots: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #711
+[stdout] sync sync-distinct-roots: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #711
+[stdout] sync sync-distinct-roots-cancel: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #712
+[stdout] sync sync-distinct-roots-cancel: linked 0 game asset files into staging worktree
+[stdout] sync sync-durable-resolved-conflicts: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-durable-resolved-conflicts: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-success: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-success: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-stale: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-stale: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-dirty-cycle: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-dirty-cycle: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-compensate: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-compensate: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-intake-failure: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-intake-failure: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-publishing-cas: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-publishing-cas: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-repoint: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-repoint: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-boundary-rollback: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-boundary-rollback: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-boundary-commit: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-after-boundary-commit: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-mid-push: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-kill-mid-push: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-publish: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-publish: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-mid-compensation: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-mid-compensation: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-cancel: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-submodule-cancel: linked 0 game asset files into staging worktree
+[stdout] sync sync-publish-retry: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[stdout] sync sync-publish-retry: linked 0 game asset files into staging worktree
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #501
+[ui] git fetch origin started
+[ui] git fetch origin complete
+
+src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] boundary breakage: unit::fn 100% -> 96.9% (function, baseline upstream_ci upstream-b)
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 1: paused on regressions
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 1: paused on regressions
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: cycle draft PR updated
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: cycle draft PR updated
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 1: admitted 0 targets, 0 available
+[run-loop] epoch 1: test boundary; snapshotting and rebuilding report
+[run-loop] epoch 1: cycle draft PR updated
+[run-loop] epoch 1: matched_code 90%, 0 regressed functions, 0 repairs readmitted, qa gate not run (0s)
+[run-loop] epoch 1: admitted 0 targets, 0 available
+[run-loop] epoch 2: admitted 1 targets, 1 available
+[run-loop] epoch 1: pending integration attempt reconciled; skipped: link_complete_units, precommit_autofix, snapshot_commit, worktree_prepare, configure, report_build, report_read, confirmation_pass, qa_scan, report_publish, regression_repair, save_point; re-ran: boundary_sync, master_breakage_gate, ci_parity_gate, pre_commit_gate, draft_pr_publish
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: pending integration attempt reconciled; skipped: link_complete_units, precommit_autofix, snapshot_commit, worktree_prepare, configure, report_build, report_read, confirmation_pass, qa_scan, report_publish, regression_repair, save_point, boundary_sync, master_breakage_gate, ci_parity_gate, pre_commit_gate, draft_pr_publish; re-ran: none
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 1: pending integration attempt reconciled; skipped: link_complete_units, precommit_autofix, snapshot_commit, worktree_prepare, configure, report_build, report_read, confirmation_pass, qa_scan, report_publish, regression_repair, save_point; re-ran: boundary_sync, master_breakage_gate, ci_parity_gate, pre_commit_gate, draft_pr_publish
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[run-loop] epoch 2: admitted 0 targets, 0 available
+[epoch] captured boundary build-fixer patch: 165 bytes, 1 hunk(s)
+
+src/core/cycle-runtime/phases/running/epochs/build-fixer.test.ts:
+
+src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:
+[epoch] epoch-1 precommit_autofix started: running pre-commit autofix in cycle worktree
+[epoch] epoch-1 precommit_autofix finished: pre-commit autofix reformatted 1 file(s)
+[epoch] a81196f3 precommit_autofix skipped: pre-commit autofix disabled
+[epoch] epoch-1 link_complete_units started: linking units complete in the previous published report
+[epoch] epoch-1 link_complete_units reverted: final DOL check failed; restored configure.py: build/GALE01/ok sha1 check FAILED
+[epoch] epoch-1 link_complete_units started: linking units complete in the previous published report
+[epoch] epoch-1 link_complete_units finished: linked 1 complete unit(s) after the final DOL check passed
+[epoch] epoch-1 integration_drain started: checking worker integration queue before checkpoint build
+[epoch] epoch-1 integration_drain finished: worker integration queue drained
+[epoch] epoch-1 link_complete_units skipped: complete-unit linking disabled
+[epoch] epoch-1 precommit_autofix skipped: pre-commit autofix disabled
+[epoch] epoch-1 snapshot_commit started: committing epoch snapshot with 0 locked path(s) excluded
+[epoch] epoch-1 snapshot_commit finished: using existing HEAD 9e350e44e2
+[epoch] epoch-1 worktree_prepare started: preparing epoch worktree at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/epoch-cycle-failure-K5bqJn/epoch-worktree
+[epoch] epoch-1 worktree_prepare finished: epoch worktree prepared
+[epoch] epoch-1 configure skipped: configure command is empty
+[epoch] epoch-1 report_build started: building objdiff report in epoch worktree with baseline reset
+[epoch] epoch-1 report_build failed: generate report failed (7): error: fatal boundary build
+[epoch] epoch-1 integration_drain started: checking worker integration queue before checkpoint build
+[epoch] epoch-1 integration_drain finished: worker integration queue drained
+[epoch] epoch-1 integration_drain failed: epochId is required for a recoverable epoch integration commit
+[epoch] epoch-1 integration_drain started: checking worker integration queue before checkpoint build
+[epoch] epoch-1 integration_drain finished: worker integration queue drained
+[epoch] epoch-1 link_complete_units skipped: complete-unit linking disabled
+[epoch] epoch-1 precommit_autofix skipped: pre-commit autofix disabled
+[epoch] epoch-1 snapshot_commit started: committing epoch snapshot with 0 locked path(s) excluded
+[epoch] epoch-1 snapshot_commit failed: epoch commit failed: could not resolve HEAD
+[epoch] epoch-1 integration_drain started: checking worker integration queue before checkpoint build
+[epoch] epoch-1 integration_drain finished: worker integration queue drained
+[epoch] epoch-1 link_complete_units skipped: complete-unit linking disabled
+[epoch] epoch-1 precommit_autofix skipped: pre-commit autofix disabled
+[epoch] epoch-1 snapshot_commit started: committing epoch snapshot with 0 locked path(s) excluded
+[epoch] epoch-1 snapshot_commit finished: using existing HEAD fa3ada2aa1
+[epoch] epoch-1 worktree_prepare started: preparing epoch worktree at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/epoch-cycle-fixer-propagation-rDYXTc/epoch-worktree
+[epoch] epoch-1 worktree_prepare finished: epoch worktree prepared
+[epoch] epoch-1 configure skipped: configure command is empty
+[epoch] epoch-1 report_build started: building objdiff report in epoch worktree with baseline reset
+[epoch] epoch-1 report_build_fixer started: starting one bounded codex attempt for a mechanical report build break
+[epoch] epoch-1 report_build_fixer finished: bounded codex build-fixer exited 0; retrying report build once
+[epoch] epoch-1 report_build_fixer started: propagating the successful boundary build-fixer diff
+[epoch] epoch-1 report_build_fixer failed: boundary build-fixer files already have cycle-worktree changes; fixer diff retained at /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/epoch-cycle-fixer-propagation-rDYXTc/state/epochs/2026-09-05T17-18-56-701Z/boundary-build-fixer.patch
+[epoch] epoch-1 report_build_fixer propagated: propagated 1 build-fixer file(s) at 392cfd3055
+
+src/core/cycle-runtime/phases/running/workers/worker-task.test.ts:
+[sandbox-sleep] worker test-47929-8b50fe9c: enabled=false stops=0 starts=0 stopped_ms=0 stop_failures=0 start_failures=0
+[sandbox-sleep] worker test-47929-17e20f8d: enabled=false stops=0 starts=0 stopped_ms=0 stop_failures=0 start_failures=0
+
+src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:
+[sandbox-sleep] worker test-47929-6ebda079: enabled=true stops=0 starts=0 stopped_ms=0 stop_failures=0 start_failures=0
+[sandbox] failed to delete sandbox-1 (settlement) warn: provider unavailable
+      at <anonymous> (/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:834:41)
+      at deleteSandbox (/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/job-queue/sandbox-lifecycle.ts:110:37)
+      at deleteSandboxForJob (/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/job-queue/sandbox-lifecycle.ts:162:24)
+
+[ui] run 390b0f8e-17da-47c1-9d28-b23bdb98d35e activated under dispatch lease lease-d399e1388f3dd24222b57b2969632ea6
+[ui] run 390b0f8e-17da-47c1-9d28-b23bdb98d35e activated under dispatch lease lease-d399e1388f3dd24222b57b2969632ea6
+[ui] run 1f05e0c2-27d5-4a0b-9174-461b548b13eb activated under dispatch lease lease-a33e71f5737c46bc10c7b55df284998f
+[ui] run f0ce1b6d-cade-48ec-8641-d380998e74bd activated under dispatch lease lease-d685d798c78331bdd028c665f89babe4
+[ui] run 18d89695-0364-498a-9c6d-f3a37d772945 activated under dispatch lease lease-c642717ff8008b221704416a341ce4a1
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #2731
+[ui] prepare upstream-current worktree update started: origin/master @ bbbbbbbbbb
+[ui] prepare upstream-current worktree ready: /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-git-intake-i2vyil/worktrees/upstream-current
+[ui] prepare cycle current worktree ready: /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-git-intake-i2vyil/worktrees/cycles/cycle-uuid/current
+
+ 609 pass
+ 0 fail
+ 2812 expect() calls
+Ran 609 tests across 64 files. [212.42s]
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+exec
+/bin/zsh -lc 'git diff --check; git diff --name-only -- apps/server apps/frontend; git diff --stat -- apps/server apps/frontend; git status --short -- games/melee' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 415ms:
+?? games/melee/knowledge/backups/
+?? games/melee/knowledge/knowledge.sqlite-shm
+?? games/melee/knowledge/knowledge.sqlite-wal
+
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+codex
+DONE. Worker runs now default to `gpt-6-astra`, medium thinking, and 12 workers.
+
+| File | Before → After |
+|---|---|
+| `worker/agent.ts` | `gpt-5.6-sol` → `gpt-6-astra` |
+| `worker/agent.ts` | `xhigh` → `medium` |
+| `preparing/runtime.ts` | `gpt-5.6-sol` → `gpt-6-astra` |
+| `preparing/runtime.ts` | `xhigh` → `medium` |
+| `preparing/runtime.ts` worker fallback | 16 → 12 |
+| `run-state/runs.ts` snapshot | `gpt-5.6-sol` → `gpt-6-astra` |
+| `run-state/runs.ts` snapshot | `xhigh` → `medium` |
+| `process-command.ts` scheduling fallback | 16 → 12 |
+| `service/init-run.ts` worker fallback | 16 → 12 |
+| `runSettings.ts` model | `gpt-5.6-sol` → `gpt-6-astra` |
+| `runSettings.ts` thinking | `low` → `medium` |
+| `runSettings.ts` invalid-count fallback | 16 → 12 |
+| `runSettings.ts` settings version | 6 → 7 |
+| `index.tsx` legacy thinking fallback | `xhigh` → `medium` |
+| `run-setup.tsx` thinking choices | `xhigh/high/medium/low` → `low/medium/high/xhigh/max` |
+
+Also completed:
+
+- Model choices are now Astra, Sol, Terra.
+- Old saved worker settings reset to the new defaults.
+- Worker model and thinking still come from the immutable run snapshot.
+- No server-side model or thinking-level allowlist exists.
+- `DEFAULT_PI_MODEL`, librarian agents, sync defaults, and build-fixer remain on `gpt-5.6-sol`.
+- No `games/melee/**` files were changed. Existing untracked database files there were left untouched.
+- `git diff --check`: green.
+- Server tests: 609 passed, 0 failed.
+- `bun run ui:check`: green.
+diff --git a/apps/frontend/src/components/app/_lib/runSettings.ts b/apps/frontend/src/components/app/_lib/runSettings.ts
+index 283aa5d8df02f63298e137119e4e082b68ecd000..46a9573d8dce55840e552ce8e3b9ac1e32fe9f1e
+--- a/apps/frontend/src/components/app/_lib/runSettings.ts
++++ b/apps/frontend/src/components/app/_lib/runSettings.ts
+@@ -10,7 +10,7 @@
+ export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+ 
+ export function schedulingForWorkers(workers: number) {
+-  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 16;
++  const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;
+   return {
+     maxWorkers,
+   };
+diff --git a/apps/server/tests/smoke.ts b/apps/server/tests/smoke.ts
+index 61983aade5204cb5b7e56484b96c303d1fc38e53..7ba0da9e698b2caef42a11959bd090d049b166ce
+--- a/apps/server/tests/smoke.ts
++++ b/apps/server/tests/smoke.ts
+@@ -1615,7 +1615,7 @@
+     "external_symbol_lookup",
+     "path_facts_resolve",
+   ];
+-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
++  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
+   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
+   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
+   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));
+
+tokens used
+139,501
+DONE. Worker runs now default to `gpt-6-astra`, medium thinking, and 12 workers.
+
+| File | Before → After |
+|---|---|
+| `worker/agent.ts` | `gpt-5.6-sol` → `gpt-6-astra` |
+| `worker/agent.ts` | `xhigh` → `medium` |
+| `preparing/runtime.ts` | `gpt-5.6-sol` → `gpt-6-astra` |
+| `preparing/runtime.ts` | `xhigh` → `medium` |
+| `preparing/runtime.ts` worker fallback | 16 → 12 |
+| `run-state/runs.ts` snapshot | `gpt-5.6-sol` → `gpt-6-astra` |
+| `run-state/runs.ts` snapshot | `xhigh` → `medium` |
+| `process-command.ts` scheduling fallback | 16 → 12 |
+| `service/init-run.ts` worker fallback | 16 → 12 |
+| `runSettings.ts` model | `gpt-5.6-sol` → `gpt-6-astra` |
+| `runSettings.ts` thinking | `low` → `medium` |
+| `runSettings.ts` invalid-count fallback | 16 → 12 |
+| `runSettings.ts` settings version | 6 → 7 |
+| `index.tsx` legacy thinking fallback | `xhigh` → `medium` |
+| `run-setup.tsx` thinking choices | `xhigh/high/medium/low` → `low/medium/high/xhigh/max` |
+
+Also completed:
+
+- Model choices are now Astra, Sol, Terra.
+- Old saved worker settings reset to the new defaults.
+- Worker model and thinking still come from the immutable run snapshot.
+- No server-side model or thinking-level allowlist exists.
+- `DEFAULT_PI_MODEL`, librarian agents, sync defaults, and build-fixer remain on `gpt-5.6-sol`.
+- No `games/melee/**` files were changed. Existing untracked database files there were left untouched.
+- `git diff --check`: green.
+- Server tests: 609 passed, 0 failed.
+- `bun run ui:check`: green.

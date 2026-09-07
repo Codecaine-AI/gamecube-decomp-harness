@@ -9,6 +9,7 @@ export const agent = defineHarnessAgent({
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
   model: "codex-lb/gpt-6-astra",
   coreTools: [
+    "knowledge_render_file",
       "knowledge_record",
       "pr_search",
       "discord_search",

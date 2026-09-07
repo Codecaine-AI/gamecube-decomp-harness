@@ -100,6 +100,28 @@ function sampleWorkerPrompt() {
 }
 
 describe("workerPrompt", () => {
+  test("renders sandbox-prefetched source with names within each budget while retaining canonical target identity", () => {
+    const source = "void fn_80000000(void) { sandbox_only(); }\n".repeat(1000);
+    for (const [contextBudget, limit] of [["full", 32000], ["compact", 12000], ["minimal", 3000]] as const) {
+      const bundle = workerPrompt({
+        packet: { target: { unit: "test", symbol: "fn_80000000", source_path: "src/test.c" } },
+        repoRoot: "/no-host-checkout", stateDir: "/state", initialBoardPath: "/state/board.json", workerLogDir: "/state/workers",
+        targetSourceText: source, contextBudget,
+        sourceNames: [{ symbol: "fn_80000000", value: "UpdateState", source_path: "src/test.c", stable_key: "test:fn_80000000", confidence: 0.8, fact_id: "name1", updated_at: "2026-09-05" }],
+      });
+      const text = bundle.kernelContext?.renderedContext ?? "";
+      expect(text).toContain('symbol="fn_80000000"');
+      expect(text).toContain('path="src/test.c"');
+      expect(text).toContain("void UpdateState(void) { sandbox_only(); }");
+      expect(text).not.toContain("void fn_80000000(void)");
+      expect(text).toContain("fn_80000000 -> UpdateState");
+      const view = text.match(/<proposed_name_view read_only="true">\n<!\[CDATA\[([\s\S]*?)\]\]>/)?.[1];
+      expect(view).toBeDefined();
+      expect(view!.length).toBeLessThanOrEqual(limit);
+      expect(bundle.systemPrompt).toContain("knowledge_render_file");
+    }
+  });
+
   test("renders unavailable v2 context deterministically when the knowledge database is absent", async () => {
     const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
     const knowledgeRoot = await mkdtemp(resolve(tmpdir(), "worker-prompt-v2-empty-"));

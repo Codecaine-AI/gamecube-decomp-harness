@@ -234,6 +234,7 @@ async function modelProposal(
       fillOutSubjects: context.fillOut,
       supportingSubjects: context.supporting,
       decompStandards: librarianStandardsView(globalStandardsContext()),
+      checkoutRoot: deps.checkoutRoot,
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,
@@ -245,6 +246,7 @@ async function modelProposal(
     thinkingLevel: deps.globals.thinkingLevel,
     timeoutMs,
     toolContext: {
+      knowledgeCheckoutRoot: deps.checkoutRoot,
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,
@@ -354,7 +356,7 @@ export async function runPass(
     const proposal = await modelProposal(
       target,
       context,
-      deps,
+      { ...deps, checkoutRoot },
       resolve(directory, "agent-output", slug),
     );
     modelMs = clockMs() - modelStarted;

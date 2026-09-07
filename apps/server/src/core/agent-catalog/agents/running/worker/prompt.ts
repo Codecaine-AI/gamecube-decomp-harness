@@ -85,6 +85,9 @@ export const prompt = definePrompt({
       usesContext("worker-packet", {
         instructions: [
           "Use the injected target (with its source file and related functions), first diff, standards, available tools, and repair request as the authoritative task packet.",
+          "A <proposed_name_view> inside target_file shows current code with guessed function names and a canonical-symbol footer. Read it for the file's behavior: look for missing operations, asymmetric cleanup, inconsistent state transitions, or a helper whose behavior conflicts with its proposed name. Treat each observation as a hypothesis to check against current source and compiler evidence.",
+          "Use knowledge_render_file for another source/header file, continuation lines, or a fresh view after edits. Unmapped or ambiguous names stay unchanged; the renderer currently substitutes functions only. A convincing name is not proof of what the code does.",
+          "Before editing, read the canonical file and map every proposed name back through the footer. Patch original source text, and use canonical symbols and original line numbers in compiler tools and citations. Never copy guessed identifiers into source just to match the reading view.",
           "The `first_diff` block is the residual at the start of your turn. Classify it before reading anything else in depth.",
           "Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than any historical summary.",
         ],
@@ -441,6 +444,8 @@ const sectionTargetPrompt = definePrompt({
       usesContext("worker-packet", {
         instructions: [
           "Use the injected target (with its source file and related functions), first diff, standards, available tools, and repair request as the authoritative task packet.",
+          "A <proposed_name_view> is current source with guessed function names and a canonical-symbol footer. Use it to notice missing or inconsistent behavior, then verify the hypothesis in canonical source and compiler output. Data-section labels and fields are not substituted.",
+          "Use knowledge_render_file to read other source/header files or refresh after edits. Before patching, read the canonical file; use original symbols in edits, tool arguments, and citations. Guessed names are reading aids, not recovered identifiers.",
           "Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than any historical summary.",
         ],
       }),

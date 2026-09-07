@@ -12,6 +12,7 @@ import { openKnowledgeIndexDb, type KnowledgeIndexDb } from "@server/core/knowle
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
+import { sourceViewToolRegistration } from "./source-view.js";
 
 type SearchMode = "keyword" | "vector" | "hybrid";
 type AttemptOutcome = "match" | "improvement" | "no_change" | "error";
@@ -22,6 +23,7 @@ interface KnowledgeV2Handles {
   indexDb: KnowledgeIndexDb;
   gameId: string;
   stateDir?: string;
+  checkoutRoot?: string;
 }
 
 const searchModeProperty = {
@@ -176,6 +178,7 @@ async function withKnowledgeV2Handles<T extends object>(
       indexDb,
       gameId,
       ...(context.stateDir === undefined ? {} : { stateDir: context.stateDir }),
+      ...(context.knowledgeCheckoutRoot === undefined ? {} : { checkoutRoot: context.knowledgeCheckoutRoot }),
     });
   } finally {
     indexDb?.close();
@@ -404,6 +407,7 @@ export const kv2UnitContextToolRegistration: AgentToolRegistration = {
 
 /** All read-only knowledge-v2 tool registrations for librarian profiles. */
 export const knowledgeV2ToolRegistrations = [
+  sourceViewToolRegistration,
   kv2DiscordSearchToolRegistration,
   kv2WikiSearchToolRegistration,
   kv2PrSearchToolRegistration,

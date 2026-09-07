@@ -39,6 +39,7 @@ const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
 const sampleStateDir = resolve(repoRoot, ".decomp-orchestrator-state");
 const unresolvedPlaceholderPattern = /\{\{[A-Z0-9_]+\}\}/;
 const workerKnowledgeV2ToolIds = [
+  "knowledge_render_file",
   "knowledge_record",
   "pr_search",
   "discord_search",
@@ -235,6 +236,7 @@ describe("meleeKernelAgentCatalog", () => {
       expect.arrayContaining([...workerKnowledgeV2ToolIds]),
     );
     expect(defaultLibrarianToolProfile).toEqual([
+      "knowledge_render_file",
       "code_graph_search",
       "graph_related_functions",
       "discord_search",
@@ -401,6 +403,11 @@ describe("meleeKernelAgentCatalog", () => {
     const backfillLibrarian = payload.agents.find((agent) => agent.name === "backfill-librarian");
     const backfillRendered = `${backfillLibrarian?.renderedPrompt?.content ?? ""}\n${backfillLibrarian?.context?.renderedContext ?? ""}`;
 
+    for (const text of [rendered, librarianV2Rendered, backfillRendered]) {
+      expect(text).toContain("void ftDemo_UpdateGuardedState(void)");
+      expect(text).toContain("Symbols in this excerpt (canonical -> proposed)");
+      expect(text).toContain("ftDemo_KernelViewerSample -> ftDemo_UpdateGuardedState");
+    }
     expect(payload.agents).toHaveLength(4);
     expect(payload.warnings).toEqual([]);
     expect(worker?.renderedTools).toContain("<available_tools>");
@@ -458,6 +465,44 @@ describe("meleeKernelAgentCatalog", () => {
     expect(backfillRendered).toContain("<output_contract>");
     expect(backfillRendered).toContain("librarian_pass_v1");
     expect(backfillRendered).not.toMatch(unresolvedPlaceholderPattern);
+  });
+
+  test("keeps librarian naming guidance aligned in runtime context, schemas, and dashboard previews", () => {
+    const payload = loadKernelAgentsPayload({
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    }, { loadBackfillPassContext: () => null });
+    const contracts: string[] = [];
+
+    for (const agentId of ["librarian-v2", "backfill-librarian"] as const) {
+      const bundle = samplePrompt(agentId);
+      const context = bundle.kernelContext?.renderedContext ?? "";
+      const contract = context.match(/<inferred_name_contract>[\s\S]*?<\/inferred_name_contract>/u)?.[0];
+      expect(contract).toBeDefined();
+      contracts.push(contract!);
+      expect(contract).toContain("one C identifier matching [A-Za-z_][A-Za-z0-9_]*");
+      expect(contract).toContain("one short aggregate label");
+      expect(contract).toContain("one direct filename or module label");
+      expect(contract).toContain("alternative candidates in rationale");
+      expect(contract).toContain("clear the existing redundant inferred_name");
+      expect(contract).toContain("not proof of original developer spelling");
+      expect(bundle.systemPrompt).toContain("value is only the preferred direct name");
+      expect(bundle.systemPrompt).not.toContain("the name the original developers plausibly used");
+      expect(bundle.kernelContext?.turnPrompt).toContain("inferred_name.value is one direct name");
+      const outputContract = context.match(/<output_contract>\s*```json\s*([\s\S]*?)\s*```/u)?.[1];
+      const schema = JSON.parse(outputContract!);
+      expect(schema.facts[0].value).toContain("only one preferred direct name");
+      expect(schema.facts[0].rationale).toContain("alternative candidates here");
+
+      const viewer = payload.agents.find((agent) => agent.name === agentId);
+      expect(viewer?.context?.renderedContext).toContain(contract!);
+      expect(viewer?.context?.renderedContext).toContain('"value": "ftDemo_UpdateGuardedState"');
+      expect(viewer?.context?.renderedContext).toContain('"rationale": "The guard gates');
+      expect(viewer?.context?.renderedContext).not.toMatch(unresolvedPlaceholderPattern);
+    }
+    expect(contracts[0]).toBe(contracts[1]);
   });
 
   test("threads the selected target into the real worker preview", () => {

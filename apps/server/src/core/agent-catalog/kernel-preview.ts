@@ -24,7 +24,17 @@ import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-
 import { loadV2TargetCard, type V2TargetCard } from "@server/core/knowledge-v2/card.js";
 import { buildWorkerKnowledgeContext } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
 import { gameRoot } from "@server/core/knowledge/paths.js";
+import { resolveKnowledgeCheckout } from "@server/core/knowledge-v2/checkout.js";
 import type { DriftReport } from "@server/core/knowledge-v2/drift/flagger.js";
+
+const sampleSourceReading = {
+  sourceFiles: [{ path: "src/melee/ft/chara/ftDemo.c", source: "void ftDemo_KernelViewerSample(void) { /* guarded state update */ }", symbol: "ftDemo_KernelViewerSample" }],
+  sourceNames: [{
+    symbol: "ftDemo_KernelViewerSample", stable_key: "GALE01:kernel-viewer:ftDemo_KernelViewerSample",
+    source_path: "src/melee/ft/chara/ftDemo.c", value: "ftDemo_UpdateGuardedState", confidence: 0.72,
+    fact_id: "fact-kernel-viewer-name", updated_at: "2026-09-05T00:00:00Z",
+  }],
+};
 
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
@@ -145,7 +155,11 @@ function realWorkerPrompt(
   const card = cardLoader(target, game?.gameId);
   const legacy = card ? null : legacyTargetLocation(paths.graphDbPath, target);
   const sourcePath = card?.target.source_path ?? legacy?.sourcePath ?? "";
-  const checkoutPath = sourcePath ? resolve(gameRoot("melee"), "checkout", sourcePath) : "";
+  let checkoutPath = "";
+  try {
+    const checkout = resolveKnowledgeCheckout({ gameId: game?.gameId ?? "melee", stateDir: paths.stateDir });
+    checkoutPath = sourcePath ? resolve(checkout.checkoutRoot, sourcePath) : "";
+  } catch { /* Preview remains available when the checkout is absent. */ }
   if (!card && (!checkoutPath || !existsSync(checkoutPath))) return null;
 
   const knowledgeContext = (deps.buildWorkerKnowledgeContext ?? buildWorkerKnowledgeContext)(
@@ -193,7 +207,8 @@ function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): Backfill
       (candidate) => candidate.stable_key.startsWith("main/melee/") && candidate.attempts_runs > 0,
     ) ?? rows[0];
     if (!row) return null;
-    const context = buildPassContext(store, row);
+    const checkout = resolveKnowledgeCheckout({ gameId, stateDir: paths.stateDir });
+    const context = buildPassContext(store, row, { checkoutRoot: checkout.checkoutRoot, checkoutRev: checkout.headRevision });
     return { fillOut: context.fillOut, supporting: context.supporting };
   } catch {
     return null;
@@ -370,6 +385,11 @@ function samplePrompt(
           "}",
           "",
         ].join("\n"),
+        sourceNames: [{
+          symbol: "ftDemo_KernelViewerSample", stable_key: "GALE01:kernel-viewer:ftDemo_KernelViewerSample",
+          source_path: "src/melee/ft/chara/ftDemo.c", value: "ftDemo_UpdateGuardedState", confidence: 0.72,
+          fact_id: "fact-kernel-viewer-name", updated_at: "2026-09-05T00:00:00Z",
+        }],
       });
     case "worker-summarizer": {
       const workerRunId = "run:31f060aa-de8d-49cc-adf0-601e8735dd4e";
@@ -456,6 +476,7 @@ function samplePrompt(
     }
     case "librarian-v2":
       return librarianV2Prompt({
+        ...sampleSourceReading,
         task: {
           pathway: "run_closed",
           instruction: "Review the closed run and preserve durable knowledge.",
@@ -472,7 +493,17 @@ function samplePrompt(
             kind: "target",
             target_stable_key: "GALE01:ftDemo_Target",
             renamed_from: ["GALE01:fn_800D0F30"],
-            record: { facts: {}, links: [] },
+            record: {
+              facts: {
+                inferred_name: {
+                  value: "ftDemo_UpdateGuardedState",
+                  rationale: "The guard gates the fighter state update; this is a reading-name guess.",
+                  confidence: 0.65,
+                  evidence: [{ kind: "code", locator: "code://1e28b4203b/src/melee/ft/chara/ftDemo.c#L12-L40", why: "The guarded state update is visible in the source span." }],
+                },
+              },
+              links: [],
+            },
             material: { source: { locator: null, reason: "sample" }, analogs: { unavailable: true } },
             drift: {
               subject: { targetId: "target-kernel-viewer-sample" },
@@ -516,6 +547,7 @@ function samplePrompt(
         context = null;
       }
       return backfillLibrarianPrompt({
+        ...(context ? {} : sampleSourceReading),
         task: { mode: "fill_out_pass", reason: "dashboard preview" },
         fillOutSubjects: context?.fillOut ?? [
           {
@@ -532,7 +564,18 @@ function samplePrompt(
             target_stable_key: "GALE01:ftDemo_KernelViewerSample",
             detail: { symbol: "ftDemo_KernelViewerSample", match_pct: 100, linked: true },
             ledger: [{ type: "submission", seq: 1, score: 100 }],
-            record: { facts: { purpose: { value: "Updates demo fighter state.", confidence: 0.55 } }, links: [] },
+            record: {
+              facts: {
+                purpose: { value: "Updates demo fighter state.", confidence: 0.55 },
+                inferred_name: {
+                  value: "ftDemo_UpdateGuardedState",
+                  rationale: "The guard gates the fighter state update; this is a reading-name guess.",
+                  confidence: 0.65,
+                  evidence: [{ kind: "code", locator: "code://1e28b4203b/src/melee/ft/chara/ftDemo.c#L12-L40", why: "The guarded state update is visible in the source span." }],
+                },
+              },
+              links: [],
+            },
           },
         ],
         supportingSubjects: context?.supporting ?? [],

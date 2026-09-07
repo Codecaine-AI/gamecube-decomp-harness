@@ -8,6 +8,7 @@ export const agent = defineHarnessAgent({
   description: "Curate evidence-grounded knowledge proposals from one event-driven index task without writing store state directly.",
   model: "codex-lb/gpt-5.6-sol",
   coreTools: [
+    "knowledge_render_file",
     "code_graph_search",
     "graph_related_functions",
     "discord_search",

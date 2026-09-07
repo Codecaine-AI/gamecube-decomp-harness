@@ -1,3 +1,4 @@
+import { librarianSourceContext, type LibrarianSourceContextOptions } from "@server/core/knowledge-v2/source-context.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
@@ -22,7 +23,7 @@ const loaders = [
   },
 ] as const satisfies readonly LoaderDeclaration[];
 
-export interface LibrarianV2PromptOptions {
+export interface LibrarianV2PromptOptions extends LibrarianSourceContextOptions {
   task: unknown;
   object: unknown;
   touchedSubjects: unknown;
@@ -42,6 +43,7 @@ export interface LibrarianV2PromptOptions {
 
 export const LIBRARIAN_V2_TURN_PROMPT = [
   "Use the injected librarian V2 context packet.",
+  "Follow <inferred_name_contract>: inferred_name.value is one direct name; put explanation and alternatives in rationale.",
   "Read <pass> for the pathway and head revision, then process the one index task: run the rename and drift audit on the touched subjects, read the triggering object, decide per subject whether it reveals something new, confirms what stands, or teaches nothing, and return exactly one librarian_pass_v1 proposal JSON object.",
 ].join(" ");
 
@@ -98,6 +100,27 @@ House decompilation standards, injected for awareness only. They are QA-owned ha
 \`\`\`
 </decomp_standards>
 
+<source_reading_view>
+The file excerpts below use proposed names to help you understand the surrounding behavior before writing facts. Inspect the whole control flow for missing operations and inconsistent interpretations.
+
+<proposed_name_files read_only="true">
+{{SOURCE_READING_VIEWS}}
+</proposed_name_files>
+
+Use knowledge_render_file to read current C source or headers with proposed function names and a canonical-symbol footer. Use this view to identify missing or inconsistent behavior, then verify it against canonical source via resolve_locator before citing evidence. A guessed name is not evidence for its own meaning. Use original symbols and paths in subjects and citations. Fields, parameters, and aggregate labels remain unchanged.
+</source_reading_view>
+
+<inferred_name_contract>
+For an inferred_name write, value contains only one preferred direct name. For example, use "ftLk_SpecialN_RemoveArrow", never "A plausible original-style name is ftLk_SpecialN_RemoveArrow."
+
+- Functions, structs, struct fields, and parameters: one C identifier matching [A-Za-z_][A-Za-z0-9_]*, following the codebase's naming conventions.
+- A data target representing one object: one C identifier. A section containing multiple objects: one short aggregate label for the section; do not pack individual symbols or alternatives into its name.
+- Translation units: one direct filename or module label. Game concepts and patterns: one short direct label.
+- No surrounding quotes/backticks, sentences, prefixes such as "Likely" or "Possible name", signatures, or lists of alternatives in value. The JSON string delimiters are still required.
+- Put explanations, uncertainty, and alternative candidates in rationale; use confidence for the strength of the guess and evidence for its support. These are reading names, not proof of original developer spelling or instructions to rename source.
+- Prefer one supported name. If none is meaningful, omit the fact; clear an existing unsupported naming fact with op: "clear" and value: "". A name equal to the canonical symbol adds nothing: omit it, or clear the existing redundant inferred_name. Preserve the canonical identity in subject and citations.
+</inferred_name_contract>
+
 <output_contract>
 \`\`\`json
 {{LIBRARIAN_V2_OUTPUT_SCHEMA_JSON}}
@@ -136,6 +159,7 @@ export function buildLibrarianV2KernelContext(
 ): NonNullable<PiPromptBundle["kernelContext"]> {
   const task = isRecord(options.task) ? options.task : {};
   const values = {
+    SOURCE_READING_VIEWS: "<![CDATA[" + librarianSourceContext(options.touchedSubjects, options).replaceAll("]]>", "]]]]><![CDATA[>") + "]]>",
     PATHWAY: typeof task.pathway === "string" ? task.pathway : "unknown",
     INSTRUCTION: typeof task.instruction === "string" ? task.instruction : "",
     HEAD_REVISION: options.headRevision ?? "unknown",

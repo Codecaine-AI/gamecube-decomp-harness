@@ -5,6 +5,7 @@ import { defaultLibrarianToolProfile } from "../profiles/defaults.js";
 const { agentToolRegistry, toolAllowedForRole } = await import("../runtime/registry.js");
 
 const knowledgeV2ToolIds = [
+  "knowledge_render_file",
   "discord_search",
   "wiki_search",
   "pr_search",
@@ -22,8 +23,9 @@ describe("knowledge-v2 tool allowed roles", () => {
     expect(defaultLibrarianToolProfile).not.toContain("review_lint_scan");
   });
 
-  test("workers receive the six read-only research tools", () => {
+  test("workers receive the read-only research tools and source renderer", () => {
     const expectedRoles: Record<(typeof knowledgeV2ToolIds)[number], RuntimeAgentRole[]> = {
+      knowledge_render_file: ["worker", "librarian"],
       discord_search: ["librarian", "worker"],
       wiki_search: ["librarian", "worker"],
       pr_search: ["librarian", "worker"],

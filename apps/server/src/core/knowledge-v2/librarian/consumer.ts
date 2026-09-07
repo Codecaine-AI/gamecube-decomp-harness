@@ -300,6 +300,7 @@ async function modelProposal(
       touchedSubjects: context.touched,
       supportingSubjects: context.supporting,
       decompStandards: librarianStandardsView(globalStandardsContext()),
+      checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
       headRevision: context.head_revision,
       ...(retry === undefined ? {} : { retry }),
       repoRoot: deps.globals.repoRoot,
@@ -313,6 +314,7 @@ async function modelProposal(
     thinkingLevel: deps.globals.thinkingLevel,
     timeoutMs,
     toolContext: {
+      knowledgeCheckoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
       game: deps.globals.game,

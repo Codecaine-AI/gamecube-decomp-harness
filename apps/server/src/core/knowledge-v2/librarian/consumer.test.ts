@@ -717,6 +717,8 @@ describe("runLibrarianPass", () => {
 
   test("applies the proposal, stamps the touched target, completes the task, and writes the artifact", async () => {
     const f = fixture("happy", 1);
+    mkdirSync(join(f.root, "src"), { recursive: true });
+    writeFileSync(join(f.root, "src/main.c"), "void func_1(void) { /* current librarian checkout */ }\n");
     const id = enqueueRunClosed(f, 1);
     const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
     let clock = 0;
@@ -730,7 +732,10 @@ describe("runLibrarianPass", () => {
         expect(options.catalogAgentId).toBe("librarian-v2");
         expect(options.role).toBe("librarian");
         expect(options.toolProfile?.disable).toBeUndefined();
+        expect(options.toolContext?.knowledgeCheckoutRoot).toBe(f.root);
         promptTouched = options.prompt.kernelContext?.renderedContext;
+        expect(promptTouched).toContain("Proposed-name reading view: src/main.c");
+        expect(promptTouched).toContain("current librarian checkout");
         return modelResult(proposal(1));
       },
       now: () => FIXED_NOW,

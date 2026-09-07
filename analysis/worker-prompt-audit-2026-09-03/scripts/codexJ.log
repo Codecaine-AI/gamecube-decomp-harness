@@ -1,0 +1,3175 @@
+Reading additional input from stdin...
+OpenAI Codex v0.153.3
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a07283-2109-7f73-a000-52272d7c9a81
+--------
+user
+# Task J: `/api/run/init` fails after creating the run — dispatch lease uses a workflow id that is not a run id
+
+Repo: `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness`. Do not touch `games/melee/**`.
+
+## Symptom (reproduced live, 2026-09-05)
+`POST /api/run/init` with a valid config on active cycle `c66a1559…` returns
+`{"error":"Durable run workflow run-init:c66a1559-2865-4602-96bf-c4907f200c4e was not found for dispatch"}`.
+The CLI step succeeded first (run `74c57aa6-72b1-410b-9387-e3b44abb96bc` exists, status `ready`), but the post-step never ran: no boundary commit, no `init` save point, and `cycles.active_run_id` stayed NULL.
+
+## Cause
+`apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts` (`initRun`, ~line 325–345) calls `withDispatchLease(init, { kind: "run", workflowId: \`run-init:${cycleUuid}\` … })`. `durableWorkflowTrace` in `apps/server/src/core/harness-state/lease.ts` (~line 360–385) resolves kind `"run"` by `SELECT … FROM runs WHERE id = ?`, so a `run-init:<cycle>` id can never be found. This regressed when the dispatch correlation was tightened (see `git log` on lease.ts: `15e4f633` / `056b71c7`).
+
+## Fix
+In `initRun`, resolve the created run id (`latestRunId(init.stateDir)` — already used below for `activeRunId`) BEFORE `withDispatchLease` and pass it as `workflowId` (kind `"run"`). Fail with a clear error if no run id can be resolved. Keep the rest of the post-step (boundary commit, save point, payload) unchanged. Check whether the same `run-init:`/`run-fresh:` pattern exists in `freshRun` or elsewhere (`grep -rn "run-init:\|run-fresh:" apps/server/src`) and fix those the same way.
+
+## Also: cycle ↔ run linkage
+Confirm where `cycles.active_run_id` is set for a newly initialized run (grep `active_run_id` in `apps/server/src/core/cycle-runtime`). If `initRun`'s post-step is what links it, make sure the fixed post-step does; if process start links it, leave it.
+
+## Tests
+Add a regression test for `initRun` that stubs `runCli` to create a run row and asserts `withDispatchLease` is called with the run id (not `run-init:*`), and that the save point + `activeRunId` are returned. Run `cd apps/server && bun test src/core/cycle-runtime/phases/preparing src/core/harness-state` — green. Print DONE with the diff summary.
+warning: Under-development features enabled: chronicle. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /Users/Ford/.codex/config.toml.
+codex
+Inspecting `initRun`, related `run-init:`/`run-fresh:` call sites, and the existing preparing-phase tests now.
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+
+exec
+/bin/zsh -lc 'rg -n "cycle-runtime|lease|gamecube-decomp-harness" /Users/Ford/.codex/memories/MEMORY.md || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+exec
+/bin/zsh -lc "rg -n \"run-init:|run-fresh:|active_run_id|function initRun|const initRun|export .*initRun\" apps/server/src/core/cycle-runtime apps/server/src/core/harness-state apps/server/src --glob '"'!games/melee/**'"'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/cycle-runtime/phases/sync/publication.ts:778:       SELECT active_run_id FROM cycles WHERE cycle_uuid = ?
+apps/server/src/application/jobs/boundary-sync.ts:25:      SELECT a.upstream_revision AS anchor_sha, c.active_run_id AS run_id, c.cycle_uuid
+apps/server/src/application/jobs/boundary-sync.test.ts:31:  db.run("CREATE TABLE cycles (cycle_uuid TEXT PRIMARY KEY, game_id TEXT, status TEXT, active_run_id TEXT, updated_at TEXT)");
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:233:    expect(activatedCycle?.active_run_id).toBe(run.id);
+apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts:8:export async function initRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:130:function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null } {
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:336:            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
+apps/server/src/application/dashboard/score-tiers.ts:199:  if (!cycle.active_run_id) return { matches: [], improvements: [] };
+apps/server/src/application/dashboard/score-tiers.ts:200:  const activeRun = store.db.query("SELECT id FROM runs WHERE id = ? AND status = 'active'").get(cycle.active_run_id) as { id: string } | null;
+apps/server/src/application/dashboard/score-tiers.test.ts:163:      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runOne);
+apps/server/src/application/dashboard/score-tiers.test.ts:168:      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
+apps/server/src/application/dashboard/score-tiers.test.ts:201:      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
+apps/server/src/application/dashboard/score-tiers.test.ts:206:      store.db.query("UPDATE cycles SET active_run_id = NULL WHERE cycle_uuid = 'cycle-score-tiers'").run();
+apps/server/src/application/dashboard/read-model.ts:636:  if (cycle?.active_run_id) {
+apps/server/src/application/dashboard/read-model.ts:637:    const active = getRun(store, cycle.active_run_id);
+apps/server/src/application/dashboard/read-model.ts:1729:  return stringValue(cycle.activeRunId, stringValue(cycle.active_run_id));
+apps/server/src/core/cycle-runtime/phases/sync/publication.ts:778:       SELECT active_run_id FROM cycles WHERE cycle_uuid = ?
+apps/server/src/core/cycle-runtime/index.ts:339:  if (options.activeRunId !== undefined) patch.active_run_id = options.activeRunId || null;
+apps/server/src/core/cycle-runtime/index.ts:558:          activeRunId: text(body.activeRunId, text(body.active_run_id)) || undefined,
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:130:function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null } {
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:336:            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:233:    expect(activatedCycle?.active_run_id).toBe(run.id);
+apps/server/src/core/cycle-runtime/phases/running/service/init-run.ts:8:export async function initRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
+apps/server/src/core/cycle-runtime/index.ts:339:  if (options.activeRunId !== undefined) patch.active_run_id = options.activeRunId || null;
+apps/server/src/core/cycle-runtime/index.ts:558:          activeRunId: text(body.activeRunId, text(body.active_run_id)) || undefined,
+apps/server/src/core/orchestrator-state/storage/schema.ts:665:    activeRunId: text("active_run_id"),
+apps/server/src/core/orchestrator-state/storage/migrations/final-schema.ts:44:      active_run_id TEXT,
+apps/server/src/core/cycle/types.ts:393:  active_run_id: string | null;
+apps/server/src/core/cycle/types.ts:478:  active_run_id?: string | null;
+apps/server/src/core/cycle/state.ts:174:    active_run_id: input.activeRunId ?? null,
+apps/server/src/core/cycle/state.ts:256:    activeRunId: record.active_run_id,
+apps/server/src/core/cycle/timeline.test.ts:354:      .query("UPDATE cycles SET head_revision = ?, active_run_id = NULL WHERE cycle_uuid = 'cycle-1'")
+apps/server/src/core/cycle/timeline.test.ts:705:  test("resolves a null run cycle only through active_run_id and always advances the run CAS", () => {
+apps/server/src/core/cycle/store.ts:131:    active_run_id: nullableString(row.activeRunId),
+apps/server/src/core/cycle/store.ts:164:      activeRunId: record.active_run_id,
+apps/server/src/core/cycle/store.ts:247:         SET active_run_id = ?, revision = ?, updated_at = ?
+apps/server/src/core/cycle/store.ts:297:    active_run_id: patch.active_run_id === undefined ? current.active_run_id : patch.active_run_id,
+apps/server/src/core/cycle/store.ts:597:         SET status = ?, phase = ?, active_run_id = ?, base_ref = ?, base_sha = ?,
+apps/server/src/core/cycle/store.ts:608:        next.active_run_id,
+apps/server/src/core/cycle/timeline.ts:26:  active_run_id: string | null;
+apps/server/src/core/cycle/timeline.ts:121:         WHERE active_run_id = ? AND status IN ('active', 'blocked', 'closing')
+apps/server/src/core/cycle/timeline.ts:132:  if (cycle.active_run_id !== run.id) {
+apps/server/src/core/cycle/timeline.ts:134:      `Run/cycle mismatch for epoch integration: cycle ${cycle.cycle_uuid} names active run ${cycle.active_run_id ?? "none"}, not ${run.id}`,
+apps/server/src/core/cycle/timeline.ts:467:  const activeRunId = cycle.active_run_id;
+
+exec
+/bin/zsh -lc 'git status --short && rg --files apps/server/src/core/cycle-runtime/phases/preparing apps/server/src/core/harness-state | sort' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 253ms:
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexA.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexB.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexC.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexD.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexE.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexF.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexG.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexH.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexI.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexJ.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/codexJ_runinit.md
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackA.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackA2.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackB.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackB2.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackC.log
+?? analysis/worker-prompt-audit-2026-09-03/scripts/trackC2.log
+?? games/melee/knowledge/backups/
+?? games/melee/knowledge/knowledge.sqlite-shm
+?? games/melee/knowledge/knowledge.sqlite-wal
+apps/server/src/core/cycle-runtime/phases/preparing/index.ts
+apps/server/src/core/cycle-runtime/phases/preparing/runtime-shared.ts
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/baseline.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/bootstrap.test.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/bootstrap.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/git-intake.test.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/git-intake.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/index.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/worktrees.test.ts
+apps/server/src/core/cycle-runtime/phases/preparing/subphases/worktrees.ts
+apps/server/src/core/harness-state/event-query.test.ts
+apps/server/src/core/harness-state/event-query.ts
+apps/server/src/core/harness-state/event-registry.ts
+apps/server/src/core/harness-state/events.test.ts
+apps/server/src/core/harness-state/events.ts
+apps/server/src/core/harness-state/index.ts
+apps/server/src/core/harness-state/kernel-links.test.ts
+apps/server/src/core/harness-state/kernel-links.ts
+apps/server/src/core/harness-state/lease.test.ts
+apps/server/src/core/harness-state/lease.ts
+apps/server/src/core/harness-state/types.ts
+
+codex
+The only bad correlation string is in `preparing/runtime.ts`. I also found the cycle update path in `cycle-runtime/index.ts`; next I’m tracing the handler response and test seams before editing.
+exec
+/bin/zsh -lc "sed -n '1,430p' apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { randomUUID } from "node:crypto";
+import { runningScheduling } from "@server/core/cycle-runtime/phases/running/process-command";
+import { createRunCheckpoint, shipsInPr, type RunCheckpointResult } from "@server/core/cycle-runtime/phases/pr/checkpoint";
+import { getRun, openState, updateRunStatus } from "@server/core/cycle-runtime/run-state";
+import { cycleView, type CycleView } from "@server/core/cycle";
+import { getActiveCycle, getCycleBySelector } from "@server/core/cycle/store";
+import { canonicalProcessName } from "@server/core/cycle/process-identity";
+import type { ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
+import { withDispatchLease } from "@server/core/cycle-runtime/dispatch-guard";
+import {
+  resolveGameEventTraceLinkage,
+  type GameEventTraceLinkage,
+} from "@server/core/harness-state/kernel-links.js";
+import { commitBoundaryWorktree } from "@server/core/cycle-runtime/phases/pr/boundary-commit.js";
+import {
+  boolValue,
+  latestRunId,
+  numberValue,
+  parseCliJsonOutput,
+  serverJobPrefix,
+  stringValue,
+  type JsonObject,
+  type PreparingRuntimeDeps,
+  type PreparingRuntimeGameContext,
+  type PreparingRuntimeState,
+} from "./runtime-shared.js";
+import { prepareWorktreePaths } from "./subphases/index.js";
+
+export { compactReportRunResult, mergedPullRequestNumbers, parseBaseRef } from "./subphases/index.js";
+export type {
+  GitSyncResult,
+  JsonObject,
+  PreparingRuntimeDeps,
+  PreparingRuntimeGameContext,
+  PreparingRuntimeState,
+} from "./runtime-shared.js";
+
+function gameIdFromContext(paths: PreparingRuntimeGameContext, body: JsonObject): string {
+  return paths.game?.gameId ?? stringValue(body.gameId);
+}
+
+function traceLinkageForEvent(
+  stateDir: string,
+  gameId: string,
+  gameEventId: string | null,
+): GameEventTraceLinkage {
+  if (!gameEventId) throw new Error("Workflow trace requires a persisted game event");
+  const store = openState(stateDir);
+  try {
+    return resolveGameEventTraceLinkage(store.db, gameId, gameEventId);
+  } finally {
+    store.db.close();
+  }
+}
+
+function runTraceLinkage(
+  stateDir: string,
+  gameId: string,
+  runId: string,
+): GameEventTraceLinkage | null {
+  const store = openState(stateDir);
+  try {
+    const run = getRun(store, runId);
+    return run?.causedByEventId
+      ? resolveGameEventTraceLinkage(store.db, gameId, run.causedByEventId)
+      : null;
+  } finally {
+    store.db.close();
+  }
+}
+
+function cycleSelector(body: JsonObject, gameId: string): { id?: string | null; cycleUuid?: string | null; gameId?: string | null } {
+  return {
+    id: stringValue(body.id),
+    cycleUuid: stringValue(body.cycleUuid, stringValue(body.cycle_uuid)),
+    gameId,
+  };
+}
+
+function prepareCycleWorktreeRoot(paths: PreparingRuntimeGameContext, cycle: CycleView | null): string {
+  const fallback = cycle
+    ? prepareWorktreePaths(paths, cycle.cycleUuid).cycleCurrentWorktreePath
+    : undefined;
+  return stringValue(
+    cycle?.phases.preparing.sync?.cycleCurrentWorktreePath,
+    stringValue(cycle?.phases.preparing.sync?.cycleWorktreePath, fallback ?? paths.repoRoot),
+  );
+}
+
+function activeCycleOrNull(paths: PreparingRuntimeGameContext, body: JsonObject): CycleView | null {
+  const gameId = gameIdFromContext(paths, body);
+  if (!gameId) return null;
+  const store = openState(paths.stateDir);
+  try {
+    const selector = cycleSelector(body, gameId);
+    const record = getCycleBySelector(store.db, selector) ?? getActiveCycle(store.db, gameId);
+    return record ? cycleView(record) : null;
+  } finally {
+    store.db.close();
+  }
+}
+
+function workerConfigFromBody(body: JsonObject, dashboard: JsonObject | undefined): JsonObject {
+  return {
+    workerCount: numberValue(body.maxWorkers, 16),
+    agentTimeoutSeconds: numberValue(body.agentTimeoutSeconds, numberValue(dashboard?.agentTimeoutSeconds, 1800)),
+    sandboxProfile: stringValue(body.sandboxProfile),
+  };
+}
+
+export function compactCheckpointResult(result: RunCheckpointResult): JsonObject {
+  const compactItem = (item: RunCheckpointResult["items"][number]): JsonObject => ({
+    workerStateId: item.workerStateId,
+    workerCheckpointId: item.workerCheckpointId || null,
+    symbol: item.symbol,
+    sourcePath: item.sourcePath,
+    patchPath: item.patchPath || null,
+  });
+  return {
+    checkpoint: result.checkpoint,
+    counts: result.counts,
+    eligibility: result.eligibility,
+    prCandidates: result.items.filter((item) => item.disposition === "pr_candidate").map(compactItem),
+    improvementCandidates: result.items.filter((item) => item.disposition === "improvement_candidate").map(compactItem),
+    carryForwardCount: result.items.filter((item) => !shipsInPr(item.disposition)).length,
+  };
+}
+
+function initRunCommand(deps: PreparingRuntimeDeps, body: JsonObject): { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null } {
+  const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
+  const { graphDbPath, game, stateDir } = paths;
+  const requestedRepoRoot = stringValue(body.cycleRepoRoot);
+  const repoRoot = requestedRepoRoot.trim()
+    ? requestedRepoRoot
+    : prepareCycleWorktreeRoot(paths, activeCycleOrNull(paths, body));
+  const commandPaths = { ...paths, repoRoot };
+  const { maxWorkers } = runningScheduling(body.maxWorkers);
+  const sandboxProfile = stringValue(body.sandboxProfile, game?.sandbox?.default_profile ?? "");
+  const command = [
+    ...serverJobPrefix(commandPaths, deps.serverJobPath),
+    ...(boolValue(body.dryRunAgents) ? ["--dry-run-agents"] : []),
+    "--provider",
+    stringValue(body.provider, "codex-lb"),
+    "--model",
+    stringValue(body.model, "gpt-5.6-sol"),
+    "--thinking-level",
+    stringValue(body.thinkingLevel, "xhigh"),
+    "--agent-timeout-seconds",
+    String(numberValue(body.agentTimeoutSeconds, numberValue(game?.dashboard.agentTimeoutSeconds, 1800))),
+    ...(sandboxProfile ? ["--sandbox-profile", sandboxProfile] : []),
+    "init-run",
+    "--desired-workers",
+    String(maxWorkers),
+    "--goal-kind",
+    stringValue(body.goalKind, "matched_code_percent"),
+    "--goal-value",
+    String(game?.dashboard.goalValue ?? numberValue(body.goalValue, 100)),
+    "--graph-db",
+    graphDbPath,
+  ];
+  if (body.epochTargetCap !== undefined && body.epochTargetCap !== null) {
+    command.push("--epoch-target-cap", String(Math.max(0, Math.floor(numberValue(body.epochTargetCap, 0)))));
+  }
+  const workerConfigureCommand = stringValue(body.workerConfigureCommand).trim();
+  if (workerConfigureCommand) command.push("--worker-configure-command", workerConfigureCommand);
+  const epochConfigureCommand = stringValue(body.epochConfigureCommand).trim();
+  if (epochConfigureCommand) command.push("--epoch-configure-command", epochConfigureCommand);
+  return { command, repoRoot, stateDir, graphDbPath, game };
+}
+
+export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
+  completeRun: (body: JsonObject) => Promise<JsonObject>;
+  freshRun: (body: JsonObject) => Promise<JsonObject>;
+  indexPrsForPrepare: (body: JsonObject) => Promise<JsonObject>;
+  initRun: (body: JsonObject) => Promise<JsonObject>;
+  initRunCommand: (body: JsonObject) => { command: string[]; repoRoot: string; stateDir: string; graphDbPath: string; game: ResolvedGame | null };
+  state: () => PreparingRuntimeState;
+  syncGitForPrepare: (body: JsonObject) => Promise<JsonObject>;
+} {
+  let gameSyncActive = false;
+
+  return {
+    state: () => ({ freshRunActive: false, gameSyncActive }),
+
+    initRunCommand: (body) => initRunCommand(deps, body),
+
+    async syncGitForPrepare(): Promise<JsonObject> {
+      throw new Error(
+        "Legacy preparation sync is disabled. Use the operator sync.start action so observation, lease acquisition, staged validation, and confirm-gated publication remain inside SyncState.",
+      );
+    },
+
+    async indexPrsForPrepare(): Promise<JsonObject> {
+      throw new Error(
+        "Legacy preparation PR intake is disabled. Use the operator sync.start action so merged-PR knowledge advances only through SyncState.",
+      );
+    },
+
+    async completeRun(body): Promise<JsonObject> {
+      const paths = deps.resolveDashboardGame(body, { useDefaultGame: true });
+      const { repoRoot, stateDir } = paths;
+      const runId = stringValue(body.runId) || latestRunId(stateDir);
+      if (!runId) throw new Error("No run found to complete.");
+
+      const active = deps.hasActiveProcess(stateDir);
+      if (active.active) {
+        const activeName = stringValue(active.name, paths.game?.processName ?? "melee-live");
+        throw new Error(`Stop the active process (${activeName}) before closing this run.`);
+      }
+
+      const forceClose = body.force === true;
+      const prBlockers = deps.activeCyclePrBlockers(stateDir);
+      if (prBlockers.length > 0 && !forceClose) {
+        throw new Error(`Resolve this cycle's PR work before closing the run: ${prBlockers.slice(0, 6).join("; ")}${prBlockers.length > 6 ? `; +${prBlockers.length - 6} more` : ""}`);
+      }
+
+      const initialStore = openState(stateDir);
+      let run;
+      try {
+        run = getRun(initialStore, runId);
+      } finally {
+        initialStore.db.close();
+      }
+      if (!run) throw new Error(`Run not found: ${runId}`);
+      let completeRunLinkage = traceLinkageForEvent(
+        stateDir,
+        gameIdFromContext(paths, body),
+        run.causedByEventId,
+      );
+
+      deps.beginOperation("complete-run", "Close Cycle", ["record closeout", "save point"]);
+      try {
+        await deps.submitWorkflowEvent(paths, {
+          kind: "session",
+          operation: "completeLegacyRun",
+          status: "started",
+          runId,
+          sessionId: run.cycleUuid,
+          detail: "close legacy run",
+          metadata: {
+            force: forceClose,
+            blockers: prBlockers,
+          },
+          ...completeRunLinkage,
+        });
+
+        deps.operationStep("record closeout", `run ${runId}`);
+        const store = openState(stateDir);
+        try {
+          if (run.status !== "completed") {
+            run = updateRunStatus(store, runId, "completed", "ui");
+            uiLog("ui", `run ${runId} marked complete`);
+          }
+          completeRunLinkage = traceLinkageForEvent(
+            stateDir,
+            gameIdFromContext(paths, body),
+            run.causedByEventId,
+          );
+        } finally {
+          store.db.close();
+        }
+
+        deps.operationStep("save point");
+        if (!run?.cycleUuid) throw new Error(`Run ${runId} has no game cycle for closeout save-point evidence`);
+        const savePoint = await deps.boundarySavePoint(paths, "manual", run.cycleUuid, "legacy run closeout");
+        await deps.submitWorkflowEvent(paths, {
+          kind: "session",
+          operation: "completeLegacyRun",
+          status: "completed",
+          runId,
+          sessionId: run.cycleUuid,
+          detail: "legacy run closed",
+          metadata: {
+            force: forceClose,
+            blockers: prBlockers,
+            savePoint,
+            run,
+          },
+          ...completeRunLinkage,
+        });
+        deps.endOperation();
+        return {
+          completed: true,
+          game: paths.game ? deps.gameToSummary(paths.game) : null,
+          repoRoot,
+          stateDir,
+          run,
+          savePoint,
+        };
+      } catch (error) {
+        await deps.submitWorkflowEvent(paths, {
+          kind: "session",
+          operation: "completeLegacyRun",
+          status: "failed",
+          runId,
+          sessionId: run.cycleUuid,
+          metadata: {
+            force: forceClose,
+            blockers: prBlockers,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          ...completeRunLinkage,
+        }).catch(() => null);
+        deps.endOperation(error);
+        throw error;
+      }
+    },
+
+    async initRun(body): Promise<JsonObject> {
+      const gamePaths = deps.resolveDashboardGame(body, { useDefaultGame: true });
+      const cycle = activeCycleOrNull(gamePaths, body);
+      if (!cycle) throw new Error("Create a game cycle before initializing a run.");
+      const cycleRepoRoot = prepareCycleWorktreeRoot(gamePaths, cycle);
+      const init = initRunCommand(deps, { ...body, cycleRepoRoot });
+      const { command } = init;
+      const cycleUuid = cycle.cycleUuid;
+      const cycleTraceLinkage = traceLinkageForEvent(
+        init.stateDir,
+        gameIdFromContext(gamePaths, body),
+        cycle.causedByEventId,
+      );
+      uiLog("ui", `init-run started: ${command.join(" ")}`);
+      try {
+        const result = await deps.runCli(command);
+        uiLog("ui", `init-run exit=${result.exitCode}`);
+        if (result.exitCode !== 0) {
+          throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+        }
+        const boundaryCommit = await withDispatchLease(
+          init,
+          {
+            kind: "run",
+            gameId: gameIdFromContext(gamePaths, body),
+            reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
+          },
+          async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+            message: "boundary(init): initialize run",
+            repoRoot: init.repoRoot,
+            revalidateLease,
+            runGit: deps.runGit,
+            stateDir: init.stateDir,
+          }),
+        );
+        const savePoint = await deps.boundarySavePoint(
+          { ...gamePaths, repoRoot: init.repoRoot },
+          "init",
+          cycle.cycleUuid,
+        );
+        const activeRunId = latestRunId(init.stateDir);
+        const payload = {
+          game: init.game ? deps.gameToSummary(init.game) : null,
+          command,
+          repoRoot: init.repoRoot,
+          parsed: parseCliJsonOutput(result.stdout),
+          savePoint,
+          boundaryCommit,
+          activeRunId,
+          ...result,
+        };
+        await deps.submitWorkflowEvent(init, {
+          kind: "run",
+          operation: "prepare.startRun",
+          status: "completed",
+          sessionId: cycleUuid,
+          runId: activeRunId,
+          detail: activeRunId ? `run ${activeRunId} initialized` : "run initialized",
+          metadata: {
+            repoRoot: init.repoRoot,
+            workerConfig: workerConfigFromBody(body, init.game?.dashboard),
+            savePoint,
+            boundaryCommit,
+          },
+          ...(runTraceLinkage(init.stateDir, gameIdFromContext(gamePaths, body), activeRunId) ?? cycleTraceLinkage),
+        });
+        return payload;
+      } catch (error) {
+        await deps.submitWorkflowEvent(init, {
+          kind: "run",
+          operation: "prepare.startRun",
+          status: "failed",
+          sessionId: cycleUuid,
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+            repoRoot: init.repoRoot,
+            workerConfig: workerConfigFromBody(body, init.game?.dashboard),
+          },
+          ...(runTraceLinkage(init.stateDir, gameIdFromContext(gamePaths, body), latestRunId(init.stateDir)) ?? cycleTraceLinkage),
+        }).catch(() => null);
+        throw error;
+      }
+    },
+
+    async freshRun(): Promise<JsonObject> {
+      throw new Error(
+        "Legacy Fresh Run bootstrap is disabled because it performs sync and merged-PR knowledge intake after cycle creation. Create the cycle, then use the operator sync.start workflow.",
+      );
+    },
+
+  };
+}
+
+exec
+/bin/zsh -lc "sed -n '1,360p' apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import {
+  createNewCycle,
+  updatePreparingSubphase,
+} from "@server/core/cycle-runtime";
+import { openState } from "@server/core/cycle-runtime/run-state";
+import type {
+  PreparingRuntimeDeps,
+  PreparingRuntimeGameContext,
+} from "./runtime-shared.js";
+import { createPreparingRuntime } from "./runtime.js";
+
+let tempDirs: string[] = [];
+
+function tempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "prepare-runtime-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  for (const dir of tempDirs) rmSync(dir, { force: true, recursive: true });
+  tempDirs = [];
+});
+
+describe("preparing runtime baseline", () => {
+  test("legacy preparation sync, intake, and Fresh Run fail before side effects", async () => {
+    const root = tempDir();
+    let dependencyCalls = 0;
+    const runtime = createPreparingRuntime(new Proxy({}, {
+      get() {
+        return () => {
+          dependencyCalls += 1;
+          throw new Error("legacy dependency should not run");
+        };
+      },
+    }) as unknown as PreparingRuntimeDeps);
+
+    await expect(runtime.syncGitForPrepare({ stateDir: root })).rejects.toThrow("operator sync.start");
+    await expect(runtime.indexPrsForPrepare({ stateDir: root })).rejects.toThrow("operator sync.start");
+    await expect(runtime.freshRun({ stateDir: root })).rejects.toThrow("Create the cycle, then use the operator sync.start workflow");
+    expect(dependencyCalls).toBe(0);
+    expect(runtime.state()).toEqual({ freshRunActive: false, gameSyncActive: false });
+  });
+
+  test("forwards every process-policy option into init-run snapshot capture", () => {
+    const root = tempDir();
+    const paths: PreparingRuntimeGameContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      game: {
+        gameId: "melee",
+        dashboard: {},
+      } as PreparingRuntimeGameContext["game"],
+      repoRoot: resolve(root, "repo"),
+      stateDir: resolve(root, "state"),
+    };
+    const runtime = createPreparingRuntime({
+      resolveDashboardGame: () => paths,
+      serverJobPath: resolve(root, "job-runner.ts"),
+    } as unknown as PreparingRuntimeDeps);
+
+    const explicitCycleRepoRoot = resolve(root, "explicit-cycle-worktree");
+    const { command, repoRoot } = runtime.initRunCommand({
+      agentTimeoutSeconds: 2400,
+      cycleRepoRoot: explicitCycleRepoRoot,
+      dryRunAgents: true,
+      epochConfigureCommand: "configure epoch",
+      goalKind: "matched_code_percent",
+      goalValue: 88,
+      maxWorkers: 12,
+      model: "gpt-5.5",
+      provider: "codex-lb",
+      sandboxProfile: "4-core",
+      thinkingLevel: "high",
+      workerConfigureCommand: "configure worker",
+    });
+    const option = (flag: string): string | undefined => command[command.indexOf(flag) + 1];
+
+    expect(command).toContain("--dry-run-agents");
+    expect(option("--provider")).toBe("codex-lb");
+    expect(option("--model")).toBe("gpt-5.5");
+    expect(option("--thinking-level")).toBe("high");
+    expect(option("--agent-timeout-seconds")).toBe("2400");
+    expect(option("--sandbox-profile")).toBe("4-core");
+    expect(option("--desired-workers")).toBe("12");
+    expect(option("--goal-kind")).toBe("matched_code_percent");
+    expect(option("--goal-value")).toBe("88");
+    expect(option("--worker-configure-command")).toBe("configure worker");
+    expect(option("--epoch-configure-command")).toBe("configure epoch");
+    expect(repoRoot).toBe(explicitCycleRepoRoot);
+    expect(option("--repo-root")).toBe(explicitCycleRepoRoot);
+  });
+
+  test("stages init-run from the active cycle worktree when cycleRepoRoot is empty", () => {
+    const root = tempDir();
+    const stateDir = resolve(root, "state");
+    const cycleCurrentWorktreePath = resolve(root, "worktrees/cycle-current");
+    const store = openState(stateDir);
+    try {
+      const created = createNewCycle(store.db, {
+        actor: "operator",
+        id: "cycle:cycle-uuid",
+        gameId: "melee",
+        cycleUuid: "cycle-uuid",
+      });
+      updatePreparingSubphase(store.db, { id: created.record.id }, "baseline", {
+        correlationId: created.record.cycle_uuid,
+        data: {
+          sync: {
+            status: "complete",
+            completedAt: "2026-08-26T12:00:00.000Z",
+            cycleCurrentWorktreePath,
+          },
+        },
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const paths: PreparingRuntimeGameContext = {
+      graphDbPath: resolve(root, "graph.sqlite"),
+      game: {
+        gameId: "melee",
+        dashboard: {},
+      } as PreparingRuntimeGameContext["game"],
+      repoRoot: resolve(root, "repo"),
+      stateDir,
+    };
+    const runtime = createPreparingRuntime({
+      resolveDashboardGame: () => paths,
+      serverJobPath: resolve(root, "job-runner.ts"),
+    } as unknown as PreparingRuntimeDeps);
+
+    for (const cycleRepoRoot of [undefined, ""]) {
+      const result = runtime.initRunCommand({ cycleRepoRoot });
+      const repoRootFlag = result.command.indexOf("--repo-root");
+      expect(result.repoRoot).toBe(cycleCurrentWorktreePath);
+      expect(result.command[repoRootFlag + 1]).toBe(cycleCurrentWorktreePath);
+    }
+  });
+
+
+});
+
+exec
+/bin/zsh -lc "sed -n '300,370p' apps/server/src/core/cycle-runtime/index.ts && sed -n '520,575p' apps/server/src/core/cycle-runtime/index.ts && git log --oneline -8 -- apps/server/src/core/harness-state/lease.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+  if (blockersChanged) {
+    return acceptStatusPreservingTransition(
+      db,
+      record,
+      withoutStatus(blockedPatch),
+      "cycle.blockers_updated",
+      options,
+    );
+  }
+  return result(record);
+}
+
+export function ensureCycle(db: Database, input: CreateCycleInput): CycleRuntimeResult {
+  return result(getOrCreateActiveCycle(db, input));
+}
+
+export function createNewCycle(db: Database, input: CreateCycleInput): CycleRuntimeResult {
+  return result(createCycle(db, input));
+}
+
+export function updatePreparingSubphase(
+  db: Database,
+  selector: CycleSelector,
+  subphase: PreparingPhaseState["subphase"],
+  options: { detail?: string; data?: Partial<PreparingPhaseState> } & CycleRuntimeTransitionOptions,
+): CycleRuntimeResult {
+  const record = requireCycle(db, selector);
+  const at = options.now ?? currentTime();
+  return acceptStatusPreservingTransition(db, record, setPreparingSubphase(record, at, subphase, options), "cycle.preparing_subphase_updated", { ...options, now: at }, { subphase });
+}
+
+export function markPreparingComplete(
+  db: Database,
+  selector: CycleSelector,
+  options: { activeRunId?: string | null; completion?: Record<string, unknown> } & CycleRuntimeTransitionOptions,
+): CycleRuntimeResult {
+  const record = requireCycle(db, selector);
+  const at = options.now ?? currentTime();
+  const patch = completePreparing(record, at, options.completion);
+  if (options.activeRunId !== undefined) patch.active_run_id = options.activeRunId || null;
+  return acceptStatusPreservingTransition(db, record, patch, "cycle.preparing_completed", { ...options, now: at });
+}
+
+export function startRunning(db: Database, selector: CycleSelector, options: CycleRuntimeTransitionOptions): CycleRuntimeResult {
+  const record = requireCycle(db, selector);
+  const at = options.now ?? currentTime();
+  return acceptStatusPreservingTransition(db, record, startRunningFromPreparing(record, at), "cycle.running_started", { ...options, now: at });
+}
+
+export function updateRunningSubphase(
+  db: Database,
+  selector: CycleSelector,
+  subphase: RunningPhaseState["subphase"],
+  options: { detail?: string; data?: Partial<RunningPhaseState> } & CycleRuntimeTransitionOptions,
+): CycleRuntimeResult {
+  const record = requireCycle(db, selector);
+  const at = options.now ?? currentTime();
+  return acceptStatusPreservingTransition(db, record, setRunningSubphase(record, at, subphase, options), "cycle.running_subphase_updated", { ...options, now: at }, { subphase });
+}
+
+export function stopCycleRun(
+  db: Database,
+  selector: CycleSelector,
+  stopReason: RunningStopReason,
+  options: { manualStopMode?: ManualStopMode; blockers?: CycleRuntimeBlocker[] } & CycleRuntimeTransitionOptions,
+): CycleRuntimeResult {
+  const record = requireCycle(db, selector);
+  const at = options.now ?? currentTime();
+  const patch = stopRunning(record, at, stopReason, options);
+  if (patch.status === "blocked") {
+    return acceptBlockedOrSemanticTransition(db, record, patch, { ...options, now: at });
+        baseRef: text(body.baseRef, input.baseRef ?? "") || null,
+        baseSha: text(body.baseSha) || null,
+        activeRunId: text(body.activeRunId, text(body.runId)) || null,
+        actor,
+        commandId,
+        spanId,
+        worktreeIdentity: text(body.worktreeIdentity, text(body.worktree_identity)) || undefined,
+        openingSyncId: text(body.openingSyncId, text(body.opening_sync_id)) || null,
+      }),
+    );
+  }
+  const suppliedCorrelationId = text(body.correlationId, text(body.correlation_id)).trim();
+  const actionCycle = requireCycle(db, selector);
+  if (suppliedCorrelationId && suppliedCorrelationId !== actionCycle.cycle_uuid) {
+    throw new Error(`Cycle event correlation_id must equal cycle UUID ${actionCycle.cycle_uuid}`);
+  }
+  const transitionContext = {
+    actor,
+    commandId,
+    correlationId: actionCycle.cycle_uuid,
+    spanId,
+  };
+
+  switch (command) {
+    case "update-preparing-subphase":
+      return commandResult(
+        db,
+        gameId,
+        updatePreparingSubphase(db, selector, text(body.subphase) as PreparingPhaseState["subphase"], {
+          detail: text(body.subphaseDetail, text(body.subphase_detail)),
+          ...transitionContext,
+        }),
+      );
+    case "mark-preparing-complete":
+      return commandResult(
+        db,
+        gameId,
+        markPreparingComplete(db, selector, {
+          activeRunId: text(body.activeRunId, text(body.active_run_id)) || undefined,
+          completion: objectValue(body.completion),
+          ...transitionContext,
+        }),
+      );
+    case "start-running":
+      return commandResult(db, gameId, startRunning(db, selector, transitionContext));
+    case "update-running-subphase":
+      return commandResult(
+        db,
+        gameId,
+        updateRunningSubphase(db, selector, text(body.subphase) as RunningPhaseState["subphase"], {
+          detail: text(body.subphaseDetail, text(body.subphase_detail)),
+          data: objectValue(body.data) as Partial<RunningPhaseState>,
+          ...transitionContext,
+        }),
+      );
+    case "stop-running":
+a4b5a5f3 pr: remove campaign runtime, routes, and dashboard surface (step 2 of cleanout)
+0fb71566 run: plain start/stop — remove drain, pause, force-finish, provider-probe lanes
+0ebf4228 Consume live Core siblings as peer repo (replaces vendored docs-framework/agent-kernel)
+
+exec
+/bin/zsh -lc "rg -n \"mock\\.module\\(|withDispatchLease\" apps/server/src/core --glob '*.test.ts' | head -80" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/cycle-runtime/dispatch-guard.test.ts:8:import { DispatchLeaseUnavailableError, withDispatchLease } from "./dispatch-guard.js";
+apps/server/src/core/cycle-runtime/dispatch-guard.test.ts:52:    const result = await withDispatchLease(
+apps/server/src/core/cycle-runtime/dispatch-guard.test.ts:149:    await expect(withDispatchLease(
+
+exec
+/bin/zsh -lc "rg -n \"createRun\\(|insert.*runs|INSERT INTO runs\" apps/server/src/core/cycle-runtime apps/server/src/core/harness-state --glob '*.test.ts' | head -80 && sed -n '1,220p' apps/server/src/core/cycle-runtime/run-state.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ exited 1 in 0ms:
+apps/server/src/core/harness-state/lease.test.ts:50:      INSERT INTO runs (
+apps/server/src/core/cycle-runtime/phases/sync/publication.test.ts:166:    `INSERT INTO runs (
+apps/server/src/core/cycle-runtime/phases/sync/runtime.test.ts:628:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/sync/runtime.test.ts:749:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/sync/runtime.test.ts:898:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/pr/checkpoint/checkpoint-validation-state.test.ts:31:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/dispatch-guard.test.ts:123:      const run = createRun(
+apps/server/src/core/cycle-runtime/run-state/worker-state-token.test.ts:33:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:35:  return createRun(
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:87:    const run = createRun(store, "matched_code_percent", 100, 4, { gameId: "melee" });
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:280:    const run = createRun(
+apps/server/src/core/cycle-runtime/run-state/runs.test.ts:321:    const run = createRun(
+apps/server/src/core/cycle-runtime/run-state/worker-state-lease.test.ts:19:      const run = createRun(
+apps/server/src/core/cycle-runtime/run-state/worker-state-claim-ordering.test.ts:39:  const run = createRun(store, "matched_code_percent", 100, candidates.length, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/run-state/worker-state-widening.test.ts:40:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/run-control-runtime.test.ts:15:  const run = createRun(
+apps/server/src/core/cycle-runtime/run-state/epochs.test.ts:76:  const run = createRun(store, "matched_code_percent", 100, desiredWorkers, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/run-state/epochs.test.ts:435:      const run = createRun(store, "matched_code_percent", 100, 2, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:32:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/jobs/recover-claims.test.ts:88:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/jobs/recover-claims.test.ts:143:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/jobs/recover-claims.test.ts:184:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.test.ts:68:  const ready = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.test.ts:96:    const ready = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.test.ts:234:    const ready = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:24:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:155:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:241:    const run = createRun(store, "matched_code_percent", 100, 16, { gameId: "melee", stateDir }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:303:      const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:407:      const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:127:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:173:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:200:    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot: dir, stateDir: dir }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:222:    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot: dir, stateDir: dir }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:276:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:307:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:337:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:383:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/scheduler/run-loop.test.ts:409:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:65:  const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:192:    const run = createRun(store, "matched_code_percent", 100, 1, {
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:221:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:239:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:266:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:374:    const competingRun = createRun(
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:713:    const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.test.ts:120:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.test.ts:160:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.test.ts:199:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.test.ts:247:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/integration/worker-output-queue.test.ts:278:      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:48:  const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:100:      const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:147:    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) });
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:218:    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:447:      const run = createRun(
+apps/server/src/core/cycle-runtime/phases/running/epochs/cycle.test.ts:677:    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", repoRoot }, { baseRevision: git(repoRoot, ["rev-parse", "HEAD"]) });
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:49:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", stateDir }, { baseRevision: "base-test" });
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-task.test.ts:56:  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test", stateDir }, { baseRevision: "base-test" });
+sed: apps/server/src/core/cycle-runtime/run-state.ts: No such file or directory
+
+exec
+/bin/zsh -lc "rg -n \"mark-preparing-complete|activeRunId\" apps/server/src --glob '*.ts' | head -100" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/cycle/store.ts:131:    active_run_id: nullableString(row.activeRunId),
+apps/server/src/core/cycle/store.ts:164:      activeRunId: record.active_run_id,
+apps/server/src/core/cycle/store.ts:238:  activeRunId: string,
+apps/server/src/core/cycle/store.ts:250:      .run(activeRunId, current.revision + 1, at, cycleUuid, current.revision);
+apps/server/src/core/cycle/timeline.ts:467:  const activeRunId = cycle.active_run_id;
+apps/server/src/core/cycle/timeline.ts:468:  if (input.runId !== undefined && input.runId !== activeRunId) {
+apps/server/src/core/cycle/timeline.ts:470:      `Remote-application run mismatch for ${cycle.cycle_uuid}: expected ${activeRunId ?? "none"}, received ${input.runId ?? "none"}`,
+apps/server/src/core/cycle/timeline.ts:473:  const run = activeRunId
+apps/server/src/core/cycle/timeline.ts:479:        .get(activeRunId) as RemoteApplicationRunRow | null)
+apps/server/src/core/cycle/timeline.ts:481:  if (activeRunId && !run) throw new Error(`Active run ${activeRunId} does not exist for remote application`);
+apps/server/src/api/cycle/routes.test.ts:169:      body: JSON.stringify({ activeRunId: "run-1" }),
+apps/server/src/api/cycle/routes.test.ts:171:    expect((prepared.data.cycle as Record<string, unknown>).activeRunId).toBe("run-1");
+apps/server/src/api/cycle/routes.test.ts:185:      body: JSON.stringify({ cycleId: cycleUuid, activeRunId: "run-from-cycle-id" }),
+apps/server/src/api/cycle/routes.test.ts:190:    expect(cycle.activeRunId).toBe("run-from-cycle-id");
+apps/server/src/api/cycle/routes.ts:69:  if (pathname === "/api/cycle/preparing/complete" && method === "POST") return "mark-preparing-complete";
+apps/server/src/core/cycle/timeline.test.ts:71:    activeRunId: "run-1",
+apps/server/src/core/cycle/timeline.test.ts:659:      activeRunId: "run-2",
+apps/server/src/core/cycle/state.ts:174:    active_run_id: input.activeRunId ?? null,
+apps/server/src/core/cycle/state.ts:256:    activeRunId: record.active_run_id,
+apps/server/src/core/orchestrator-state/storage/schema.ts:665:    activeRunId: text("active_run_id"),
+apps/server/src/core/cycle-runtime/phases/sync/publication.test.ts:176:    activeRunId: "run-publication",
+apps/server/src/application/dashboard/read-model.ts:1729:  return stringValue(cycle.activeRunId, stringValue(cycle.active_run_id));
+apps/server/src/core/cycle/types.ts:430:  activeRunId: string | null;
+apps/server/src/core/cycle/types.ts:458:  activeRunId?: string | null;
+apps/server/src/core/cycle/pending-integrations.test.ts:72:    activeRunId: run.id,
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:351:        const activeRunId = latestRunId(init.stateDir);
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:359:          activeRunId,
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:367:          runId: activeRunId,
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:368:          detail: activeRunId ? `run ${activeRunId} initialized` : "run initialized",
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:375:          ...(runTraceLinkage(init.stateDir, gameIdFromContext(gamePaths, body), activeRunId) ?? cycleTraceLinkage),
+apps/server/src/core/cycle-runtime/phases/pr/pr-sync.ts:177:  function activeRunIdFromBody(body: JsonObject, stateDir: string): string {
+apps/server/src/core/cycle-runtime/phases/pr/pr-sync.ts:338:    const runId = activeRunIdFromBody(body, stateDir);
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:55:    activeRunId: value.runId,
+apps/server/src/core/cycle-runtime/phases/running/process-control/runtime.test.ts:418:        activeRunId: run.id,
+apps/server/src/core/cycle-runtime/index.ts:52:  | "mark-preparing-complete"
+apps/server/src/core/cycle-runtime/index.ts:334:  options: { activeRunId?: string | null; completion?: Record<string, unknown> } & CycleRuntimeTransitionOptions,
+apps/server/src/core/cycle-runtime/index.ts:339:  if (options.activeRunId !== undefined) patch.active_run_id = options.activeRunId || null;
+apps/server/src/core/cycle-runtime/index.ts:522:        activeRunId: text(body.activeRunId, text(body.runId)) || null,
+apps/server/src/core/cycle-runtime/index.ts:553:    case "mark-preparing-complete":
+apps/server/src/core/cycle-runtime/index.ts:558:          activeRunId: text(body.activeRunId, text(body.active_run_id)) || undefined,
+
+exec
+/bin/zsh -lc 'rg -n "prepare.startRun|/api/run/init|mark-preparing-complete" apps/server/src | head -100' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/api/routes/runs.ts:63:  if (url.pathname === "/api/run/init") return deps.json(await deps.initRun(await requestBody(req)));
+apps/server/src/api/cycle/routes.ts:69:  if (pathname === "/api/cycle/preparing/complete" && method === "POST") return "mark-preparing-complete";
+apps/server/src/core/cycle-runtime/index.ts:52:  | "mark-preparing-complete"
+apps/server/src/core/cycle-runtime/index.ts:553:    case "mark-preparing-complete":
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:364:          operation: "prepare.startRun",
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts:381:          operation: "prepare.startRun",
+
+exec
+/bin/zsh -lc "sed -n '1,180p' apps/server/src/core/cycle-runtime/run-state/index.ts && sed -n '1,120p' apps/server/src/core/cycle-runtime/run-state/runs.ts && sed -n '1,220p' apps/server/src/core/cycle-runtime/phases/preparing/runtime-shared.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+export {
+  borrowState,
+  isStateStoreClosedError,
+  openState,
+  stateStoreCloseInfo,
+  type StateStore,
+  type StateStoreCloseInfo,
+} from "@server/core/orchestrator-state";
+export {
+  activeSchedulerEpoch,
+  admitEpochTargets,
+  closeSchedulerEpoch,
+  closeSchedulerEpochWithEvidence,
+  refreshEpochTargetAvailability,
+  reconcileEpochTargetJobs,
+  recordEpochBoundaryRetryFailure,
+  resetEpochBoundaryRetries,
+  requeueEpochTarget,
+  schedulerEpochProgress,
+  selectEpochAdmissionCandidates,
+  startSchedulerEpoch,
+  type EpochAdmissionResult,
+  type EpochProgressSummary,
+  type RequeueEpochTargetResult,
+  type ReconcileEpochTargetJobsResult,
+  type EpochAvailabilityRefreshResult,
+  type SchedulerEpochCloseResult,
+  type SchedulerEpochConfig,
+  type SchedulerEpochIntegrationResult,
+  type SchedulerEpochRecord,
+} from "./epochs.js";
+export { addEvent, markEventHandled, nextUnhandledEvent } from "./events.js";
+export {
+  activeWorkerCount,
+  activeClaimsForRun,
+  appendWorkerSessionId,
+  bestCheckpointForWorkerState,
+  claimNextEpochTarget,
+  closeWorkerState,
+  recordWorkerCheckpoint,
+  setClaimWorktreePath,
+  updateWorkerStateBaselineScore,
+  workerCheckpointsForWorkerState,
+  workerStateHasExecutionEvidence,
+  type ActiveClaimRecord,
+  type ClaimedTarget,
+  type WorkerCheckpointInput,
+  type WorkerCheckpointRecord,
+  type WorkerLifecycleStatus,
+} from "./worker-state.js";
+export {
+  blockingWorkerOutputIntegrationCount,
+  enqueueWorkerOutputIntegration,
+  getWorkerOutputIntegration,
+  updateWorkerOutputIntegration,
+  workerOutputIntegrationQueueSummary,
+  type WorkerOutputIntegrationInput,
+  type WorkerOutputIntegrationRecord,
+  type WorkerOutputIntegrationStatus,
+  type WorkerOutputIntegrationUpdate,
+} from "./worker-output-integration.js";
+export { addPiSession } from "./pi-sessions.js";
+export {
+  admittedTargetCount,
+  schedulableTargetCount,
+  targetPressureSnapshot,
+  unhandledEventCount,
+  unhandledPoolEventCount,
+} from "./target-pressure.js";
+export {
+  createRun,
+  getLatestRun,
+  getRun,
+  policyRevisionForConfiguration,
+  setRunDesiredWorkers,
+  setRunSchedulerCondition,
+  StaleRunRevisionError,
+  transitionRun,
+  updateRunStatus,
+  type CreateRunOptions,
+  type RunCommandContext,
+  type RunTransitionInput,
+  type RunTransitionPatch,
+} from "./runs.js";
+export { statusSnapshot } from "./status.js";
+export { activeLockedSourcePaths, admitPriorityTargets } from "./targets.js";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import type {
+  RunBlocker,
+  RunInputs,
+  RunGameMetadata,
+  RunRecord,
+  RunSchedulerCondition,
+  RunStatus,
+} from "@server/core/shared/types/index.js";
+import { casRunEnvelope, immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
+import {
+  appendGameEvent,
+  eventSpan,
+  newSpanId,
+  type EventActor,
+  type JsonObject,
+  type JsonValue,
+} from "@server/core/harness-state/events.js";
+import { getHarnessState } from "@server/core/harness-state/lease.js";
+
+type SqlValue = bigint | boolean | null | number | string | Uint8Array;
+
+interface RunDbRow extends Record<string, unknown> {
+  id: string;
+  game_id: string | null;
+  goal_kind: string;
+  goal_value: number;
+  desired_workers: number;
+  status: RunStatus;
+  revision: number;
+  trace_id: string | null;
+  caused_by_event_id: string | null;
+  blockers_json: string;
+  head_revision: string | null;
+  cycle_uuid: string | null;
+  inputs_json: string | null;
+  stop_request_json: string | null;
+  terminal_reason: string | null;
+  scheduler_condition: RunSchedulerCondition | null;
+  created_at: string;
+  game_kind: string | null;
+  game_repo_root: string | null;
+  game_state_dir: string | null;
+  game_graph_db: string | null;
+  game_descriptor_path: string | null;
+  game_local_override_path: string | null;
+}
+
+interface CycleRunContext {
+  gameId: string;
+  cycleUuid: string;
+  baseRevision: string | null;
+  headRevision: string | null;
+  worktreePath: string | null;
+}
+
+export interface CreateRunOptions {
+  baseRevision?: string;
+  configurationSnapshot?: Record<string, unknown>;
+  commandId?: string;
+  actor?: EventActor;
+  cycleUuid?: string;
+  requireReady?: boolean;
+  spanId?: string;
+}
+
+export interface RunTransitionPatch {
+  blockers?: RunBlocker[];
+  desiredWorkers?: number;
+  headRevision?: string | null;
+  inputs?: RunInputs | null;
+  status?: RunStatus;
+  stopRequest?: Record<string, unknown> | null;
+  terminalReason?: string | null;
+}
+
+export type RunStatusPreservingEventType = "run.desired_workers_changed";
+
+export interface RunDestinationStatusByEvent {
+  "run.readied": "ready";
+  "run.activated": "active";
+  "run.paused": "paused";
+  "run.completed": "completed";
+  "run.failed": "failed";
+  "run.cancelled": "cancelled";
+  "run.recovered": "paused";
+}
+
+export type RunRecoveryEventType = "run.recovered";
+export type RunStatusTransitionEventType = Exclude<
+  keyof RunDestinationStatusByEvent,
+  RunRecoveryEventType
+>;
+export type RunStateChangingEventType =
+  | RunStatusTransitionEventType
+  | RunRecoveryEventType;
+export type RunTransitionEventType =
+  | RunStatusPreservingEventType
+  | RunStateChangingEventType;
+export type RunTransitionStatus = Exclude<RunStatus, "draft">;
+
+export type RunPausedEventPayload = {
+  from_status: RunStatus;
+  to_status: "paused";
+  recovery_id?: string;
+  recovery_reason?: string;
+  cancelled_claim_ids?: string[];
+  cancelled_operation_ids?: string[];
+  queued_work?: JsonValue[];
+};
+
+interface RunPayloadInputByEvent {
+  "run.desired_workers_changed": {
+    previous_desired_workers: number;
+    desired_workers: number;
+  };
+  "run.readied": {
+    base_revision: string;
+    policy_revision: string;
+import type {
+  MeleeWorkflowTraceStatus,
+  SubmitMeleeWorkflowTraceEventInput,
+} from "@server/infrastructure/kernel/bridge/workflow-trace";
+import type { PreparingPhaseState } from "@server/core/cycle";
+import { getLatestRun, openState } from "@server/core/cycle-runtime/run-state";
+import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
+import { uiLog } from "@server/infrastructure/logging/ui-log";
+import type { ReportRunOptions, ReportRunResult } from "@server/core/validation/report";
+import type { BoundarySavePointResult } from "@server/core/cycle-runtime/phases/pr/save-points-runtime";
+
+export type JsonObject = Record<string, unknown>;
+
+export interface CliResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface FreshRunStep extends CliResult {
+  command: string[];
+  cwd: string;
+  name: string;
+}
+
+export interface PreparingRuntimeGameContext {
+  graphDbPath: string;
+  game: ResolvedGame | null;
+  repoRoot: string;
+  stateDir: string;
+  usePathOverrides?: boolean;
+}
+
+export interface PreparingRuntimeWorkflowEventInput {
+  kind: SubmitMeleeWorkflowTraceEventInput["kind"];
+  operation: string;
+  status?: MeleeWorkflowTraceStatus;
+  sessionId?: string | null;
+  runId?: string | null;
+  prId?: string | null;
+  detail?: string | null;
+  metadata?: Record<string, unknown>;
+  correlationId?: string;
+  gameEventId?: string;
+  causedByEventId?: string | null;
+}
+
+export interface PreparingRuntimeState {
+  freshRunActive: boolean;
+  gameSyncActive: boolean;
+}
+
+export interface PreparingRuntimeDeps {
+  activeCyclePrBlockers: (stateDir: string) => string[];
+  beginOperation: (name: string, label: string, stepNames: string[]) => void;
+  boundarySavePoint: (paths: PreparingRuntimeGameContext, trigger: string, cycleUuid: string, label?: string) => Promise<BoundarySavePointResult>;
+  endOperation: (error?: unknown) => void;
+  hasActiveProcess: (stateDir: string) => { active: boolean; name?: unknown };
+  kernelDatabaseUrl?: () => string | null;
+  kernelEnabled?: () => Promise<boolean>;
+  operationStep: (stepName: string, detail?: string) => void;
+  operationStepDetail: (stepName: string, detail: string) => void;
+  packageRoot: string;
+  gameToSummary: (game: ResolvedGame) => GameSummary;
+  resolveDashboardGame: (input: JsonObject, options: { useDefaultGame?: boolean }) => PreparingRuntimeGameContext;
+  runCli: (command: string[], cwd?: string) => Promise<CliResult>;
+  runGit: (repoRoot: string, args: string[], options?: { check?: boolean; failureHint?: string }) => Promise<CliResult>;
+  runReport?: (repoRoot: string, options?: ReportRunOptions) => Promise<ReportRunResult>;
+  serverJobPath: string;
+  sourceRoot: (sourceId: string) => string;
+  submitWorkflowEvent: (paths: PreparingRuntimeGameContext, input: PreparingRuntimeWorkflowEventInput) => Promise<JsonObject | null>;
+}
+
+export interface GitSyncResult {
+  afterRef: string;
+  baseRef?: string;
+  beforeRef: string;
+  branch: string;
+  mergedPrs: number[];
+  cycleBranch?: string;
+  cycleCurrentWorktreePath?: string;
+  cycleRootPath?: string;
+  cycleWorktreePath?: string;
+  steps: JsonObject[];
+  upstreamWorktreePath?: string;
+}
+
+export function asObject(value: unknown): JsonObject {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
+}
+
+export function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+export function numberValue(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+export function boolValue(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+export function outputTail(textValue: string, maxLength = 2000): string {
+  if (textValue.length <= maxLength) return textValue;
+  return `...${textValue.slice(textValue.length - maxLength)}`;
+}
+
+export function parseCliJsonOutput(stdout: string): JsonObject {
+  const trimmed = stdout.trim();
+  if (!trimmed) return {};
+  try {
+    return asObject(JSON.parse(trimmed));
+  } catch {
+    return {};
+  }
+}
+
+export function latestRunId(stateDir: string): string {
+  const store = openState(stateDir);
+  try {
+    return getLatestRun(store)?.id ?? "";
+  } finally {
+    store.db.close();
+  }
+}
+
+export function serverJobPrefix(paths: PreparingRuntimeGameContext, serverJobPath: string): string[] {
+  const command = ["bun", serverJobPath];
+  if (paths.game) command.push("--game", paths.game.gameId);
+  command.push("--repo-root", paths.repoRoot, "--state-dir", paths.stateDir);
+  return command;
+}
+
+export function appendPostmortemContextArgs(
+  command: string[],
+  paths: PreparingRuntimeGameContext,
+  runId = "",
+  kernelDatabaseUrl?: string | null,
+): void {
+  command.push("--orchestrator-state-dir", paths.stateDir);
+  const resolvedRunId = runId || latestRunId(paths.stateDir);
+  if (resolvedRunId) command.push("--orchestrator-run-id", resolvedRunId);
+  if (paths.game) command.push("--orchestrator-project-id", paths.game.gameId);
+  if (kernelDatabaseUrl) command.push("--orchestrator-kernel-database-url", kernelDatabaseUrl);
+}
+
+export async function prPostmortemMode(deps: PreparingRuntimeDeps, dryRunAgents: boolean): Promise<"scaffold" | "pi"> {
+  if (dryRunAgents) return "scaffold";
+  if (!deps.kernelEnabled) return "scaffold";
+  try {
+    if (await deps.kernelEnabled()) return "pi";
+  } catch (error) {
+    uiLog("stderr", `agent-kernel status check failed; PR postmortems will use scaffold mode: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  uiLog("ui", "agent-kernel unavailable; PR postmortems will use scaffold mode");
+  return "scaffold";
+}
+
+export async function runFreshStep(
+  deps: PreparingRuntimeDeps,
+  steps: FreshRunStep[],
+  name: string,
+  command: string[],
+  cwd: string,
+): Promise<void> {
+  uiLog("ui", `${name} started: ${command.join(" ")}`);
+  const result = await deps.runCli(command, cwd);
+  uiLog("ui", `${name} exit=${result.exitCode}`);
+  const step = {
+    name,
+    command,
+    cwd,
+    exitCode: result.exitCode,
+    stdout: outputTail(result.stdout, 4000),
+    stderr: outputTail(result.stderr, 4000),
+  };
+  steps.push(step);
+  if (result.exitCode !== 0) {
+    throw new Error(`${name} failed (${result.exitCode ?? "signal"}): ${outputTail(result.stderr || result.stdout || "no output")}`);
+  }
+}
+
+export type PreparingSubphase = PreparingPhaseState["subphase"];
+
+exec
+/bin/zsh -lc "rg -n \"spyOn\\(|mock\\.module\\(\" apps/server/src --glob '*.test.ts' | head -80" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/infrastructure/kernel/bridge/adapter.test.ts:514:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/api/routes/cycles.test.ts:93:    const errorLog = spyOn(console, "error").mockImplementation(() => undefined);
+apps/server/src/core/job-queue/consumer.test.ts:236:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/job-queue/consumer.test.ts:286:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/job-queue/consumer.test.ts:306:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/job-queue/consumer.test.ts:392:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/job-queue/consumer.test.ts:460:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/validation/report/run.test.ts:155:    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/validation/report/run.test.ts:190:    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/run-control.test.ts:639:    const log = spyOn(console, "log").mockImplementation(() => undefined);
+apps/server/src/core/cycle-runtime/phases/pr/jobs/save-point.test.ts:79:    const log = spyOn(console, "log").mockImplementation(() => undefined);
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:166:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:208:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:236:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:661:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:722:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:774:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:832:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:976:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:1034:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/epoch-boundary.test.ts:1078:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.test.ts:162:    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/scheduler/tick.test.ts:183:    const infoLog = spyOn(console, "info").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:150:    const log = spyOn(console, "log").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:229:    const log = spyOn(console, "log").mockImplementation(() => {});
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-job.test.ts:951:    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:75:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:76:    const error = spyOn(console, "error").mockImplementation((value) => errors.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:77:    const reconcile = spyOn(reconcileModule, "reconcileReport").mockImplementation(() => {
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:81:    const importPrs = spyOn(prsModule, "importPrs").mockImplementation(() => {
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:85:    const importWiki = spyOn(wikiModule, "importWiki");
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:86:    const extractEntities = spyOn(entitiesModule, "extractEntities");
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:116:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:117:    const error = spyOn(console, "error").mockImplementation((value) => errors.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:137:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:163:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:223:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/ingest/cli.test.ts:266:    const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/librarian/consumer.test.ts:647:    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/knowledge-v2/librarian/consumer.test.ts:813:    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+apps/server/src/core/knowledge-v2/librarian/consumer.test.ts:1442:    const error = spyOn(console, "error").mockImplementation(() => undefined);
+apps/server/src/core/knowledge-v2/librarian/consumer.test.ts:1465:    const log = spyOn(console, "log").mockImplementation(() => undefined);
+apps/server/src/core/knowledge-v2/tools.test.ts:384:    const resolveKey = spyOn(embeddingProviderModule, "resolveOpenAiApiKey").mockReturnValue(undefined);
+apps/server/src/core/knowledge-v2/drift/cli.test.ts:113:  const log = spyOn(console, "log").mockImplementation((value) => output.push(String(value)));
+apps/server/src/core/knowledge-v2/drift/reanchor.test.ts:120:    const query = spyOn(f.store.db, "query");
+apps/server/src/core/knowledge-v2/librarian/lane.test.ts:149:    jest.spyOn(console, "error").mockImplementation(() => undefined);
+apps/server/src/core/orchestrator-state/storage/migrations/baseline.test.ts:142:    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+
+codex
+The linkage is not set by `initRun`. `/api/run/init` returns `activeRunId`, and the separate `mark-preparing-complete` transition writes it to `cycles.active_run_id`. I’m keeping that behavior unchanged and adding a focused lease regression test.
+exec
+/bin/zsh -lc "sed -n '220,265p' apps/server/src/core/cycle/store.ts && sed -n '40,85p' apps/server/src/api/routes/runs.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+    });
+    return insertCycle(db, { ...record, caused_by_event_id: opened.eventId });
+  });
+}
+
+export function getCycleById(db: Database, id: string): CycleRecord | null {
+  const row = createOrchestratorStateOrm(db).select().from(cycles).where(eq(cycles.id, id)).get();
+  return row ? rowToCycle(row) : null;
+}
+
+export function getCycleByUuid(db: Database, cycleUuid: string): CycleRecord | null {
+  const row = createOrchestratorStateOrm(db).select().from(cycles).where(eq(cycles.cycleUuid, cycleUuid)).get();
+  return row ? rowToCycle(row) : null;
+}
+
+export function setCycleActiveRunId(
+  db: Database,
+  cycleUuid: string,
+  activeRunId: string,
+  at = currentTime(),
+): CycleRecord {
+  return immediateTransaction(db, () => {
+    const current = getCycleByUuid(db, cycleUuid);
+    if (!current) throw new Error(`Game cycle not found: ${cycleUuid}`);
+    const result = db
+      .query(
+        `UPDATE cycles
+         SET active_run_id = ?, revision = ?, updated_at = ?
+         WHERE cycle_uuid = ? AND revision = ?`,
+      )
+      .run(activeRunId, current.revision + 1, at, cycleUuid, current.revision);
+    if (result.changes !== 1) {
+      throw new Error(`Stale game cycle revision ${current.revision} for ${cycleUuid}`);
+    }
+    const saved = getCycleByUuid(db, cycleUuid);
+    if (!saved) throw new Error(`Game cycle disappeared after active run update: ${cycleUuid}`);
+    return saved;
+  });
+}
+
+export function getActiveCycle(db: Database, gameId: string): CycleRecord | null {
+  const row = createOrchestratorStateOrm(db)
+    .select()
+    .from(cycles)
+    .where(and(eq(cycles.gameId, gameId), inArray(cycles.status, ["active", "blocked", "closing"])))
+    .orderBy(desc(cycles.createdAt))
+  if (action.confirmation_required && body.confirmed !== true) {
+    return deps.json(commandResponse(action, null, `${actionId} requires operator confirmation`), { status: 409 });
+  }
+
+  try {
+    return deps.json(commandResponse(action, await execute(body)));
+  } catch (error) {
+    // A command can lose a status or lease race after the initial projection.
+    // Re-game so those failures use the same blocker decision as the UI.
+    const latest = deps.runActionProjection(body, actionId);
+    if (!latest.enabled) {
+      return deps.json(
+        commandResponse(latest, null, error instanceof Error ? error.message : String(error)),
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
+}
+
+export async function handleRunsApiRoute(req: Request, url: URL, deps: RunsApiRouteDeps): Promise<Response | null> {
+  if (req.method !== "POST") return null;
+  if (url.pathname === "/api/run/complete") return deps.json(await deps.completeRun(await requestBody(req)));
+  if (url.pathname === "/api/run/init") return deps.json(await deps.initRun(await requestBody(req)));
+  if (url.pathname === "/api/run/fresh") return deps.json(await deps.freshRun(await requestBody(req)));
+  if (url.pathname === "/api/run/force-release-lease") {
+    const body = await requestBody(req);
+    if (typeof body.gameId !== "string" || !body.gameId.trim()) {
+      return deps.json({ error: "run.force_release_lease requires gameId" }, { status: 400 });
+    }
+    if (body.confirmed !== true) {
+      return deps.json({ error: "run.force_release_lease requires operator confirmation" }, { status: 409 });
+    }
+    try {
+      return deps.json(await deps.forceReleaseLease(body));
+    } catch (error) {
+      return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+    }
+  }
+  if (url.pathname === "/api/run/resume") {
+    const body = await requestBody(req);
+    return runCommand(deps, body, "run.resume", deps.resumeRun);
+  }
+  if (url.pathname === "/api/run/hard-stop") {
+    const body = await requestBody(req);
+    return runCommand(deps, body, "run.hard_stop", deps.hardStopRun);
+
+exec
+/bin/zsh -lc "rg -n \"export function createRun\" apps/server/src/core/cycle-runtime/run-state/runs.ts && sed -n '320,455p' apps/server/src/core/cycle-runtime/run-state/runs.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+544:export function createRun(
+  if (!inputs?.policy_revision?.trim()) failures.push("inputs.policy_revision");
+  if (!inputs?.starting_knowledge_revision?.trim()) failures.push("inputs.starting_knowledge_revision");
+  if (!inputs?.configuration_snapshot || typeof inputs.configuration_snapshot !== "object") {
+    failures.push("inputs.configuration_snapshot");
+  }
+  if (run.blockers.length > 0) failures.push("blockers");
+  return failures;
+}
+
+const RUN_STATUS_EVENT_BY_DESTINATION = {
+  ready: "run.readied",
+  active: "run.activated",
+  paused: "run.paused",
+  completed: "run.completed",
+  failed: "run.failed",
+  cancelled: "run.cancelled",
+} as const satisfies Readonly<Record<RunTransitionStatus, RunStatusTransitionEventType>>;
+
+const RUN_EVENT_DESTINATION_STATUSES = {
+  "run.desired_workers_changed": "preserve",
+  "run.readied": ["ready"],
+  "run.activated": ["active"],
+  "run.paused": ["paused"],
+  "run.completed": ["completed"],
+  "run.failed": ["failed"],
+  "run.cancelled": ["cancelled"],
+  "run.recovered": ["paused"],
+} as const satisfies Readonly<
+  Record<RunTransitionEventType, "preserve" | readonly RunStatus[]>
+>;
+
+function eventTypeForStatus(status: RunTransitionStatus): RunStatusTransitionEventType {
+  return RUN_STATUS_EVENT_BY_DESTINATION[status];
+}
+
+function actorForProducer(producer: string): EventActor {
+  switch (producer) {
+    case "operator":
+    case "ui":
+      return "operator";
+    case "guardian":
+      return "guardian";
+    case "agent":
+      return "agent";
+    case "external_observer":
+      return "external_observer";
+    case "dashboard":
+    case "runner":
+    case "scheduler":
+    case "test":
+      return "runner";
+    default:
+      throw new Error(`Unknown run event producer: ${producer}`);
+  }
+}
+
+function isAfterActivation(status: RunStatus): boolean {
+  return status !== "draft" && status !== "ready";
+}
+
+function assertStatusTransition(current: RunStatus, next: RunStatus): void {
+  const allowed: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
+    draft: ["ready"],
+    ready: ["active"],
+    active: ["paused", "completed", "failed"],
+    paused: ["active", "completed", "cancelled"],
+    completed: [],
+    failed: ["paused", "cancelled"],
+    cancelled: [],
+  };
+  if (!allowed[current].includes(next)) throw new Error(`Invalid run status transition ${current} -> ${next}`);
+}
+
+function assertRunTransitionCompatibility<TEvent extends RunTransitionEventType>(
+  current: RunRecord,
+  input: RunTransitionInput<TEvent>,
+): void {
+  const rule = (
+    RUN_EVENT_DESTINATION_STATUSES as Readonly<
+      Record<string, "preserve" | readonly RunStatus[] | undefined>
+    >
+  )[input.eventType];
+  if (!rule) {
+    throw new Error(`Unsupported run transition event: ${input.eventType}`);
+  }
+  if (rule === "preserve") {
+    if (input.patch.status !== undefined) {
+      throw new Error(`${input.eventType} must preserve run status`);
+    }
+    return;
+  }
+  if (input.patch.status === undefined) {
+    throw new Error(`${input.eventType} requires an explicit destination status`);
+  }
+  const nextStatus = input.patch.status;
+  if (!(rule as readonly RunStatus[]).includes(nextStatus)) {
+    throw new Error(
+      `${input.eventType} is incompatible with destination status ${nextStatus}`,
+    );
+  }
+  if (
+    isRunStatusTransitionEvent(input.eventType) &&
+    current.status === nextStatus
+  ) {
+    throw new Error(`${input.eventType} is valid only on entry to ${nextStatus}`);
+  }
+}
+
+function isRunStatusTransitionEvent(
+  eventType: RunTransitionEventType,
+): eventType is RunStatusTransitionEventType {
+  return eventType !== "run.desired_workers_changed" && eventType !== "run.recovered";
+}
+
+function runTransitionPayload<TEvent extends RunTransitionEventType>(
+  current: RunRecord,
+  input: RunTransitionInput<TEvent>,
+): JsonObject {
+  if (input.eventType === "run.paused" && input.payload && "reason" in input.payload) {
+    throw new Error("run.paused payload must not include reason");
+  }
+  const payload: JsonObject = { ...input.payload };
+  if (!isRunStatusTransitionEvent(input.eventType)) return payload;
+  delete payload.previous_status;
+  delete payload.status;
+  delete payload.from_status;
+  delete payload.to_status;
+  return {
+    ...payload,
+    from_status: current.status,
+    to_status: input.patch.status ?? current.status,
+  };
+}
+
+function assertActiveRunLease(store: StateStore, run: RunRecord): void {
+  const state = getHarnessState(store, run.gameId ?? undefined);
+
+exec
+/bin/zsh -lc "sed -n '1,190p' apps/server/src/core/cycle-runtime/dispatch-guard.ts && sed -n '1,180p' apps/server/src/core/cycle-runtime/dispatch-guard.test.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { randomUUID } from "node:crypto";
+import {
+  getHarnessState,
+  initializeHarnessState,
+  releaseDispatch,
+  requestDispatch,
+  requireActiveLease,
+  requireLease,
+  type DispatchLease,
+  type DispatchKind,
+  type EventActor,
+} from "@server/core/harness-state";
+import { newSpanId } from "@server/core/harness-state/events.js";
+import { openState } from "@server/core/orchestrator-state";
+
+export interface DispatchGuardContext {
+  game?: { gameId: string } | null;
+  stateDir: string;
+}
+
+export interface DispatchGuardInput {
+  actor?: EventActor;
+  beginHandoffOnQueue?: boolean;
+  commandId?: string;
+  kind: DispatchKind;
+  gameId?: string;
+  reason: string;
+  spanId?: string;
+  stopRunOnHandoff?: (input: { reason: string; runId: string }) => Promise<unknown>;
+  workflowId: string;
+}
+
+export type DispatchLeaseRevalidator = () => DispatchLease;
+
+export class DispatchLeaseUnavailableError extends Error {
+  readonly blockedBy: { kind: DispatchKind; workflowId: string; leaseId: string };
+
+  constructor(blockedBy: { kind: DispatchKind; workflowId: string; leaseId: string }) {
+    super(`Dispatch lease is held by ${blockedBy.kind}:${blockedBy.workflowId}`);
+    this.name = "DispatchLeaseUnavailableError";
+    this.blockedBy = blockedBy;
+  }
+}
+
+function gameIdFor(context: DispatchGuardContext, input: DispatchGuardInput): string {
+  const gameId = input.gameId ?? context.game?.gameId;
+  if (!gameId) throw new Error(`${input.kind} dispatch requires a game id`);
+  return gameId;
+}
+
+/**
+ * Runs one checkout-mutating workflow section under the canonical dispatch
+ * lease. Acquisition, fencing, and release all go through harness-state's
+ * public API; the workflow body never reaches into harness_state directly.
+ */
+export async function withDispatchLease<T>(
+  context: DispatchGuardContext,
+  input: DispatchGuardInput,
+  operation: (leaseId: string, revalidateLease: DispatchLeaseRevalidator) => Promise<T>,
+): Promise<T> {
+  const gameId = gameIdFor(context, input);
+  const actor = input.actor ?? "operator";
+  const commandId = input.commandId ?? `command-${input.kind}-${randomUUID()}`;
+  const actionSpanId = input.spanId ?? newSpanId();
+  const store = openState(context.stateDir);
+  let leaseId: string | null = null;
+  try {
+    initializeHarnessState(store, { gameId, traceId: `trace-game-${gameId}` });
+    const current = getHarnessState(store, gameId)?.active_workflow;
+    if (
+      input.beginHandoffOnQueue &&
+      current?.kind === input.kind &&
+      current.workflow_id === input.workflowId &&
+      current.status === "active"
+    ) {
+      leaseId = current.lease_id;
+      requireActiveLease(store, leaseId, gameId);
+      const revalidateLease: DispatchLeaseRevalidator = () => requireLease(store, leaseId!, gameId);
+      return await operation(leaseId, revalidateLease);
+    }
+    const decision = requestDispatch(store, {
+      actor,
+      commandId,
+      correlationId: input.workflowId,
+      kind: input.kind,
+      gameId,
+      reason: input.reason,
+      handoffOnQueue: input.beginHandoffOnQueue,
+      workflowId: input.workflowId,
+      spanId: actionSpanId,
+    });
+    if (decision.queued) {
+      if (input.beginHandoffOnQueue) {
+        if (actor !== "operator") throw new Error("Dispatch handoff activation is operator-only");
+        const holder = decision.blockedBy;
+        if (holder.kind !== "run") {
+          throw new Error(
+            `Cannot hand off ${holder.kind}:${holder.workflow_id} to ${input.kind}:${input.workflowId}; only the active run supports operator handoff`,
+          );
+        }
+        if (holder.status !== "active") {
+          throw new Error(
+            `Cannot begin dispatch handoff while ${holder.kind}:${holder.workflow_id} is ${holder.status}`,
+          );
+        }
+        if (!input.stopRunOnHandoff) throw new Error("Dispatch handoff requires a managed run stop callback");
+        await input.stopRunOnHandoff({ reason: input.reason, runId: holder.workflow_id });
+      }
+      throw new DispatchLeaseUnavailableError({
+        kind: decision.blockedBy.kind,
+        workflowId: decision.blockedBy.workflow_id,
+        leaseId: decision.blockedBy.lease_id,
+      });
+    }
+    leaseId = decision.leaseId;
+    requireActiveLease(store, leaseId, gameId);
+    const revalidateLease: DispatchLeaseRevalidator = () => requireLease(store, leaseId!, gameId);
+    return await operation(leaseId, revalidateLease);
+  } finally {
+    try {
+      if (leaseId) {
+        releaseDispatch(store, {
+          actor,
+          commandId,
+          correlationId: input.workflowId,
+          leaseId,
+          gameId,
+          spanId: actionSpanId,
+        });
+      }
+    } finally {
+      store.db.close();
+    }
+  }
+}
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { openState } from "@server/core/orchestrator-state";
+import { getHarnessState, initializeHarnessState, listGameEvents, requestDispatch } from "@server/core/harness-state";
+import { createRun, updateRunStatus } from "@server/core/cycle-runtime/run-state";
+import { DispatchLeaseUnavailableError, withDispatchLease } from "./dispatch-guard.js";
+
+const directories: string[] = [];
+
+afterEach(() => {
+  for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
+
+describe("dispatch guard action identity", () => {
+  test("reuses one command root actor and workflow correlation across acquire and release", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "dispatch-guard-action-"));
+    directories.push(stateDir);
+    const fixtureStore = openState(stateDir);
+    try {
+      fixtureStore.db.query(`
+        INSERT INTO cycles (
+          id, game_id, cycle_uuid, status, phase,
+          head_revision, created_at, updated_at
+        ) VALUES (?, ?, ?, 'active', 'preparing', ?, ?, ?)
+      `).run(
+        "cycle:cycle-melee",
+        "melee",
+        "cycle-melee",
+        "cycle-head",
+        "2026-08-13T12:00:00.000Z",
+        "2026-08-13T12:00:00.000Z",
+      );
+      fixtureStore.db.query(`
+        INSERT INTO sync_state (
+          sync_id, game_id, cycle_uuid, revision, status, trace_id,
+          caused_by_event_id, created_at, updated_at
+        ) VALUES (?, ?, ?, 0, 'requested', ?, ?, ?, ?)
+      `).run(
+        "sync-1",
+        "melee",
+        "cycle-melee",
+        "trace-sync-1",
+        "event-sync-1-requested",
+        "2026-08-13T12:00:00.000Z",
+        "2026-08-13T12:00:00.000Z",
+      );
+    } finally {
+      fixtureStore.db.close();
+    }
+    const result = await withDispatchLease(
+      { game: { gameId: "melee" }, stateDir },
+      {
+        actor: "runner",
+        commandId: "command-sync-mutate",
+        kind: "sync",
+        reason: "mutate the sync staging checkout",
+        spanId: "span-11111111-1111-4111-8111-111111111111",
+        workflowId: "sync-1",
+      },
+      async (_leaseId, revalidate) => {
+        expect(revalidate()).toMatchObject({ kind: "sync", workflow_id: "sync-1", status: "active" });
+        return "completed";
+      },
+    );
+    expect(result).toBe("completed");
+
+    const store = openState(stateDir);
+    try {
+      const events = listGameEvents(store.db, { gameId: "melee" })
+        .filter((event) => event.eventType.startsWith("game.dispatch_"));
+      expect(events.map((event) => event.eventType)).toEqual([
+        "game.dispatch_requested",
+        "game.dispatch_acquired",
+        "game.dispatch_released",
+      ]);
+      expect(events.every((event) => event.actor === "runner")).toBe(true);
+      expect(events.every((event) => event.correlationId === "sync-1")).toBe(true);
+      expect(new Set(events.map((event) => event.parentSpanId)).size).toBe(1);
+      expect(events[0]?.parentSpanId).toBe("span-11111111-1111-4111-8111-111111111111");
+      expect(events[0]?.causationId).toBe("command-sync-mutate");
+      expect(events[1]?.causationId).toBe(events[0]?.eventId);
+      expect(events[2]?.causationId).toBe("command-sync-mutate");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("queues a successor before requesting the active run's graceful stop", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "dispatch-guard-handoff-"));
+    directories.push(stateDir);
+    const fixtureStore = openState(stateDir);
+    let runId = "";
+    try {
+      fixtureStore.db.query(`
+        INSERT INTO cycles (
+          id, game_id, cycle_uuid, status, phase,
+          head_revision, created_at, updated_at
+        ) VALUES (?, ?, ?, 'active', 'preparing', ?, ?, ?)
+      `).run(
+        "cycle:cycle-melee",
+        "melee",
+        "cycle-melee",
+        "cycle-head",
+        "2026-08-13T12:00:00.000Z",
+        "2026-08-13T12:00:00.000Z",
+      );
+      fixtureStore.db.query(`
+        INSERT INTO sync_state (
+          sync_id, game_id, cycle_uuid, revision, status, trace_id,
+          caused_by_event_id, created_at, updated_at
+        ) VALUES (?, ?, ?, 0, 'requested', ?, ?, ?, ?)
+      `).run(
+        "sync-handoff",
+        "melee",
+        "cycle-melee",
+        "trace-sync-handoff",
+        "event-sync-handoff-requested",
+        "2026-08-13T12:00:00.000Z",
+        "2026-08-13T12:00:00.000Z",
+      );
+      const run = createRun(
+        fixtureStore,
+        "matched_code_percent",
+        100,
+        1,
+        { gameId: "melee", repoRoot: stateDir, stateDir },
+        { baseRevision: "cycle-head", cycleUuid: "cycle-melee" },
+      );
+      runId = run.id;
+      initializeHarnessState(fixtureStore, { gameId: "melee", traceId: "trace-game-melee" });
+      const runDispatch = requestDispatch(fixtureStore, {
+        actor: "operator",
+        commandId: "command-run-active",
+        correlationId: run.id,
+        kind: "run",
+        gameId: "melee",
+        reason: "active test run",
+        workflowId: run.id,
+      });
+      if (runDispatch.queued) throw new Error("test run dispatch was unexpectedly queued");
+      updateRunStatus(fixtureStore, run.id, "active", "operator");
+    } finally {
+      fixtureStore.db.close();
+    }
+
+    const stopCalls: Array<{ reason: string; runId: string }> = [];
+    await expect(withDispatchLease(
+      { game: { gameId: "melee" }, stateDir },
+      {
+        beginHandoffOnQueue: true,
+        commandId: "command-sync-handoff",
+        kind: "sync",
+        reason: "sync needs the checkout",
+        stopRunOnHandoff: async (input) => { stopCalls.push(input); },
+        workflowId: "sync-handoff",
+      },
+      async () => "not reached",
+    )).rejects.toBeInstanceOf(DispatchLeaseUnavailableError);
+
+    expect(stopCalls).toEqual([{ reason: "sync needs the checkout", runId }]);
+    const settledStore = openState(stateDir);
+    try {
+      expect(getHarnessState(settledStore, "melee")).toMatchObject({
+        active_workflow: {
+          kind: "run",
+          status: "active",
+          workflow_id: runId,
+          requested_handoff: {
+            target_kind: "sync",
+            target_workflow_id: "sync-handoff",
+          },
+        },
+        queued_dispatch_requests: [expect.objectContaining({
+          kind: "sync",
+          workflow_id: "sync-handoff",
+        })],
+      });
+    } finally {
+
+exec
+/bin/zsh -lc "sed -n '544,650p' apps/server/src/core/cycle-runtime/run-state/runs.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+export function createRun(
+  store: StateStore,
+  goalKind: string,
+  goalValue: number,
+  desiredWorkers: number,
+  game?: RunGameMetadata,
+  options: CreateRunOptions = {},
+): RunRecord {
+  const id = randomUUID();
+  const cycle = activeCycleContext(store, game?.gameId, options.cycleUuid);
+  const gameId = game?.gameId ?? cycle?.gameId ?? null;
+  if (!gameId) throw new Error("Run creation requires a game id or an active game cycle");
+  const configurationSnapshot = options.configurationSnapshot ?? {
+    agent_timeout_seconds: 1800,
+    desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
+    dry_run_agents: false,
+    epoch_configure_command: "",
+    goal_kind: goalKind,
+    goal_value: goalValue,
+    model: "gpt-5.6-sol",
+    provider: "codex-lb",
+    sandbox_profile: "",
+    thinking_level: "xhigh",
+    worker_configure_command: "",
+  };
+  const baseRevision = options.baseRevision?.trim() || cycle?.headRevision || cycle?.baseRevision || gitHead(game?.repoRoot) || "";
+  const createdAt = now();
+  const traceId = `trace-run-${id}`;
+  const actor = options.actor ?? "runner";
+  const commandId = options.commandId ?? `command-run-create-${id}`;
+  const actionSpanId = options.spanId ?? newSpanId();
+  const run = immediateTransaction(store.db, () => {
+    const startingRevision = gitHead(cycle?.worktreePath ?? game?.repoRoot) ?? baseRevision;
+    const inputs: RunInputs = {
+      base_revision: baseRevision,
+      policy_revision: policyRevisionForConfiguration(configurationSnapshot),
+      starting_knowledge_revision: startingRevision,
+      configuration_snapshot: configurationSnapshot,
+    };
+    const event = appendGameEvent(store.db, {
+      eventType: "run.drafted",
+      gameId,
+      subjectKind: "run",
+      subjectId: id,
+      correlationId: id,
+      causationId: commandId,
+      traceId,
+      ...eventSpan(actionSpanId),
+      actor,
+      occurredAt: createdAt,
+      payload: {
+        desired_workers: Math.max(1, Math.trunc(desiredWorkers)),
+        goal_kind: goalKind,
+        goal_value: goalValue,
+      },
+    });
+    store.db
+      .query(
+        `INSERT INTO runs (
+           id, goal_kind, goal_value, desired_workers, status, created_at,
+           game_id, game_kind, game_repo_root, game_state_dir,
+           game_graph_db, game_descriptor_path, game_local_override_path,
+           revision, trace_id, caused_by_event_id, blockers_json, head_revision,
+           cycle_uuid, inputs_json, scheduler_condition
+         ) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, '[]', ?, ?, ?, 'idle')`,
+      )
+      .run(
+        id,
+        goalKind,
+        goalValue,
+        Math.max(1, Math.trunc(desiredWorkers)),
+        createdAt,
+        gameId,
+        game?.gameKind ?? null,
+        game?.repoRoot ?? null,
+        game?.stateDir ?? null,
+        game?.graphDbPath ?? null,
+        game?.descriptorPath ?? null,
+        game?.localOverridePath ?? null,
+        traceId,
+        event.eventId,
+        cycle?.headRevision ?? (baseRevision || null),
+        options.cycleUuid ?? cycle?.cycleUuid ?? null,
+        JSON.stringify(inputs),
+      );
+    const row = selectRun(store, id);
+    if (!row) throw new Error(`Run was not created: ${id}`);
+    return runFromRow(row);
+  });
+
+  const failures = readinessFailures(run);
+  if (failures.length > 0) {
+    if (options.requireReady) throw new Error(`Run ${id} readiness failed: ${failures.join(", ")}`);
+    return run;
+  }
+  return transitionRun(store, id, {
+    actor,
+    causationId: run.causedByEventId ?? commandId,
+    commandId,
+    correlationId: id,
+    eventType: "run.readied",
+    expectedRevision: run.revision,
+    patch: { status: "ready" },
+    payload: {
+      base_revision: run.inputs!.base_revision,
+      policy_revision: run.inputs!.policy_revision,
+      starting_knowledge_revision: run.inputs!.starting_knowledge_revision,
+
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+codex
+The code now resolves the created run immediately after the CLI succeeds and rejects an empty result before lease acquisition. Running the requested test suites next.
+exec
+/bin/zsh -lc 'bun test src/core/cycle-runtime/phases/preparing src/core/harness-state' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/server
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+ succeeded in 1885ms:
+[ui] init-run started: bun /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-FIpAlI/job-runner.ts --game melee --repo-root /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-FIpAlI/worktrees/cycles/cycle-uuid/current --state-dir /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-FIpAlI/state --provider codex-lb --model gpt-5.6-sol --thinking-level xhigh --agent-timeout-seconds 1800 init-run --desired-workers 16 --goal-kind matched_code_percent --goal-value 100 --graph-db /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-runtime-FIpAlI/graph.sqlite
+[ui] init-run exit=0
+[ui] git fetch origin started
+[ui] git fetch origin complete
+[ui] merged PRs newly landed: #2731
+[ui] prepare upstream-current worktree update started: origin/master @ bbbbbbbbbb
+[ui] prepare upstream-current worktree ready: /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-git-intake-djtPao/worktrees/upstream-current
+[ui] prepare cycle current worktree ready: /var/folders/hd/5sskjbf10bl2v1tx3jsvg_200000gn/T/prepare-git-intake-djtPao/worktrees/cycles/cycle-uuid/current
+
+ 97 pass
+ 0 fail
+ 3021 expect() calls
+Ran 97 tests across 8 files. [2.01s]
+
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+codex
+All requested suites are green: 97 tests, 0 failures. I’m doing the final diff check and confirming the exact `active_run_id` writer before printing DONE.
+exec
+/bin/zsh -lc "rg -n \"setCycleActiveRunId\\(\" apps/server/src --glob '*.ts' && rg -n \"run-init:|run-fresh:\" apps/server/src || true" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/server/src/core/cycle-runtime/phases/running/run-control.ts:274:    if (run.cycleUuid) setCycleActiveRunId(input.store.db, run.cycleUuid, run.id);
+apps/server/src/core/cycle/store.ts:235:export function setCycleActiveRunId(
+apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts:207:      expect(createdRunId).not.toStartWith("run-init:");
+
+exec
+/bin/zsh -lc 'git diff --check && git diff -- apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e0..790f3cc3 100644
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@ import {
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@ describe("preparing runtime baseline", () => {
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933..94d86299 100644
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@ export function createPreparingRuntime(deps: PreparingRuntimeDeps): {
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+codex
+DONE
+
+- `initRun` now resolves the created run ID before dispatch and fails clearly if missing.
+- Dispatch lease uses the real run ID, not `run-init:<cycle>`.
+- Added regression coverage for lease ID, save point, and returned `activeRunId`.
+- No other `run-init:` or `run-fresh:` production usages remain.
+- `cycles.active_run_id` remains linked during process start in `running/run-control.ts`.
+- Tests: **97 passed, 0 failed**.
+- `games/melee/**` untouched.
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+index 294789e012527c1acc1b3993676fb20a26b4cec5..790f3cc3bdad0d2eacc4ad48b415f13dddf4bfee
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.test.ts
+@@ -1,4 +1,4 @@
+-import { afterEach, describe, expect, test } from "bun:test";
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
+ import { mkdtempSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { join, resolve } from "node:path";
+@@ -6,7 +6,8 @@
+   createNewCycle,
+   updatePreparingSubphase,
+ } from "@server/core/cycle-runtime";
+-import { openState } from "@server/core/cycle-runtime/run-state";
++import { createRun, openState } from "@server/core/cycle-runtime/run-state";
++import * as dispatchGuard from "@server/core/cycle-runtime/dispatch-guard";
+ import type {
+   PreparingRuntimeDeps,
+   PreparingRuntimeGameContext,
+@@ -142,5 +143,77 @@
+     }
+   });
+ 
++  test("leases the created run id before committing the init boundary", async () => {
++    const root = tempDir();
++    const stateDir = resolve(root, "state");
++    const repoRoot = resolve(root, "repo");
++    const store = openState(stateDir);
++    try {
++      createNewCycle(store.db, {
++        actor: "operator",
++        id: "cycle:cycle-uuid",
++        gameId: "melee",
++        cycleUuid: "cycle-uuid",
++      });
++    } finally {
++      store.db.close();
++    }
++
++    const paths: PreparingRuntimeGameContext = {
++      graphDbPath: resolve(root, "graph.sqlite"),
++      game: {
++        gameId: "melee",
++        dashboard: {},
++      } as PreparingRuntimeGameContext["game"],
++      repoRoot,
++      stateDir,
++    };
++    const boundaryCommit = { committed: true, commitSha: "boundary-sha" };
++    const savePoint = { id: "save-point-init" };
++    const lease = spyOn(dispatchGuard, "withDispatchLease").mockResolvedValue(boundaryCommit as never);
++    let createdRunId = "";
++    const runtime = createPreparingRuntime({
++      boundarySavePoint: async () => savePoint,
++      gameToSummary: () => ({ gameId: "melee" }),
++      resolveDashboardGame: () => paths,
++      runCli: async () => {
++        const runStore = openState(stateDir);
++        try {
++          createdRunId = createRun(
++            runStore,
++            "matched_code_percent",
++            100,
++            1,
++            { gameId: "melee", repoRoot, stateDir },
++            { baseRevision: "base-sha", cycleUuid: "cycle-uuid" },
++          ).id;
++        } finally {
++          runStore.db.close();
++        }
++        return { exitCode: 0, stdout: JSON.stringify({ initialized: true }), stderr: "" };
++      },
++      serverJobPath: resolve(root, "job-runner.ts"),
++      submitWorkflowEvent: async () => null,
++    } as unknown as PreparingRuntimeDeps);
++
++    try {
++      const result = await runtime.initRun({});
++
++      expect(lease).toHaveBeenCalledTimes(1);
++      expect(lease.mock.calls[0]?.[1]).toMatchObject({
++        kind: "run",
++        workflowId: createdRunId,
++      });
++      expect(createdRunId).not.toStartWith("run-init:");
++      expect(result).toMatchObject({
++        activeRunId: createdRunId,
++        boundaryCommit,
++        savePoint,
++      });
++    } finally {
++      lease.mockRestore();
++    }
++  });
++
+ 
+ });
+diff --git a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+index 29ac1933aeb9e4e1f0f876fe556abcc20cc5269d..94d862993b50de79eb0b9f32c4799d2f5bd47dbc
+--- a/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
++++ b/apps/server/src/core/cycle-runtime/phases/preparing/runtime.ts
+@@ -327,13 +327,15 @@
+         if (result.exitCode !== 0) {
+           throw new Error(`init-run failed (${result.exitCode ?? "signal"}): ${result.stderr || result.stdout || "no output"}`);
+         }
++        const activeRunId = latestRunId(init.stateDir);
++        if (!activeRunId) throw new Error("init-run completed but no created run id could be resolved.");
+         const boundaryCommit = await withDispatchLease(
+           init,
+           {
+             kind: "run",
+             gameId: gameIdFromContext(gamePaths, body),
+             reason: `commit initialized run for ${cycleUuid || "current cycle"}`,
+-            workflowId: `run-init:${cycleUuid || gameIdFromContext(gamePaths, body)}`,
++            workflowId: activeRunId,
+           },
+           async (_leaseId, revalidateLease) => commitBoundaryWorktree({
+             message: "boundary(init): initialize run",
+@@ -348,7 +350,6 @@
+           "init",
+           cycle.cycleUuid,
+         );
+-        const activeRunId = latestRunId(init.stateDir);
+         const payload = {
+           game: init.game ? deps.gameToSummary(init.game) : null,
+           command,
+
+tokens used
+66,551
+DONE
+
+- `initRun` now resolves the created run ID before dispatch and fails clearly if missing.
+- Dispatch lease uses the real run ID, not `run-init:<cycle>`.
+- Added regression coverage for lease ID, save point, and returned `activeRunId`.
+- No other `run-init:` or `run-fresh:` production usages remain.
+- `cycles.active_run_id` remains linked during process start in `running/run-control.ts`.
+- Tests: **97 passed, 0 failed**.
+- `games/melee/**` untouched.

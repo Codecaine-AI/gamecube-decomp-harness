@@ -1,0 +1,2322 @@
+Reading additional input from stdin...
+OpenAI Codex v0.153.3
+--------
+workdir: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+model: gpt-5.6-sol
+provider: codex-lb
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: low
+reasoning summaries: none
+session id: 01a07246-916e-7550-aefc-7cc052b0fdd3
+--------
+user
+# Task H: Agents page — preview-target selector
+
+Repo: `/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness`. Frontend only: `apps/frontend/src/pages/workspace/agents/index.tsx` and `apps/frontend/src/lib/api.ts` (+ tests if any). Do not touch server files (another task owns `kernel-preview.ts` and `routes/agents.ts`; the route already accepts `?target=<unit>:<symbol>` on `/api/kernel/agents` and defaults to `main/melee/mn/mnvibration:mnVibration_HandleInput`).
+
+## Change
+1. `fetchKernelAgents(form, options?: { target?: string })` appends `target=<value>` to the query when provided.
+2. On the Agents page, above the `AgentCatalogViewer`, add a compact "Preview target" control: a text input (placeholder `unit:symbol`, e.g. `main/melee/mn/mnvibration:mnVibration_HandleInput`) with an Apply button and Enter-to-apply; persist the value in the page's URL search params (`?target=`) so a link is shareable, and re-fetch the payload when it changes. Show the server's warning string if the payload returns one for the worker (the existing `warnings` rendering covers it). Keep the existing style primitives used on that page (look at siblings under `pages/workspace/_components`) — no new dependencies.
+3. Keep it visible for every agent tab but note in helper text that it only affects the worker preview.
+
+## Verify
+`bun run ui:check` (tsc for the frontend) passes; any existing frontend tests for the agents page pass. Print DONE.
+warning: Under-development features enabled: chronicle. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /Users/Ford/.codex/config.toml.
+codex
+Step 1 of 3: I’m locating the existing Agents page patterns and API tests, then I’ll patch only the permitted frontend files. I’m also applying the repo’s required writing-cleanup skill to UI copy.
+exec
+/bin/zsh -lc "sed -n '1,240p' apps/frontend/src/pages/workspace/agents/index.tsx && sed -n '1,240p' apps/frontend/src/lib/api.ts" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { useEffect, useState } from "react";
+import { AgentCatalogViewer } from "@agent-kernel/viewer-ui";
+import {
+  PromptStyleSidebar,
+  PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH,
+  clampPromptStyleSidebarWidth,
+  usePromptStyleSettings,
+} from "@codecaine-ai/prompt-kit/ui/style";
+import {
+  fetchKernelAgents,
+  type KernelAgentsPayload,
+} from "@/lib/api";
+import type { FormState } from "@/lib/format";
+import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+import type { AppRoute } from "@/routing";
+
+export function AgentsPage({
+  form,
+  onNavigate,
+  route,
+  setForm,
+}: {
+  form: FormState;
+  onNavigate: (route: AppRoute) => void;
+  route: Extract<AppRoute, { kind: "workspace" }>;
+  setForm: (updates: Partial<FormState>) => void;
+}) {
+  const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+  const {
+    settings: styleSettings,
+    update: updateStyleSettings,
+    reset: resetStyleSettings,
+  } = usePromptStyleSettings();
+  const agents = payload?.agents ?? [];
+  const selectedAgent = agents.find((agent) => agent.name === route.agent) ?? agents[0] ?? null;
+  const selectedAgentName = selectedAgent?.name ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const nextPayload = await fetchKernelAgents(form);
+        if (cancelled) return;
+        setPayload(nextPayload);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load().catch((err) => {
+      if (!cancelled) {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
+
+  return (
+    <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+      {error ? (
+        <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+      {payload?.warnings.length ? (
+        <div className="mb-4 rounded-lg border border-status-warning-border bg-status-warning-fill px-3.5 py-3 text-sm text-status-warning">
+          {payload.warnings.join(" ")}
+        </div>
+      ) : null}
+      <section className="flex h-[calc(100vh-2rem)] min-h-[620px] min-w-[860px] flex-col overflow-hidden rounded-lg border border-border bg-card">
+        <header className="shrink-0 border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="truncate font-display text-lg font-bold leading-tight">Agents</h1>
+            {loading ? (
+              <span className="shrink-0 rounded-[2px] border border-border px-2 py-1 text-xs text-muted-foreground">
+                Loading
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        <main className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {selectedAgent?.warnings.length ? (
+              <div className="shrink-0 border-b border-status-warning-border bg-status-warning-fill px-3.5 py-2 text-xs text-status-warning">
+                {selectedAgent.warnings.join(" ")}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              aria-label="Toggle style sidebar"
+              aria-pressed={styleOpen}
+              onClick={() => setStyleOpen((open) => !open)}
+              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+                styleOpen
+                  ? "border-status-info-border bg-card text-foreground"
+                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              ◧ style
+            </button>
+            <AgentCatalogViewer
+              agents={agents}
+              selectedName={selectedAgentName}
+              onSelectedNameChange={(name) =>
+                onNavigate({
+                  kind: "workspace",
+                  section: "agents",
+                  agent: name,
+                  gameId: route.gameId,
+                })
+              }
+              groupOrder={["running", "knowledge", "pr"]}
+              groupLabels={{
+                running: "Running",
+                knowledge: "Knowledge",
+                pr: "Pull requests",
+              }}
+              toolsZone={(agent) =>
+                "renderedTools" in agent && typeof agent.renderedTools === "string"
+                  ? { renderedTools: agent.renderedTools }
+                  : undefined
+              }
+              configZone={{
+                model: form.model || null,
+                modelOptions: [...RUN_MODEL_OPTIONS],
+                onModelChange: (model) => setForm({ model }),
+              }}
+              useAgentDefinitions
+              styleSettings={styleSettings}
+              editable={false}
+              emptyState={loading ? "Loading agents" : "No agents available."}
+              className="min-h-0 flex-1"
+            />
+          </div>
+
+          <PromptStyleSidebar
+            docked
+            open={styleOpen}
+            width={styleWidth}
+            settings={styleSettings}
+            onChange={updateStyleSettings}
+            onReset={resetStyleSettings}
+            onClose={() => setStyleOpen(false)}
+            onWidthChange={(width) => setStyleWidth(clampPromptStyleSidebarWidth(width))}
+          />
+        </main>
+      </section>
+    </div>
+  );
+}
+import {
+  KERNEL_TRACE_READ_PATHS,
+  type KernelTraceSessionDetail,
+  type KernelTraceSessionListResponse,
+} from "@agent-kernel/viewer-core";
+import type { AgentViewerDefinition } from "@agent-kernel/viewer-ui";
+import type { BoundaryStepDetail } from "./boundary-step-detail-types";
+import type {
+  Dashboard,
+  FormState,
+  JsonObject,
+  GameEventQueryPage,
+  GameEventReconstructionPage,
+  RunDetails,
+  StandardsPayload,
+  UiConfig,
+  WorkerStateTrace,
+} from "./api-types";
+
+export type KernelAgentGroup = "running" | "knowledge" | "pr";
+
+export interface KernelAgentDefinition extends AgentViewerDefinition {
+  group: KernelAgentGroup;
+  renderedTools: string | null;
+}
+
+export interface KernelAgentsPayload {
+  generatedAt: string;
+  source: "sample";
+  agents: KernelAgentDefinition[];
+  warnings: string[];
+}
+
+export interface KernelStatusPayload extends JsonObject {
+  configured: boolean;
+  enabled: boolean;
+  required: boolean;
+  databaseUrl: string | null;
+  kernelId?: string | null;
+  piSessionsDir?: string | null;
+  readApiPrefix?: string | null;
+  error?: string;
+}
+
+export async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, options);
+  const data = (await response.json()) as JsonObject;
+  if (!response.ok) throw new Error(String(data.error || response.statusText));
+  return data as T;
+}
+
+export function dashboardParams(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): URLSearchParams {
+  const params = new URLSearchParams();
+  if (form.gameId) params.set("gameId", form.gameId);
+  if (form.usePathOverrides) {
+    params.set("usePathOverrides", "true");
+    params.set("repoRoot", form.repoRoot);
+    params.set("stateDir", form.stateDir);
+    params.set("graphDbPath", form.graphDbPath);
+  }
+  return params;
+}
+
+export function formBody(form: FormState, dashboard: Dashboard | null): JsonObject {
+  const run = (dashboard?.status?.run || {}) as JsonObject;
+  const body: JsonObject = {
+    ...form,
+    runId: String(run.id || ""),
+  };
+  if (!form.usePathOverrides) {
+    delete body.repoRoot;
+    delete body.stateDir;
+    delete body.graphDbPath;
+  }
+  return body;
+}
+
+export function loadConfig(): Promise<UiConfig> {
+  return fetchJson<UiConfig>("/api/config");
+}
+
+export function fetchDashboard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<Dashboard> {
+  return fetchJson<Dashboard>(`/api/dashboard?${dashboardParams(form)}`);
+}
+
+export function fetchCycleState(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+): Promise<{ cycle: JsonObject | null; history: JsonObject[] }> {
+  return fetchJson<{ cycle: JsonObject | null; history: JsonObject[] }>(`/api/cycle?${dashboardParams(form)}`);
+}
+
+export const GAME_EVENT_PAGE_SIZE = 50;
+export const GAME_EVENT_RECONSTRUCTION_PAGE_SIZE = 50;
+const MAX_GAME_EVENT_PAGE_SIZE = 200;
+
+export interface GameEventPageRequest {
+  afterSequence?: number | null;
+  limit?: number;
+}
+
+type GameEventContext = Pick<FormState, "gameId">;
+
+function gameEventParams(form: GameEventContext): URLSearchParams {
+  const gameId = form.gameId.trim();
+  if (!gameId) throw new Error("Game event requests require a gameId");
+  return new URLSearchParams({ gameId });
+}
+
+function validatedGameEventPageRequest(
+  request: GameEventPageRequest,
+  defaultLimit: number,
+): { afterSequence: number | null; limit: number } {
+  const afterSequence = request.afterSequence ?? null;
+  const limit = request.limit ?? defaultLimit;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_GAME_EVENT_PAGE_SIZE) {
+    throw new Error(
+      `Game event page limit must be an integer between 1 and ${MAX_GAME_EVENT_PAGE_SIZE}`,
+    );
+  }
+  if (afterSequence !== null && (!Number.isSafeInteger(afterSequence) || afterSequence < 0)) {
+    throw new Error("Game event afterSequence must be a non-negative safe integer");
+  }
+  return { afterSequence, limit };
+}
+
+function validateGameEventPageCursor(
+  page: Pick<GameEventQueryPage, "events" | "has_more" | "next_after_sequence">,
+  afterSequence: number | null,
+): void {
+  const cursor = page.next_after_sequence;
+  if (!page.has_more) {
+    if (cursor !== null) {
+      throw new Error("Game event pagination returned a cursor without more events");
+    }
+    return;
+  }
+  const lastSequence = page.events.at(-1)?.sequence;
+  if (
+    cursor === null ||
+    !Number.isSafeInteger(cursor) ||
+    cursor < 0 ||
+    lastSequence !== cursor ||
+    (afterSequence !== null && cursor <= afterSequence)
+  ) {
+    throw new Error("Game event pagination did not provide an advancing next_after_sequence");
+  }
+}
+
+export async function fetchGameEvents(
+  form: GameEventContext,
+  request: GameEventPageRequest = {},
+): Promise<GameEventQueryPage> {
+  const { afterSequence, limit } = validatedGameEventPageRequest(
+    request,
+    GAME_EVENT_PAGE_SIZE,
+  );
+  const params = gameEventParams(form);
+  params.set("limit", String(limit));
+  if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
+  const page = await fetchJson<GameEventQueryPage>(`/api/events?${params}`);
+  validateGameEventPageCursor(page, afterSequence);
+  return page;
+}
+
+export async function fetchGameEventReconstruction(
+  form: GameEventContext,
+  correlationId: string,
+  request: GameEventPageRequest = {},
+): Promise<GameEventReconstructionPage> {
+  const requestedCorrelationId = correlationId.trim();
+  if (!requestedCorrelationId) {
+    throw new Error("Game event reconstruction requires a correlationId");
+  }
+  const { afterSequence, limit } = validatedGameEventPageRequest(
+    request,
+    GAME_EVENT_RECONSTRUCTION_PAGE_SIZE,
+  );
+  const params = gameEventParams(form);
+  params.set("correlation_id", requestedCorrelationId);
+  params.set("limit", String(limit));
+  if (afterSequence !== null) params.set("after_sequence", String(afterSequence));
+  const page = await fetchJson<GameEventReconstructionPage>(
+    `/api/events/reconstruct?${params}`,
+  );
+  validateGameEventPageCursor(page, afterSequence);
+  if (
+    page.game_id !== form.gameId.trim() ||
+    page.correlation_id !== requestedCorrelationId
+  ) {
+    throw new Error("Game event reconstruction returned mismatched game or correlation identity");
+  }
+  return page;
+}
+
+export function fetchRunDetails(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, runId: string): Promise<RunDetails> {
+  return fetchJson<RunDetails>(`/api/run/details?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId })}`);
+}
+
+export function fetchWorkerStateTrace(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  runId: string,
+  workerStateId: string,
+): Promise<WorkerStateTrace> {
+  return fetchJson<WorkerStateTrace>(`/api/run/worker-state-trace?${new URLSearchParams({ ...Object.fromEntries(dashboardParams(form)), runId, workerStateId })}`);
+}
+
+export function fetchBoundaryStepDetail(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  runId: string,
+  epochId: string,
+  attempt: number,
+  step: string,
+): Promise<BoundaryStepDetail> {
+  return fetchJson<BoundaryStepDetail>(`/api/run/boundary-step-detail?${new URLSearchParams({
+    ...Object.fromEntries(dashboardParams(form)),
+    runId,
+    epochId,
+    attempt: String(attempt),
+    step,
+  })}`);
+}
+
+export function postJson<T>(url: string, body: JsonObject): Promise<T> {
+  return fetchJson<T>(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchStandards(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<StandardsPayload> {
+  return fetchJson<StandardsPayload>(`/api/standards?${dashboardParams(form)}`);
+}
+
+export function fetchKernelStatus(): Promise<KernelStatusPayload> {
+  return fetchJson<KernelStatusPayload>("/api/kernel/status");
+}
+
+export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
+
+exec
+/bin/zsh -lc "sed -n '1,240p' '/Users/Ford/Github Repos/Lascari AI/agent-skills/active/unslop/SKILL.md'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+---
+name: unslop
+description: Cut AI tells from any writing. Must always apply.
+---
+
+# Unslop
+
+Edit text to remove AI patterns and add human voice.
+
+## Process
+
+1. Scan for the patterns below.
+2. Rewrite. Preserve meaning, match intended tone.
+3. Add soul (see next section).
+4. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
+
+## Adding Soul
+
+Removing patterns is half the job. Sterile, voiceless writing is just as obvious.
+
+- **Have opinions.**
+  - React to facts instead of neutrally listing pros and cons.
+- **Vary rhythm.**
+  - Short sentences. Then longer ones that take their time. Mix it up.
+- **Acknowledge complexity.**
+  - "Impressive but also kind of unsettling" beats "impressive."
+- **Use "I" when it fits.**
+  - First person isn't unprofessional.
+- **Let some mess in.**
+  - Perfect structure looks machine-made.
+- **Be specific.**
+  - Not "this is concerning" but "there's something unsettling about agents churning away at 3am."
+
+## Patterns to Detect and Fix
+
+### Content
+
+- **Puffery.**
+  - "pivotal moment", "testament to", "evolving landscape", "setting the stage for", "indelible mark", "deeply rooted".
+  - Cut puffery, state what happened.
+- **Name-dropping.**
+  - Listing media outlets without context.
+  - Pick one, say what was said.
+- **Superficial -ing phrases.**
+  - "highlighting...", "ensuring...", "reflecting...", "showcasing...", "fostering...".
+  - Delete or expand with real sources.
+- **Promotional language.**
+  - "nestled", "vibrant", "breathtaking", "groundbreaking", "renowned", "stunning", "must-visit".
+  - Use neutral descriptions.
+- **Vague attributions.**
+  - "Experts believe", "Industry reports suggest", "Some critics argue".
+  - Name the source or delete.
+- **Formulaic challenges.**
+  - "Despite challenges... continues to thrive."
+  - Replace with specific facts.
+
+### Language
+
+- **AI vocabulary.**
+  - Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant.
+  - Replace with plain words.
+- **Fancy ways to say "is".**
+  - "serves as", "stands as", "boasts", "features".
+  - Just say "is" or "has".
+- **"Not just X, but Y."**
+  - State the point directly instead.
+- **Rule of three.**
+  - Forcing ideas into groups of three.
+  - Use the natural number.
+- **Synonym cycling.**
+  - Protagonist, main character, central figure, hero all in one paragraph.
+  - Pick one, repeat it.
+- **False ranges.**
+  - "from X to Y" where X and Y aren't on a meaningful scale.
+  - List topics directly.
+
+### Style
+
+- **Em dash overuse.**
+  - Avoid em dashes entirely. Use periods or commas only (no parentheses, no en dashes, no hyphen-as-dash substitutes).
+  - Em dashes are an AI tell, and reaching for parentheses instead just trades one tell for another.
+  - If a thought needs separation, end the sentence or use a comma.
+- **Colon overuse.**
+  - Colons are fine before a list or example. Not as mid-sentence connectors.
+  - "If you're coming from traditional automation: instead of registering event handlers, you describe conditions" adds nothing with the colon.
+  - Rewrite to let the point stand on its own without comparison framing. "Describing when the scheduler should fire works best as plain English." Same meaning, no crutch punctuation.
+- **Boldface overuse.**
+  - Don't bold every proper noun or acronym.
+- **Inline-header lists.**
+  - The tell is a bold label and colon that restates the line: "**Performance:** Performance improved...".
+  - Convert those to prose.
+  - A bold lead-in that ends in a period, names the item, and is followed by genuinely new detail ("**Schema in TypeScript.** Tables live in one file.") is fine, not a tell.
+- **Heading case.**
+  - Headings are Title Case: minor words stay lowercase; acronyms and code-marked spans keep their exact form.
+- **Decorative emojis.**
+  - Remove from headings and bullets.
+- **Curly quotes.**
+  - Replace with straight quotes.
+
+### Communication Artifacts
+
+- **Chatbot phrases.**
+  - "I hope this helps!", "Let me know if...", "Of course!", "Certainly!", "Found the smoking gun!"
+  - Remove.
+- **Cutoff disclaimers.**
+  - "While specific details are limited..."
+  - Find sources or remove.
+- **Sycophantic tone.**
+  - "Great question! You're absolutely right!"
+  - Respond directly.
+
+### Filler
+
+- **Filler phrases.**
+  - "In order to" becomes "To". "Due to the fact that" becomes "Because". "It is important to note that" gets deleted.
+- **Excessive hedging.**
+  - "could potentially possibly be argued that it might" becomes "may".
+- **Generic conclusions.**
+  - "The future looks bright."
+  - State specific plans or facts.
+
+### Jargon
+
+- **Abstract metaphor nouns.**
+  - Substrate, wedge, vector, locus, vantage, nexus, primitive (as noun), harness (as metaphor), surface (as in "API surface"), bedrock, scaffolding (as metaphor), modality, paradigm, gold-plating, ratchet (as metaphor), evacuate (for moving code), endgame, north star, flywheel.
+  - These read as technical but usually have a plainer concrete word.
+  - "Substrate" becomes "base". "Wedge in" becomes "add". "Vector" becomes "way" or "method". "Gold-plating" becomes "more than the job needs". "Ratchet" becomes the mechanism's real name or "a limit that only tightens". "Evacuate" becomes "move out". "Endgame" becomes "the last phase".
+  - Pick the concrete word.
+
+### Plain Speech
+
+- **Say what it does, not how it feels.**
+  - "the database stays close at hand", "SQL you can read", "types that follow your schema" name a feeling.
+  - The fix names the mechanism or a number: "`.toSQL()` returns the exact string sent to the database", "a column rename fails the build".
+  - Ask what the sentence tells the reader to do or know, then write that. If you can't restate it as a concrete instruction, fact, or number, cut it.
+  - One more check: if the sentence could appear unchanged in another project's docs, it says nothing about this one. Cut it.
+- **Shorten or split dense sentences.**
+  - If the reader has to backtrack to parse a sentence, break it in two or drop clauses.
+  - One idea per sentence.
+- **Active voice.**
+  - Prefer it. Catch "is/are/was/were + past participle" and name the actor.
+  - "queries are validated" becomes "the compiler validates queries", "the file is parsed by the loader" becomes "the loader parses the file".
+  - Passive is fine only when the actor is unknown or genuinely doesn't matter.
+- **Cut adverbs, or use a stronger verb.**
+  - "runs quickly" becomes "is fast" or the number. "significantly improves" becomes the measured delta.
+  - An adverb propping up a weak verb means the verb is wrong.
+- **Prefer the plain word.**
+  - "utilize" becomes "use", "leverage" becomes "use", "facilitate" becomes "help", "numerous" becomes "many", "in the event that" becomes "if".
+  - The fancier synonym is rarely clearer.
+
+exec
+/bin/zsh -lc 'rg -n "gamecube|agents page|kernel agents" /Users/Ford/.codex/memories/MEMORY.md 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+exec
+/bin/zsh -lc 'rg -n "AgentCatalogViewer|fetchKernelAgents|searchParams|Preview target" apps/frontend/src apps/frontend/test apps/frontend/tests 2>/dev/null || true' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/frontend/src/routing.ts:241:    return workspaceRouteFromSearchParams(url.searchParams) ?? routeFromPathname(url.pathname, url.searchParams);
+apps/frontend/src/routing.ts:248:  if (gameId) url.searchParams.set("gameId", gameId);
+apps/frontend/src/lib/api.ts:239:export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+apps/frontend/src/pages/workspace/trace/game-event-model.test.ts:15:    expect(Object.fromEntries(next.searchParams)).toEqual({
+apps/frontend/src/pages/workspace/trace/game-event-model.ts:17:    if (value) url.searchParams.set(name, value);
+apps/frontend/src/pages/workspace/trace/game-event-model.ts:18:    else url.searchParams.delete(name);
+apps/frontend/src/pages/workspace/agents/index.tsx:2:import { AgentCatalogViewer } from "@agent-kernel/viewer-ui";
+apps/frontend/src/pages/workspace/agents/index.tsx:10:  fetchKernelAgents,
+apps/frontend/src/pages/workspace/agents/index.tsx:49:        const nextPayload = await fetchKernelAgents(form);
+apps/frontend/src/pages/workspace/agents/index.tsx:115:            <AgentCatalogViewer
+
+exec
+/bin/zsh -lc "rg -n \"<input|type=\\\"text\\\"|helper|Apply\" apps/frontend/src/pages/workspace/_components apps/frontend/src/pages/workspace | head -100" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+exec
+/bin/zsh -lc "sed -n '200,280p' apps/frontend/src/routing.ts; rg -n \"window\\.history|replaceState|pushState|URLSearchParams\\(window|window\\.location\\.search\" apps/frontend/src/pages/workspace apps/frontend/src | head -80" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/frontend/src/pages/workspace/standards/_components/StandardsEditor/StandardEditForm.tsx:141:              <input
+apps/frontend/src/pages/workspace/style/_components/StyleSlider.tsx:24:      <input className="style-range mt-2" max={max} min={min} onChange={(event) => onChange(Number(event.currentTarget.value))} step={step} type="range" value={value} />
+apps/frontend/src/pages/workspace/knowledge/tree.tsx:227:          <input className="w-full text-[12px]" onChange={(event) => setSearch(event.target.value)} placeholder="Search facts and subjects..." type="search" value={search} />
+
+ succeeded in 0ms:
+      standardsView: "edit",
+    };
+  }
+  if (!first || !isWorkspaceSection(first)) return { kind: "dashboard" };
+  const section: WorkspaceSection = first;
+
+  const base = {
+    kind: "workspace" as const,
+    section,
+    gameId: gameIdFromParams(params),
+  };
+
+  if (section === "standards") {
+    return {
+      ...base,
+      standardsView: isStandardsView(second ?? null) ? second as StandardsView : "edit",
+    };
+  }
+
+  if (section === "cycles") {
+    const cycle = second || undefined;
+    const sub = normalizeLegacyCycleSub(third ?? null);
+    const cycleSub = isCycleSubPage(sub) ? sub as CycleSubPage : undefined;
+    const cycleDetail = cycleSub && isCycleDetailKind(fourth ?? null) && fifth
+      ? { kind: fourth, id: fifth } as CycleDetail
+      : null;
+    return cycleDetail
+      ? { ...base, cycle, cycleSub, cycleDetail }
+      : { ...base, cycle, cycleSub };
+  }
+
+  if (section === "agents") {
+    return { ...base, agent: second || undefined };
+  }
+
+  return base;
+}
+
+export function routeFromUrl(): AppRoute {
+  try {
+    const url = new URL(window.location.href);
+    return workspaceRouteFromSearchParams(url.searchParams) ?? routeFromPathname(url.pathname, url.searchParams);
+  } catch {
+    return { kind: "dashboard" };
+  }
+}
+
+function setGameId(url: URL, gameId: string | undefined): void {
+  if (gameId) url.searchParams.set("gameId", gameId);
+}
+
+export function routeToUrl(route: AppRoute): string {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  if (route.kind === "dashboard") {
+    url.pathname = "/";
+  } else {
+    setGameId(url, route.gameId);
+    if (route.section === "standards") {
+      url.pathname = route.standardsView === "rendered" ? "/standards/rendered" : "/standards";
+    } else if (route.section === "knowledge") {
+      url.pathname = "/knowledge";
+    } else if (route.section === "cycles") {
+      const segments = ["cycles"];
+      if (route.cycle) {
+        segments.push(encodeURIComponent(route.cycle));
+        if (route.cycleSub) {
+          segments.push(route.cycleSub);
+          if (route.cycleDetail) {
+            segments.push(route.cycleDetail.kind, encodeURIComponent(route.cycleDetail.id));
+          }
+        }
+      }
+      url.pathname = `/${segments.join("/")}`;
+    } else if (route.section === "agents" && route.agent) {
+      url.pathname = `/agents/${encodeURIComponent(route.agent)}`;
+    } else {
+      url.pathname = `/${route.section}`;
+    }
+  }
+apps/frontend/src/routing.ts:287:    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+apps/frontend/src/routing.ts:288:    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+apps/frontend/src/components/app/_lib/railState.ts:7:    if (new URLSearchParams(window.location.search).has("details")) return false;
+apps/frontend/src/pages/workspace/trace/index.tsx:28:    const params = new URLSearchParams(window.location.search);
+apps/frontend/src/pages/workspace/trace/index.tsx:37:    return new URLSearchParams(window.location.search).get("sessionId");
+apps/frontend/src/pages/workspace/trace/index.tsx:53:    window.history.replaceState(null, "", nextUrl);
+apps/frontend/src/pages/workspace/trace/index.tsx:28:    const params = new URLSearchParams(window.location.search);
+apps/frontend/src/pages/workspace/trace/index.tsx:37:    return new URLSearchParams(window.location.search).get("sessionId");
+apps/frontend/src/pages/workspace/trace/index.tsx:53:    window.history.replaceState(null, "", nextUrl);
+apps/frontend/src/components/details-rail/index.tsx:24:    const requested = new URLSearchParams(window.location.search).get("details");
+
+exec
+/bin/zsh -lc "rg -n \"fetchKernelAgents|dashboardParams\" apps/frontend --glob '*test*'" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ exited 1 in 0ms:
+exec
+/bin/zsh -lc "sed -n '1,90p' apps/frontend/src/pages/workspace/trace/index.tsx; sed -n '275,305p' apps/frontend/src/routing.ts; sed -n '120,180p' apps/frontend/src/pages/workspace/standards/_components/StandardsEditor/StandardEditForm.tsx" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+import { useEffect, useState } from "react";
+import { type KernelTraceSessionDetail, type KernelTraceSessionSummary } from "@agent-kernel/viewer-core";
+import {
+  fetchKernelStatus,
+  fetchKernelTraceSessionDetail,
+  fetchKernelTraceSessions,
+  fetchCycleState,
+} from "@/lib/api";
+import { asArray, asObject, shortId, text, type FormState, type JsonObject } from "@/lib/format";
+import type { CycleView } from "@/pages/workspace/_lib/types";
+import { TraceDetailViewer } from "@/pages/workspace/trace/detail-viewer";
+import { traceSelectionUrl } from "./game-event-model";
+
+interface TraceCycle {
+  id: string;
+  gameId: string;
+  cycleUuid: string;
+  status: string;
+  phase: string;
+  activeSubphase: string;
+  createdAt: string;
+  updatedAt: string;
+  kernelTrace: JsonObject;
+}
+
+function selectedTraceIdFromLocation(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("traceId") ?? params.get("containerId");
+  } catch {
+    return null;
+  }
+}
+
+function selectedSessionIdFromLocation(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get("sessionId");
+  } catch {
+    return null;
+  }
+}
+
+function replaceTraceSelectionInUrl(
+  sessionId: string | null,
+  trace: KernelTraceSessionSummary | null,
+): void {
+  try {
+    const nextUrl = traceSelectionUrl(window.location.href, {
+      sessionId,
+      traceId: trace?.id ?? null,
+      containerId: trace?.containerId ?? null,
+    });
+    window.history.replaceState(null, "", nextUrl);
+  } catch {
+    // Trace selection still works if URL mutation is unavailable.
+  }
+}
+
+function isActiveTrace(status: string): boolean {
+  return status === "queued" || status === "running";
+}
+
+function traceMatchesId(trace: KernelTraceSessionSummary, id: string): boolean {
+  const metadata = asObject(trace.metadata);
+  return trace.id === id
+    || trace.containerId === id
+    || text(metadata.appSessionSlug, text(metadata.app_session_slug)) === id;
+}
+
+function traceSessionCandidates(trace: KernelTraceSessionSummary): string[] {
+  const metadata = asObject(trace.metadata);
+  return [
+    trace.id,
+    trace.containerId,
+    text(metadata.appSessionSlug),
+    text(metadata.app_session_slug),
+    text(metadata.appSessionId),
+    text(metadata.app_session_id),
+    text(metadata.cycleUuid),
+    text(metadata.cycle_uuid),
+    text(metadata.sessionId),
+    text(metadata.rootContainerId),
+    text(metadata.root_container_id),
+    text(metadata.activeContainerId),
+    text(metadata.active_container_id),
+    text(metadata.runId),
+  ].filter(Boolean);
+}
+
+function cycleTraceCandidates(cycle: TraceCycle): string[] {
+    } else if (route.section === "agents" && route.agent) {
+      url.pathname = `/agents/${encodeURIComponent(route.agent)}`;
+    } else {
+      url.pathname = `/${route.section}`;
+    }
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function saveRoute(route: AppRoute): void {
+  try {
+    const nextUrl = routeToUrl(route);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+  } catch {
+    // Navigation still works if history is unavailable.
+  }
+}
+    onChange(items.filter((_, i) => i !== index));
+  }
+
+  function add() {
+    onChange([...items, ""]);
+  }
+
+  return (
+    <div className="mb-3">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-[0.08em] text-dim">{label}</span>
+        <Button icon={<Plus size={13} />} onClick={add} title={`Add a ${label} item.`} type="button">
+          Add
+        </Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="m-0 text-xs text-faint">No items yet. Click Add to create one.</p>
+      ) : (
+        <div className="grid gap-1.5">
+          {items.map((item, index) => (
+            <div className="flex items-center gap-1.5" key={index}>
+              <input
+                className={`min-w-0 flex-1 ${mono ? "font-mono text-[12px]" : "text-[13px]"}`}
+                onChange={(event) => update(index, event.currentTarget.value)}
+                placeholder={placeholder}
+                spellCheck={!mono}
+                value={item}
+              />
+              <button
+                className="inline-flex min-h-7 shrink-0 items-center justify-center border border-line2 bg-raised px-1.5 text-dim hover:border-faint hover:text-fg"
+                onClick={() => remove(index)}
+                title="Remove this item."
+                type="button"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+exec
+/bin/zsh -lc "sed -n '235,248p' apps/frontend/src/lib/api.ts; rg -n '\"ui:check\"|frontend.*test|bun test' package.json apps/frontend/package.json" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+export function fetchKernelStatus(): Promise<KernelStatusPayload> {
+  return fetchJson<KernelStatusPayload>("/api/kernel/status");
+}
+
+export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
+}
+
+export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+  return fetchJson<KernelTraceSessionListResponse>(KERNEL_TRACE_READ_PATHS.listTraceSessions);
+}
+
+export function fetchKernelTraceSessionDetail(traceSessionId: string): Promise<KernelTraceSessionDetail> {
+  return fetchJson<KernelTraceSessionDetail>(KERNEL_TRACE_READ_PATHS.traceSessionDetail(traceSessionId));
+package.json:16:    "ui:check": "tsc --noEmit -p apps/frontend/tsconfig.json",
+package.json:17:    "repo-policy:test": "bun test --max-concurrency=4 ./apps/server/src/core/tools/tooling-layout.test.ts ./apps/server/src/infrastructure/kernel/agent-kernel-boundaries.test.ts ./apps/server/src/infrastructure/docs-framework-boundaries.test.ts",
+
+exec
+/bin/zsh -lc 'find apps/frontend/src/pages/workspace/_components -maxdepth 2 -type f -print | head -30; rg -n "border-input|bg-background.*input|rounded.*button" apps/frontend/src/pages/workspace/_components apps/frontend/src/components | head -80' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+apps/frontend/src/pages/workspace/_components/run/index.tsx
+apps/frontend/src/pages/workspace/_components/sync/index.tsx
+apps/frontend/src/pages/workspace/_components/WorkspaceSidebar.tsx
+
+codex
+Step 1 of 3 done: the page has no existing Agents tests, and route navigation rebuilds the query string. I’ll preserve `target` explicitly when switching agent tabs so the shareable preview link does not disappear.
+apply patch
+patch: completed
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/frontend/src/lib/api.ts
+/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/apps/frontend/src/pages/workspace/agents/index.tsx
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a08a43ab260b9e60609b4266bb330a5024..7ffdb59c89a1c254bfb49d929278e1727c7659a6
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d95816cea8b5857c4e1a3bb27a62e0bdd..c6bab36a10766a4b3e7d670378e5f9d5532aa0d8
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
+-              }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a08a43ab260b9e60609b4266bb330a5024..7ffdb59c89a1c254bfb49d929278e1727c7659a6
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d95816cea8b5857c4e1a3bb27a62e0bdd..c6bab36a10766a4b3e7d670378e5f9d5532aa0d8
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
+-              }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+codex
+Step 2 of 3 done: the selector now applies on click or Enter, stores `target` in the URL, refetches the catalog, and keeps the target when changing tabs. The helper text makes the worker-only scope explicit.
+exec
+/bin/zsh -lc 'bun run ui:check' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+exec
+/bin/zsh -lc "rg --files apps/frontend | rg '(agents|api).*\\.(test|spec)\\.(ts|tsx)"'$'"' || true; git diff --check; git diff -- apps/frontend/src/lib/api.ts apps/frontend/src/pages/workspace/agents/index.tsx" in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 37ms:
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a0..7ffdb59c 100644
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@ export function fetchKernelStatus(): Promise<KernelStatusPayload> {
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d..c6bab36a 100644
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@ import type { FormState } from "@/lib/format";
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@ export function AgentsPage({
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@ export function AgentsPage({
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@ export function AgentsPage({
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@ export function AgentsPage({
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
+-              }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+ succeeded in 4658ms:
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a08a43ab260b9e60609b4266bb330a5024..7ffdb59c89a1c254bfb49d929278e1727c7659a6
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d95816cea8b5857c4e1a3bb27a62e0bdd..c6bab36a10766a4b3e7d670378e5f9d5532aa0d8
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
+-              }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+codex
+Step 3 of 3: `bun run ui:check` passes, `git diff --check` is clean, and there are no existing tests for this Agents page or API function to run. I’m doing the final scope check now.
+exec
+/bin/zsh -lc 'git status --short -- apps/frontend/src/lib/api.ts apps/frontend/src/pages/workspace/agents/index.tsx apps/server; git diff --name-only -- apps/frontend/src/lib/api.ts apps/frontend/src/pages/workspace/agents/index.tsx apps/server' in /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness
+ succeeded in 0ms:
+ M apps/frontend/src/lib/api.ts
+ M apps/frontend/src/pages/workspace/agents/index.tsx
+ M apps/server/src/api/routes/agents.ts
+ M apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/agent.ts
+ M apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/prompt.ts
+ M apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/agent.ts
+ M apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/prompt.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/agent.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/change-validation.test.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/change-validation.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/index.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/packet.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts
+ M apps/server/src/core/agent-catalog/agents/running/worker/tool-paths.ts
+ M apps/server/src/core/agent-catalog/kernel-catalog.test.ts
+ M apps/server/src/core/agent-catalog/kernel-catalog.ts
+ M apps/server/src/core/agent-catalog/kernel-preview.ts
+ M apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+ M apps/server/src/core/cycle-runtime/phases/running/workers/worker-knowledge-context.test.ts
+ M apps/server/src/core/cycle-runtime/phases/running/workers/worker-task.test.ts
+ M apps/server/src/core/knowledge-v2/card.ts
+ M apps/server/src/core/knowledge/graph/queries/related-functions.ts
+ M apps/server/src/core/tools/metadata/capabilities.ts
+ M apps/server/src/core/tools/metadata/knowledge-v2.ts
+ M apps/server/src/core/tools/metadata/knowledge.ts
+ M apps/server/src/core/tools/profiles/defaults.ts
+ M apps/server/src/core/tools/wrappers/capabilities.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts
+ M apps/server/src/core/tools/wrappers/knowledge-v2.ts
+ M apps/server/src/core/tools/wrappers/knowledge.ts
+ M apps/server/src/infrastructure/http/server.ts
+ M apps/server/src/infrastructure/kernel/bridge/loaders.ts
+?? apps/server/src/api/routes/agents.test.ts
+?? apps/server/src/core/tools/wrappers/capability-result-normalization.test.ts
+?? apps/server/src/infrastructure/kernel/bridge/loaders.test.ts
+apps/frontend/src/lib/api.ts
+apps/frontend/src/pages/workspace/agents/index.tsx
+apps/server/src/api/routes/agents.ts
+apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/agent.ts
+apps/server/src/core/agent-catalog/agents/knowledge/backfill-librarian/prompt.ts
+apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/agent.ts
+apps/server/src/core/agent-catalog/agents/knowledge/librarian-v2/prompt.ts
+apps/server/src/core/agent-catalog/agents/running/worker/agent.ts
+apps/server/src/core/agent-catalog/agents/running/worker/change-validation.test.ts
+apps/server/src/core/agent-catalog/agents/running/worker/change-validation.ts
+apps/server/src/core/agent-catalog/agents/running/worker/context.ts
+apps/server/src/core/agent-catalog/agents/running/worker/index.ts
+apps/server/src/core/agent-catalog/agents/running/worker/packet.ts
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.test.ts
+apps/server/src/core/agent-catalog/agents/running/worker/prompt.ts
+apps/server/src/core/agent-catalog/agents/running/worker/tool-paths.ts
+apps/server/src/core/agent-catalog/kernel-catalog.test.ts
+apps/server/src/core/agent-catalog/kernel-catalog.ts
+apps/server/src/core/agent-catalog/kernel-preview.ts
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-cycle.ts
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-knowledge-context.test.ts
+apps/server/src/core/cycle-runtime/phases/running/workers/worker-task.test.ts
+apps/server/src/core/knowledge-v2/card.ts
+apps/server/src/core/knowledge/graph/queries/related-functions.ts
+apps/server/src/core/tools/metadata/capabilities.ts
+apps/server/src/core/tools/metadata/knowledge-v2.ts
+apps/server/src/core/tools/metadata/knowledge.ts
+apps/server/src/core/tools/profiles/defaults.ts
+apps/server/src/core/tools/wrappers/capabilities.ts
+apps/server/src/core/tools/wrappers/knowledge-v2-roles.test.ts
+apps/server/src/core/tools/wrappers/knowledge-v2.ts
+apps/server/src/core/tools/wrappers/knowledge.ts
+apps/server/src/infrastructure/http/server.ts
+apps/server/src/infrastructure/kernel/bridge/loaders.ts
+
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a08a43ab260b9e60609b4266bb330a5024..7ffdb59c89a1c254bfb49d929278e1727c7659a6
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d95816cea8b5857c4e1a3bb27a62e0bdd..c6bab36a10766a4b3e7d670378e5f9d5532aa0d8
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
+-              }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+codex
+DONE
+
+- Added optional `target` query support to `fetchKernelAgents`.
+- Added the shareable Preview target control with Apply and Enter support.
+- Preserved the target across agent tabs and refetched previews on change.
+- `bun run ui:check` passes.
+- No existing Agents page frontend tests were found.
+- No server files were changed by this task.
+diff --git a/apps/frontend/src/lib/api.ts b/apps/frontend/src/lib/api.ts
+index 5653e7a08a43ab260b9e60609b4266bb330a5024..7ffdb59c89a1c254bfb49d929278e1727c7659a6
+--- a/apps/frontend/src/lib/api.ts
++++ b/apps/frontend/src/lib/api.ts
+@@ -236,8 +236,13 @@
+   return fetchJson<KernelStatusPayload>("/api/kernel/status");
+ }
+ 
+-export function fetchKernelAgents(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<KernelAgentsPayload> {
+-  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${dashboardParams(form)}`);
++export function fetchKernelAgents(
++  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
++  options?: { target?: string },
++): Promise<KernelAgentsPayload> {
++  const params = dashboardParams(form);
++  if (options?.target) params.set("target", options.target);
++  return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
+ }
+ 
+ export async function fetchKernelTraceSessions(): Promise<KernelTraceSessionListResponse> {
+diff --git a/apps/frontend/src/pages/workspace/agents/index.tsx b/apps/frontend/src/pages/workspace/agents/index.tsx
+index 58dd615d95816cea8b5857c4e1a3bb27a62e0bdd..c6bab36a10766a4b3e7d670378e5f9d5532aa0d8
+--- a/apps/frontend/src/pages/workspace/agents/index.tsx
++++ b/apps/frontend/src/pages/workspace/agents/index.tsx
+@@ -14,6 +14,25 @@
+ import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
+ import type { AppRoute } from "@/routing";
+ 
++function previewTargetFromLocation(): string {
++  try {
++    return new URLSearchParams(window.location.search).get("target") ?? "";
++  } catch {
++    return "";
++  }
++}
++
++function replacePreviewTargetInUrl(target: string): void {
++  try {
++    const url = new URL(window.location.href);
++    if (target) url.searchParams.set("target", target);
++    else url.searchParams.delete("target");
++    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
++  } catch {
++    // Preview selection still works if URL mutation is unavailable.
++  }
++}
++
+ export function AgentsPage({
+   form,
+   onNavigate,
+@@ -28,6 +47,8 @@
+   const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
++  const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+   const [styleOpen, setStyleOpen] = useState(false);
+   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
+   const {
+@@ -46,7 +67,10 @@
+       setLoading(true);
+       setError("");
+       try {
+-        const nextPayload = await fetchKernelAgents(form);
++        const nextPayload = await fetchKernelAgents(
++          form,
++          previewTarget ? { target: previewTarget } : undefined,
++        );
+         if (cancelled) return;
+         setPayload(nextPayload);
+       } catch (err) {
+@@ -66,7 +90,24 @@
+     return () => {
+       cancelled = true;
+     };
+-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides]);
++  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
++
++  function applyPreviewTarget() {
++    const target = previewTargetDraft.trim();
++    setPreviewTargetDraft(target);
++    replacePreviewTargetInUrl(target);
++    setPreviewTarget(target);
++  }
++
++  function selectAgent(name: string) {
++    onNavigate({
++      kind: "workspace",
++      section: "agents",
++      agent: name,
++      gameId: route.gameId,
++    });
++    replacePreviewTargetInUrl(previewTarget);
++  }
+ 
+   return (
+     <div className="kernel-reference-workspace min-h-0 flex-1 overflow-auto bg-background p-4 font-sans text-foreground">
+@@ -99,52 +140,76 @@
+                 {selectedAgent.warnings.join(" ")}
+               </div>
+             ) : null}
+-            <button
+-              type="button"
+-              aria-label="Toggle style sidebar"
+-              aria-pressed={styleOpen}
+-              onClick={() => setStyleOpen((open) => !open)}
+-              className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
+-                styleOpen
+-                  ? "border-status-info-border bg-card text-foreground"
+-                  : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
+-              }`}
+-            >
+-              ◧ style
+-            </button>
+-            <AgentCatalogViewer
+-              agents={agents}
+-              selectedName={selectedAgentName}
+-              onSelectedNameChange={(name) =>
+-                onNavigate({
+-                  kind: "workspace",
+-                  section: "agents",
+-                  agent: name,
+-                  gameId: route.gameId,
+-                })
+-              }
+-              groupOrder={["running", "knowledge", "pr"]}
+-              groupLabels={{
+-                running: "Running",
+-                knowledge: "Knowledge",
+-                pr: "Pull requests",
+-              }}
+-              toolsZone={(agent) =>
+-                "renderedTools" in agent && typeof agent.renderedTools === "string"
+-                  ? { renderedTools: agent.renderedTools }
+-                  : undefined
+-              }
+-              configZone={{
+-                model: form.model || null,
+-                modelOptions: [...RUN_MODEL_OPTIONS],
+-                onModelChange: (model) => setForm({ model }),
++            <form
++              className="flex shrink-0 items-end gap-2 border-b border-border px-3.5 py-2"
++              onSubmit={(event) => {
++                event.preventDefault();
++                applyPreviewTarget();
+               }}
+-              useAgentDefinitions
+-              styleSettings={styleSettings}
+-              editable={false}
+-              emptyState={loading ? "Loading agents" : "No agents available."}
+-              className="min-h-0 flex-1"
+-            />
++            >
++              <label className="min-w-0 flex-1">
++                <span className="mb-1 block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
++                  Preview target
++                </span>
++                <input
++                  className="h-8 w-full rounded-[2px] border border-border bg-background px-2.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-status-info-border"
++                  onChange={(event) => setPreviewTargetDraft(event.currentTarget.value)}
++                  placeholder="unit:symbol"
++                  spellCheck={false}
++                  value={previewTargetDraft}
++                />
++              </label>
++              <button
++                className="h-8 shrink-0 rounded-[2px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-muted-foreground"
++                type="submit"
++              >
++                Apply
++              </button>
++              <p className="max-w-72 pb-0.5 text-[11px] leading-4 text-muted-foreground">
++                Only affects the worker preview. Example: main/melee/mn/mnvibration:mnVibration_HandleInput
++              </p>
++            </form>
++            <div className="relative flex min-h-0 flex-1 flex-col">
++              <button
++                type="button"
++                aria-label="Toggle style sidebar"
++                aria-pressed={styleOpen}
++                onClick={() => setStyleOpen((open) => !open)}
++                className={`absolute right-2 top-2 z-30 rounded-[2px] border px-2 py-0.5 font-mono text-[10px] lowercase tracking-[0.08em] transition-colors ${
++                  styleOpen
++                    ? "border-status-info-border bg-card text-foreground"
++                    : "border-transparent bg-card/80 text-muted-foreground hover:text-foreground"
++                }`}
++              >
++                ◧ style
++              </button>
++              <AgentCatalogViewer
++                agents={agents}
++                selectedName={selectedAgentName}
++                onSelectedNameChange={selectAgent}
++                groupOrder={["running", "knowledge", "pr"]}
++                groupLabels={{
++                  running: "Running",
++                  knowledge: "Knowledge",
++                  pr: "Pull requests",
++                }}
++                toolsZone={(agent) =>
++                  "renderedTools" in agent && typeof agent.renderedTools === "string"
++                    ? { renderedTools: agent.renderedTools }
++                    : undefined
++                }
++                configZone={{
++                  model: form.model || null,
++                  modelOptions: [...RUN_MODEL_OPTIONS],
++                  onModelChange: (model) => setForm({ model }),
++                }}
++                useAgentDefinitions
++                styleSettings={styleSettings}
++                editable={false}
++                emptyState={loading ? "Loading agents" : "No agents available."}
++                className="min-h-0 flex-1"
++              />
++            </div>
+           </div>
+ 
+           <PromptStyleSidebar
+
+tokens used
+50,730
+DONE
+
+- Added optional `target` query support to `fetchKernelAgents`.
+- Added the shareable Preview target control with Apply and Enter support.
+- Preserved the target across agent tabs and refetched previews on change.
+- `bun run ui:check` passes.
+- No existing Agents page frontend tests were found.
+- No server files were changed by this task.

@@ -1,0 +1,208 @@
+Proposed-name reading view: src/melee/ft/kinds/ftLink/ftlinkspecialn.c | lines 113-301/594 | ok
+Source SHA-256: ea55388102ca26bd467c00663d557e516b7edc3e285886963b68d77aac7bb515
+Names are hypotheses. Edit/read canonical source before patching; use original symbols in tools and citations. Lines match the source; columns may differ.
+Coverage: function names only. Fields, parameters, data-section labels, comments, strings, and preprocessor directives stay unchanged.
+Knowledge: available; parse errors: 0; substitutions: 21.
+
+void ftLk_SpecialN_RemoveArrow(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    FORCE_PAD_STACK_8;
+    if (fp->u.lk.arrow_gobj != NULL) {
+        itLinkArrow_Remove(fp->u.lk.arrow_gobj);
+        fp->u.lk.arrow_gobj = NULL;
+        ftLk_Init_BoomerangExists(gobj);
+    }
+}
+
+void ftLk_SpecialN_RemoveBow(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    FORCE_PAD_STACK_8;
+    if (fp->u.lk.x14 != NULL) {
+        it_802AF304(fp->u.lk.x14);
+        fp->u.lk.x14 = NULL;
+        ftLk_Init_BoomerangExists(gobj);
+    }
+}
+
+static inline void setCallbacks(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->take_dmg_cb = ftLk_Init_OnDamage;
+    fp->death2_cb = ftLk_Init_OnDamage;
+}
+
+static inline bool isDrawback(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftLk_DatAttrs* da = fp->dat_attrs;
+    FORCE_PAD_STACK_16;
+    FORCE_PAD_STACK_8;
+    FORCE_PAD_STACK_4;
+    if (fp->u.lk.x14 == NULL) {
+        Vec3 pos;
+        lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_RThumbNb)].joint,
+                    NULL, &pos);
+        {
+            Item_GObj* fv_x14 = itLinkBow_Spawn(
+                fp->facing_dir, gobj, &pos,
+                ftParts_GetBoneIndex(fp, FtPart_RThumbNb), da->x10);
+            fp->u.lk.x14 = fv_x14;
+            if (fv_x14 != NULL) {
+                setCallbacks(gobj);
+            } else {
+                return true;
+            }
+        }
+    } else {
+        return true;
+    }
+    return false;
+}
+
+static inline bool isDrawn(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftLk_DatAttrs* da = fp->dat_attrs;
+    Item_GObj* fv_x10;
+
+    if (fp->cmd_vars[cmd_unk0_bool] == 1) {
+        if (fp->u.lk.arrow_gobj == NULL) {
+            Vec3 pos;
+
+            fp->cmd_vars[cmd_unk0_bool] = 0;
+            lbJObjTransformPoint(
+                fp->parts[ftParts_GetBoneIndex(fp, FtPart_LThumbNb)].joint,
+                NULL, &pos);
+            fv_x10 =
+                itLinkArrow_Spawn(fp->facing_dir, gobj, &pos,
+                            ftParts_GetBoneIndex(fp, FtPart_LThumbNb), da->xC);
+            fp->u.lk.arrow_gobj = fv_x10;
+            if (fv_x10 != NULL) {
+                setCallbacks(gobj);
+            } else {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static const Vec3 zero = { 0.0f, 0.0f, 0.0f };
+static const Vec3 zero2 = { 0.0f, 0.0f, 0.0f };
+static const Vec3 zero3 = { 0.0f, 0.0f, 0.0f };
+
+static inline void animate(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    FORCE_PAD_STACK_16;
+    FORCE_PAD_STACK_8;
+    FORCE_PAD_STACK_8;
+    {
+        Vec3 lpos = zero;
+        Vec3 rpos = zero2;
+        Vec3 root = zero3;
+
+        lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_LThumbNb)].joint,
+                    NULL, &lpos);
+        lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_RThumbNb)].joint,
+                    NULL, &rpos);
+        lbJObjTransformPoint(fp->parts->joint, NULL, &root);
+        fp->mv.lk.specialn.x8.y = rpos.x - root.x;
+        fp->mv.lk.specialn.x8.z = rpos.y - root.y;
+        fp->mv.lk.specialn.x14 = 0.0f;
+        fp->mv.lk.specialn.x8.x = atan2f(rpos.y - lpos.y, rpos.x - lpos.x);
+        if (fp->u.lk.arrow_gobj != NULL) {
+            it_802A8398(fp->u.lk.arrow_gobj, &rpos, &lpos);
+        }
+    }
+}
+
+static inline void animate_nopad(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    Vec3 lpos = zero;
+    Vec3 rpos = zero2;
+    Vec3 root = zero3;
+
+    lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_LThumbNb)].joint,
+                NULL, &lpos);
+    lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_RThumbNb)].joint,
+                NULL, &rpos);
+    lbJObjTransformPoint(fp->parts->joint, NULL, &root);
+    fp->mv.lk.specialn.x8.y = rpos.x - root.x;
+    fp->mv.lk.specialn.x8.z = rpos.y - root.y;
+    fp->mv.lk.specialn.x14 = 0.0f;
+    fp->mv.lk.specialn.x8.x = atan2f(rpos.y - lpos.y, rpos.x - lpos.x);
+    if (fp->u.lk.arrow_gobj != NULL) {
+        it_802A8398(fp->u.lk.arrow_gobj, &rpos, &lpos);
+    }
+}
+
+void ftLk_SpecialN_Enter(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftLk_DatAttrs* da = fp->dat_attrs;
+
+    fp->mv.lk.specialn.x0.x = fp->mv.lk.specialn.x0.y = 0.0f;
+
+    /// @todo Float order hack
+    (void) MTXDegToRad(5);
+
+    fp->mv.lk.specialn.unk_timer = 0;
+    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    ftCommon_SetGrounded(fp);
+    fp->self_vel.y = 0;
+    Fighter_ChangeMotionState(gobj, ftLk_MS_SpecialNStart, Ft_MF_None, 0.0f,
+                              1.0f, 0.0f, NULL);
+    setCallbacks(gobj);
+    ftAnim_SetAnimRate(gobj, da->specialn_anim_rate);
+    ftAnim_Advance(gobj);
+    if (isDrawback(gobj) == true) {
+        ftLk_SpecialN_UnsetArrow(gobj);
+        ftLk_SpecialN_UnsetBow(gobj);
+        ft_8008A2BC(gobj);
+    }
+}
+
+void ftLk_SpecialAirN_Enter(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftLk_DatAttrs* da = fp->dat_attrs;
+
+    fp->mv.lk.specialn.x0.x = fp->mv.lk.specialn.x0.y = 0;
+    fp->mv.lk.specialn.unk_timer = 0;
+    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ChangeMotionState(gobj, ftLk_MS_SpecialAirNStart, Ft_MF_None, 0.0f,
+                              1.0f, 0.0f, NULL);
+    setCallbacks(gobj);
+    ftAnim_SetAnimRate(gobj, da->specialn_anim_rate);
+    ftAnim_Advance(gobj);
+    if (isDrawback(gobj) == true) {
+        ftLk_SpecialN_UnsetArrow(gobj);
+        ftLk_SpecialN_UnsetBow(gobj);
+        if (da->x8 == 0) {
+            ftCo_Fall_Enter(gobj);
+        } else {
+            ftCo_FallSpecial_Enter(gobj, 1, 0, true, 1.0f, da->x8);
+        }
+    }
+}
+
+void ftLk_SpecialNStart_Anim(Fighter_GObj* gobj)
+{
+Symbols in this excerpt (canonical -> proposed):
+ftLk_SpecialN_ProcessFv10 -> ftLk_SpecialN_RemoveArrow | substituted | confidence 0.84 | main/melee/ft/kinds/ftLink/ftlinkspecialn:ftLk_SpecialN_ProcessFv10
+it_802A8A7C -> itLinkArrow_Remove | substituted | confidence 0.82 | main/melee/it/kinds/itlinkarrow:it_802A8A7C
+ftLk_SpecialN_ProcessFv14 -> ftLk_SpecialN_RemoveBow | substituted | confidence 0.94 | main/melee/ft/kinds/ftLink/ftlinkspecialn:ftLk_SpecialN_ProcessFv14
+ftLk_800EAF58 -> ftLk_Init_OnDamage | substituted | confidence 0.96 | main/melee/ft/kinds/ftLink/ftlink:ftLk_800EAF58
+lb_8000B1CC -> lbJObjTransformPoint | substituted | confidence 0.76 | main/melee/lb/lb_00B0:lb_8000B1CC
+it_802AF1A4 -> itLinkBow_Spawn | substituted | confidence 0.86 | main/melee/it/kinds/itlinkbow:it_802AF1A4
+it_802A83E0 -> itLinkArrow_Spawn | substituted | confidence 0.84 | main/melee/it/kinds/itlinkarrow:it_802A83E0
+ftCommon_8007D7FC -> ftCommon_SetGrounded | substituted | confidence 0.82 | main/melee/ft/ftcommon:ftCommon_8007D7FC
+ftAnim_8006EBA4 -> ftAnim_Advance | substituted | confidence 0.78 | main/melee/ft/ftanim:ftAnim_8006EBA4
+ftLk_SpecialN_UnsetFv14 -> ftLk_SpecialN_UnsetBow | substituted | confidence 0.97 | main/melee/ft/kinds/ftLink/ftlinkspecialn:ftLk_SpecialN_UnsetFv14
+ftCo_80096900 -> ftCo_FallSpecial_Enter | substituted | confidence 0.82 | main/melee/ft/kinds/ftCommon/ftCo_FallSpecial:ftCo_80096900
+20 unchanged symbols omitted from footer.
+Continue with knowledge_render_file path="src/melee/ft/kinds/ftLink/ftlinkspecialn.c" start_line=302.

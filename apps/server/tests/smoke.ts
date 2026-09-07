@@ -1615,7 +1615,7 @@ async function main(): Promise<void> {
     "external_symbol_lookup",
     "path_facts_resolve",
   ];
-  assertSmoke("worker dry-run uses gpt-5.6-sol", workerOutput.includes("model: gpt-5.6-sol"));
+  assertSmoke("worker dry-run uses gpt-6-astra", workerOutput.includes("model: gpt-6-astra"));
   assertSmoke("worker dry-run uses medium thinking", workerOutput.includes("thinking: medium"));
   assertSmoke("worker dry-run attaches decomposed Pi tools", expectedWorkerTools.every((toolId) => workerCustomToolsLine.includes(toolId)));
   assertSmoke("worker dry-run omits deprecated/default-injected tools", deprecatedWorkerToolIds.every((toolId) => !workerCustomToolsLine.includes(toolId)));

@@ -2,6 +2,10 @@ import type { AgentToolPromptMetadata } from "../types.js";
 
 /** Prompt metadata for read-only knowledge-v2 tools. */
 export const knowledgeV2ToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
+  knowledge_render_file: {
+    provider: "knowledge_v2", type: "source_reading",
+    useWhen: "Read current source with proposed function names to understand behavior, then map back to canonical symbols before editing or using compiler tools.",
+  },
   discord_search: {
     provider: "knowledge_v2",
     type: "discord_search",
