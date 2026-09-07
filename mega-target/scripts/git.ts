@@ -15,7 +15,7 @@ export async function initSession(params: {
   dir: string; repo: string; gameId: string; target: Target; ref?: string;
   workerCount: number; minutes: number; sandboxProfile?: string;
 }): Promise<Session> {
-  if (!Number.isInteger(params.workerCount) || params.workerCount < 1 || params.workerCount > 8) throw new Error("workers must be 1–8");
+  if (!Number.isInteger(params.workerCount) || params.workerCount < 1 || params.workerCount > 16) throw new Error("workers must be 1–16");
   if (!Number.isFinite(params.minutes) || params.minutes <= 0) throw new Error("minutes must be positive");
   if (!/^src\/[A-Za-z0-9_./-]+\.c$/.test(params.target.source_path) || params.target.source_path.split("/").includes("..")) throw new Error("Expected a repo-relative src/... .c target");
   if (!params.target.unit.trim() || !params.target.symbol.trim()) throw new Error("unit and symbol are required");

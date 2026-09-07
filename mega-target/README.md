@@ -1,6 +1,6 @@
 # Mega Target
 
-Give Astra [SKILL.md](SKILL.md), a target or open PR, and a search timeout. It coordinates four to eight GPT-5.6 Sol workers at xhigh reasoning. Each worker owns an isolated Daytona sandbox. Astra keeps validated improvements on one local target branch, then cleans up and runs the existing librarian.
+Give Astra [SKILL.md](SKILL.md), a target or open PR, and a search timeout. It coordinates up to 16 GPT-5.6 Sol workers at xhigh reasoning. Each worker owns an isolated Daytona sandbox. Astra keeps validated improvements on one local target branch, then cleans up and runs the existing librarian.
 
 ## Invoke
 
@@ -63,7 +63,7 @@ Every worker starts from a recorded commit. `start` captures the compiler baseli
 
 Other workers can continue from older revisions after an improvement. Their patches must apply and improve the current branch before acceptance. If a patch conflicts, keep it as evidence and start a fresh worker from the newer revision. Patches are not automatically merged by a resolver.
 
-The current integration scope is the target `.c` file. Header/config changes require a separate reviewed workflow. A passing target result does not replace the repository's full PR regression checks. Search capacity is four by default; acceptance temporarily adds one verifier sandbox.
+The current integration scope is the target `.c` file. Header/config changes require a separate reviewed workflow. A passing target result does not replace the repository's full PR regression checks. Search capacity is four by default and accepts 1–16 workers; acceptance temporarily adds one verifier sandbox, for up to 17 session-owned sandboxes.
 
 ## Timeout and Cleanup
 

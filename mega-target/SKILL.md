@@ -5,7 +5,7 @@ description: Coordinate parallel decompilation attempts on one difficult Melee t
 
 # Mega Target
 
-Run this workflow when the user supplies a target or open PR and asks for a sustained parallel search. The coordinator is Astra; spawn GPT-5.6 Sol workers with xhigh reasoning. Default to four workers and a 60-minute search timeout unless the user supplies different values. Support up to eight workers.
+Run this workflow when the user supplies a target or open PR and asks for a sustained parallel search. The coordinator is Astra; spawn GPT-5.6 Sol workers with xhigh reasoning. Default to four workers and a 60-minute search timeout unless the user supplies different values. Support up to 16 workers.
 
 The user provides the target and budget. You execute the workflow through completion. A validated exact result or the deadline ends search. Preserve accepted improvements, clean up the sandboxes, and process completed attempts through the existing summarizer and librarian.
 

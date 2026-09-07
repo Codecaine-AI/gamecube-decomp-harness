@@ -13,7 +13,7 @@ import { main, finish, watch } from "../scripts/cli.js";
 
 const fixtures: string[] = [];
 afterEach(async () => { for (const root of fixtures.splice(0)) await rm(root, { recursive: true, force: true }); });
-async function fixture() {
+async function fixture(workerCount = 4) {
   const root = await mkdtemp(resolve(tmpdir(), "mega-test-")); fixtures.push(root);
   const repo = resolve(root, "repo"), dir = resolve(root, "session");
   await mkdir(resolve(repo, "src"), { recursive: true });
@@ -22,7 +22,7 @@ async function fixture() {
   await git(repo, "init", "-b", "main");
   await git(repo, "config", "user.email", "test@example.invalid"); await git(repo, "config", "user.name", "Test");
   await git(repo, "add", "."); await git(repo, "commit", "-m", "baseline");
-  const session = await initSession({ dir, repo, gameId: "melee", target: { unit: "unit", symbol: "Func", source_path: "src/unit.c" }, workerCount: 4, minutes: 60 });
+  const session = await initSession({ dir, repo, gameId: "melee", target: { unit: "unit", symbol: "Func", source_path: "src/unit.c" }, workerCount, minutes: 60 });
   return { root, repo, dir, session };
 }
 const good = (before = 90, after = 95): Evidence => ({ before, after, passed: true, exact: after === 100, reasons: [], artifacts: "/test/evidence" });
@@ -51,6 +51,22 @@ describe("isolated search and acceptance", () => {
     await assign(f.dir, "w5", "another");
     await expect(assign(f.dir, "w1", "reuse")).rejects.toThrow("never reused");
     await expect(assign(f.dir, "../escape", "bad")).rejects.toThrow();
+  });
+  test("sixteen workers share a baseline and the seventeenth requires a free slot", async () => {
+    const f = await fixture(16);
+    expect(f.session.workers).toBe(16);
+    for (let i = 1; i <= 16; i++) expect((await assign(f.dir, `w${i}`, `hypothesis ${i}`)).baseRev).toBe(f.session.baseRev);
+    await expect(assign(f.dir, "w17", "overflow")).rejects.toThrow("limit");
+    await closeWorker(f.dir, "w1", "finished", "no sandbox was started");
+    expect((await assign(f.dir, "w17", "replacement")).baseRev).toBe(f.session.baseRev);
+  });
+  test("initialization rejects worker counts outside the integer range 1–16", async () => {
+    const f = await fixture(1);
+    expect(f.session.workers).toBe(1);
+    for (const workerCount of [0, -1, 17, 1.5, NaN, Infinity]) {
+      await expect(initSession({ dir: resolve(f.root, "invalid"), repo: f.repo, gameId: "melee",
+        target: f.session.target, workerCount, minutes: 60 })).rejects.toThrow("workers must be 1–16");
+    }
   });
   test("deadline blocks new work without deleting records", async () => {
     const f = await fixture();
