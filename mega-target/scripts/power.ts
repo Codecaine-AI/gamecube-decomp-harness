@@ -43,7 +43,7 @@ export async function stopAbandonedSandbox(handle: SandboxHandle, output: string
   let power: { sandboxId: string; state: string; pid: number };
   try { power = await readJson(path); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
-  if (power.state === "stopped" || power.sandboxId !== handle.sandboxId || !Number.isInteger(power.pid) || power.pid < 1 || isAlive(power.pid)) return false;
+  if (power.state === "stopped" || power.sandboxId !== handle.sandboxId || !Number.isInteger(power.pid) || power.pid < 1 || (power.state != "stop_failed" && isAlive(power.pid))) return false;
   await handle.stop();
   await writeJson(path, { sandboxId: handle.sandboxId, state: "stopped", at: now(), pid: process.pid, recoveredFromPid: power.pid });
   return true;

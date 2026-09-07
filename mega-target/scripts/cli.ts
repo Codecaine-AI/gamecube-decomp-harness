@@ -202,6 +202,12 @@ export async function main(argv: string[]): Promise<unknown> {
 if (import.meta.main) {
   try {
     const result = await main(Bun.argv.slice(2));
-    console.log(typeof result === "string" ? result : JSON.stringify(result ?? { ok: true }, null, 2));
-  } catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; }
+    await Bun.write(Bun.stdout, `${typeof result === "string" ? result : JSON.stringify(result ?? { ok: true }, null, 2)}\n`);
+  } catch (error) {
+    await Bun.write(Bun.stderr, `${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
+  // Daytona transport handles can outlive the completed command. All work,
+  // power finalization, and output above are awaited before terminating them.
+  process.exit(process.exitCode ?? 0);
 }

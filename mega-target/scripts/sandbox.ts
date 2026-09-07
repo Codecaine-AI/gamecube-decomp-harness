@@ -289,30 +289,114 @@ export async function cleanupSandboxes(dir: string, workerId?: string, provider?
   return result;
 }
 
-/** Only dead command owners are paused; live compiles and validation keep running. */
-export async function pauseAbandonedSandboxes(dir: string): Promise<void> {
-  const s = await getSession(dir);
-  for (const group of ["workers", "verification"]) {
+interface PowerRecord {
+  sandboxId: string;
+  state: string;
+  pid: number;
+}
+
+interface PowerEntry {
+  output: string;
+  resource: string;
+  power: PowerRecord;
+}
+
+async function childDirectories(parent: string): Promise<string[]> {
+  const entries = await readdir(parent, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
+  return entries.filter(entry => entry.isDirectory()).map(entry => entry.name);
+}
+
+async function readPower(output: string): Promise<PowerRecord | null> {
+  return readJson<PowerRecord>(resolve(output, "power.json")).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+}
+
+async function powerEntries(dir: string): Promise<PowerEntry[]> {
+  const result: PowerEntry[] = [];
+  for (const group of ["workers", "verification"] as const) {
     const parent = resolve(dir, group);
-    const entries = await readdir(parent, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return []; throw error;
-    });
-    for (const entry of entries.filter(e => e.isDirectory())) {
-      const output = resolve(parent, entry.name);
-      const power = await readJson<{ sandboxId: string; state: string; pid: number }>(resolve(output, "power.json")).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ENOENT") return null; throw error;
-      });
-      if (!power || power.state === "stopped" || !Number.isInteger(power.pid) || power.pid < 1) continue;
-      try { process.kill(power.pid, 0); continue; }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
-      const resource = group === "workers" ? entry.name : "session";
-      await unlockDead(dir, resource).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== "ENOENT" && !String(error).includes("still running")) throw error;
-      });
-      await locked(dir, resource, async () => {
-        const handle = await providerFor(s).get(power.sandboxId);
-        if (handle) await stopAbandonedSandbox(handle, output);
-      }).catch(error => { if (!String(error).includes("Busy:")) throw error; });
+    for (const name of await childDirectories(parent)) {
+      const output = resolve(parent, name);
+      const power = await readPower(output);
+      if (power) result.push({ output, resource: group === "workers" ? name : "session", power });
     }
+  }
+  const recoveryRoot = resolve(dir, "power-recovery");
+  for (const name of await childDirectories(recoveryRoot)) {
+    const output = resolve(recoveryRoot, name);
+    const owner = await readJson<{ resource: string }>(resolve(output, "owner.json")).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    const power = await readPower(output);
+    if (owner && power) result.push({ output, resource: owner.resource, power });
+  }
+  return result;
+}
+
+function processAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+    throw error;
+  }
+}
+
+/** Returns false only when another CLI still owns the resource. */
+async function clearDeadOrAbsentLock(dir: string, resource: string): Promise<boolean> {
+  try { await unlockDead(dir, resource); return true; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    if (String(error).includes("still running")) return false;
+    throw error;
+  }
+}
+
+/** Only dead command owners are paused; live compiles, setup, and validation keep running. */
+export async function pauseAbandonedSandboxes(dir: string, provider?: SandboxProvider): Promise<void> {
+  const s = await getSession(dir);
+  provider ??= providerFor(s);
+
+  for (const entry of await powerEntries(dir)) {
+    const { power } = entry;
+    if (power.state === "stopped" || !Number.isInteger(power.pid) || power.pid < 1 || (power.state !== "stop_failed" && processAlive(power.pid))) continue;
+    if (!await clearDeadOrAbsentLock(dir, entry.resource)) continue;
+    await locked(dir, entry.resource, async () => {
+      const handle = await provider.get(power.sandboxId);
+      if (handle) await stopAbandonedSandbox(handle, entry.output);
+    }).catch(error => { if (!String(error).includes("Busy:")) throw error; });
+  }
+
+  const recorded = new Set((await powerEntries(dir)).map(entry => entry.power.sandboxId));
+  const owned = await provider.listByLabels(labels(s));
+  for (const sandbox of owned) {
+    if (recorded.has(sandbox.sandboxId)) continue;
+    const owner = sandbox.labels.mega_worker;
+    if (!owner) continue;
+    const resource = owner === "verifier" ? "session" : owner;
+    if (owner !== "verifier") {
+      const worker = await getWorker(dir, owner).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      });
+      if (!worker) continue;
+    }
+    if (!await clearDeadOrAbsentLock(dir, resource)) continue;
+    await locked(dir, resource, async () => {
+      // A create call can finish between the label inventory and lock acquisition.
+      if ((await powerEntries(dir)).some(entry => entry.power.sandboxId === sandbox.sandboxId)) return;
+      const handle = await provider.get(sandbox.sandboxId);
+      if (!handle) return;
+      const output = resolve(dir, "power-recovery", digest(sandbox.sandboxId));
+      await writeJson(resolve(output, "owner.json"), { resource, worker: owner, recoveredAt: now() });
+      await withAwakeSandbox(handle, output, async () => {}, true);
+      await event(dir, owner === "verifier" ? "coordinator" : owner, "sandbox_orphan_paused", { sandboxId: sandbox.sandboxId });
+      recorded.add(sandbox.sandboxId);
+    }).catch(error => { if (!String(error).includes("Busy:")) throw error; });
   }
 }
