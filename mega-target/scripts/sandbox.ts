@@ -168,7 +168,12 @@ export async function execSandbox(dir: string, id: string, argv: string[]): Prom
     const { s, handle } = await workerHandle(dir, id);
     const result = await handle.exec(argv, { cwd: config(s).workspace_root, timeoutMs: Math.min(60_000, remaining(s)) });
     await event(dir, id, "exec", { argv, exitCode: result.exitCode });
-    return result;
+    // The coordinator can share confirmed findings without interrupting a running command.
+    const coordinatorNotes = await readFile(resolve(dir, "coordinator-notes.md"), "utf8").catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return "";
+      throw error;
+    });
+    return coordinatorNotes.trim() ? { ...result, coordinatorNotes } : result;
   });
 }
 export async function uploadSource(dir: string, id: string, localPath: string): Promise<void> {

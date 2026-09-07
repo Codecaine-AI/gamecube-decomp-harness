@@ -53,6 +53,8 @@ Use `help` for the full command list. Worker-specific examples live in the rende
 
 All runtime files live under ignored `mega-target/sessions/` by default. Each worker has a separate record and lock. No shared Markdown table is edited concurrently. `status` aggregates the ledger for Astra. Writes use atomic file replacement; long commands hold a per-worker lock. Branch acceptance holds the session lock.
 
+The coordinator may maintain `coordinator-notes.md` in the session directory with confirmed findings, rejected approaches, and replies to worker questions. Only the coordinator writes this file. Worker `exec` responses include its current contents as `coordinatorNotes`, so active workers receive shared findings on their next command without interruption. Worker requests belong in their own ledger through `note`.
+
 ## Validation and Branch Progress
 
 Every worker starts from a recorded commit. `start` captures the compiler baseline in its sandbox. `submit` exports an immutable patch and invokes the existing worker change validator, including same-unit regression checks, section parity, undefined-symbol checks, banned idioms, and review lint. Validation logs stay on the host.
