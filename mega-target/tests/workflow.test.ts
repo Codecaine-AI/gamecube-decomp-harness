@@ -35,6 +35,14 @@ async function candidate(f: Awaited<ReturnType<typeof fixture>>, id = "candidate
 }
 
 describe("isolated search and acceptance", () => {
+  test("initialization accepts explicit source when objdiff.json is generated rather than tracked", async () => {
+    const f = await fixture();
+    await git(f.repo, "rm", "objdiff.json"); await git(f.repo, "commit", "-m", "generated config");
+    const dir = resolve(f.root, "explicit-source");
+    const result = await main(["init", "--repo", f.repo, "--session", dir, "--unit", "unit", "--symbol", "Func",
+      "--source", "src/unit.c", "--minutes", "1", "--no-watch"]) as { session: { target: { source_path: string } } };
+    expect(result.session.target.source_path).toBe("src/unit.c");
+  });
   test("four siblings share a baseline; capacity and worker IDs are enforced", async () => {
     const f = await fixture();
     for (const id of ["w1", "w2", "w3", "w4"]) expect((await assign(f.dir, id, "hypothesis")).baseRev).toBe(f.session.baseRev);

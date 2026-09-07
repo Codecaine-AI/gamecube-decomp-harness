@@ -62,6 +62,19 @@ async function seed(handle: SandboxHandle, s: Session, rev: string, output: stri
     await checked(handle, s, ["git", "fetch", "/tmp/mega-seed.bundle", ref], allowOvertime);
     // This sandbox was just created for this attempt. No user checkout is reset.
     await checked(handle, s, ["git", "checkout", "--force", "--detach", rev], allowOvertime);
+    // The baked snapshot may retain files renamed/deleted since its own checkout.
+    // Preserve those untracked sources outside the compiler include paths before configuring.
+    await checked(handle, s, ["python3", "-c", [
+      "import pathlib,subprocess,shutil,uuid",
+      "root=pathlib.Path.cwd()",
+      "dest=pathlib.Path('/tmp')/('mega-snapshot-sources-'+str(uuid.uuid4()))",
+      "paths=subprocess.check_output(['git','ls-files','--others','--exclude-standard','-z','--','src','include','config']).decode().split('\\0')",
+      "for name in filter(None,paths):",
+      " p=root/name; target=dest/name",
+      " target.parent.mkdir(parents=True,exist_ok=True)",
+      " shutil.move(str(p),str(target))",
+      "print(str(dest))",
+    ].join("\n")], allowOvertime);
   } finally {
     await git(s.repo, "update-ref", "-d", ref);
     await rm(bundle, { force: true });

@@ -147,8 +147,15 @@ export async function main(argv: string[]): Promise<unknown> {
     const pr = flags.has("pr") ? await fetchPr(repo, need("pr")) : null;
     try {
       const ref = pr?.ref ?? flags.get("ref") ?? "HEAD";
-      const config = JSON.parse(await git(repo, "show", `${ref}:objdiff.json`)) as { units: Array<{ name: string; metadata?: { source_path?: string } }> };
-      const source = flags.get("source") ?? config.units.find(u => u.name === unit)?.metadata?.source_path;
+      let source = flags.get("source");
+      if (!source) {
+        // objdiff.json is generated and may not exist in the requested Git revision.
+        let configText: string;
+        try { configText = await git(repo, "show", `${ref}:objdiff.json`); }
+        catch { configText = await readFile(resolve(repo, "objdiff.json"), "utf8"); }
+        const config = JSON.parse(configText) as { units: Array<{ name: string; metadata?: { source_path?: string } }> };
+        source = config.units.find(u => u.name === unit)?.metadata?.source_path;
+      }
       if (!source) throw new Error("Cannot resolve source from objdiff.json; supply --source");
       const dir = resolve(flags.get("session") ?? resolve(root, "mega-target/sessions", `${symbol.replace(/[^A-Za-z0-9_-]/g, "_")}-${Date.now()}`));
       await mkdir(resolve(dir, ".."), { recursive: true });
