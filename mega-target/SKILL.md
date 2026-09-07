@@ -21,7 +21,7 @@ The PR path reads and fetches the PR. Work lands on a new local experimental bra
 
 Use native agent collaboration to spawn the workers, with the model identifier `gpt-5.6-sol`, `reasoning_effort: "xhigh"`, and a fresh context such as `fork_turns: "none"`. Supply the full rendered worker prompt. Record each returned agent ID in the ledger. If that model or collaboration is unavailable, report the limitation before creating sandboxes. Do not silently substitute a model.
 
-Each worker owns its sandbox lifecycle and uses the host CLI to operate it. The coordinator is the only writer to the target integration branch. The scripts reuse the existing Daytona provider, toolpack, compiler/objdiff validation, summarizer, and librarian; they do not claim scheduler jobs or create harness epochs.
+Each worker owns its sandbox lifecycle and uses the host CLI to operate it. The CLI automatically resumes for remote operations and stops before returning, including failures; never leave a sandbox started during agent reasoning. Use synchronous commands and batch related work within one call. The coordinator is the only writer to the target integration branch. The scripts reuse the existing Daytona provider, toolpack, compiler/objdiff validation, summarizer, and librarian; they do not claim scheduler jobs or create harness epochs.
 
 Search continues across multiple worker attempts until exact or the deadline. An individual worker finishing is a reason to evaluate its result and replace it with a fresh attempt when time remains. Failed and partial attempts still go to the librarian.
 

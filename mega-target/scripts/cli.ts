@@ -6,7 +6,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { assign, assertRunning, candidates, closeWorker, event, getSession, getWorker, locked, note, now, sessionFile, unlockDead, workerDir, workers, writeJson } from "./ledger.js";
 import { acceptCandidate, fetchPr, git, initSession, inspectPr, recoverIntegration } from "./git.js";
-import { cleanupSandboxes, execSandbox, providerFor, root, startSandbox, submitCandidate, uploadSource, validateForAcceptance } from "./sandbox.js";
+import { cleanupSandboxes, execSandbox, pauseAbandonedSandboxes, pauseSandbox, providerFor, root, startSandbox, submitCandidate, uploadSource, validateForAcceptance } from "./sandbox.js";
 import { processWorkerKnowledge } from "./knowledge.js";
 import { resolveGame } from "../../apps/server/src/core/game-registry/resolver.js";
 import { loadV2TargetCard } from "../../apps/server/src/core/knowledge-v2/card.js";
@@ -23,6 +23,7 @@ prompt --session PATH [--worker ID]
 assign --session PATH --worker ID --hypothesis TEXT
 note --session PATH --worker ID --message TEXT [--agent-id ID]
 start --session PATH --worker ID
+pause --session PATH --worker ID
 exec --session PATH --worker ID -- COMMAND ARG...
 upload --session PATH --worker ID --file LOCAL_SOURCE
 submit --session PATH --worker ID [--hypothesis TEXT]
@@ -112,6 +113,7 @@ export async function watch(dir: string, deps: { provider?: SandboxProvider; fin
     while (true) {
       const s = await getSession(dir);
       if (s.status !== "running" || Date.now() >= Date.parse(s.deadline)) break;
+      await pauseAbandonedSandboxes(dir).catch(error => console.error(`Idle sandbox recovery: ${String(error)}`));
       await new Promise(resolveSleep => setTimeout(resolveSleep, Math.min(5000, Date.parse(s.deadline) - Date.now())));
     }
     // Retry boundedly: an in-flight worker command may hold its lock briefly at timeout.
@@ -172,6 +174,7 @@ export async function main(argv: string[]): Promise<unknown> {
     case "prompt": return renderPrompt(dir, flags.get("worker"));
     case "assign": return assign(dir, need("worker"), need("hypothesis"));
     case "note": return note(dir, need("worker"), need("message"), flags.get("agent-id"));
+    case "pause": return pauseSandbox(dir, need("worker"));
     case "start": return startSandbox(dir, need("worker"));
     case "exec": if (!rest.length) throw new Error("Supply a command after --"); return execSandbox(dir, need("worker"), rest);
     case "upload": return uploadSource(dir, need("worker"), need("file"));

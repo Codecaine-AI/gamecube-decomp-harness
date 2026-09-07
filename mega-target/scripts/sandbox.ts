@@ -1,6 +1,6 @@
 /** Worker-owned Daytona sandboxes, checkpoint artifacts, and independent acceptance validation. */
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { DaytonaSandboxProvider, type SandboxHandle, type SandboxProvider } from "../../apps/server/src/core/job-queue/sandbox.js";
 import { ensureSandboxToolpack } from "../../apps/server/src/core/job-queue/provisioning.js";
@@ -9,8 +9,9 @@ import { loadLocalEnv } from "../../apps/server/src/infrastructure/env/local.js"
 import { sandboxWorkspaceExec } from "../../apps/server/src/infrastructure/shell/workspace-exec.js";
 import { captureWorkerChangeBaseline, validateWorkerChange, type WorkerChangeBaseline } from "../../apps/server/src/core/agent-catalog/agents/running/worker/change-validation.js";
 import { lintWorkerReviewDiff } from "../../apps/server/src/core/agent-catalog/agents/running/worker/review-lint.js";
-import { assertRunning, candidateFile, digest, event, getSession, getWorker, locked, now, readJson, sessionFile, workerDir, workerFile, writeJson, type Candidate, type Evidence, type Session } from "./ledger.js";
+import { assertRunning, candidateFile, digest, event, getSession, getWorker, locked, unlockDead, now, readJson, sessionFile, workerDir, workerFile, writeJson, type Candidate, type Evidence, type Session } from "./ledger.js";
 import { git } from "./git.js";
+import { stopAbandonedSandbox, withAwakeSandbox } from "./power.js";
 
 export const root = resolve(import.meta.dir, "../..");
 export function providerFor(s: Session): SandboxProvider {
@@ -101,8 +102,15 @@ async function create(s: Session, workerId: string, provider: SandboxProvider, o
     await writeJson(resolve(output, "sandbox.json"), { id: handle.sandboxId });
     await onCreated(handle.sandboxId);
   } catch (error) {
-    await provider.delete(handle.sandboxId, "provision_failure").catch(() => {});
-    throw error;
+    let failure = error;
+    try { await withAwakeSandbox(handle, output, async () => { throw error; }, true); }
+    catch (cleanupError) { failure = cleanupError; }
+    try { await provider.delete(handle.sandboxId, "provision_failure"); }
+    catch (deleteError) {
+      await writeJson(resolve(output, "cleanup-error.json"), { sandboxId: handle.sandboxId, error: String(deleteError) });
+      throw new AggregateError([failure, deleteError], "Sandbox setup failed and deletion needs retry");
+    }
+    throw failure;
   }
   return recording(handle, output);
 }
@@ -128,24 +136,26 @@ export async function startSandbox(dir: string, id: string, provider?: SandboxPr
       assertRunning(await getSession(dir));
     });
     try {
-      await seed(handle, s, w.baseRev, output);
-      const b = await baseline(handle, s, output);
-      w.baselineScore = b.snapshot!.targetScore!; w.heartbeat = now();
-      await writeJson(workerFile(dir, id), w);
-      await locked(dir, "session", async () => {
-        const current = await getSession(dir);
-        if (current.baseRev === w.baseRev && current.baselineScore === undefined) {
-          current.baselineScore = w.baselineScore;
-          if (current.headRev === w.baseRev && current.status === "running" && w.baselineScore === 100) {
-            current.score = 100;
-            current.status = "exact";
-            await event(dir, "coordinator", "already_exact", { workerId: id, revision: w.baseRev, baselineArtifact: resolve(output, "baseline.json") });
+      return await withAwakeSandbox(handle, output, async () => {
+        await seed(handle, s, w.baseRev, output);
+        const b = await baseline(handle, s, output);
+        w.baselineScore = b.snapshot!.targetScore!; w.heartbeat = now();
+        await writeJson(workerFile(dir, id), w);
+        await locked(dir, "session", async () => {
+          const current = await getSession(dir);
+          if (current.baseRev === w.baseRev && current.baselineScore === undefined) {
+            current.baselineScore = w.baselineScore;
+            if (current.headRev === w.baseRev && current.status === "running" && w.baselineScore === 100) {
+              current.score = 100;
+              current.status = "exact";
+              await event(dir, "coordinator", "already_exact", { workerId: id, revision: w.baseRev, baselineArtifact: resolve(output, "baseline.json") });
+            }
+            await writeJson(sessionFile(dir), current);
           }
-          await writeJson(sessionFile(dir), current);
-        }
-      });
-      await event(dir, id, "sandbox_ready", { sandboxId: handle.sandboxId, score: w.baselineScore });
-      return { sandboxId: handle.sandboxId, workspace: config(s).workspace_root, baseline: w.baselineScore, firstDiff: b.firstDiff };
+        });
+        await event(dir, id, "sandbox_ready", { sandboxId: handle.sandboxId, score: w.baselineScore });
+        return { sandboxId: handle.sandboxId, workspace: config(s).workspace_root, baseline: w.baselineScore, firstDiff: b.firstDiff };
+      }, true);
     } catch (error) {
       await event(dir, id, "setup_failed", String(error));
       // Keep the ID in the ledger if deletion fails; cleanup can retry by labels.
@@ -154,18 +164,38 @@ export async function startSandbox(dir: string, id: string, provider?: SandboxPr
     }
   });
 }
-async function workerHandle(dir: string, id: string): Promise<{ s: Session; handle: SandboxHandle }> {
+async function workerHandle(dir: string, id: string, provider?: SandboxProvider): Promise<{ s: Session; handle: SandboxHandle }> {
   const s = await getSession(dir); assertRunning(s);
   const w = await getWorker(dir, id);
   if (w.status !== "running" || !w.sandboxId || w.cleanedAt) throw new Error("Worker has no running sandbox");
-  const handle = await providerFor(s).get(w.sandboxId);
+  const handle = await (provider ?? providerFor(s)).get(w.sandboxId);
   if (!handle) throw new Error("Sandbox no longer exists; retain evidence and close this attempt as error");
   w.heartbeat = now(); await writeJson(workerFile(dir, id), w);
   return { s, handle: recording(handle, workerDir(dir, id)) };
 }
-export async function execSandbox(dir: string, id: string, argv: string[]): Promise<unknown> {
+/** The worker lock covers wake, all remote work, and stop across separate CLI processes. */
+export async function withWorkerSandbox<T>(dir: string, id: string, run: (s: Session, handle: SandboxHandle) => Promise<T>, provider?: SandboxProvider): Promise<T> {
   return locked(dir, id, async () => {
-    const { s, handle } = await workerHandle(dir, id);
+    const { s, handle } = await workerHandle(dir, id, provider);
+    return withAwakeSandbox(handle, workerDir(dir, id), async () => {
+      assertRunning(await getSession(dir));
+      return run(s, handle);
+    });
+  });
+}
+export async function pauseSandbox(dir: string, id: string, provider?: SandboxProvider): Promise<void> {
+  await locked(dir, id, async () => {
+    const s = await getSession(dir), w = await getWorker(dir, id);
+    if (!w.sandboxId || w.cleanedAt) return;
+    const handle = await (provider ?? providerFor(s)).get(w.sandboxId);
+    if (!handle) throw new Error("Sandbox no longer exists");
+    await handle.stop();
+    await writeJson(resolve(workerDir(dir, id), "power.json"), { sandboxId: handle.sandboxId, state: "stopped", at: now(), pid: process.pid });
+    await event(dir, id, "sandbox_paused", { sandboxId: handle.sandboxId });
+  });
+}
+export async function execSandbox(dir: string, id: string, argv: string[], provider?: SandboxProvider): Promise<unknown> {
+  return withWorkerSandbox(dir, id, async (s, handle) => {
     const result = await handle.exec(argv, { cwd: config(s).workspace_root, timeoutMs: Math.min(60_000, remaining(s)) });
     await event(dir, id, "exec", { argv, exitCode: result.exitCode });
     // The coordinator can share confirmed findings without interrupting a running command.
@@ -174,14 +204,13 @@ export async function execSandbox(dir: string, id: string, argv: string[]): Prom
       throw error;
     });
     return coordinatorNotes.trim() ? { ...result, coordinatorNotes } : result;
-  });
+  }, provider);
 }
-export async function uploadSource(dir: string, id: string, localPath: string): Promise<void> {
-  await locked(dir, id, async () => {
-    const { s, handle } = await workerHandle(dir, id);
+export async function uploadSource(dir: string, id: string, localPath: string, provider?: SandboxProvider): Promise<void> {
+  await withWorkerSandbox(dir, id, async (s, handle) => {
     await handle.uploadFile(resolve(localPath), `${config(s).workspace_root}/${s.target.source_path}`);
     await event(dir, id, "source_uploaded", { hash: digest(await readFile(localPath, "utf8")) });
-  });
+  }, provider);
 }
 async function evaluate(handle: SandboxHandle, s: Session, b: WorkerChangeBaseline, patch: string, output: string, allowOvertime = false): Promise<Evidence> {
   const result = await validateWorkerChange({
@@ -200,8 +229,7 @@ async function evaluate(handle: SandboxHandle, s: Session, b: WorkerChangeBaseli
   return evidence;
 }
 export async function submitCandidate(dir: string, id: string, hypothesis: string): Promise<Candidate> {
-  return locked(dir, id, async () => {
-    const { s, handle } = await workerHandle(dir, id);
+  return withWorkerSandbox(dir, id, async (s, handle) => {
     const w = await getWorker(dir, id);
     const cid = `candidate-${randomUUID()}`;
     const output = resolve(workerDir(dir, id), "checkpoints", cid);
@@ -231,12 +259,14 @@ export async function validateForAcceptance(dir: string, s: Session, c: Candidat
   const output = resolve(dir, "verification", `${c.id}-${randomUUID()}`);
   const handle = await create(s, "verifier", provider, output, async () => {});
   try {
-    await seed(handle, s, s.headRev, output, true);
-    const b = await baseline(handle, s, output, true);
-    await handle.uploadFile(c.patchPath, "/tmp/mega-candidate.patch");
-    await checked(handle, s, ["git", "apply", "--check", "/tmp/mega-candidate.patch"], true);
-    await checked(handle, s, ["git", "apply", "/tmp/mega-candidate.patch"], true);
-    return await evaluate(handle, s, b, await readFile(c.patchPath, "utf8"), output, true);
+    return await withAwakeSandbox(handle, output, async () => {
+      await seed(handle, s, s.headRev, output, true);
+      const b = await baseline(handle, s, output, true);
+      await handle.uploadFile(c.patchPath, "/tmp/mega-candidate.patch");
+      await checked(handle, s, ["git", "apply", "--check", "/tmp/mega-candidate.patch"], true);
+      await checked(handle, s, ["git", "apply", "/tmp/mega-candidate.patch"], true);
+      return await evaluate(handle, s, b, await readFile(c.patchPath, "utf8"), output, true);
+    }, true);
   } finally {
     await provider.delete(handle.sandboxId, "settlement").catch(async error => {
       await writeJson(resolve(output, "cleanup-error.json"), { error: String(error), sandboxId: handle.sandboxId });
@@ -257,4 +287,32 @@ export async function cleanupSandboxes(dir: string, workerId?: string, provider?
   }
   await writeJson(resolve(dir, workerId ? `cleanup-${workerId}.json` : "cleanup.json"), { at: now(), ...result });
   return result;
+}
+
+/** Only dead command owners are paused; live compiles and validation keep running. */
+export async function pauseAbandonedSandboxes(dir: string): Promise<void> {
+  const s = await getSession(dir);
+  for (const group of ["workers", "verification"]) {
+    const parent = resolve(dir, group);
+    const entries = await readdir(parent, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return []; throw error;
+    });
+    for (const entry of entries.filter(e => e.isDirectory())) {
+      const output = resolve(parent, entry.name);
+      const power = await readJson<{ sandboxId: string; state: string; pid: number }>(resolve(output, "power.json")).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null; throw error;
+      });
+      if (!power || power.state === "stopped" || !Number.isInteger(power.pid) || power.pid < 1) continue;
+      try { process.kill(power.pid, 0); continue; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
+      const resource = group === "workers" ? entry.name : "session";
+      await unlockDead(dir, resource).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT" && !String(error).includes("still running")) throw error;
+      });
+      await locked(dir, resource, async () => {
+        const handle = await providerFor(s).get(power.sandboxId);
+        if (handle) await stopAbandonedSandbox(handle, output);
+      }).catch(error => { if (!String(error).includes("Busy:")) throw error; });
+    }
+  }
 }

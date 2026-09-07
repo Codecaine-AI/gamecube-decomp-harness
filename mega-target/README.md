@@ -1,6 +1,6 @@
 # Mega Target
 
-Give Astra [SKILL.md](SKILL.md), a target or open PR, and a search timeout. It coordinates up to 16 GPT-5.6 Sol workers at xhigh reasoning. Each worker owns an isolated Daytona sandbox. Astra keeps validated improvements on one local target branch, then cleans up and runs the existing librarian.
+Give Astra [SKILL.md](SKILL.md), a target or open PR, and a search timeout. It coordinates up to 16 GPT-5.6 Sol workers at xhigh reasoning. Each worker owns an isolated Daytona sandbox that stays stopped between tool calls. Astra keeps validated improvements on one local target branch, then cleans up and runs the existing librarian.
 
 ## Invoke
 
@@ -65,6 +65,12 @@ Other workers can continue from older revisions after an improvement. Their patc
 
 The current integration scope is the target `.c` file. Header/config changes require a separate reviewed workflow. A passing target result does not replace the repository's full PR regression checks. Search capacity is four by default and accepts 1–16 workers; acceptance temporarily adds one verifier sandbox, for up to 17 session-owned sandboxes.
 
+## Sandbox Stop and Resume
+
+The host CLI wakes the sandbox for each `exec`, `upload`, or `submit` call and awaits stop before returning, even if the operation fails. Setup also stops the sandbox after baseline capture. The worker lock covers the entire wake/work/stop cycle. Notes and status never wake a sandbox. A verifier runs only during acceptance, stops, and is deleted afterwards.
+
+Workers use the same commands after a pause; resuming is automatic. Keep commands synchronous: background processes cannot keep running between CLI calls. Batch related commands within one `exec` to avoid repeated startup overhead. Stop failures are reported and recorded in `workers/ID/power.json`; retry with `pause --session DIR --worker ID`. The watchdog also stops sandboxes whose recorded command process has died, including verifiers. After interruption stop the native agent, recover its dead lock, and run `pause` before continuing.
+
 ## Timeout and Cleanup
 
 The default search timeout is eight hours (480 minutes). It starts at `init`, including sandbox setup. Use `--minutes` to override it. A detached watchdog wakes at the deadline, or when the session becomes exact/stopped. The coordinator should also stop native agents and call `finish` itself. The watchdog can stop sandbox work even if the coordinator session is interrupted; it cannot directly cancel native agent sessions belonging to another process.
@@ -95,7 +101,7 @@ Keep failed patches and dirty worktrees for inspection. Do not reset the integra
 ## Verify the Helpers
 
 ```sh
-bun test ./mega-target/tests/workflow.test.ts
+bun test ./mega-target/tests/
 bunx tsc --noEmit -p mega-target/tsconfig.json
 ```
 
