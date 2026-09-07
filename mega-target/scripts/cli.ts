@@ -15,7 +15,7 @@ import type { SandboxProvider } from "../../apps/server/src/core/job-queue/sandb
 const HELP = `Mega target workflow. Run from the repository root with bun mega-target/scripts/cli.ts.
 
 init --unit UNIT --symbol SYMBOL [--source src/...c] [--pr URL|NUMBER]
-     [--ref REF] [--repo PATH] [--workers 4] [--minutes 60] [--game melee]
+     [--ref REF] [--repo PATH] [--workers 4] [--minutes 480] [--game melee]
      [--session PATH] [--sandbox-profile 2-core] [--no-watch]
 inspect-pr --pr URL|NUMBER [--game melee] [--repo PATH]
 status --session PATH
@@ -160,7 +160,7 @@ export async function main(argv: string[]): Promise<unknown> {
       const dir = resolve(flags.get("session") ?? resolve(root, "mega-target/sessions", `${symbol.replace(/[^A-Za-z0-9_-]/g, "_")}-${Date.now()}`));
       await mkdir(resolve(dir, ".."), { recursive: true });
       const s = await initSession({ dir, repo, gameId: game.gameId, target: { unit, symbol, source_path: source },
-        ref, workerCount: Number(flags.get("workers") ?? 4), minutes: Number(flags.get("minutes") ?? 60), sandboxProfile: flags.get("sandbox-profile") });
+        ref, workerCount: Number(flags.get("workers") ?? 4), minutes: Number(flags.get("minutes") ?? 480), sandboxProfile: flags.get("sandbox-profile") });
       if (pr) await writeJson(resolve(dir, "pr.json"), pr.pr);
       const watchdogPid = flags.has("no-watch") ? null : launchWatch(dir);
       return { sessionDirectory: dir, session: s, watchdogPid, next: `bun mega-target/scripts/cli.ts prompt --session ${JSON.stringify(dir)}` };

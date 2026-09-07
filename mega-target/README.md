@@ -6,7 +6,7 @@ Give Astra [SKILL.md](SKILL.md), a target or open PR, and a search timeout. It c
 
 ```text
 Read mega-target/SKILL.md and run it for <unit>:<symbol>.
-Use four GPT-5.6 Sol workers at xhigh. Search for 60 minutes or until a match.
+Use four GPT-5.6 Sol workers at xhigh. Search for eight hours or until a match.
 ```
 
 Or:
@@ -31,7 +31,7 @@ The coordinator runtime must expose native agent spawning with the requested mod
 Run commands from the harness repository root. The CLI prints JSON except for `help` and rendered prompts.
 
 ```sh
-bun mega-target/scripts/cli.ts init --unit melee/lb/lbcommand --symbol SYMBOL --workers 4 --minutes 60
+bun mega-target/scripts/cli.ts init --unit melee/lb/lbcommand --symbol SYMBOL --workers 4 --minutes 480
 bun mega-target/scripts/cli.ts prompt --session /absolute/session/directory
 bun mega-target/scripts/cli.ts status --session /absolute/session/directory
 bun mega-target/scripts/cli.ts finish --session /absolute/session/directory
@@ -67,7 +67,7 @@ The current integration scope is the target `.c` file. Header/config changes req
 
 ## Timeout and Cleanup
 
-The search timeout starts at `init`, including sandbox setup. A detached watchdog wakes at the deadline, or when the session becomes exact/stopped. The coordinator should also stop native agents and call `finish` itself. The watchdog can stop sandbox work even if the coordinator session is interrupted; it cannot directly cancel native agent sessions belonging to another process.
+The default search timeout is eight hours (480 minutes). It starts at `init`, including sandbox setup. Use `--minutes` to override it. A detached watchdog wakes at the deadline, or when the session becomes exact/stopped. The coordinator should also stop native agents and call `finish` itself. The watchdog can stop sandbox work even if the coordinator session is interrupted; it cannot directly cancel native agent sessions belonging to another process.
 
 `finish` stops intake, closes unfinished attempts, deletes owned sandboxes, and then runs knowledge processing. Already archived candidates can still be considered by an explicit `accept` after timeout; this is final validation, not another search round. Cleanup, final validation, and model-based knowledge processing may extend beyond the search timeout.
 

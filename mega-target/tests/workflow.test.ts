@@ -43,6 +43,16 @@ describe("isolated search and acceptance", () => {
       "--source", "src/unit.c", "--minutes", "1", "--no-watch"]) as { session: { target: { source_path: string } } };
     expect(result.session.target.source_path).toBe("src/unit.c");
   });
+  test("CLI defaults to eight hours and honors an explicit timeout", async () => {
+    const f = await fixture();
+    for (const minutes of [undefined, 90]) {
+      const args = ["init", "--repo", f.repo, "--session", resolve(f.root, `timeout-${minutes ?? "default"}`),
+        "--unit", "unit", "--symbol", "Func", "--no-watch"];
+      if (minutes !== undefined) args.push("--minutes", String(minutes));
+      const result = await main(args) as { session: { createdAt: string; deadline: string } };
+      expect(Math.abs(Date.parse(result.session.deadline) - Date.parse(result.session.createdAt) - (minutes ?? 480) * 60_000)).toBeLessThan(100);
+    }
+  });
   test("four siblings share a baseline; capacity and worker IDs are enforced", async () => {
     const f = await fixture();
     for (const id of ["w1", "w2", "w3", "w4"]) expect((await assign(f.dir, id, "hypothesis")).baseRev).toBe(f.session.baseRev);
