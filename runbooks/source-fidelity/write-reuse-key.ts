@@ -1,0 +1,18 @@
+import { readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import { createHash } from "crypto";
+import { computeReportReuseKey, reportRunOptionsForGame } from "../../apps/server/src/core/validation/report/run.ts";
+import { resolveGame } from "../../apps/server/src/core/game-registry/resolver.ts";
+const ROOT = "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness";
+const game = resolveGame({ gameId: "sms", orchestratorRoot: ROOT })!;
+const opts: any = reportRunOptionsForGame(game as any);
+const repoRoot = game.repoRoot;
+const dolConfigPath = opts.dolConfigPath ?? "config/GMSJ01/config.yml";
+const head = Bun.spawnSync(["git", "rev-parse", "--verify", "HEAD"], { cwd: repoRoot }).stdout.toString().trim();
+const buildNinja = readFileSync(resolve(repoRoot, "build.ninja"));
+const dolConfig = readFileSync(resolve(repoRoot, dolConfigPath));
+const sha = (v: Uint8Array) => createHash("sha256").update(v).digest("hex");
+const meta = { buildNinjaSha256: sha(buildNinja), dolConfigSha256: sha(dolConfig), headCommit: head, key: computeReportReuseKey({ buildNinja, dolConfig, headCommit: head }), version: 1 };
+const out = resolve(repoRoot, "build/GMSJ01/report.reuse-key.json");
+if (process.argv.includes("--write")) writeFileSync(out, JSON.stringify(meta, null, 2) + "\n");
+console.log({ head: head.slice(0, 8), dolConfigPath, key: meta.key.slice(0, 12), written: process.argv.includes("--write"), out });

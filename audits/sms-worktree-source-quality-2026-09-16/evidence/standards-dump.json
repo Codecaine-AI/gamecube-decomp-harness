@@ -1,0 +1,2092 @@
+[
+ {
+  "scope": "global",
+  "family": "literals_data_and_externs",
+  "id": "global_standard:literals-and-data-ownership",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Literals stay inline; extern in a .c file is banned",
+  "summary": [
+   "Promoting a string, float, or constant into named storage because generated output exposed an address is not allowed; source that keeps such an invented symbol is rejected.",
+   "An extern declaration in a .c file is banned outright: declare the symbol in its owning header or define the data in this translation unit.",
+   "The only permitted named-data case is recorded section-ownership evidence (.data, .rodata, .sdata, .sdata2 metadata, symbol metadata, or split boundaries); absent that evidence the literal stays inline."
+  ],
+  "do": [
+   "Keep constants, strings, and float literals inline; named data is required to carry recorded section-ownership or symbol metadata as evidence.",
+   "Verify .data, .rodata, .sdata, and .sdata2 ownership before naming any data; unverified naming is rejected.",
+   "Declare any needed symbol in its owning header or define the data in this TU; an extern in a .c file is never accepted."
+  ],
+  "do_not": [
+   "Create static literals or globals to force data order; such source is rejected.",
+   "Replace ordinary numeric literals such as 0.0F, 1.0F, or -F32_MAX with TU-local address-named symbols for relocation or data-order pressure.",
+   "Add fake data anchors, dummy statics, or data-order globals; these are hard failures, not style.",
+   "Move literals across translation units without split evidence."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c",
+   "extern_own_tu_data",
+   "numeric_literal_to_symbol",
+   "address_named_static_data",
+   "banned_pattern:*",
+   "resubmission_tombstone"
+  ],
+  "qa_enforcement": "hard_lint_plus_warning",
+  "preferred_repairs": [
+   "Keep literals inline; named data ownership is accepted only with recorded section ownership, symbol metadata, or surrounding-source evidence.",
+   "Fix symbol/split metadata instead of adding fake C storage to chase data order.",
+   "Replace address-named float statics such as un_804DDF74 or un_804DDCE4 with inline literals like 0.0f, 7.0f, -3000.0F, or 3000.0F; keep the symbol only when data ownership is proven."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "literal-extern-float-anchor",
+    "bad": "extern const f32 lbl_804DA60C;\n\nspeed = lbl_804DA60C;\n\nconst f32 lbl_804DA60C = 1.0F;",
+    "preferred": "speed = 1.0F;\n/* Keep named data only when symbol metadata and section ownership prove it. */",
+    "desc": [
+     "Introducing an extern, use, and definition together creates a data-order anchor instead of recovering source ownership.",
+     "Ordinary numeric constants should stay inline unless real data ownership is proven."
+    ]
+   },
+   {
+    "id": "literal-address-floats-inline",
+    "bad": "static const f32 un_804DDF74 = 0.0F;\nstatic const f32 un_804DDF70 = 7.0F;\n\nangle = *(f32 const*) &un_804DDF74;\nlimit = *(f32 const*) &un_804DDF70;",
+    "preferred": "angle = 0.0f;\nlimit = 7.0f;\n/* Keep ordinary float literals inline unless section ownership proves named data. */",
+    "desc": [
+     "Address-named float statics that only stand in for ordinary values are fake data ownership.",
+     "The repair is to remove the fake data symbol use and keep the literal at the source site."
+    ]
+   },
+   {
+    "id": "literal-real-owned-data",
+    "bad": "lbArchive_LoadSections(archive, (void**) &models,\n                       \"Vi0502_scene_models\", NULL);\n/* Real table/section storage is flattened into call-site literals. */",
+    "preferred": "static Vi0502Data vi0502_data = {\n    \"Vi0502_scene_models\",\n    \"Vi0502_scene_textures\",\n};\n\nlbArchive_LoadSections(archive, (void**) &models,\n                       vi0502_data.model_section, NULL);",
+    "desc": [
+     "Inline literals are preferred only when there is no data ownership evidence.",
+     "When symbol and section evidence prove real storage, model that storage as typed data instead of flattening it away."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "literals_data_and_externs",
+  "id": "global_standard:no-string-literal-symbol-regression",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Replacing string literals with data symbols is not allowed",
+  "summary": [
+   "String literals used as asset names, resource labels, assert/report text, and table labels are required to stay inline for code-matching changes.",
+   "Replacing a literal with a generated or global data symbol is a data regression and is rejected; the only permitted exception is maintainer-approved data-ownership evidence that explicitly scopes the change as data work."
+  ],
+  "do": [
+   "Keep source string literals inline when they are ordinary asset names, table labels, assert/report text, or resource names.",
+   "A string-literal-to-symbol change is accepted only as scoped data-ownership work backed by recorded evidence.",
+   "Land the code match that leaves the literal in place whenever the alternative only relocates a data section."
+  ],
+  "do_not": [
+   "Replace a literal such as \"MenMainBack_Top_joint\" with a symbol such as mnNameNew_803EE38C to chase data parity.",
+   "Convert strings into named globals because generated output exposed an address or another data section looks closer.",
+   "Ship a string-symbol replacement that creates report noise; it is rejected unless the change is explicitly scoped as data ownership and recorded evidence explains the tradeoff."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c",
+   "string_literal_to_symbol",
+   "packed_string_blob",
+   "banned_pattern:*",
+   "resubmission_tombstone"
+  ],
+  "qa_enforcement": "hard_lint",
+  "preferred_repairs": [
+   "Keep asset names, table labels, assert text, and report text inline when they are ordinary source literals.",
+   "Recover real string tables only with ownership evidence.",
+   "Packed blobs and pointer offsets used as a matching dodge are rejected."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output",
+   "maintainer-approved data ownership evidence"
+  ],
+  "examples": [
+   {
+    "id": "string-asset-label-inline",
+    "bad": "extern char mnNameNew_803EE38C[];\n\nHSD_ArchiveGetPublicAddress(archive, mnNameNew_803EE38C);",
+    "preferred": "HSD_ArchiveGetPublicAddress(archive, \"MenMainBack_Top_joint\");\n/* Keep ordinary asset labels inline unless data ownership is the explicit scope. */",
+    "desc": [
+     "Asset and resource labels should not become address-style globals just to chase relocation or data layout.",
+     "This replacement makes a source literal look like a data-symbol ownership claim."
+    ]
+   },
+   {
+    "id": "string-archive-section-inline",
+    "bad": "lbArchive_LoadSections(arg0, (void**) &AutoNamesList,\n                       mnNameNew_803EE6D0, &NotAllowedNamesList,\n                       mnNameNew_803EE6E4, NULL);",
+    "preferred": "lbArchive_LoadSections(arg0, (void**) &AutoNamesList,\n                       \"mnNameAutoNameUs\", &NotAllowedNamesList,\n                       \"mnNameRefuseNameUs\", NULL);\n/* Archive section/resource names stay inline unless data ownership is the reviewed scope. */",
+    "desc": [
+     "Archive section names are ordinary resource string literals at call sites.",
+     "Do not replace them with address-style string symbols just because the strings also exist in recovered data."
+    ]
+   },
+   {
+    "id": "string-packed-blob-offset",
+    "bad": "static char lbl_803EFB60[0xA8] = \"Can't get user_data.\\n\\0\\0\\0\";\n\nOSReport(lbl_803EFB60 + 0x28);",
+    "preferred": "OSReport(\"Can't get user_data.\\n\");\n/* Recover a real evidenced string table only when source ownership proves it. */",
+    "desc": [
+     "Packed string blobs and offset accessors are data-ordering dodges when ordinary source strings should remain inline.",
+     "Keep the source string at the use site unless the change is explicitly proving string-table ownership."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "literals_data_and_externs",
+  "id": "global_standard:text-before-data-matching",
+  "status": "merged",
+  "severity": "workflow_context",
+  "worker_facing": false,
+  "title": "Match text before chasing data sections",
+  "summary": [
+   "For matching changes, text-section function progress is the primary objective.",
+   "Data, literal, symbol, and split edits are high-risk secondary work: keep them only when required for the claimed code match, backed by section ownership or symbol metadata, or explicitly scoped as data cleanup."
+  ],
+  "do": [
+   "Prioritize verified text-section function closure or matched-code progress over data-section parity.",
+   "Keep data, literal, symbol, or split edits only when they are required for the code match, backed by section ownership or metadata, or explicitly scoped as data cleanup.",
+   "Narrow or revert data edits that create noisy report regressions or false-positive section movement when the code match can land without them.",
+   "Defer broad data-section matching until the translation unit's text section is complete unless a data owner issue blocks the code match."
+  ],
+  "do_not": [
+   "Chase data-section parity as routine matching work before the translation unit's text section is complete.",
+   "Add or move static data, literal externs, local assert overrides, fake helpers, fake anchors, or split churn solely to quiet a data diff.",
+   "Mix a focused code match with unrelated .sdata, .sdata2, .rodata, or symbol cleanup.",
+   "Retain data changes that create section-regression noise unless the change is explicitly about data and the evidence explains the tradeoff."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c",
+   "string_literal_to_symbol",
+   "numeric_literal_to_symbol",
+   "packed_string_blob"
+  ],
+  "qa_enforcement": "pipeline_owned_plus_data_lint",
+  "preferred_repairs": [
+   "Handle code-quality data/literal regressions through the literals/data/externs family.",
+   "Leave broad text-vs-data prioritization to workflow and runner validation policy."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "text-before-data-code-match-blocked-by-data",
+    "bad": "/* PR note */\nAll functions in this TU are exact.\n/* Matching status is still claimed without mentioning unresolved .sdata2 layout. */",
+    "preferred": "/* PR note */\nText functions are exact.\nData layout remains unresolved and is tracked separately.\n/* Do not convert data noise into fake C anchors just to claim the TU is done. */",
+    "desc": [
+     "Text and data status are different claims.",
+     "A code-matching change should not hide unresolved data layout behind source-level anchors or vague verification notes."
+    ]
+   },
+   {
+    "id": "text-before-data-sdata2-helper",
+    "bad": "static void sdata2_order(void)\n{\n    (void) 0.0F;\n    (void) 1.0F;\n}",
+    "preferred": "speed = 1.0F;\nangle = 0.0F;\n/* Use metadata fixes or explicit data scope for real ownership work. */",
+    "desc": [
+     "A helper that exists only to force literal order is data-matching work, not normal source cleanup.",
+     "Keep this kind of tactic narrow and evidence-bound instead of blending it into implementation style."
+    ]
+   },
+   {
+    "id": "text-before-data-table-regression",
+    "bad": "static u8 table_blob[] = {\n    0x10, 0x20, 0x30, 0x40,\n};\n/* Large table reshaping is mixed into a focused code match. */",
+    "preferred": "/* Land the verified text match first. */\n/* Keep table reshaping in a data-scoped change with section evidence. */",
+    "desc": [
+     "Large table and storage reshaping can create data regressions even when nearby C looks cleaner.",
+     "The standard is checking whether data parity work is justified by the code-match scope."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "literals_data_and_externs",
+  "id": "global_standard:data-sections-and-tu-splits",
+  "status": "merged",
+  "severity": "required",
+  "worker_facing": false,
+  "title": "Respect data sections and translation-unit split evidence",
+  "summary": [
+   "Section placement, symbol size/scope, local labels, assert filenames, string clusters, object names, and float groups are part of matching.",
+   "Fix metadata instead of compensating with fake C storage."
+  ],
+  "do": [
+   "Treat .data, .rodata, .sdata, .sdata2, .sbss, and split ownership as match evidence.",
+   "Fix symbols.txt size, type, scope, or local labels when metadata is wrong.",
+   "Use assert filenames, object names, strings, and float groups as TU split evidence."
+  ],
+  "do_not": [
+   "Add dummy C storage to compensate for bad symbol metadata.",
+   "Move data across translation units without split evidence.",
+   "Treat section placement as cosmetic."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Fix section ownership or symbol metadata instead of compensating with fake source storage.",
+   "Use split evidence under the literals/data/externs family."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "data-section-split-boundary",
+    "bad": "/* Move copied Purin code into a new file only. */\n#include \"ftkirbyspecialpurin.h\"\n/* configure.py, splits.txt, and symbols.txt are left unchanged. */",
+    "preferred": "/* Add the new TU source and header. */\n/* Update configure.py, splits.txt, and symbols.txt for text/data/sdata/sdata2 ownership. */\n/* Remove the old copied block from the donor TU. */",
+    "desc": [
+     "A real TU split needs source, build, split, and symbol ownership to move together.",
+     "Adjacent boundaries and local labels are part of the source cleanup, so splitting only the C file is incomplete."
+    ]
+   },
+   {
+    "id": "data-section-symbol-metadata",
+    "bad": "static u8 gmopening_804D6A10;\nstatic u8 gmopening_804D6A11;\n/* C storage is added to compensate for symbol layout. */",
+    "preferred": "/* config/GALE01/symbols.txt */\n/* Correct the .sbss symbol scope and local labels at the owning addresses. */\n/* Then keep the C source focused on the recovered behavior. */",
+    "desc": [
+     "Section ownership problems should usually be fixed in symbol or split metadata, not by inventing C storage.",
+     "Linkage or section issues belong in metadata; adding C storage hides the real ownership problem."
+    ]
+   },
+   {
+    "id": "data-section-owned-sdata2-move",
+    "bad": "extern f32 lbl_804D1234;\n\nvalue = lbl_804D1234;\n/* The float is left owned by the old object after the function moved. */",
+    "preferred": "/* Move the source owner and the .sdata2 symbol metadata together. */\nvalue = owner_table->scale;\n/* Update callers and headers to the new owner instead of leaving address-derived externs. */",
+    "desc": [
+     "When code ownership moves, adjacent data ownership often moves with it.",
+     "Do not compensate for stale split metadata by leaving address-derived externs in the source."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "asserts_reports_and_header_inlines",
+  "id": "global_standard:header-inlines",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Existing inlines and helpers are required; expanded bodies are rejected",
+  "summary": [
+   "Expanded header asserts, especially from jobj.h, must be mapped back to the existing inline/helper when line numbers and local evidence identify the source-level operation; keeping the expanded body is rejected.",
+   "Local helper boundaries must be restored when duplicated expanded bodies or sibling functions show an authored helper shape."
+  ],
+  "do": [
+   "Use assert file and line numbers to find the owning header inline.",
+   "Use the existing HSD_JObjSet*, HSD_JObjGet*, and local inline forms when they represent the operation.",
+   "Use GET_JOBJ only when local evidence supports that access shape.",
+   "Restore local inline helper boundaries when sibling functions share the same body shape and objdiff supports the helper call or inline."
+  ],
+  "do_not": [
+   "Keep expanded __assert(\"jobj.h\", line, ...) when the header inline is identifiable.",
+   "Copy or paste jobj.h inline helper bodies into stage, item, or fighter TUs.",
+   "Duplicate a helper instead of calling the canonical HSD_JObj* helper or adding the missing helper at the owning API layer.",
+   "Treat GET_JOBJ as unconditional cleanup.",
+   "Redefine or manually expand header helpers to force a match without objdiff evidence.",
+   "Duplicate a local helper body into multiple wrappers when a shared inline helper represents the source shape."
+  ],
+  "qa_rule_ids": [
+   "copied_jobj_inline",
+   "unrolled_assert"
+  ],
+  "qa_enforcement": "partial_hard_lint_plus_repair_hints",
+  "preferred_repairs": [
+   "Use header file/line evidence to recover HSD_JObj* helpers or the owning inline.",
+   "Use GET_JOBJ only when local evidence supports that access shape.",
+   "Restore shared local helpers, such as quicksort-style wrapper bodies, instead of keeping duplicated expanded versions."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "header-inline-jobj-helper",
+    "bad": "static inline void LocalSetMtxDirty(HSD_JObj* jobj)\n{\n    if (jobj == NULL) {\n        __assert(\"jobj.h\", 0x2F4, \"jobj\");\n    }\n    jobj->flags |= JOBJ_MTX_DIRTY;\n}",
+    "preferred": "HSD_JObjSetMtxDirty(jobj);\n/* Or use the shared WithMtxDirty variant when that is the evidenced helper. */",
+    "desc": [
+     "Local fake helpers that mirror jobj.h asserts and writes should be compared against the owning header helper.",
+     "The fix path is to recover the canonical helper rather than copy the inline body into each TU."
+    ]
+   },
+   {
+    "id": "header-inline-get-jobj-evidence",
+    "bad": "jobj = GET_JOBJ(gobj);\nHSD_JObjSetTranslateX(jobj, x);",
+    "preferred": "jobj = HSD_GObjGetHSDObj(gobj);\nHSD_JObjSetTranslateX(jobj, x);\n/* Use GET_JOBJ only when local evidence supports that access shape. */",
+    "desc": [
+     "A familiar helper is not automatically the authored helper for every TU.",
+     "Use the local access form that matches surrounding source and objdiff evidence."
+    ]
+   },
+   {
+    "id": "header-inline-local-quicksort",
+    "bad": "void sort_ascending(TySortElem* base, s32 lo, s32 hi)\n{\n    /* Full quicksort body is pasted here. */\n}\n\nvoid sort_descending(TySortElem* base, s32 lo, s32 hi)\n{\n    /* Nearly the same quicksort body is pasted again. */\n}",
+    "preferred": "static inline void quicksort(TySortElem* base, s32 lo, s32 hi)\n{\n    /* Shared evidenced helper body. */\n}\n\nvoid sort_ascending(TySortElem* base, s32 lo, s32 hi)\n{\n    PAD_STACK(16);\n    quicksort(base, lo, hi);\n}",
+    "desc": [
+     "Expanded sibling helper bodies should be compared against a shared local inline/helper boundary.",
+     "Restoring a shared helper shape avoids leaving duplicated expanded logic in sibling functions."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "asserts_reports_and_header_inlines",
+  "id": "global_standard:assert-report-macros",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Project assert and report macros are required when they represent the source",
+  "summary": [
+   "Raw assert/report expansions must become HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, or OSPanic forms whenever the file, line, message, and side effects match local project idioms; a shipped raw __assert block that had a macro form is rejected.",
+   "There is no exception: an existing macro form must replace the raw expansion, and real report/panic side effects may not be dropped."
+  ],
+  "do": [
+   "Use HSD_ASSERT for plain assertions.",
+   "Use HSD_ASSERTMSG or HSD_ASSERTREPORT when message or report side effects are real.",
+   "Preserve real OSReport and OSPanic behavior while removing generated assert blocks."
+  ],
+  "do_not": [
+   "Leave direct __assert blocks when an existing macro is the source-level form.",
+   "Invent fake assert strings, report globals, or dummy storage to force a match.",
+   "Drop a real report or panic side effect."
+  ],
+  "qa_rule_ids": [
+   "unrolled_assert",
+   "fake_assert_macro",
+   "assert_idiom_downgrade"
+  ],
+  "qa_enforcement": "hard_lint",
+  "preferred_repairs": [
+   "Restore HSD_ASSERT, HSD_ASSERTMSG, HSD_ASSERTREPORT, OSReport, or OSPanic forms when they represent the source.",
+   "Preserve real report/panic side effects while removing raw assert expansions."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "assert-report-direct-asserts",
+    "bad": "if (obj == NULL) {\n    __assert(__FILE__, 0x88, \"obj\");\n}",
+    "preferred": "HSD_ASSERT(0x88, obj);",
+    "desc": [
+     "A direct assert block should become the project assert macro when file, line, condition, and side effects match.",
+     "Leave expanded forms only when the macro form would change object bytes or behavior."
+    ]
+   },
+   {
+    "id": "assert-report-macro-osreport",
+    "bad": "if (archive == NULL) {\n    OSReport(\"archive is null\\n\");\n    __assert(__FILE__, 0x154, \"archive\");\n}",
+    "preferred": "HSD_ASSERTREPORT(0x154, archive, \"archive is null\\n\");\n/* Preserve the report side effect while using the project macro form. */",
+    "desc": [
+     "Plain raw assert blocks are not the same as report-bearing assert blocks.",
+     "Use the macro family member that preserves message and report behavior."
+    ]
+   },
+   {
+    "id": "assert-fake-message-helper",
+    "bad": "static inline char* grKongo_AssertMsg(void)\n{\n    return &grKg_803E1A00[0];\n}\n\nif (gp->gv.kongo.u.taru.keep == NULL) {\n    __assert(grKg_803E1858, 1719, grKongo_AssertMsg());\n}",
+    "preferred": "HSD_ASSERT(1719, gp->gv.kongo.u.taru.keep);\n/* Do not invent helper functions or data symbols just to feed assert text. */",
+    "desc": [
+     "A helper whose only purpose is to supply assert text is a generated/data-order tactic, not authored source style.",
+     "Use HSD_ASSERT for plain assertions; reserve HSD_ASSERTMSG for real custom messages with source evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "typed_access_and_pointer_math",
+  "id": "global_standard:typed-fields-over-pointer-math",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Typed fields, union arms, and accessors are required; M2C_FIELD and pointer math may not ship",
+  "summary": [
+   "When a type can describe an access, real fields, correct FighterVars/GroundVars/ItemVars union arms, accessors, or temporary internal structs are required; M2C_FIELD and raw pointer arithmetic may not ship in accepted source.",
+   "The single permitted exception is a type_erasing_cast surfaced for llm_review, which must be justified in the attempt summary; a raw ((u8*) obj) + offset access without that review is rejected."
+  ],
+  "do": [
+   "Replace raw offsets with real fields when the type is known; a shipped byte offset over a known type is rejected.",
+   "Use the correct fighter, ground, and item union arms; borrowing unrelated fields is not allowed.",
+   "In stage TUs, use or add the GroundVars union arms owned by that map/stage family; borrowing another map's arm is rejected.",
+   "Recover the type or field so M2C_FIELD is removed before ship; a retained type_erasing_cast requires recorded llm_review justification."
+  ],
+  "do_not": [
+   "Ship ((u8*) obj) + offset when a field, union arm, helper, or temporary struct can express the access.",
+   "Add or retain M2C_FIELD when the real type can be recovered.",
+   "Use unrelated union arms such as gv.arwing in another stage TU because the offsets happen to line up.",
+   "Use unrelated union arms because generated output guessed them."
+  ],
+  "qa_rule_ids": [
+   "stage_ground_var_owner",
+   "m2c_field_use",
+   "type_erasing_cast",
+   "pointer_offset_arithmetic"
+  ],
+  "qa_enforcement": "partial_hard_lint_plus_warning",
+  "preferred_repairs": [
+   "Replace byte offsets with real fields, correct union arms, helpers, or temporary typed structs.",
+   "Use or add the owning GroundVars/FighterVars/ItemVars arm instead of borrowing unrelated layouts.",
+   "Keep a type_erasing_cast only when the llm_review exception is recorded and justified in the attempt summary."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "typed-item-vars-owning-base",
+    "bad": "Item* ip = GET_ITEM(gobj);\nvalue = *(s32*) ((u8*) ip + 0xE38);",
+    "preferred": "typedef struct itArwingLaser_ItemVars {\n    char x0_pad[0x64];\n    s32 xE38;\n} itArwingLaser_ItemVars;\n\nvalue = ip->xDD4_itemVar.arwinglaser.xE38;",
+    "desc": [
+     "Recover item-var fields from the owning Item.xDD4 base, not from the first offset that happens to be used.",
+     "The typed union arm documents ownership and keeps later offsets from drifting."
+    ]
+   },
+   {
+    "id": "typed-stage-ground-vars-owner",
+    "bad": "/* grIceMt.c */\ngp->gv.corneria.xC8 = 0;",
+    "preferred": "/* grIceMt.c */\ngp->gv.icemt.xC8 = 0;\n/* Add the owning icemt GroundVars field first when it is missing. */",
+    "desc": [
+     "Borrowing another stage family's union arm because offsets line up hides the owning stage type.",
+     "Use or add the GroundVars arm owned by the current map or stage family."
+    ]
+   },
+   {
+    "id": "typed-m2c-field-bridge",
+    "bad": "x = *(s32*) ((u8*) gp + 0xC8);\ny = *(s32*) ((u8*) gp + 0xCC);",
+    "preferred": "x = M2C_FIELD(gp, s32*, 0xC8);\ny = M2C_FIELD(gp, s32*, 0xCC);\n/* Better: recover the struct fields and replace the bridge when evidence is available. */",
+    "desc": [
+     "Raw byte arithmetic is the least reviewable bridge when a type is not recovered yet.",
+     "A real field is preferred; M2C_FIELD is a searchable temporary bridge while the owner type is still unknown."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "codegen_tactics",
+  "id": "global_standard:matching-tactics-need-evidence",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "A matching tactic without recorded evidence is rejected",
+  "summary": [
+   "PAD_STACK, declaration order changes, widened local lifetimes, dummy locals, volatile locals, manual inline expansion, direct global access, and temporary padded structs are not allowed in reviewable source unless recorded build/objdiff/regression evidence justifies each one.",
+   "Tactic presence without that recorded evidence is rejected; the tactic's only permitted basis is the objdiff/regression benefit it demonstrably produces."
+  ],
+  "do": [
+   "Keep tactic use narrow and record the verifier evidence that justifies it; an unrecorded tactic is rejected.",
+   "Check adjacent functions when a tactic can perturb codegen, data order, or local stack shape.",
+   "Remove the tactic once the underlying type, control flow, or data ownership is understood."
+  ],
+  "do_not": [
+   "Use a tactic that shifts nearby functions or hides a real type.",
+   "Ship stack/register/local churn as permanent style without recorded objdiff benefit.",
+   "Keep broad tactics without recorded evidence and a cleanup reason.",
+   "Replace PAD_STACK(N) with UNUSED u8 sp_pad[N] or similar dummy local buffers as source style."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c",
+   "volatile_local_tactic"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Clean C is required first; a tactic is accepted only after clean C is shown to fail.",
+   "Keep tactics narrow and retain them only with recorded objdiff/regression evidence.",
+   "Replace local extern/inlining steering with source structure or small helper layers.",
+   "Use PAD_STACK(N) for intentional stack padding instead of manual UNUSED sp_pad arrays, and retain it only with recorded objdiff evidence."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "matching-pad-stack-sp-pad",
+    "bad": "s32 sp[4];\nUNUSED u8 sp_pad[8];\ns32 i;\n\nUseStack(sp);",
+    "preferred": "s32 sp[4];\ns32 i;\n\nPAD_STACK(8);\n\nUseStack(sp);\n/* Keep stack padding narrow and backed by objdiff evidence. */",
+    "desc": [
+     "Manual UNUSED padding arrays are dummy locals posing as source structure.",
+     "When intentional padding is required, use PAD_STACK(N) and keep the tactic evidence-bound."
+    ]
+   },
+   {
+    "id": "matching-helper-replaces-dummy-local",
+    "bad": "u8 pad[8];\n\nresult = CalculateA1(item, state);\nreturn result;",
+    "preferred": "static inline s32 inlineA1(Item* item, s32 state)\n{\n    return CalculateA1(item, state);\n}\n\nreturn inlineA1(item, state);",
+    "desc": [
+     "A dummy stack local is a tactic, not source structure.",
+     "If an authored helper boundary explains the stack shape, prefer the helper over permanent padding."
+    ]
+   },
+   {
+    "id": "sdata2-order-helper",
+    "bad": "void mnDiagram_80241310(s32 arg0, s32 arg1, s32 arg2)\n{\n    /// @todo Constant-pool anchors: these dead literals emit no code but\n    ///       reserve .sdata2 slots for mnDiagram_804DBF94 (-1.0f) and\n    ///       mnDiagram_804DBF98 (the s32-to-f32 bias).\n    (void) -1.0F;\n    (void) 45036017748541",
+    "preferred": "/// @todo .sdata2 order hack\nstatic void order_sdata2(void)\n{\n    (void) -1.0f;\n    (void) S32_TO_F32;\n}\n/* Keep unavoidable .sdata2 ordering helpers isolated and use named literals/macros instead of magic constants. */",
+    "desc": [
+     "When a narrow .sdata2 ordering helper is accepted for a match, keep the tactic isolated from ordinary function logic and mark it as cleanup debt.",
+     "Use the project macro for the s32-to-f32 bias instead of spelling the raw double literal."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "codegen_tactics",
+  "id": "global_standard:avoid-pragmas-register-asm",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "New pragmas, register steering, and inline assembly are not allowed in normal source",
+  "summary": [
+   "Pragmas, register keywords, and inline assembly are banned in normal decomp source; source that adds them is rejected.",
+   "The only permitted exception is a case where reasonable C does not exist, and it must be scoped tightly and carry adjacent-function evidence that it does not harm neighbors."
+  ],
+  "do": [
+   "Scope any permitted pragma with a tight push/pop block; an unbalanced or unscoped pragma is rejected.",
+   "A pragma or inline-assembly exception is accepted only with recorded adjacent-function evidence.",
+   "Remove register and similar steering; retaining it when it is not required is rejected."
+  ],
+  "do_not": [
+   "Add #pragma global_optimizer off for normal source.",
+   "Leave unbalanced or empty pragma blocks.",
+   "Use inline assembly outside SDK-like code while reasonable C alternatives remain.",
+   "Replace a recoverable C body with raw asm, such as asm BOOL THPInit, while reasonable C remains available."
+  ],
+  "qa_rule_ids": [
+   "register_keyword",
+   "inline_asm",
+   "novel_pragma",
+   "codegen_pragma"
+  ],
+  "qa_enforcement": "hard_lint_plus_warning",
+  "preferred_repairs": [
+   "Remove register, inline asm, and pragma steering from normal source; a narrow exception is accepted only when proven.",
+   "A retained pragma must be tightly scoped with validated adjacent functions.",
+   "Recover or restore the C implementation for normal functions such as THPInit; raw inline assembly is accepted only when no reasonable C exists."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "avoid-inline-asm-thpinit",
+    "bad": "asm BOOL THPInit(void)\n{\n    nofralloc\n    mflr r0\n    ...\n}",
+    "preferred": "BOOL THPInit(void)\n{\n    /* Recover the C body and keep raw asm out of normal source. */\n    ...\n}",
+    "desc": [
+     "Raw inline assembly is not acceptable normal decomp source when a C implementation can be recovered.",
+     "Recover the C implementation instead of retaining an asm body for normal source."
+    ]
+   },
+   {
+    "id": "avoid-register-keyword",
+    "bad": "register HSD_GObj* gobj = fighter;\nregister Fighter* fp = GET_FIGHTER(gobj);\nreturn fp->x221F_b4;",
+    "preferred": "HSD_GObj* gobj = fighter;\nFighter* fp = GET_FIGHTER(gobj);\nreturn fp->x221F_b4;\n/* Do not add register steering as ordinary matching style. */",
+    "desc": [
+     "The register keyword is a codegen-steering tactic and should not be introduced as routine source cleanup.",
+     "Reviewable source should remove register and similar tactic keywords unless a narrow exception is proven."
+    ]
+   },
+   {
+    "id": "codegen-pragma-todo-exception",
+    "bad": "/// @note Required for un_80300B58 to remain an exact match.\n#pragma push\n#pragma global_optimizer off\nbool un_80300B58(int arg0)\n{\n    ...\n}\n#pragma pop",
+    "preferred": "/// @todo Find a solution without the pragma\n#pragma push\n#pragma global_optimizer off\nbool un_80300B58(int arg0)\n{\n    ...\n}\n#pragma pop",
+    "desc": [
+     "When a narrow pragma is accepted temporarily, describe it as cleanup debt rather than a permanent source fact.",
+     "A pragma exception should stay tightly scoped while preserving pressure to find the clean C form."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "names_defines_headers_and_prototypes",
+  "id": "global_standard:conservative-naming",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Semantic names are allowed only when the role is evidenced",
+  "summary": [
+   "Names must improve reviewability without inventing meaning; an invented semantic name is rejected.",
+   "A semantic name is required to carry supporting evidence; without it, fn_/lbl_/address-style names must stay, and temp_rXX names must be cleaned once a local role is clear."
+  ],
+  "do": [
+   "Use a semantic name only when source, callsite, data, or review evidence supports the role.",
+   "Keep address-style names when meaning is not proven; renaming them without evidence is rejected.",
+   "Use short local role names such as fp, ip, gp, gobj, and jobj when roles are clear."
+  ],
+  "do_not": [
+   "Invent semantic names from guesses.",
+   "Rename address-style symbols before source meaning is supported.",
+   "Leave temp_rXX-style names when a clear local role is known."
+  ],
+  "qa_rule_ids": [
+   "m2c_residue_names"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Use a semantic name only when local evidence proves the role.",
+   "Replace generated temp/var/phi local names with conservative role names when the role is clear."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "conservative-address-function-name",
+    "bad": "s32 mnName_GetUnlockedColumnCount(void)\n{\n    return mnName_802388D4();\n}\n/* Semantic name is guessed from behavior only. */",
+    "preferred": "s32 mnName_802388D4(void)\n{\n    return count;\n}\n/* Keep the address-style name until source or review evidence proves the role. */",
+    "desc": [
+     "Do not invent semantic names just because a function body became easier to understand.",
+     "Preserve address-style names when stronger naming evidence is not present."
+    ]
+   },
+   {
+    "id": "conservative-evidenced-name",
+    "bad": "static s32 lbl_804D6B10;\n/* The value is known from map/debugger evidence but the source keeps an address label. */",
+    "preferred": "static s32 g_debug_menu_cursor;\n/* Use the semantic name when source, map, debugger, or callsite evidence proves the role. */",
+    "desc": [
+     "Conservative naming does not mean refusing semantic names forever.",
+     "Use the semantic name when the role is evidenced strongly enough to improve reviewability."
+    ]
+   },
+   {
+    "id": "naming-m2c-residue-local",
+    "bad": "s32 temp_r30 = var_r4 + phi_f1;\n\nreturn temp_r30;",
+    "preferred": "s32 count = value + delta;\n\nreturn count;\n/* Use fp, ip, gp, gobj, or jobj when those roles are evidenced. */",
+    "desc": [
+     "Generated register names are decompiler residue.",
+     "Source should either use evidenced role names or preserve address-style globals when semantics are unknown."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "names_defines_headers_and_prototypes",
+  "id": "global_standard:no-define-alias-global-renames",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Aliasing global renames with defines is not allowed",
+  "summary": [
+   "A global, extern, or data symbol is required to have one canonical name backed by source, symbol, map, or review evidence.",
+   "Hiding a speculative or convenience rename behind an identifier-to-identifier define is rejected, and duplicate address-commented extern declarations for the same data address are rejected; the only permitted rename is a direct, evidence-backed one."
+  ],
+  "do": [
+   "Preserve existing global, data, and extern names; a rename is accepted only when it is evidence-backed.",
+   "Keep one canonical declaration for one known data address in the owning scope.",
+   "Perform a real scoped rename only when evidence supports it, and update references directly."
+  ],
+  "do_not": [
+   "Add #define old_name new_name or #define new_name old_name to hide a renamed variable.",
+   "Keep two extern declarations with different names for the same address-commented data symbol.",
+   "Rename address-style globals to semantic names because an external mirror, decompiler, or AI output guessed the role.",
+   "Use a define as an alias to avoid updating call sites or to make a guessed semantic name appear accepted."
+  ],
+  "qa_rule_ids": [
+   "define_alias"
+  ],
+  "qa_enforcement": "hard_lint_plus_warning",
+  "preferred_repairs": [
+   "Keep one canonical symbol name or perform an evidenced scoped rename directly.",
+   "Guessed names and missing declarations hidden behind defines are rejected."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output",
+   "maintainer-approved rename evidence"
+  ],
+  "examples": [
+   {
+    "id": "define-alias-central-symbol-rename",
+    "bad": "#define HSD_AudioGetAuxHeapSize AXDriver_8038E034\n\nsize = HSD_AudioGetAuxHeapSize();",
+    "preferred": "/* config/GALE01/symbols.txt */\n/* Rename .text:0x8038E034 from AXDriver_8038E034 to HSD_AudioGetAuxHeapSize. */\nsize = HSD_AudioGetAuxHeapSize();",
+    "desc": [
+     "A canonical rename belongs in central symbol metadata or direct references, not in a source alias.",
+     "Perform the evidenced rename once instead of masking duplicate names with a define."
+    ]
+   },
+   {
+    "id": "define-alias-duplicate-extern",
+    "bad": "extern HSD_Archive* lbl_804D6A40; /* 804D6A40 */\nextern HSD_Archive* menu_archive; /* 804D6A40 */\n#define menu_archive lbl_804D6A40",
+    "preferred": "extern HSD_Archive* lbl_804D6A40;\n/* Or perform one evidenced scoped rename and update references directly. */",
+    "desc": [
+     "One address should not have multiple accepted source names hidden behind defines.",
+     "Duplicate externs and aliases make provenance harder to audit."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "names_defines_headers_and_prototypes",
+  "id": "global_standard:truthful-headers-and-includes",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Headers, prototypes, and includes must be truthful",
+  "summary": [
+   "When a body proves a signature, updating the owning header and removing UNK_RET/UNK_PARAMS is required; leaving a mismatched prototype is rejected.",
+   "Established include style is required and require-protos checks must run when prototype or include surfaces change; there are no exceptions to declaring a symbol in its real owning header."
+  ],
+  "do": [
+   "Update prototypes when a function body proves the signature.",
+   "Put declarations in the real owning header; a fake source-local declaration is rejected.",
+   "Use established local include style and run python configure.py --require-protos when applicable."
+  ],
+  "do_not": [
+   "Add fake source-local declarations when the real header should own them.",
+   "Leave mismatched prototypes after recovering a function body.",
+   "Hide missing prototypes behind local declarations.",
+   "Macro-rename identifiers around an include to dodge prototype conflicts."
+  ],
+  "qa_rule_ids": [
+   "extern_in_c",
+   "bare_local_prototype",
+   "shadowed_declaration",
+   "define_alias"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Move declarations to the owning header when a body proves the signature.",
+   "Remove source-local declarations that hide missing prototypes or same-TU visibility.",
+   "Fix the owning header signature and include it normally instead of using #define/#undef prototype shims around the include."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "headers-include-proto-shim",
+    "bad": "#define __THPReadFrameHeader __THPReadFrameHeader_proto\n#define THPDec_80330158 THPDec_80330158_proto\n#include <dolphin/thp/thp.h>\n#undef THPDec_80330158\n#undef __THPReadFrameHeader\n\nstatic u8 __THPReadFrameHeader(THPFileInfo* info);",
+    "preferred": "#include <dolphin/thp/thp.h>\n\n/* dolphin/thp/thp.h owns the recovered signatures. */\nstatic u8 __THPReadFrameHeader(THPFileInfo*);\nu8 THPDec_80330158(THPFileInfo* info);",
+    "desc": [
+     "Macro-renaming declarations around an include hides a prototype conflict instead of fixing the owning header.",
+     "Repair the owning header signature and include it normally instead of using macro/prototype shims around the include."
+    ]
+   },
+   {
+    "id": "truthful-source-local-prototype",
+    "bad": "/* gmresult.c */\nu32 Ground_801C1DAC(void);\n\nvoid gmResult_80174468(void)\n{\n    Ground_801C1DAC();\n}",
+    "preferred": "/* ground.h */\nu32 Ground_801C1DAC(void);\n\n/* gmresult.c */\n#include <melee/gr/ground.h>\n\nvoid gmResult_80174468(void)\n{\n    Ground_801C1DAC();\n}",
+    "desc": [
+     "A non-static source-local prototype hides missing declaration ownership.",
+     "Put the declaration in its owning header and include that header normally."
+    ]
+   },
+   {
+    "id": "truthful-header-prototype",
+    "bad": "/* mnname.h */\nUNK_RET mnName_802388D4(UNK_PARAMS);\n\n/* mnname.c */\ns32 mnName_802388D4(s32 slot) { return slot + 1; }",
+    "preferred": "/* mnname.h */\ns32 mnName_802388D4(s32 slot);\n\n/* mnname.c */\ns32 mnName_802388D4(s32 slot) { return slot + 1; }",
+    "desc": [
+     "When the body proves a signature, the owning header should stop advertising UNK_RET and UNK_PARAMS.",
+     "Source recovery should improve the public declaration surface too."
+    ]
+   },
+   {
+    "id": "truthful-pointer-return-storage-boundary",
+    "bad": "int grHomeRun_8021EC58(int arg);\n\ngp->gv.unk.xCC = grHomeRun_8021EC58(0);\ntext = (HSD_Text*) gp->gv.unk.xCC;",
+    "preferred": "HSD_Text* grHomeRun_8021EC58(int arg);\n\ngp->gv.unk.xCC = (intptr_t) grHomeRun_8021EC58(0);\ntext = (HSD_Text*) (intptr_t) gp->gv.unk.xCC;\n/* Keep the pointer type on the producer; use intptr_t only at the generic storage boundary. */",
+    "desc": [
+     "When a recovered function body proves a pointer return, the prototype should expose that pointer type.",
+     "Generic storage may still need a local bridge, but that bridge should not become the semantic type of the function."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "authored_source_shape",
+  "id": "global_standard:natural-loops",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Natural loops are required; repeated generated blocks are rejected",
+  "summary": [
+   "Repeated blocks that vary by an index, pointer, flag slot, or stride are original loops and must be recovered as natural for/while/do-while forms, including exact int counters when MWCC loop shape matters.",
+   "Keeping copied generated blocks is rejected; the only permitted exception is an unrolled shape retained after recorded evidence shows every natural loop form fails."
+  ],
+  "do": [
+   "Use for, while, or do while when repeated source differs only by index, pointer, counter, or stride; a retained copied block is rejected.",
+   "Keep the original base pointer available when later code still needs it.",
+   "Record verifier evidence when every cleaner loop form fails and an unrolled shape must remain."
+  ],
+  "do_not": [
+   "Leave repeated generated-looking blocks because they currently match.",
+   "Mutate the only base pointer copy when later codegen still needs the base address.",
+   "Ship unrolled code as finished source without recorded evidence that natural loop forms fail."
+  ],
+  "qa_rule_ids": [
+   "m2c_goto_label",
+   "m2c_residue_names"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Recover natural for/while/do-while forms; a retained repeated generated block is accepted only with recorded negative evidence.",
+   "Preserve the original base pointer when later code still needs it."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "natural-loop-pointer-stride",
+    "bad": "if (count != 0) {\n    cur = groups;\n    do {\n        HSD_SynthSFXGroupDataReaddress(cur);\n        cur++;\n        count--;\n    } while (count != 0);\n}",
+    "preferred": "for (i = 0; i < count; i++) {\n    HSD_SynthSFXGroupDataReaddress(&groups[i]);\n}\n/* Keep the source loop zero-or-more and indexable when the array count is known. */",
+    "desc": [
+     "A guarded pointer-walk can be decompiler residue for an ordinary counted loop.",
+     "The counted loop exposes the authored array shape and avoids preserving control flow solely because it currently matches."
+    ]
+   },
+   {
+    "id": "natural-loop-indexed-slots",
+    "bad": "chars[0] = opp_data[0].x3;\nchars[1] = opp_data[1].x3;\nchars[2] = opp_data[2].x3;\nchars[3] = opp_data[3].x3;",
+    "preferred": "for (i = 0; i < count; i++) {\n    chars[i] = opp_data[i].x3;\n}\n/* Test generated-looking adjacent copies as a counted loop. */",
+    "desc": [
+     "Repeated adjacent assignments that only advance an index should be tested as a natural loop.",
+     "Preserving unrolled generated residue makes the source harder to review when a counted loop fits the local shape."
+    ]
+   },
+   {
+    "id": "natural-loop-break-hitboxes",
+    "bad": "if (hitbox0 != NULL && HitboxCollides(hitbox0)) return true;\nif (hitbox1 != NULL && HitboxCollides(hitbox1)) return true;\nif (hitbox2 != NULL && HitboxCollides(hitbox2)) return true;\nif (hitbox3 != NULL && HitboxCollides(hitbox3)) return true;",
+    "preferred": "for (i = 0; i < ARRAY_SIZE(hitboxes); i++) {\n    if (hitboxes[i] != NULL && HitboxCollides(hitboxes[i])) {\n        return true;\n    }\n}",
+    "desc": [
+     "Repeated checks with the same exit condition are often an authored loop with an early return.",
+     "The loop keeps the control-flow intent visible instead of freezing four generated copies."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "authored_source_shape",
+  "id": "global_standard:infer-authored-source-style",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Authored source style must be inferred from local analogs",
+  "summary": [
+   "Matching is required to reconstruct the likely original authored source, not arbitrary C that moves a score; a shape that only moves a score is rejected.",
+   "Matched siblings, nearby files, headers, macros, naming habits, control-flow idioms, and review evidence are required inputs for inferring the original developers' local standards before any generated, permuter-shaped, or data-driven source is retained."
+  ],
+  "do": [
+   "Treat matched local source and headers as authoritative evidence for how original developers in the subsystem wrote loops, helpers, names, declarations, macros, and access patterns.",
+   "A retained source hypothesis is required to fit local authored style and verify with objdiff; one that only chases data parity or decompiler output is rejected.",
+   "Record negative evidence when local analogs contradict a generated or external suggestion.",
+   "When review identifies a repeated issue class, sweep the touched files or change set for the same pattern; fixing only the commented hunks is not accepted."
+  ],
+  "do_not": [
+   "Retain generated, permuter-shaped, or data-driven source when nearby human-written code shows a cleaner local convention.",
+   "Let external mirrors, decompiler output, AI output, or data-section parity outrank matched local source and headers.",
+   "Call a fake or unusual shape reviewable because it improves a fuzzy score."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "pre_ship_review",
+  "preferred_repairs": [
+   "Compare against matched local siblings, headers, macros, and naming habits before retaining generated or permuter-shaped source.",
+   "Retain generated-looking source only with recorded negative evidence that a cleaner authored form does not exist.",
+   "After one review comment exposes a pattern, search touched files for the same generated or tactic-shaped form and repair all instances."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "authored-style-local-inline-count",
+    "bad": "PAD_STACK(8);\ncount = 0;\nif (mnEvent_8024D1E4(0) != 0) count++;\nif (mnEvent_8024D1E4(1) != 0) count++;\nif (mnEvent_8024D1E4(2) != 0) count++;",
+    "preferred": "static inline s32 mnEvent_CountUnlocked(void)\n{\n    s32 i;\n    s32 count = 0;\n\n    for (i = 0; i < 3; i++) {\n        if (mnEvent_8024D1E4(i) != 0) {\n            count++;\n        }\n    }\n    return count;\n}\n\ncount = mnEvent_CountUnlocked();",
+    "desc": [
+     "Local sibling helpers are stronger source-shape evidence than stack padding plus repeated generated calls.",
+     "Restore the authored helper boundary when nearby code shows the project used that boundary."
+    ]
+   },
+   {
+    "id": "authored-style-local-helper",
+    "bad": "if (vel->x < 0.0F) {\n    vel->x = -vel->x;\n}\nif (vel->y < 0.0F) {\n    vel->y = -vel->y;\n}",
+    "preferred": "static inline void likelikeVelocity(Vec3* vel)\n{\n    vel->x = ABS(vel->x);\n    vel->y = ABS(vel->y);\n}\n\nlikelikeVelocity(&item->x40_vel);",
+    "desc": [
+     "Nearby authored helper style can be stronger evidence than preserving bulky generated-looking collision logic.",
+     "The cleanup should fit the local item code shape rather than only mirror a decompiler output form."
+    ]
+   },
+   {
+    "id": "authored-style-pragma-only",
+    "bad": "#pragma push\n#pragma global_optimizer off\nstatic void pool_data_wrapper(void)\n{\n    pool_data();\n}\n#pragma pop",
+    "preferred": "static void pool_data_wrapper(void)\n{\n    pool_data();\n}\n/* Keep searching when the pragma shape is not likely authored source. */",
+    "desc": [
+     "A narrow objdiff benefit does not automatically make a source shape reviewable.",
+     "Prefer local analogs or a cleanup path over enshrining a tactic-shaped wrapper."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "authored_source_shape",
+  "id": "global_standard:canonical-control-flow-and-macros",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Canonical control flow and expression macros are required",
+  "summary": [
+   "Generated branch ladders, gotos, repeated select-like assignments, and raw absolute/min/max expressions must be recovered as normal source forms such as switch, ternary, ABS, MIN, MAX, and CLAMP.",
+   "Shipping the generated form instead is rejected; the only permitted exception is a case where recorded local evidence proves the canonical form does not represent the source."
+  ],
+  "do": [
+   "Use grouped switch forms for range dispatch or adjacent branches.",
+   "Use ternaries for select-like assignments.",
+   "Use project macros such as ABS, MIN, MAX, and CLAMP when they express the source operation; ignoring them when the assembly shape indicates them is rejected."
+  ],
+  "do_not": [
+   "Ship generated gotos or branch ladders without recovering the ordinary C form.",
+   "Replace readable control flow with fake code for one local sequence.",
+   "Ignore common expression macros when assembly shape indicates them."
+  ],
+  "qa_rule_ids": [
+   "m2c_goto_label",
+   "define_alias"
+  ],
+  "qa_enforcement": "partial_lint_plus_pre_ship_review",
+  "preferred_repairs": [
+   "Recover structured switches, ternaries, and canonical ABS/MIN/MAX/CLAMP forms instead of landing generated branch residue.",
+   "Remove generated block labels and local macro clones; retain them only when local evidence proves an exception."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "canonical-switch-dispatch",
+    "bad": "if (kind == 0) goto lbl_idle;\nif (kind == 1) goto lbl_walk;\nif (kind == 2) goto lbl_jump;\ngoto lbl_default;",
+    "preferred": "switch (kind) {\ncase 0: return idle();\ncase 1: return walk();\ncase 2: return jump();\ndefault: return fallback();\n}",
+    "desc": [
+     "Generated-looking dispatch chains should be checked against grouped switch forms.",
+     "This shape is goto residue; grouped switch dispatch is clearer and usually closer to authored source."
+    ]
+   },
+   {
+    "id": "canonical-abs-macro",
+    "bad": "if (handpos.x < 0.0F) {\n    handpos.x = -handpos.x;\n}",
+    "preferred": "handpos.x = ABS(handpos.x);\n/* Use the project macro when it expresses the source operation. */",
+    "desc": [
+     "Raw absolute-value branches should be tested against the project ABS macro.",
+     "Using the canonical macro avoids cloning local fabs-style helpers across unrelated files."
+    ]
+   },
+   {
+    "id": "canonical-ternary-select",
+    "bad": "if (random < 0.5F) {\n    choice = left;\n} else {\n    choice = right;\n}",
+    "preferred": "choice = random < 0.5F ? left : right;\n/* Try the select expression when it is the natural source form. */",
+    "desc": [
+     "Select-like assignment code should be tested against a ternary expression.",
+     "The source form should stay readable while still matching the observed branch shape."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "pipeline_owned_verification",
+  "id": "global_standard:verification-and-regression-ledger",
+  "status": "workflow_only",
+  "severity": "workflow_only",
+  "worker_facing": false,
+  "title": "Claim matches only with build, objdiff, and regression evidence",
+  "summary": [
+   "Every claimed matched symbol, score candidate, or source cleanup must name the narrow build/objdiff/checkdiff evidence and any adjacent regression checks needed for the edit's blast radius."
+  ],
+  "do": [
+   "Run narrow touched-object builds when possible.",
+   "Run objdiff or checkdiff for claimed matches or score candidates.",
+   "Inspect adjacent functions when changing pragmas, includes, data, literals, or TU ownership."
+  ],
+  "do_not": [
+   "Claim a match without local build and objdiff/checkdiff evidence.",
+   "Hide regressions behind a broad builds-locally statement.",
+   "Mix tooling changes and decomp source changes when either can be reviewed separately."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "pipeline_owned",
+  "preferred_repairs": [
+   "Use runner-owned build, objdiff, checkdiff, regression, and QA artifacts as the verification ledger.",
+   "Do not duplicate manual ledger requirements inside code-quality standards."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "verification-contradictory-claim",
+    "bad": "/* Verification note */\nAll touched functions are 100 percent in objdiff.\nBot report: mnName_GetColumnCount is 98.72 percent.",
+    "preferred": "/* Verification note */\nVerified exact: fn_8018846C, mnName_802388D4.\nNot exact: mnName_GetColumnCount at 98.72 percent.\nNext action: keep as improvement or repair before shipping.",
+    "desc": [
+     "Contradictory verification evidence should be preserved instead of collapsed into a match claim.",
+     "This workflow-only standard is checking the truthfulness of evidence, not C syntax."
+    ]
+   },
+   {
+    "id": "verification-split-report-interpretation",
+    "bad": "Old unit: function_a broken\nOld unit: function_b broken\n/* The report is treated as a regression without checking whether the functions moved. */",
+    "preferred": "Old unit: function_a moved to new TU\nNew unit: function_a exact\nOld unit: function_b moved to new TU\nNew unit: function_b exact\n/* Correlate split metadata before calling moved functions broken. */",
+    "desc": [
+     "When TUs are split, old-unit broken rows can be relocation/report artifacts.",
+     "Verification should correlate source ownership, split metadata, and new-unit matches before claiming regressions."
+    ]
+   },
+   {
+    "id": "verification-assert-conversion-todo",
+    "bad": "HSD_ASSERT(0x88, ptr);\n/* This conversion changes object bytes, but it is kept anyway. */",
+    "preferred": "if (ptr == NULL) {\n    __assert(__FILE__, 0x88, \"ptr\");\n}\n/* @todo: Find the byte-matching assert macro form before converting. */",
+    "desc": [
+     "A cleanup that changes object bytes should not be accepted just because the target style is desirable.",
+     "Keep non-byte-matching assert conversions expanded with a specific TODO until the byte-matching macro form is found."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "source_fidelity",
+  "id": "global_standard:no-symbol-forgery",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Do not forge symbols the compiler would emit from real source",
+  "summary": [
+   "Accepted 2026-09-16 with implemented lint rules; see audits/sms-worktree-source-quality-2026-09-16/REPORT.md Part 4.",
+   "Hand-mangled globals (`mFoo__6TClass`), `extern \"C\"` blocks in C++ game code, hand-written `__vt__` arrays, header-guard predefines, and rename macros wrapped around an include all fabricate a symbol or layout the compiler would only emit from a real declaration; source that adds them is rejected.",
+   "A file-scope placeholder `class X` in a .cpp that the include tree already defines violates the one-definition rule and hides the owning header; it is rejected even when the bytes match."
+  ],
+  "do": [
+   "Declare static members in the owning class and define them as `T TClass::mMember = value;` in the unit the map assigns.",
+   "Get vtables from the class definition and its virtual methods; write the methods, not the table.",
+   "Include the owning header and widen or fix its layout there when the map proves the unit owns the symbol."
+  ],
+  "do_not": [
+   "Write a mangled identifier, `extern \"C\"`, or `(void*)<mangled>` in a .cpp to reach a symbol without its declaration.",
+   "Predefine `<NAME>_HPP` / `_H` or `#define Ident Other` around an include to skip or rewrite a header.",
+   "Define a second `class X` at file scope when include/ already defines `X`."
+  ],
+  "qa_rule_ids": [
+   "mangled_symbol_in_source",
+   "manual_vtable",
+   "header_override_macro",
+   "local_class_shadows_header"
+  ],
+  "qa_enforcement": "lint",
+  "preferred_repairs": [
+   "Replace each mangled global with a real static-member definition in the owner.",
+   "Replace each hand vtable with the class's virtual methods.",
+   "Delete guard predefines and rename macros; include the header and fix the declaration there.",
+   "Delete the placeholder class; include the header that defines it."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "symbol-forgery-manual-vtable",
+    "bad": "static void* killer_vtable_padding[16] = { 0 };\n\nvoid* __vt__7TKiller[] = {\n\t0,\n\t0,\n\t(void*)__dt__7TKillerFv,\n\t(void*)getType__Q26JDrama6TActorCFv,\n\t(void*)load__11TSmallEnemyFR20JSUMemoryInputStream,\n};",
+    "preferred": "class TKiller : public TSmallEnemy {\npublic:\n\tTKiller(const char*);\n\tvirtual ~TKiller();\n\tvirtual void load(JSUMemoryInputStream&);\n\t/* the compiler emits __vt__7TKiller from these declarations */\n};",
+    "desc": [
+     "A hand-written vtable array with cast mangled names reproduces the bytes of a class that was never written.",
+     "Write the class and its virtual methods; the vtable follows."
+    ]
+   },
+   {
+    "id": "symbol-forgery-mangled-global",
+    "bad": "float mWaterLeakSpeed__14TCogwheelScale = 0.01f;\nextern \"C\" float mRopeWidthX__9TCogwheel = 10.0f;\nextern \"C\" float mRopeWidthZ__9TCogwheel = 7.0f;",
+    "preferred": "#include <MoveBG/MapObjMare.hpp>\n\nf32 TCogwheelScale::mWaterLeakSpeed = 0.01f;\nf32 TCogwheel::mRopeWidthX = 10.0f;\nf32 TCogwheel::mRopeWidthZ = 7.0f;",
+    "desc": [
+     "The mangled identifier and extern \"C\" spoof the linker name of a static member without declaring it.",
+     "Declare the static member in the header and define it with its qualified name."
+    ]
+   },
+   {
+    "id": "symbol-forgery-header-override-macro",
+    "bad": "#define inv_sqrt inv_sqrt(f32); static f32 inv_sqrt_inline\n#include <JSystem/JGeometry/JGUtil.hpp>\n#undef inv_sqrt\n\n#include <Camera/Camera.hpp>",
+    "preferred": "#include <JSystem/JGeometry/JGUtil.hpp>\n#include <Camera/Camera.hpp>\n/* If JGUtil.hpp declares inv_sqrt wrongly, fix the header (or its evidence) instead of rewriting it through the preprocessor. */",
+    "desc": [
+     "A rename macro around an include forges a declaration the header does not own.",
+     "Header fixes belong in the header, with map evidence."
+    ]
+   },
+   {
+    "id": "symbol-forgery-local-class-shadow",
+    "bad": "// src/Enemy/killer.cpp\nclass TKiller {\npublic:\n\tu8 unk0[0x1A0];\n\tf32 mSpeed;\n};",
+    "preferred": "#include <Enemy/Killer.hpp>\n/* Use the header's TKiller; widen its layout there when the map proves the unit owns it. */",
+    "desc": [
+     "A file-scope class in the .cpp shadows the header's definition and breaks the one-definition rule.",
+     "Include the owning header and fix its layout there."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "source_fidelity",
+  "id": "global_standard:no-inert-emission",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Do not add inert statements or data to steer section bytes",
+  "summary": [
+   "Accepted 2026-09-16 with implemented lint rules; see audits/sms-worktree-source-quality-2026-09-16/REPORT.md Part 4.",
+   "Discarded literals (`(void)1.0f;`, `\"<TFoo>\";`), pure calls whose result is dropped (`strcmp(name, \"x\");`), `(void)x.member;`, unreferenced file-scope static data, and uncalled static functions do no work; they exist only to emit bytes into .rodata/.sdata/.data. Source that adds them is rejected.",
+   "The only tolerated form is an isolated, `@todo`-marked `order_sdata2`-style helper that anchors float order, and even that is cleanup debt."
+  ],
+  "do": [
+   "Recover the code that consumes the literal, string, or data; the bytes follow from real use.",
+   "Keep an unavoidable .sdata2 ordering helper isolated in its own `order_*` function with a `@todo` marker.",
+   "Delete static data and functions nothing references."
+  ],
+  "do_not": [
+   "Emit constructor labels or strings through discarded `strcmp`/string statements in factory branches.",
+   "Cast literals to void in ordinary function bodies to reserve constant-pool slots.",
+   "Add `static const` tables or scalars that no code in the unit reads, or keep `force_active` pragmas to retain them."
+  ],
+  "qa_rule_ids": [
+   "discarded_expression",
+   "unused_static_data"
+  ],
+  "qa_enforcement": "lint",
+  "preferred_repairs": [
+   "Replace each discarded statement with the real consumer, or remove it and accept the section gap.",
+   "Remove unreferenced static data; if the map proves the unit owns it, recover its user.",
+   "Move unavoidable float-order anchors into one marked `order_sdata2` helper."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "inert-discarded-string-literal",
+    "bad": "if (strcmp(name, \"Silhouette\") == 0) {\n\t(void)\"<TSilhouette>\";\n\treturn nullptr;\n}",
+    "preferred": "if (strcmp(name, \"Silhouette\") == 0)\n\treturn new TSilhouette(\"<TSilhouette>\");",
+    "desc": [
+     "A discarded string literal emits the constructor label without constructing anything.",
+     "Recover the factory branch that uses the string."
+    ]
+   },
+   {
+    "id": "inert-unused-static-data",
+    "bad": "static const int unk2602[] = { 0, 0, 0 };\nstatic const int unk2604[] = { 0x3f800000, 0x3f800000, 0x3f800000 };\n\nvoid TFoo::perform(u32 cue, JDrama::TGraphics* g)\n{\n\t/* neither table is referenced */\n}",
+    "preferred": "static const JGeometry::TVec3<f32> sZero(0.0f, 0.0f, 0.0f);\nstatic const JGeometry::TVec3<f32> sOne(1.0f, 1.0f, 1.0f);\n\nvoid TFoo::perform(u32 cue, JDrama::TGraphics* g)\n{\n\tmScale = sOne;\n}",
+    "desc": [
+     "Unreferenced static data only fills a .rodata gap.",
+     "Recover the consumer, or leave the section unmatched."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "global",
+  "family": "source_fidelity",
+  "id": "global_standard:evidence-bound-tactics-and-edits",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Tactic locals, widened storage, permuted calls, and dropped guards need recorded evidence",
+  "summary": [
+   "Accepted 2026-09-16 with implemented lint rules; see audits/sms-worktree-source-quality-2026-09-16/REPORT.md Part 4.",
+   "Staging record for the Part 4.3 amendments to matching-tactics-need-evidence, verification-and-regression-ledger, typed-fields-over-pointer-math, header-inlines, and infer-authored-source-style: it lists the source_fidelity warning and review-tier rules until those records are amended.",
+   "A reference returned to a by-value parameter or automatic local, or an index through a pointer to a scalar member, is a C++ defect and is rejected outright; the remaining items (fixed function pointers, widened storage, expanded inline bodies, single-use wrappers, cancelling arithmetic, layout-cue locals, permuted arguments, dropped condition terms, reads of never-assigned members) are repaired or explained with objdiff evidence before submitting the attempt."
+  ],
+  "do": [
+   "Return by value or take the argument by reference when a helper would otherwise hand back a dangling reference.",
+   "Declare the real array field in the owning header instead of indexing past a scalar member.",
+   "Keep declaration types as the API expects; if a widened type or oversized buffer must stay, record the objdiff benefit.",
+   "Call the header inline instead of pasting its body; mark fabricated wrappers with `// fabricated` or a TODO and the evidence."
+  ],
+  "do_not": [
+   "Bind a local function pointer to a fixed function just to call it once.",
+   "Permute arguments of a non-commutative call or drop a `&&`/`||` term without checking the target instruction window.",
+   "Add `- -x`, `x - 0.0f`, `T self = this`, `T v[1]`, or u64/char unions to shape codegen without evidence."
+  ],
+  "qa_rule_ids": [
+   "dangling_ref_return",
+   "scalar_member_index",
+   "fixed_fn_pointer_call",
+   "storage_widening",
+   "duplicated_inline_body",
+   "single_use_wrapper",
+   "guard_removal",
+   "unassigned_member_deref",
+   "arg_order_change",
+   "cancelling_arithmetic",
+   "layout_cue_local"
+  ],
+  "qa_enforcement": "lint",
+  "preferred_repairs": [
+   "Fix C++ defects before any matching work.",
+   "Fold tactic locals back into expressions unless objdiff evidence is recorded next to them.",
+   "Restore the original argument order or guard term and re-validate the function."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "fidelity-dangling-ref-return",
+    "bad": "static inline const JGeometry::TVec3<f32>&\nscaleVector(JGeometry::TVec3<f32> vector, f32 scale)\n{\n\tvector *= scale;\n\treturn vector;\n}",
+    "preferred": "static inline JGeometry::TVec3<f32>\nscaleVector(const JGeometry::TVec3<f32>& vector, f32 scale)\n{\n\tJGeometry::TVec3<f32> result(vector);\n\tresult *= scale;\n\treturn result;\n}",
+    "desc": [
+     "Returning a reference to a by-value parameter is undefined behavior regardless of the instruction sequence it produces.",
+     "Return by value or take the argument by reference."
+    ]
+   },
+   {
+    "id": "fidelity-scalar-member-index",
+    "bad": "for (int i = 0; i < 3; ++i) {\n\t(&unk2AC)[i] = gpEmitterManager4D2->unkC8[0][0];\n}",
+    "preferred": "/* header: JPABaseEmitter* mEmitters[3]; */\nfor (int i = 0; i < 3; ++i) {\n\tmEmitters[i] = gpEmitterManager4D2->unkC8[0][0];\n}",
+    "desc": [
+     "Indexing through the address of a scalar member walks into neighbouring fields.",
+     "Declare the real array field in the owning header."
+    ]
+   },
+   {
+    "id": "fidelity-storage-widening-mtx44",
+    "bad": "-\t\tMtx transform;\n+\t\tMtx44 transform;\n-\t\tMtxPtr ptr = transform;\n+\t\tMtxPtr ptr = transform + 1;",
+    "preferred": "Mtx transform;\nMsMtxSetXYZRPH(transform, mPosition.x, mPosition.y, mPosition.z, mRotation.x, mRotation.y, mRotation.z);\n/* Keep the 3x4 type the API takes; record objdiff evidence if a frame-size gap remains. */",
+    "desc": [
+     "Widening Mtx to Mtx44 and offsetting into it only moves the stack frame.",
+     "Keep the type the API expects; a remaining frame gap is a missing local, not a bigger matrix."
+    ]
+   },
+   {
+    "id": "fidelity-fixed-fn-pointer-call",
+    "bad": "f32 (*sqrt)(f32) = JGeometry::TUtil<f32>::sqrt;\nf32 dist = sqrt(dx * dx + dz * dz);",
+    "preferred": "f32 dist = JGeometry::TUtil<f32>::sqrt(dx * dx + dz * dz);\n/* If the target shows a non-inlined call, find the inline that was not expanded rather than forcing an indirect call. */",
+    "desc": [
+     "A function pointer bound to a fixed function and called immediately steers the call sequence.",
+     "Call the function directly; look for the lost inline if the target differs."
+    ]
+   },
+   {
+    "id": "fidelity-cancelling-arithmetic",
+    "bad": "f32 fVar1 = (local_24.dot(gpCamera->unk124) - -unk90) * -2.0f;",
+    "preferred": "f32 fVar1 = (local_24.dot(gpCamera->unk124) + mPlaneD) * -2.0f;\n/* If the target really negates a stored negative, name the field so the sign is explained. */",
+    "desc": [
+     "`- -x` cancels out and exists only to reproduce an instruction pair.",
+     "Reviewer confirms the stored sign against the target and the field name."
+    ]
+   },
+   {
+    "id": "fidelity-duplicated-inline-body",
+    "bad": "// src/MoveBG/MapObjBase.cpp\nf32 x = mPosition.x - other.x;\nf32 y = mPosition.y - other.y;\nf32 z = mPosition.z - other.z;\nf32 lenSq = x * x + y * y + z * z;\nif (lenSq <= 0.0f)\n\treturn 0.0f;\nreturn JGeometry::TUtil<f32>::sqrt(lenSq);",
+    "preferred": "return (mPosition - other).length();\n/* TVec3::length() in include/JSystem/JGeometry/Vec.hpp already has this body. */",
+    "desc": [
+     "Six or more statements token-identical to a header inline body are the inline expanded by hand.",
+     "Call the inline; expanded bodies are rejected."
+    ]
+   },
+   {
+    "id": "fidelity-single-use-wrapper",
+    "bad": "static inline f32 dotProduct(const TVec3f& a, const TVec3f& b)\n{\n\treturn a.x * b.x + a.y * b.y + a.z * b.z;\n}\n\n/* one call site */\nf32 d = dotProduct(normal, dir);",
+    "preferred": "f32 d = normal.dot(dir);\n/* or: keep the wrapper only with `// fabricated` and the objdiff evidence that the target needs the extra frame. */",
+    "desc": [
+     "A one-expression static inline with a single call site is usually a stack-shaping helper, not lost source.",
+     "Fold it back, or mark it fabricated with evidence."
+    ]
+   },
+   {
+    "id": "fidelity-guard-removal",
+    "bad": "-\tif (mActor != nullptr && mActor->isVisible()) {\n+\tif (mActor->isVisible()) {",
+    "preferred": "if (mActor != nullptr && mActor->isVisible()) {\n/* Keep the null guard unless the target instruction window proves it absent. */",
+    "desc": [
+     "Dropping a `&&` term to shave a compare changes behavior.",
+     "Keep the term or record the target window that proves it is not there."
+    ]
+   },
+   {
+    "id": "fidelity-unassigned-member-deref",
+    "bad": "class TCoronaParams {\npublic:\n\tu8 unk0[0x16C];\n\tf32 unk16C;\n};\n\nf32 TCorona::getRadius() { return mParams->unk16C; }",
+    "preferred": "#include <MoveBG/CoronaParams.hpp>\nf32 TCorona::getRadius() { return mParams->mRadius.get(); }\n/* The header owns the field and its initializer. */",
+    "desc": [
+     "Reading a member of a local placeholder class that nothing assigns points at a fabricated layout.",
+     "Use the header type whose constructor initializes the field."
+    ]
+   },
+   {
+    "id": "fidelity-arg-order-change",
+    "bad": "-\tsetPollution(mCount, mMax);\n+\tsetPollution(mMax, mCount);",
+    "preferred": "setPollution(mCount, mMax);\n/* Restore the original order unless the target window shows the swapped registers. */",
+    "desc": [
+     "Swapping arguments of a non-commutative call to match a register order changes semantics.",
+     "Verify against the target instruction window before accepting."
+    ]
+   },
+   {
+    "id": "fidelity-layout-cue-local",
+    "bad": "TDemoCannon* self = this;\nf32 half = 0.5f;\nself->mScale = half * mBase;",
+    "preferred": "mScale = 0.5f * mBase;",
+    "desc": [
+     "A `this` alias and a literal local used once only shape registers and stack.",
+     "Fold them back unless objdiff evidence is recorded."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-authored-evidence",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Source hypotheses require evidence",
+  "summary": [
+   "Prefer plausible authored C++ supported by local source, assembly, mario.MAP and objdiff; leave uncertain work nonmatching with a TODO."
+  ],
+  "do": [
+   "Use matched siblings, original symbols, headers, debug strings and the map.",
+   "Recover owning types, methods, enums and helpers rather than raw offsets or invented storage.",
+   "Use evidence to support proposed meanings; preserve existing names until explicit maintainer review under sms-name-review."
+  ],
+  "do_not": [
+   "Accept a fakematch solely because its score improves.",
+   "Treat decompiler output as stronger evidence than the binary.",
+   "Call __fabsf, __frsqrte, __fres or another MSL intrinsic directly where the public wrapper exists, or flip getUnkNN() and unkNN access purely for a frame-size gain."
+  ],
+  "qa_rule_ids": [
+   "sms_intrinsic_bypass"
+  ],
+  "qa_enforcement": "partial_lint_for_intrinsic_bypasses_plus_upstream_checks_and_review",
+  "preferred_repairs": [
+   "actor->onLiveFlag(LIVE_FLAG_UNK10); // when supported by source and binary"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-authored-evidence-1",
+    "bad": "*(u32*)((char*)actor + guessedOffset) |= 0x10;",
+    "preferred": "actor->onLiveFlag(LIVE_FLAG_UNK10); // when supported by source and binary",
+    "desc": [
+     "Apply the accepted SMS upstream rule; validate the retained source against binary and map evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-cpp-format",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Use SMS C++ and formatting conventions",
+  "summary": [
+   "Use MWCC GC/1.2.5-compatible C++98 and upstream clang-format 21 configuration."
+  ],
+  "do": [
+   "Use tabs for indentation, 80 columns and the WebKit-based upstream .clang-format.",
+   "Preserve include order and use project-relative angle-bracket includes.",
+   "Preserve the existing RTTI, exception and per-TU compiler flags."
+  ],
+  "do_not": [
+   "Introduce C++11 language features.",
+   "Apply Melee include sorting or formatting rules."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "upstream_checks_and_review",
+  "preferred_repairs": [
+   "#include <Enemy/FireWanwan.hpp>"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-cpp-format-1",
+    "bad": "auto enemy = nullptr; // C++11 syntax",
+    "preferred": "#include <Enemy/FireWanwan.hpp>",
+    "desc": [
+     "Apply the accepted SMS upstream rule; validate the retained source against binary and map evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-game-code-only",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Autonomous edits stay in game code",
+  "summary": [
+   "Do not edit SDK, JSystem, MSL, MetroTRK or THPPlayer in an autonomous attempt."
+  ],
+  "do": [
+   "Work on game-owned classes and functions.",
+   "Read library interfaces as evidence without changing them."
+  ],
+  "do_not": [
+   "Modify vendor or middleware code to improve a target score."
+  ],
+  "qa_rule_ids": [
+   "sms_vendor_edit"
+  ],
+  "qa_enforcement": "partial_hard_lint_plus_upstream_checks_and_review",
+  "preferred_repairs": [
+   "Select src/Enemy or another game-owned target."
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-game-code-only-1",
+    "bad": "Edit src/JSystem to force the target to match.",
+    "preferred": "Select src/Enemy or another game-owned target.",
+    "desc": [
+     "Apply the accepted SMS upstream rule; validate the retained source against binary and map evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-initial-sweep-scope",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Keep the initial experiment reviewable",
+  "summary": [
+   "The initial SMS experiment improves existing game code rather than opening fresh decompiled translation units. Prefer bounded vector-math or inline-callsite improvements supported by evidence."
+  ],
+  "do": [
+   "Choose an existing game-owned function with enough source and binary context.",
+   "Treat TVec3 signatures as research evidence; changes under JSystem require separate explicit human-supervised scope.",
+   "Keep the patch bounded to what a maintainer can review."
+  ],
+  "do_not": [
+   "Generate new TUs that require a broad cleanup pass.",
+   "Treat a suggested vector-math target as permission to edit JSystem."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "target_selection_and_human_scope_review",
+  "preferred_repairs": [],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-initial-sweep-scope-1",
+    "bad": "// Generate a fresh TU or rewrite JSystem/TVec3 in an autonomous sweep.",
+    "preferred": "// Improve one existing game-side vector-math function using verified interfaces.",
+    "desc": [
+     "The initial SMS experiment improves existing game code rather than opening fresh decompiled translation units. Prefer bounded vector-math or inline-callsite improvements supported by evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-map-research",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Use the available map evidence before guessing",
+  "summary": [
+   "Extract the maximum relevant information from SMS symbol maps and available corroborating maps from other games. Keep provenance explicit and do not import unsupported assumptions."
+  ],
+  "do": [
+   "Record which maps, revisions and symbols support a name, signature, class shape or inline hypothesis.",
+   "Compare related-game maps where available; record missing corroborating sources rather than inventing evidence.",
+   "Keep the SDK and middleware edit prohibition even when using their interfaces as research evidence."
+  ],
+  "do_not": [
+   "Ignore known map information in favor of a decompiler guess.",
+   "Assume a same-named method in another game has the same ABI or implementation."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "required_evidence_review",
+  "preferred_repairs": [],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-map-research-1",
+    "bad": "// Signature guessed despite available map symbols.",
+    "preferred": "// Cite SMS map entries and any corroborating map/revision; record unresolved ABI differences.",
+    "desc": [
+     "Extract the maximum relevant information from SMS symbol maps and available corroborating maps from other games. Keep provenance explicit and do not import unsupported assumptions."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-map-symbols",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Reconstruct UNUSED bodies and validate map symbols",
+  "summary": [
+   "Recover UNUSED dead-stripped functions from their surviving inline call sites where possible, then compare compiled sizes with mario.MAP. Validate each changed C++ translation unit against the map."
+  ],
+  "do": [
+   "Extract names, signatures, presence, ordering, linked binding and known UNUSED sizes from the map.",
+   "Trace all relevant inline call sites to reconstruct an UNUSED body, including assert stubs and real helper boundaries.",
+   "Build changed TUs before QA. The SMS gate requires fresh objects and invokes tools/validate-symbol-order.py for every changed game .cpp file.",
+   "Preserve validator output, including UNUSED size warnings; a warning is an unresolved hypothesis, not proof of a match.",
+   "Account for reverse emission under -inline deferred."
+  ],
+  "do_not": [
+   "Skip map validation because the object is missing or the file is untracked.",
+   "Infer UNUSED linkage from the UNUSED marker.",
+   "Fill an UNUSED body with invented code merely to match its size."
+  ],
+  "qa_rule_ids": [
+   "sms_symbol_map_validation"
+  ],
+  "qa_enforcement": "required_fresh_object_and_upstream_map_validation_with_review_of_size_warnings",
+  "preferred_repairs": [
+   "python tools/validate-symbol-order.py -u mario/MarioUtil/MathUtil"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-map-symbols-1",
+    "bad": "// UNUSED method body guessed only to reach the map size.",
+    "preferred": "// Reconstruct from evidenced inline sites; build and run the symbol-map validator.",
+    "desc": [
+     "Recover UNUSED dead-stripped functions from their surviving inline call sites where possible, then compare compiled sizes with mario.MAP. Validate each changed C++ translation unit against the map."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-name-review",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Names require maintainer review",
+  "summary": [
+   "Preserve existing names in autonomous output. Propose inferred semantic names separately for explicit maintainer review; evidence alone is not naming approval."
+  ],
+  "do": [
+   "Keep existing function, type, member, parameter, local and symbol-map names.",
+   "Record a proposed name with its original name, location and evidence for human review.",
+   "Have a human integrate approved naming changes separately into the accepted base before resuming automated matching."
+  ],
+  "do_not": [
+   "Automatically rename a symbol because the model believes it understands the role.",
+   "Suppress a naming finding with a comment or self-authored approval.",
+   "Hide a rename behind a macro alias."
+  ],
+  "qa_rule_ids": [
+   "sms_name_change_requires_review"
+  ],
+  "qa_enforcement": "hard_lint_for_declaration_rename_candidates_plus_human_name_review",
+  "preferred_repairs": [],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-name-review-1",
+    "bad": "void guessedSemanticName(); // replaces existingName",
+    "preferred": "void existingName(); // propose a rename separately for maintainer review",
+    "desc": [
+     "Preserve existing names in autonomous output. Propose inferred semantic names separately for explicit maintainer review; evidence alone is not naming approval."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-names-types-helpers",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Recover original classes, names and helpers",
+  "summary": [
+   "Use mario.MAP and debug strings for names, signatures, class structure and original helper boundaries."
+  ],
+  "do": [
+   "Use SMS enums and actor accessors when they express the operation.",
+   "Keep declarations in their owning headers and preserve known virtual methods and vtable order.",
+   "Preserve existing names. Proposed semantic names and renames require explicit maintainer review under sms-name-review."
+  ],
+  "do_not": [
+   "Inject HSD/JObj, FighterVars, GroundVars or ItemVars conventions into SMS.",
+   "Invent semantic names or method signatures from a score alone.",
+   "Define a placeholder class at file scope in a .cpp; the owning header (per the map unit of __vt__/__dt__/__ct__) declares it, marked fabricated if reconstructed."
+  ],
+  "qa_rule_ids": [
+   "sms_local_class_needs_owner"
+  ],
+  "qa_enforcement": "partial_lint_for_local_classes_plus_upstream_checks_and_review",
+  "preferred_repairs": [
+   "liveActor->checkLiveFlag(LIVE_FLAG_UNK10);"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-names-types-helpers-1",
+    "bad": "Use an unrelated Melee helper or type to model an SMS actor.",
+    "preferred": "liveActor->checkLiveFlag(LIVE_FLAG_UNK10);",
+    "desc": [
+     "Apply the accepted SMS upstream rule; validate the retained source against binary and map evidence."
+    ]
+   },
+   {
+    "id": "example:sms-names-types-helpers-2",
+    "bad": "// src/MoveBG/MapObjBianco.cpp\nclass TBiancoWatermillVertical {\npublic:\n\tstatic f32 mRotAccel;\n\tstatic f32 mRotSpeedDownRate;\n};",
+    "preferred": "// include/MoveBG/MapObjBianco.hpp (fabricated: reconstructed from __vt__24TBiancoWatermillVertical in this unit)\nclass TBiancoWatermillVertical : public TMapObjBase {\npublic:\n\tstatic f32 mRotAccel;\n\tstatic f32 mRotSpeedDownRate;\n};",
+    "desc": [
+     "A file-scope placeholder class in a .cpp hides the real owner and blocks other units from using the type.",
+     "Look up __vt__/__dt__/__ct__ in config/GMSJ01/symbols.txt: symbols in another unit mean the class belongs there; symbols in this unit mean move it to the header and mark it fabricated."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-regression-evidence",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Retained changes require baseline and regression evidence",
+  "summary": [
+   "Create a baseline before edits and run changes_all after them. Preserve local work and report per-symbol regressions."
+  ],
+  "do": [
+   "Run ninja baseline before matching work and ninja changes_all afterward.",
+   "Use narrow object builds and objdiff/decomp-diff evidence for the target.",
+   "Validate affected neighbors when changing headers, data, inlining or symbol order."
+  ],
+  "do_not": [
+   "Reset or discard pre-existing work.",
+   "Claim a match from an aggregate percentage alone."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "upstream_checks_and_review",
+  "preferred_repairs": [
+   "ninja baseline\n# make scoped changes\nninja changes_all"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-regression-evidence-1",
+    "bad": "Claim success because the project builds.",
+    "preferred": "ninja baseline\n# make scoped changes\nninja changes_all",
+    "desc": [
+     "Apply the accepted SMS upstream rule; validate the retained source against binary and map evidence."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-stack-independent-matching",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Improve matching without forcing frame padding",
+  "summary": [
+   "Improve genuine source and instruction matching modulo stack-frame padding. If padding is the remaining discrepancy, report it explicitly and stop rather than manufacturing a full match."
+  ],
+  "do": [
+   "Investigate every relevant inline, including (void)0 assert stubs, before attributing a discrepancy to padding.",
+   "Use evidence to reconstruct private/public member visibility, method signatures and helper boundaries.",
+   "Report actual objdiff scores, remaining stack-frame differences and tested hypotheses separately; do not relabel a partial match as 100%."
+  ],
+  "do_not": [
+   "Invent visibility, members, helpers or storage solely to manipulate the frame size.",
+   "Spend the attempt forcing unexplained padding parity after the meaningful source improvement is exhausted."
+  ],
+  "qa_rule_ids": [],
+  "qa_enforcement": "required_attempt_evidence_and_source_review",
+  "preferred_repairs": [],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-stack-independent-matching-1",
+    "bad": "char stackPadding[16]; // force 100%",
+    "preferred": "// Report the actual score and remaining frame difference; inspect inline assert stubs.",
+    "desc": [
+     "Improve genuine source and instruction matching modulo stack-frame padding. If padding is the remaining discrepancy, report it explicitly and stop rather than manufacturing a full match."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_baseline",
+  "id": "global_standard:sms-temporary-tactics",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "No dummy locals or stack-padding tricks",
+  "summary": [
+   "Do not commit dummy arrays, unreferenced locals, partially used aggregates, discarded constructor expressions, fabricated storage or other baseless tricks to force a stack frame match. This applies with or without volatile, regardless of the variable name or type (scalar, Mtx, TVec3, union, array, const reference).",
+   "When the frame is the only remaining discrepancy, follow the upstream convention: leave the function nonmatching with a TODO comment (or comment the tactic out) instead of shipping the trick."
+  ],
+  "do": [
+   "Leave the function nonmatching when unexplained frame padding remains; record it with a TODO.",
+   "Keep narrow temporary pragmas explicitly annotated, with evidence and adjacent-function checks.",
+   "Remove diagnostic padding, unreferenced locals and marker code before submitting the attempt."
+  ],
+  "do_not": [
+   "Commit char trash[4], volatile arrays, renamed unused arrays, or equivalent padding tricks.",
+   "Declare any local (Mtx44 transform; TVec3 position; SDLModelData* data; const T& tmp = ...;) that the function never references again.",
+   "Keep an aggregate local whose only use is a single component (half.x) to shape the frame.",
+   "Write JGeometry::TVec3<f32>(); or another discarded constructor expression as a statement.",
+   "Treat annotation as permission to ship a fakematch."
+  ],
+  "qa_rule_ids": [
+   "sms_dummy_stack_padding"
+  ],
+  "qa_enforcement": "hard_lint_for_unreferenced_locals_and_review_for_partial_use",
+  "preferred_repairs": [
+   "// TODO: temporary matching pragma; record why it is needed.\n#pragma dont_inline on\n// narrowly scoped code\n#pragma dont_inline off"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-temporary-tactics-1",
+    "bad": "char trash[4];",
+    "preferred": "// TODO: nonmatching frame padding remains; no fabricated locals.",
+    "desc": [
+     "Do not commit dummy arrays, locals, fabricated storage or other baseless tricks to force a stack frame match. This applies with or without volatile and regardless of the variable name."
+    ]
+   },
+   {
+    "id": "example:sms-temporary-tactics-2",
+    "bad": "void TBossEel::updateTearsCnt()\n{\n\tMtx44 transform;\n\tJGeometry::TVec3<f32> position;\n\tstatic const s32 eyeTable[] = { 0, 2, 1, 3 };",
+    "preferred": "void TBossEel::updateTearsCnt()\n{\n\t// TODO: frame is 0x20 larger in the retail object; inline not identified.\n\tstatic const s32 eyeTable[] = { 0, 2, 1, 3 };",
+    "desc": [
+     "src/Enemy/bosseel.cpp:1570 declared a Mtx44 and a TVec3 that the function never reads or writes, purely to grow the frame.",
+     "Unreferenced locals of any type are dummy storage; leave the frame nonmatching with a TODO."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_fidelity",
+  "id": "global_standard:sms-pch-string-convention",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Use the PCH dummy-string headers, never hand copies",
+  "summary": [
+   "Accepted 2026-09-16 with implemented lint rules; see audits/sms-worktree-source-quality-2026-09-16/REPORT.md Part 4.",
+   "Translation units that need the retail dummy strings include <System/DummyStrings.hpp> or <M3DUtil/InfectiousStrings.hpp>; they do not redefine dummyMactorStringValue1, SMS_NO_MEMORY_MESSAGE or MtxCalcTypeName, copy their literals under other names, or predefine the header guards to suppress the include.",
+   "The upstream static void dummy(Vec*) .rodata emission helper is accepted only with a // dummy: emits <symbols> comment naming the anonymous objects it produces in this unit."
+  ],
+  "do": [
+   "Include the owning header when the target object carries the dummy strings.",
+   "Name the emitted .rodata symbols next to a dummy(Vec*) helper so the reviewer can check them against the map."
+  ],
+  "do_not": [
+   "Copy the dummy-string literals into a .cpp under any name or storage class.",
+   "Predefine SYSTEM_DUMMY_STRINGS_HPP or M3DUTIL_INFECTIOUS_STRINGS_HPP to change what the include emits.",
+   "Add a dummy(Vec*) helper without the evidence comment."
+  ],
+  "qa_rule_ids": [
+   "sms_pch_string_convention",
+   "sms_dummy_vec_helper"
+  ],
+  "qa_enforcement": "hard_lint_for_copies_and_guard_overrides_plus_review_for_dummy_helpers",
+  "preferred_repairs": [
+   "#include <M3DUtil/InfectiousStrings.hpp>",
+   "// dummy: emits lit_4321, lit_4322\nstatic void dummy(Vec* v) { *v = (Vec) { 0.0f, 0.0f, 0.0f }; }"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-pch-string-convention-1",
+    "bad": "// This TU carries the dummy strings, but not their small-data pointers.\n#define SYSTEM_DUMMY_STRINGS_HPP\nstatic const char dummyMactorStringValue1[] = \"\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\\0\";\nstatic const char SMS_NO_MEMORY_MESSAGE[]   = \"メモリが足りません\\n\";\n#include <M3DUtil/InfectiousStrings.hpp>",
+    "preferred": "#include <M3DUtil/InfectiousStrings.hpp>\n// TODO: .sdata pointer layout differs from the PCH header; left nonmatching.",
+    "desc": [
+     "src/Enemy/gatekeeper.cpp predefined the DummyStrings guard and redefined the pair as char arrays to move them out of .sdata.",
+     "The header is the convention; a section mismatch is reported, not spoofed."
+    ]
+   },
+   {
+    "id": "example:sms-pch-string-convention-2",
+    "bad": "static void dummy(Vec* v)\n{\n\t*v = (Vec) { 0.0f, 0.0f, 0.0f };\n\t*v = (Vec) { 1.0f, 1.0f, 1.0f };\n}",
+    "preferred": "// dummy: emits the two anonymous 0xC .rodata objects at 0x8038xxxx (see splits)\nstatic void dummy(Vec* v)\n{\n\t*v = (Vec) { 0.0f, 0.0f, 0.0f };\n\t*v = (Vec) { 1.0f, 1.0f, 1.0f };\n}",
+    "desc": [
+     "src/MoveBG/MapObjHide.cpp added the upstream dummy(Vec*) idiom with no evidence of which objects it emits.",
+     "The helper is accepted only with the emitted-symbol comment; otherwise it is an uncalled static."
+    ]
+   }
+  ]
+ },
+ {
+  "scope": "sms",
+  "family": "sms_fidelity",
+  "id": "global_standard:sms-fabricated-marker",
+  "status": "accepted",
+  "severity": "required",
+  "worker_facing": true,
+  "title": "Fabricated code carries the upstream marker",
+  "summary": [
+   "Accepted 2026-09-16 with implemented lint rules; see audits/sms-worktree-source-quality-2026-09-16/REPORT.md Part 4.",
+   "Upstream AGENTS.md accepts temporary fakematch scaffolding only when it is marked: #pragma dont_inline / inline_depth, fabricated static inline helpers, and hand-expanded inline bodies carry // fabricated, // fake, // fakematch or // TODO on the line or within two lines above. Unmarked scaffolding is rejected; marked scaffolding is a warning that stays visible debt.",
+   "#pragma force_active is never accepted in game code."
+  ],
+  "do": [
+   "Mark every pragma, single-use helper and expanded inline with the reason and the evidence that motivated it.",
+   "Prefer finding the real inline over keeping the marked scaffolding."
+  ],
+  "do_not": [
+   "Commit unmarked dont_inline/inline_depth pragmas or single-use static inline helpers.",
+   "Expand a header inline body by hand inside a function.",
+   "Use #pragma force_active to keep unreferenced data alive."
+  ],
+  "qa_rule_ids": [
+   "sms_fabricated_marker"
+  ],
+  "qa_enforcement": "hard_lint_without_marker_and_review_with_marker",
+  "preferred_repairs": [
+   "// TODO: fakematch, inlining not understood\n#pragma dont_inline on\nvoid TBathtubKiller::resetBathtubKiller() { ... }\n#pragma dont_inline off",
+   "// fabricated: TU-local helper standing in for an unidentified inline\nstatic inline f32 dotProduct(f32 x1, f32 y1, f32 x2, f32 y2)"
+  ],
+  "superseded_by": [
+   "current source",
+   "headers",
+   "symbols",
+   "splits",
+   "assembly",
+   "objdiff",
+   "regression output"
+  ],
+  "examples": [
+   {
+    "id": "example:sms-fabricated-marker-1",
+    "bad": "void TBathtubKiller::reset() { }\n\n#pragma dont_inline on\nvoid TBathtubKiller::resetBathtubKiller()\n{\n\tmSpine->initWith(&TNerveBathtubKillerWander::theNerve());",
+    "preferred": "void TBathtubKiller::reset() { }\n\n// TODO: fakematch; resetBathtubKiller must stay out of line, inline cause unknown\n#pragma dont_inline on\nvoid TBathtubKiller::resetBathtubKiller()\n{\n\tmSpine->initWith(&TNerveBathtubKillerWander::theNerve());",
+    "desc": [
+     "src/Enemy/bathtubkiller.cpp added #pragma dont_inline without the upstream marker.",
+     "With the marker the pragma is visible debt (warning); without it the attempt is rejected."
+    ]
+   }
+  ]
+ }
+]

@@ -114,7 +114,9 @@ before admitting the next epoch. Pause drains work through that boundary.
 The API uses `GET /api/harness?gameId=melee` and revision-checked
 `POST /api/harness/run` or `POST /api/harness/pause`. Initial/manual Sync uses
 `POST /api/sync/start`, followed by validated publication. The operator prompt
-is in [RUN_OPERATOR.md](RUN_OPERATOR.md).
+is in [RUN_OPERATOR.md](RUN_OPERATOR.md). The source-fidelity audit that finds
+score-driven fakematches in accepted work, turns them into lint rules, and keeps
+the standards aligned is in [runbooks/source-fidelity-audit.md](runbooks/source-fidelity-audit.md).
 
 ## Repository Map
 
